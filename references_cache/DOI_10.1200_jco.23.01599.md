@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.01599"
+reference_id: DOI:10.1200/jco.23.01599
 title: "Targeting Molecular Measurable Residual Disease and Low-Blast Relapse in AML With Venetoclax and Low-Dose Cytarabine: A Prospective Phase II Study (VALDAC)"
 authors:
 - Ing Soo Tiong
@@ -26,6 +26,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.01599
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeting Molecular Measurable Residual Disease and Low-Blast Relapse in AML With Venetoclax and Low-Dose Cytarabine: A Prospective Phase II Study (VALDAC)

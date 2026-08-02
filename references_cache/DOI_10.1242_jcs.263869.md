@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1242/jcs.263869"
+reference_id: DOI:10.1242/jcs.263869
 title: Sub-ciliary localization of CEP290 and effects of its loss in mouse photoreceptors during development
 authors:
 - Abigail R. Moye
@@ -13,6 +13,7 @@ journal: Journal of Cell Science
 year: '2025'
 doi: 10.1242/jcs.263869
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Sub-ciliary localization of CEP290 and effects of its loss in mouse photoreceptors during development

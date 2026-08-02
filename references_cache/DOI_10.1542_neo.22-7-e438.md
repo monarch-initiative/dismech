@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1542/neo.22-7-e438"
+reference_id: DOI:10.1542/neo.22-7-e438
 title: Diagnosis and Care of the Newborn with Epidermolysis Bullosa
 authors:
 - Anne W. Lucky
@@ -11,6 +11,7 @@ journal: NeoReviews
 year: '2021'
 doi: 10.1542/neo.22-7-e438
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnosis and Care of the Newborn with Epidermolysis Bullosa

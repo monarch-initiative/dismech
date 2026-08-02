@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <style>
         {% include '_palette.css.j2' %}
+        {% include '_disclaimer.css.j2' %}
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -485,7 +486,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -1821,6 +1821,54 @@
             border-radius: 4px;
         }
 
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
         .severity-pill {
             display: inline-block;
             padding: 2px 8px;
@@ -2942,6 +2990,7 @@
     </script>
 </head>
 <body>
+    {% include '_disclaimer.html.j2' %}
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
     {# ========== MACROS ========== #}
 
@@ -5771,20 +5820,26 @@
                                             {% else %}
                                             {{ mapping.preferred_term or '' }}
                                             {% endif %}
-                                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ mapping.threshold_direction or '' }} {{ mapping.threshold }}</span>
+                                            {# A ratio-of-baseline threshold is not a reading in the column's unit;
+                                               without the suffix it reads ~5x off for urate. The discriminator comes
+                                               from results_export.threshold_kind via render.py, so the rule lives in
+                                               exactly one place. #}
+                                            {% set is_ratio = mapping._threshold_kind == 'ratio_of_baseline' %}
+                                            <span style="font-size: 0.75rem; color: var(--text-muted);">{{ mapping.threshold_direction or '' }} {{ mapping.threshold }}{% if is_ratio %}&times; baseline{% endif %}</span>
                                         </span>
                                         {% if mapping.severity_scale %}
                                         <div>
                                             {% for sev in mapping.severity_scale %}
                                             {% set sev_name = sev.name | lower %}
+                                            {% set sev_value = sev.threshold ~ ('&times; baseline' if is_ratio else '') %}
                                             {% if sev_name in ('mild', 'growth impairment') %}
-                                            <span class="severity-pill severity-mild">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-mild">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% elif sev_name in ('moderate', 'moderate risk') %}
-                                            <span class="severity-pill severity-moderate">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-moderate">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% elif sev_name in ('severe', 'high risk', 'calciphylaxis risk') %}
-                                            <span class="severity-pill severity-severe">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-severe">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% else %}
-                                            <span class="severity-pill severity-other">{{ sev.name }} {{ sev.threshold }}</span>
+                                            <span class="severity-pill severity-other">{{ sev.name }} {{ sev_value | safe }}</span>
                                             {% endif %}
                                             {% endfor %}
                                         </div>
@@ -5797,6 +5852,93 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                {% endif %}
+                {% if model._run_results %}
+                {% set run = model._run_results %}
+                <details class="model-run-block">
+                    <summary class="model-run-summary">
+                        Simulation results &mdash; {{ run.scenarios | length }} scenario{{ '' if run.scenarios | length == 1 else 's' }}
+                        <span class="model-run-note">
+                            run with {{ run.provenance.runner }} over
+                            {{ run.provenance.duration_hours }} h; baseline
+                            {{ run.provenance.severity_dial }} = {{ run.baseline_dial }}
+                        </span>
+                    </summary>
+                    {% if run.caveat %}
+                    <div class="model-run-caveat">
+                        <strong>Interpretation caveat.</strong> {{ run.caveat }}
+                    </div>
+                    {% endif %}
+                    <div class="model-run-scroll">
+                    <table class="model-variables-table model-run-table">
+                        <thead>
+                            <tr>
+                                <th>Scenario</th>
+                                {% for obs in run.observables %}
+                                <th>{{ obs.label or obs.name }}</th>
+                                {% endfor %}
+                                <th>Activated phenotypes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="model-run-baseline">
+                                <td><div class="model-var-name">Healthy baseline</div>
+                                    <div class="model-var-desc">{{ run.provenance.severity_dial }} = {{ run.baseline_dial }}</div>
+                                </td>
+                                {% for obs in run.observables %}
+                                <td>{{ run['baseline'][obs.name] if obs.name in run['baseline'] else '' }}</td>
+                                {% endfor %}
+                                <td class="model-var-desc">reference</td>
+                            </tr>
+                            {% for scenario in run.scenarios %}
+                            <tr>
+                                <td>
+                                    <div class="model-var-name">{{ scenario.label }}</div>
+                                    {% if scenario.causal_root %}
+                                    <div class="model-var-desc">
+                                        drives
+                                        {% if scenario._causal_root_anchor %}<a href="#{{ scenario._causal_root_anchor }}">{{ scenario.causal_root }}</a>{% else %}{{ scenario.causal_root }}{% endif %}
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                {% for obs in run.observables %}
+                                {% set value = scenario['final_values'].get(obs.name) %}
+                                {% set fold = scenario['fold_change'].get(obs.name) %}
+                                <td>
+                                    {% if value is not none %}{{ value }}{% endif %}
+                                    {% if fold is not none %}
+                                    <div class="model-var-desc">{{ '%.2f' | format(fold) }}&times; baseline</div>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                                <td>
+                                    {% for phenotype in scenario.phenotypes %}
+                                    {% set sev = phenotype.severity | lower %}
+                                    <span class="severity-pill severity-{{ 'mild' if sev == 'mild' else ('moderate' if sev == 'moderate' else ('severe' if sev == 'severe' else 'other')) }}"
+                                          title="{{ phenotype.value_description }}">
+                                        <a href="{{ phenotype.hp_id | curie_to_url }}" target="_blank" rel="noopener noreferrer">{{ phenotype.hp_label }}</a>
+                                        {# Suppressed entirely when the model declares its scenarios not
+                                           comparable in severity — see the caveat above. #}
+                                        {% if phenotype.severity and sev != 'unknown' %}&middot; {{ phenotype.severity }}{% endif %}
+                                    </span>
+                                    {% else %}
+                                    <span class="model-var-desc">none</span>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    </div>
+                    <div class="model-run-provenance">
+                        Derived artifact, regenerated by <code>just gen-model-results</code>
+                        &mdash; not curated evidence. Values rounded to
+                        {{ run.provenance.rounding_decimals }} decimals.
+                        Config <code>{{ run.provenance.config_sha256[:12] }}</code>,
+                        {{ run.provenance.sbml_file }} <code>{{ run.provenance.sbml_sha256[:12] }}</code>.
+                        Phenotypes activate per the thresholds in the table above.
+                    </div>
+                </details>
                 {% endif %}
                 {% if model._modeled_mechanisms_resolved %}
                 <div class="crosslink-block">
@@ -5945,6 +6087,7 @@
             <p style="margin-top: 8px;">
                 <a href="{{ source_file }}" target="_blank">View source on GitHub</a>
             </p>
+            {% include "_disclaimer_footer.html.j2" %}
         </footer>
     </div>
 

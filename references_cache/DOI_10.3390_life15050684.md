@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life15050684"
+reference_id: DOI:10.3390/life15050684
 title: "Comprehensive Overview of Cytokine Interplay in Vitiligo: A Decade of Meta-Analyses Systematically Reviewed"
 authors:
 - Alessia Paganelli
@@ -13,6 +13,7 @@ journal: Life
 year: '2025'
 doi: 10.3390/life15050684
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Comprehensive Overview of Cytokine Interplay in Vitiligo: A Decade of Meta-Analyses Systematically Reviewed

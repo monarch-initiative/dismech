@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26083463"
+reference_id: DOI:10.3390/ijms26083463
 title: "Role of Oxidative Stress and Inflammation in Age Related Macular Degeneration: Insights into the Retinal Pigment Epithelium (RPE)"
 authors:
 - María Elena Ochoa Hernández
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26083463
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Role of Oxidative Stress and Inflammation in Age Related Macular Degeneration: Insights into the Retinal Pigment Epithelium (RPE)

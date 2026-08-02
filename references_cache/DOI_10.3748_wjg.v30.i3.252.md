@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.v30.i3.252"
+reference_id: DOI:10.3748/wjg.v30.i3.252
 title: SLC6A14 promotes ulcerative colitis progression by facilitating NLRP3 inflammasome-mediated pyroptosis
 authors:
 - Qing Gu
@@ -14,6 +14,7 @@ journal: World Journal of Gastroenterology
 year: '2023'
 doi: 10.3748/wjg.v30.i3.252
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # SLC6A14 promotes ulcerative colitis progression by facilitating NLRP3 inflammasome-mediated pyroptosis

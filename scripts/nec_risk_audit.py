@@ -38,7 +38,7 @@ import os
 import re
 from collections import defaultdict
 
-import yaml
+from dismech.yaml_io import safe_load
 
 DISORDERS_GLOB = "kb/disorders/*.yaml"
 
@@ -106,7 +106,7 @@ def load_entries():
             continue
         try:
             with open(path) as fh:
-                data = yaml.safe_load(fh)
+                data = safe_load(fh)
         except Exception:
             continue
         if not isinstance(data, dict):

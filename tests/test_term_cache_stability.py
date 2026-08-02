@@ -27,7 +27,7 @@ OAK_CONFIG = ROOT_DIR / "conf" / "oak_config.yaml"
 DISORDER_FILE = ROOT_DIR / "kb" / "disorders" / "Asthma.yaml"
 
 # Cache files expected to be touched by validating Asthma.yaml. Asthma
-# references HP, MONDO, GO, CL, and MAXO terms — the exact set does not
+# references HP, MONDO, GO, and CL terms — the exact set does not
 # matter for the test, we just need files that would be rewritten if the
 # bug regressed.
 CACHE_FILES = [
@@ -35,7 +35,6 @@ CACHE_FILES = [
     ROOT_DIR / "cache" / "mondo" / "terms.csv",
     ROOT_DIR / "cache" / "go" / "terms.csv",
     ROOT_DIR / "cache" / "cl" / "terms.csv",
-    ROOT_DIR / "cache" / "maxo" / "terms.csv",
 ]
 
 

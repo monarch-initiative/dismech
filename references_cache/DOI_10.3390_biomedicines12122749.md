@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12122749"
+reference_id: DOI:10.3390/biomedicines12122749
 title: "Integrative Multi-Omics Approach in Vascular Ehlers–Danlos Syndrome: Further Insights into the Disease Mechanisms by Proteomic Analysis of Patient Dermal Fibroblasts"
 authors:
 - Nicola Chiarelli
@@ -16,6 +16,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12122749
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Integrative Multi-Omics Approach in Vascular Ehlers–Danlos Syndrome: Further Insights into the Disease Mechanisms by Proteomic Analysis of Patient Dermal Fibroblasts

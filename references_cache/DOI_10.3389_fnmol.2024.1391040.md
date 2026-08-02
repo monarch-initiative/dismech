@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fnmol.2024.1391040"
+reference_id: DOI:10.3389/fnmol.2024.1391040
 title: Analysis of the pathogenicity and pathological characteristics of NOTCH3 gene-sparing cysteine mutations in vitro and in vivo models
 authors:
 - Zhenping Gong
@@ -15,6 +15,7 @@ journal: Frontiers in Molecular Neuroscience
 year: '2024'
 doi: 10.3389/fnmol.2024.1391040
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Analysis of the pathogenicity and pathological characteristics of NOTCH3 gene-sparing cysteine mutations in vitro and in vivo models
