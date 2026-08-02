@@ -189,9 +189,9 @@ explanation reads "the study focuses on multiple sclerosis" carries no informati
 should be deleted, not retained.
 
 *Fix:* add a prose claim matching the structured `age_range` (PMID:15477641 — "*over 50%
-of all patients with NSCLC are 65 years of age or older*" — is a reasonable partial
-source, and would be `PARTIAL` rather than `NO_EVIDENCE` against a stated claim), and
-delete the MS and Lynch citations.
+of all patients with non-small cell lung cancer (NSCLC) are 65 years of age or older*" —
+is a reasonable partial source, and would be `PARTIAL` rather than `NO_EVIDENCE` against a
+stated claim), and delete the MS and Lynch citations.
 
 ### 4. NSCLC has a duplicated `Bone Pain` phenotype
 
@@ -436,6 +436,23 @@ Worth preserving as curation patterns:
    > committing. (This report's own Method §4 de-hyphenates before matching, which is why
    > it could find these sentences in the first place — curators quoting them do not get
    > that for free.)
+
+   > ⚠️ **`validate-references` rewrites the whole cache as a side effect — stage only
+   > your YAML.** `just validate-references <file>` runs `just fix-references-cache`
+   > first (`project.justfile:734`), and that recipe globs the *entire*
+   > `references_cache/` directory (`project.justfile:815`), re-quoting frontmatter
+   > wherever it is unquoted:
+   >
+   > ```diff
+   > -reference_id: DOI:10.1001/jama.2008.598
+   > +reference_id: "DOI:10.1001/jama.2008.598"
+   > ```
+   >
+   > Validating a single file can therefore leave *thousands* of unrelated cache files
+   > modified — 3,073 in one run during this review. Pairing that with `git add -A` would
+   > commit all of them, which is exactly what CLAUDE.md's targeted-`git add` rule exists
+   > to prevent. Stage your edited YAML (and only the caches you deliberately re-fetched),
+   > then `git checkout -- references_cache/` to discard the rest.
 7. Replace the genuinely wrong citations in findings 8–9 (PMID:33533174, PMID:32361678,
    PMID:24707174)
 8. NSCLC / Asthma / COPD — backfill `evidence_source` (367 items)
