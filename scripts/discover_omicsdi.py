@@ -84,7 +84,7 @@ def http_json(url: str, retries: int = 3):
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 return json.loads(resp.read().decode("utf-8", "replace"))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             last = exc
             time.sleep(1.5 * (attempt + 1))
     print(f"WARN  OmicsDI request failed ({last})", file=sys.stderr)
