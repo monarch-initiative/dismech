@@ -587,7 +587,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -749,6 +749,19 @@ check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
 
+# Catches the ad-hoc-seeding corruption in #7682: a row built by string
+# concatenation whose label contains a comma parses to >3 fields and is
+# silently truncated at that comma, and a later "repair" pass cements the
+# truncation as clean-looking data that `just validate-terms` then reports as
+# ontology truth. Also covers cache/enums/*.csv, the dynamic-enum membership
+# caches, which stand in for an authority the same way. Structural facts only
+# -- it does NOT re-derive labels from OAK, so `just validate-terms` remains
+# the last line of defence. Runs in `qc` before the heavier data validators.
+# Deterministically validate the structure of cache/*/terms.csv + enums (#7682).
+[group('QC')]
+check-term-cache-integrity:
+    uv run python -m dismech.term_cache_integrity cache
+
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
 # A baseline grandfathers the pre-existing backlog; this fails only on new ones.
@@ -765,11 +778,13 @@ update-folded-hyphen-baseline:
 # Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
 # to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
 # usually lifted from a table that never survives text extraction (#7450).
-# Pipe-delimited structured-source rows are exempt; a baseline grandfathers the
-# pre-existing backlog, so this fails only on new ones.
+# Pipe-delimited structured-source rows are exempt; the pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+# resolve_baseline() falls back to the committed baseline if origin/main is not
+# present locally, so `just qc` and CI agree.
 [group('QC')]
 check-snippet-length:
-    uv run python scripts/check_snippet_length.py
+    uv run python scripts/check_snippet_length.py --against-ref origin/main
 
 # List every short snippet, baselined or not (triage view).
 [group('QC')]

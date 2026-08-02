@@ -138,6 +138,23 @@ the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #52
 
 ### Scripts (`scripts/`)
 
+### Curation Experiments (`experiments/`)
+
+Measurements *about* the knowledge base rather than content *of* it — inter-annotator
+consistency studies, curation-methodology pilots. Not KB content, and deliberately
+outside `kb/` so no validator, `just` recipe, or test in `tests/test_data.py` picks
+the files up: several are snapshots of `Disease` entries that would otherwise collide
+on the unique-`name` check.
+
+This is **not** `research/` (deep-research provider outputs consumed as curation
+inputs) and **not** `docs/reports/` (analysis of the KB's content). An experiment here
+may cite either, but its own artifacts live in this tree.
+
+Each experiment type gets a subdirectory holding shared tooling plus an index
+`README.md`; each individual run gets its own subdirectory with its inputs and a
+`FINDINGS.md`. Scripts that compute metrics are committed alongside so numbers can be
+regenerated rather than trusted. See [`experiments/README.md`](experiments/README.md).
+
 ### Research Artifacts (`research/`)
 
 **`research/` is ONLY for deep-research outputs — do not hand-place files here.**
@@ -265,6 +282,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `aortopathy_tgfbeta_dysregulation` — Conserved heritable thoracic aortic aneurysm/dissection (TAAD) pattern: aortic-wall ECM or smooth-muscle contractile-apparatus defect → paradoxically increased TGF-beta signaling dysregulation → medial degeneration (smooth muscle cell depletion + elastic fiber fragmentation) and wall weakening → progressive aortic dilation/aneurysm → aortic dissection and rupture. Conforming disorder nodes substitute the disorder-specific primary lesion (FBN1 microfibril deficiency in Marfan/Shprintzen-Goldberg; TGFBR1/2, SMAD3, TGFB2/3 in Loeys-Dietz; COL3A1 in vascular Ehlers-Danlos; SLC2A10 in arterial tortuosity; ACTA2/MYH11/MYLK/PRKG1 in nonsyndromic familial TAAD). Key conformance target: `aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation`
 - `ciliopathy_dysfunction` — Conserved ciliopathy module: basal body/transition zone/IFT defect → impaired Hedgehog and Wnt/PCP signaling → retinal, renal, skeletal, CNS, and metabolic pleiotropy; parallel motile-cilia arm (axonemal dynein defect → mucociliary clearance deficit and laterality defects) for primary ciliary dyskinesia. Key conformance targets: `ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction`, `ciliopathy_dysfunction#Impaired Hedgehog Signal Transduction`, `ciliopathy_dysfunction#Motile Cilia Beat Dysfunction`
 - `renal_cystogenesis` — Conserved epithelial (tubular) renal cyst-formation pattern, the cystogenic-machinery complement of `ciliopathy_dysfunction` (which covers the broader Hedgehog/PCP developmental arm but not the cAMP-CFTR cyst-fluid pathway): polycystin/primary-cilium signaling loss (PKD1/PKD2, and ciliary lesions in ARPKD/nephronophthisis/syndromic ciliopathies) → fall in cilium-dependent calcium → cAMP and vasopressin-V2R signaling activation → cyst-lining epithelial proliferation and CFTR-mediated transepithelial fluid secretion → progressive cyst expansion and kidney enlargement → nephron loss and progressive kidney failure. Carries the vasopressin-V2R-antagonist (tolvaptan) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` to link back to the cAMP/V2R node). Deliberately scoped to cAMP-driven tubular cystogenesis; mechanistically unrelated cysts (arachnoid, dermoid, parasitic hydatid, neoplastic cystadenoma, developmental cavitation) are out of scope. Flagship conformer: Autosomal_Dominant_Polycystic_Kidney_Disease (full-chain conformance across all five module nodes); Polycystic_Kidney_Disease conforms at the cAMP/V2R and proliferation/secretion nodes. Key conformance target: `renal_cystogenesis#Cyst-Lining Epithelial Proliferation and Transepithelial Fluid Secretion`
+- `glymphatic_dysfunction` — Conserved brain waste-clearance module: loss of sleep-dependent glymphatic drive (slow-wave sleep, interstitial-space expansion, falling noradrenergic tone) → perivascular AQP4 depolarization and reduced periarterial CSF influx → impaired perivascular CSF-ISF exchange and solute clearance → accumulation of aggregation-prone interstitial proteins (amyloid-beta, tau, alpha-synuclein) → neuroinflammation and progressive neurodegeneration. Sits *upstream* of `amyloidogenesis` (this module sets the precursor concentration; that one models nucleation/deposition) and is distinct from `loss_of_proteostasis` (intracellular degradation capacity, not extracellular perivascular clearance). Carries two curated competing `mechanistic_hypotheses` rather than a single settled chain — `convective_glymphatic_transport` (CANONICAL, AQP4-dependent bulk flow) vs `diffusive_parenchymal_transport` (ALTERNATIVE, size-dependent diffusion, AQP4-independent) — plus a `HUMAN_MODEL_MISMATCH` discussion (anaesthetic regimen, invasive tracer delivery, and species scale all determine measured influx) and a `KNOWLEDGE_GAP` on imaging-surrogate validation (a low DTI-ALPS index is not a measurement of glymphatic dysfunction). Worked conformer: Alzheimer_Disease (`Glymphatic Clearance Failure` node, `glymphatic_clearance_model` EMERGING hypothesis, kept separate from the BBB/LRP1 `vascular_bbb_clearance_model` route). Key conformance target: `glymphatic_dysfunction#Impaired Perivascular CSF-ISF Exchange and Solute Clearance`
 - `granuloma_formation` — Conserved granuloma-formation ("Xogenesis") pattern recurring across mycobacterial infection (TB, leprosy), fungal infection, sarcoidosis, Crohn disease, berylliosis, and foreign-body reactions: persistent indigestible stimulus an individual macrophage cannot eradicate → Th1/TNF-driven macrophage recruitment and activation → epithelioid transformation and multinucleated giant-cell formation (macrophage fusion) → organized (± caseating) granuloma assembly → tissue containment versus destruction and fibrosis. Carries the TNF-inhibitor drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the TNF/macrophage-activation node — therapeutic in sterile granulomatous disease, reactivates latent TB). Xogenesis anchor: forms MPATH:847 granuloma (`OGMS:0000078` via `OGMS:0000081` derivation). Key conformance target: `granuloma_formation#Epithelioid Transformation and Multinucleated Giant Cell Formation`
 - `thrombogenesis` — Conserved thrombus-formation ("Xogenesis") pattern recurring across venous thromboembolism, arterial thrombosis (MI, stroke), cancer-associated thrombosis, and antiphospholipid syndrome: Virchow's triad (endothelial injury, stasis, hypercoagulability) → platelet adhesion, activation, and aggregation → coagulation cascade activation and thrombin-driven fibrin formation → fibrin-platelet thrombus propagation and vascular occlusion → thromboembolism and ischemic tissue injury. Carries the anticoagulant (factor Xa / thrombin inhibition) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the coagulation node). Xogenesis anchor: forms a thrombus (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:125 thrombosis — MPATH lacks a distinct thrombus continuant, a noted OBO gap) at UBERON:0001981 blood vessel. Key conformance target: `thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation`
 - `atherogenesis` — Conserved atheroma/atherosclerotic-plaque formation ("Xogenesis") pattern recurring across coronary artery disease, ischemic stroke, and peripheral artery disease: endothelial dysfunction and subendothelial LDL (apoB-lipoprotein) retention → monocyte recruitment and macrophage foam-cell formation → smooth-muscle-cell phenotypic switching and fibrofatty plaque formation → advanced atheroma with necrotic core and fibrous cap → plaque rupture, thrombosis, and ischemic events (feeds `thrombogenesis`). Carries the LDL-lowering (statin) drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the LDL-retention trigger). Xogenesis anchor: forms an atheroma (`OGMS:0000078` via `OGMS:0000081` derivation; MPATH:28 atherosclerosis — MPATH lacks a distinct atheroma continuant, a noted OBO gap) at UBERON:0001637 artery. Key conformance target: `atherogenesis#Smooth Muscle Cell Switching and Fibrofatty Plaque Formation`
@@ -1493,6 +1511,61 @@ snippet matching the wrong cached paper.
 **Agent guardrail:** Claude Code and Codex must never create or hand-edit
 `references_cache/*.md`. If a cache file is wrong or malformed, regenerate it
 with `just fetch-reference <ID>` instead of patching the frontmatter manually.
+
+## CRITICAL: Term Cache Files — NEVER Write Manually
+
+`cache/<ontology>/terms.csv` may only be written by `linkml-term-validator` —
+i.e. as a side effect of `just validate-terms` / `just validate` — and sorted by
+`just normalize-cache`. **Never hand-write or append rows, and never build rows
+by string concatenation.** This is the term-cache twin of the
+`references_cache/*.md` rule above, and it has the same root cause: the cache is
+a *derived artifact standing in for an authority*, so a cache that lies makes
+validation circular.
+
+**Why concatenation specifically (dismech#7682):** hundreds of committed labels
+contain a comma — MONDO's `, dominant` / `, recessive` / `, type N` conventions
+are the bulk of it. A row built by string concatenation instead of a CSV writer:
+
+```
+MONDO:0012013,Weill-Marchesani syndrome 2, dominant,2026-08-01T04:30:00.000000
+```
+
+is a **four-field** row. `csv.reader` takes the label as
+`Weill-Marchesani syndrome 2` and `retrieved_at` as `" dominant"` — the label is
+silently truncated at the comma. The dangerous second stage is a later "repair"
+pass that rewrites the malformed row as a well-formed three-field row: that
+**cements the truncation as clean-looking data**, and from then on
+`just validate-terms` reports the truncated label as ontology truth and confirms
+the YAML against the corruption that produced it.
+
+**If a row is wrong, delete it and regenerate** — do not retype the label or the
+timestamp:
+
+```bash
+# 1. Delete the offending row from cache/<ontology>/terms.csv
+# 2. Re-derive it from OAK by validating a KB file that references the term
+just validate-terms kb/disorders/YourFile.yaml
+# 3. Confirm the cache is structurally sound again
+just check-term-cache-integrity
+```
+
+**Deterministic cache contract check (dismech#7682):**
+`just check-term-cache-integrity` validates every `cache/*/terms.csv`: the
+header, that each row parses to exactly three fields (`>3` is the truncation
+signature above), that `curie` is a `PREFIX:LOCALID` matching its cache
+directory, that `label` is non-empty, that `retrieved_at` is an ISO-8601 date
+*and* time, and that no CURIE is duplicated within a file. It applies the same
+shape/field-count/duplicate rules to the single-column `cache/enums/*.csv`
+dynamic-enum membership caches, which stand in for an authority the same way —
+`linkml-term-validator` uses them as the positive-hit set for `reachable_from`,
+so a clobbered CURIE there silently changes what passes enum validation.
+It runs as part of `just qc` before the heavier validators.
+Like the reference-cache check, this is **only** a structural check — it does
+not re-derive labels from OAK, so `just validate-terms` remains the last line of
+defence, and a *repaired* truncation is still invisible to it. When reviewing a
+cache diff, be suspicious of rows sharing one synthetic timestamp (e.g. several
+rows all at `...T00:00:00.000000`): that is the fingerprint of ad-hoc seeding,
+and those labels should be checked against the ontology rather than the cache.
 
 ## Structured-Database Reference Sources
 
