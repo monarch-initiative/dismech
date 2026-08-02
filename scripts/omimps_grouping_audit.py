@@ -77,7 +77,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DISORDERS_DIR = os.path.join(ROOT, "kb", "disorders")
@@ -109,8 +109,8 @@ ACQUIRED_PATTERNS = [
     r"\bsecondary\b", r"\balcoholic\b", r"\btoxic\b", r"\biatrogenic\b",
     r"\binfectious\b", r"\bviral\b", r"\bbacterial\b", r"\bparasitic\b",
 ]
-ACQUIRED_RE = re.compile("|".join(ACQUIRED_PATTERNS), re.I)
-SUSCEPTIBILITY_RE = re.compile(r"susceptib|predispos", re.I)
+ACQUIRED_RE = re.compile("|".join(ACQUIRED_PATTERNS), re.IGNORECASE)
+SUSCEPTIBILITY_RE = re.compile(r"susceptib|predispos", re.IGNORECASE)
 
 TIERS = ["MENDELIAN", "SUSCEPTIBILITY", "SOMATIC", "INFECTIOUS", "ACQUIRED", "UNMAPPED_LOCUS",
          "UNSPECIFIED"]
@@ -236,7 +236,7 @@ class Mondo:
 
 GENETIC_FORM_RE = re.compile(
     r"^(hereditary|familial|genetic|inherited|inborn|monogenic|syndromic|autosomal|x-linked|"
-    r"congenital)\b", re.I)
+    r"congenital)\b", re.IGNORECASE)
 
 
 def recipient_candidates(mondo: Mondo, term: str, minimum: int = 3) -> list[tuple[int, str, str]]:
@@ -266,7 +266,7 @@ def recipient_candidates(mondo: Mondo, term: str, minimum: int = 3) -> list[tupl
                 for s in mondo.children.get(p, [])} - {term}
     outside = {c for c, cl in mondo.label.items()
                if c not in descs and c != term
-               and re.match(r"^(hereditary|familial|genetic|inherited)\b", cl, re.I)
+               and re.match(r"^(hereditary|familial|genetic|inherited)\b", cl, re.IGNORECASE)
                and about_same_entity(cl)}
 
     out = []
