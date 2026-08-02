@@ -1,0 +1,41 @@
+history_version: 1
+target:
+  kind: schema
+  slug: isds_skeletal_nosology
+  path: src/dismech/schema/classifications/isds_skeletal_nosology.yaml
+session:
+  id: 2026-08-02T234342Z-claude-code-2eeb1a
+  timestamp: '2026-08-02T23:43:42Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/7871
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - schema
+  - docs
+  - classifications
+  summary: 'Round-3 review: fix 18 folded-scalar splits in the schema module, widen
+    the guard to src/, reconcile GNAS/PHP placement'
+  details: |
+    Two review items, both verified against the extracted 2023 nosology table before acting.
+
+    1. Folded-scalar hyphen splits. The 18 descriptions authored in isds_skeletal_nosology.yaml each had a line ending in a hyphen inside a folded scalar, so YAML folding inserted a space mid-compound ("Dyggve- Melchior-Clausen", "Camurati- Engelmann", "Schwartz- Jampel", and 15 more). CI did not catch them because scripts/check_folded_hyphens.py set SCAN_DIR to kb/ and schema files fall outside it. Repaired with the same technique used earlier on the kb/ notes in this branch: rejoin the hyphen-broken line WITHOUT re-inserting the fold space - re-inserting it silences the checker while baking the corruption into the literal text - then rewrap with break_on_hyphens=False. Verified by diffing the parsed YAML values before and after: exactly 18 word-level changes, all fold-space removals, no other text touched. SCAN_DIR became SCAN_DIRS covering kb and src; a whole-tree scan showed src has findings in this file only, so widening cost no baseline churn. history/ is deliberately excluded from the scan because those records are append-only and a finding there could not be repaired.
+
+    2. GNAS and pseudohypoparathyroidism placement. Group 19's exemplar list still read "pseudohypoparathyroidism type IA (GNAS)", contradicting the new group-28 text. The 2023 table has exactly three GNAS rows: Albright hereditary osteodystrophy in group 17, and polyostotic fibrous dysplasia / McCune-Albright plus progressive osseous heteroplasia in group 30. Comparing OMIM numbers against the 2019 table showed what happened: OMIM 103580 appears in 2019 as "Pseudohypoparathyroidism type IA" in group 38 and in 2023 as "Albright hereditary osteodystrophy, GNAS-related" in group 17 - a rename plus a move, which is why searching the 2023 table for "pseudohypoparathyroidism" finds nothing. Removed the stale group-19 exemplar and recorded the rename there; added AHO to group 17's exemplars along with the trichorhinophalangeal dysplasias that moved from 17 into 19; added a traps-table row and an explanatory paragraph to the docs.
+
+    Knock-on: the MONDO:0019695 rejection rationale cited PHP type 1A as a straddler, which is no longer true now that the entity sits inside group 17. Re-derived the straddle set with OAK - the trichorhinophalangeal syndromes and Langer-Giedion in group 19, terminal osseous dysplasia in group 6, and short-rib thoracic dysplasia 9 in group 10 - so the rejection still holds, on corrected grounds. Updated both the schema rationale and the docs table.
+
+    Classified kb/disorders/Pseudohypoparathyroidism.yaml into group 17, scoped by its notes to the PHP1A subtype that is the listed entity. PHP1B and PHP2 are not in the nosology, so the note states the entry is broader than its counterpart. Left Pseudopseudohypoparathyroidism deliberately unassigned and documented why: its OMIM 612463 has no row, while the listed row's label (AHO) is a phenotype PPHP does manifest, so label and OMIM disagree about coverage and assigning on the label would be inference rather than transcription.
+
+    Also added spondylodysplastic EDS types 1 and 2 to group 5's exemplar list for symmetry with the multivalued assignment, and reflowed an awkward line in the docs.
+
+    Validation: check_folded_hyphens --check clean with the baseline untouched (330 grandfathered); schema parses to 45 permissible values (41 active + 4 deprecated); validate-classification on the module and validate-terms-schema both pass; just validate on Pseudohypoparathyroidism.yaml passes with 43/43 snippets verified; pytest -k "classification or folded or enum or schema" gives 86 passed.
