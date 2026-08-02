@@ -105,9 +105,11 @@ def _check_row(row: list[str], expected_prefix: str) -> list[str]:
         # written without CSV quoting, so the label is truncated at the comma
         # and its tail has been shifted into `retrieved_at` (and beyond).
         return [
-            f"row parses to {len(row)} fields, expected 3 "
-            "(unquoted comma in the label truncates it — see #7682); "
-            f"fields: {row!r}"
+            (
+                f"row parses to {len(row)} fields, expected 3 "
+                "(unquoted comma in the label truncates it — see #7682); "
+                f"fields: {row!r}"
+            )
         ]
     if len(row) < len(EXPECTED_HEADER):
         return [f"row parses to {len(row)} fields, expected 3; fields: {row!r}"]
@@ -148,8 +150,10 @@ def _check_enum_row(row: list[str]) -> list[str]:
     """Return structural problems with a single ``cache/enums/*.csv`` row."""
     if len(row) != len(EXPECTED_ENUM_HEADER):
         return [
-            f"row parses to {len(row)} fields, expected 1 "
-            f"(enum membership caches are single-column); fields: {row!r}"
+            (
+                f"row parses to {len(row)} fields, expected 1 "
+                f"(enum membership caches are single-column); fields: {row!r}"
+            )
         ]
     curie = row[0]
     if not _CURIE_RE.match(curie):
