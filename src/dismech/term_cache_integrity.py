@@ -29,12 +29,30 @@ and #712). It validates only structural facts:
   thing that catches a row whose *prefix* was clobbered into another
   valid-looking shape (``BI:24996`` for ``CHEBI:24996``)
 - ``label`` is non-empty
-- ``retrieved_at`` is non-empty and a parseable ISO-8601 timestamp
+- ``retrieved_at`` is non-empty and an ISO-8601 date *and* time, matching what
+  the validator's cache writer actually emits (a bare ``2026-08-02`` parses
+  fine for :func:`datetime.fromisoformat` but is a truncation, not a write)
+- no CURIE appears twice in one file — four of the eight corruptions found on
+  ``main`` were duplicates in disguise, and a clobber that produced a
+  valid-looking CURIE already present in the file would otherwise pass
+
+The same treatment is applied to ``cache/enums/*.csv``, the dynamic-enum
+membership caches, which stand in for an authority in exactly the same way:
+``linkml-term-validator`` uses them as the positive-hit set for
+``reachable_from``, so a clobbered CURIE there silently changes what passes
+enum validation. They are single-column (``curie`` header, one CURIE per line)
+and mixed-prefix by design, so they get the shape, duplicate, and field-count
+checks but not the per-directory prefix invariant.
 
 A correctly *quoted* label containing a comma is legitimate and must pass —
 there are hundreds of them in the committed caches (MONDO's ``, dominant`` /
 ``, recessive`` / ``, type N`` naming conventions are the bulk of it), and they
 are precisely the rows the concatenation bug can damage.
+
+Sibling module: ``dismech.enum_cache`` owns the *semantic* half of ``cache/**``
+— whether an enum cache row is still reachable from its enum's roots — plus the
+canonical-ordering audit. This module owns the *structural* half. Keep new
+cache checks in whichever of the two fits rather than adding a third scanner.
 
 The heavier last line of defence remains the ``linkml-term-validator`` run
 inside ``just validate-terms`` / ``just qc``.
@@ -50,11 +68,17 @@ from datetime import datetime
 from pathlib import Path
 
 EXPECTED_HEADER = ["curie", "label", "retrieved_at"]
+EXPECTED_ENUM_HEADER = ["curie"]
 
 # Deliberately permissive: the repo's caches carry both uppercase OBO-style
 # prefixes (``HP:0001250``) and the lowercase ``hgnc:746`` form documented in
 # CLAUDE.md. This checks the *shape* of a CURIE, not its prefix registration.
 _CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._]*:[A-Za-z0-9_][A-Za-z0-9_.\-]*$")
+# The cache writer emits a full date+time (``2026-08-02T02:08:16.455296``).
+# ``datetime.fromisoformat`` alone would also accept a bare date, so require
+# the time component explicitly — a lopped-off time is a truncation, not a
+# legitimate write.
+_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}")
 
 
 @dataclass(frozen=True)
@@ -110,8 +134,92 @@ def _check_row(row: list[str], expected_prefix: str) -> list[str]:
             reasons.append(
                 f"retrieved_at {retrieved_at!r} is not a parseable ISO-8601 timestamp"
             )
+        else:
+            if not _TIMESTAMP_RE.match(retrieved_at):
+                reasons.append(
+                    f"retrieved_at {retrieved_at!r} is missing its time component "
+                    "(the cache writer always emits an ISO-8601 date and time)"
+                )
 
     return reasons
+
+
+def _check_enum_row(row: list[str]) -> list[str]:
+    """Return structural problems with a single ``cache/enums/*.csv`` row."""
+    if len(row) != len(EXPECTED_ENUM_HEADER):
+        return [
+            f"row parses to {len(row)} fields, expected 1 "
+            f"(enum membership caches are single-column); fields: {row!r}"
+        ]
+    curie = row[0]
+    if not _CURIE_RE.match(curie):
+        return [f"curie {curie!r} is not a PREFIX:LOCALID CURIE"]
+    return []
+
+
+def _read_rows(path: Path) -> list[list[str]] | Finding:
+    try:
+        with path.open(newline="", encoding="utf-8") as handle:
+            return list(csv.reader(handle))
+    except (OSError, UnicodeDecodeError, csv.Error) as exc:
+        return Finding(path=path, line=0, curie="", reasons=(f"unreadable: {exc}",))
+
+
+def _scan_rows(
+    path: Path,
+    rows: list[list[str]],
+    expected_header: list[str],
+    row_checker,
+) -> list[Finding]:
+    """Shared header / per-row / duplicate-CURIE scan for both cache shapes."""
+    findings: list[Finding] = []
+
+    header_ok = rows[0] == expected_header
+    if not header_ok:
+        findings.append(
+            Finding(
+                path=path,
+                line=1,
+                curie="",
+                reasons=(
+                    f"header must be {','.join(expected_header)}, got {rows[0]!r}",
+                ),
+            )
+        )
+
+    # Only skip the first line when it really is a header. A file whose header
+    # is missing entirely would otherwise have its first *data* row silently
+    # consumed as the header and never structurally checked.
+    looks_like_header = bool(rows[0]) and rows[0][0].strip().casefold() == "curie"
+    data_rows = rows[1:] if looks_like_header else rows
+    first_line = 2 if looks_like_header else 1
+
+    seen: dict[str, int] = {}
+    for offset, row in enumerate(data_rows, start=first_line):
+        if not row:
+            # csv.reader yields [] only for a genuinely blank line; a trailing
+            # newline at end of file does not produce one.
+            findings.append(
+                Finding(path=path, line=offset, curie="", reasons=("blank row",))
+            )
+            continue
+
+        reasons = list(row_checker(row))
+
+        key = row[0].casefold()
+        if key in seen:
+            reasons.append(
+                f"duplicate curie {row[0]!r} (first seen on line {seen[key]})"
+            )
+        else:
+            seen[key] = offset
+
+        if reasons:
+            findings.append(
+                Finding(path=path, line=offset, curie=row[0], reasons=tuple(reasons))
+            )
+
+    return findings
 
 
 def check_cache_file(path: Path, expected_prefix: str | None = None) -> list[Finding]:
@@ -122,55 +230,44 @@ def check_cache_file(path: Path, expected_prefix: str | None = None) -> list[Fin
     """
     if expected_prefix is None:
         expected_prefix = path.parent.name
-    try:
-        with path.open(newline="", encoding="utf-8") as handle:
-            rows = list(csv.reader(handle))
-    except (OSError, UnicodeDecodeError, csv.Error) as exc:
-        return [Finding(path=path, line=0, curie="", reasons=(f"unreadable: {exc}",))]
 
+    rows = _read_rows(path)
+    if isinstance(rows, Finding):
+        return [rows]
     if not rows:
         return [Finding(path=path, line=0, curie="", reasons=("file is empty",))]
 
-    findings: list[Finding] = []
-    if rows[0] != EXPECTED_HEADER:
-        findings.append(
-            Finding(
-                path=path,
-                line=1,
-                curie="",
-                reasons=(
-                    f"header must be {','.join(EXPECTED_HEADER)}, got {rows[0]!r}",
-                ),
-            )
-        )
+    return _scan_rows(
+        path,
+        rows,
+        EXPECTED_HEADER,
+        lambda row: _check_row(row, expected_prefix),
+    )
 
-    for offset, row in enumerate(rows[1:], start=2):
-        if not row:
-            # csv.reader yields [] only for a genuinely blank line; a trailing
-            # newline at end of file does not produce one.
-            findings.append(
-                Finding(path=path, line=offset, curie="", reasons=("blank row",))
-            )
-            continue
-        reasons = _check_row(row, expected_prefix)
-        if reasons:
-            findings.append(
-                Finding(
-                    path=path,
-                    line=offset,
-                    curie=row[0],
-                    reasons=tuple(reasons),
-                )
-            )
 
-    return findings
+def check_enum_cache_file(path: Path) -> list[Finding]:
+    """Check one ``cache/enums/*.csv`` dynamic-enum membership cache.
+
+    These are single-column and mixed-prefix by design, so they get the CURIE
+    shape, field-count, and duplicate checks but not the per-directory prefix
+    invariant that ``cache/<ontology>/terms.csv`` carries.
+    """
+    rows = _read_rows(path)
+    if isinstance(rows, Finding):
+        return [rows]
+    if not rows:
+        return [Finding(path=path, line=0, curie="", reasons=("file is empty",))]
+
+    return _scan_rows(path, rows, EXPECTED_ENUM_HEADER, _check_enum_row)
 
 
 def scan_cache_dir(cache_dir: Path) -> list[Finding]:
-    """Scan every ``cache/<ontology>/terms.csv`` under ``cache_dir``."""
+    """Scan every ontology term cache and dynamic-enum membership cache."""
     findings: list[Finding] = []
     for path in sorted(cache_dir.glob("*/terms.csv")):
         findings.extend(check_cache_file(path))
+    for path in sorted((cache_dir / "enums").glob("*.csv")):
+        findings.extend(check_enum_cache_file(path))
     return findings
 
 
@@ -181,23 +278,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {cache_dir} is not a directory", file=sys.stderr)
         return 2
 
-    paths = sorted(cache_dir.glob("*/terms.csv"))
+    term_caches = sorted(cache_dir.glob("*/terms.csv"))
+    enum_caches = sorted((cache_dir / "enums").glob("*.csv"))
     findings = scan_cache_dir(cache_dir)
     if not findings:
         print(
-            f"OK: {len(paths)} term cache file(s) in {cache_dir} match the "
-            "structural contract"
+            f"OK: {len(term_caches)} term cache file(s) and {len(enum_caches)} "
+            f"enum cache file(s) in {cache_dir} match the structural contract"
         )
         return 0
 
     print(
-        f"FAIL: {len(findings)} term cache row(s) failed deterministic checks",
+        f"FAIL: {len(findings)} cache integrity issue(s) found",
         file=sys.stderr,
     )
     for finding in findings:
         print(finding.format(), file=sys.stderr)
     print(
-        "\nDo NOT hand-edit cache/*/terms.csv. Delete the offending row and "
+        "\nDo NOT hand-edit these caches. Delete the offending row and "
         "regenerate it with `just validate-terms <file>` (see #7682).",
         file=sys.stderr,
     )

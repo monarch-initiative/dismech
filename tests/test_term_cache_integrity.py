@@ -9,6 +9,7 @@ import pytest
 from dismech.term_cache_integrity import (
     Finding,
     check_cache_file,
+    check_enum_cache_file,
     scan_cache_dir,
 )
 
@@ -16,6 +17,7 @@ ROOT = Path(__file__).parent.parent
 CACHE_DIR = ROOT / "cache"
 
 HEADER = "curie,label,retrieved_at\n"
+ENUM_HEADER = "curie\n"
 
 
 def _write_cache(tmp_path: Path, ontology: str, body: str) -> Path:
@@ -23,6 +25,14 @@ def _write_cache(tmp_path: Path, ontology: str, body: str) -> Path:
     path = tmp_path / ontology / "terms.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(HEADER + body, encoding="utf-8")
+    return path
+
+
+def _write_enum_cache(tmp_path: Path, name: str, body: str) -> Path:
+    """Write a ``cache/enums/<name>.csv`` fixture and return its path."""
+    path = tmp_path / "enums" / f"{name}.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(ENUM_HEADER + body, encoding="utf-8")
     return path
 
 
@@ -79,6 +89,17 @@ def test_unquoted_comma_label_four_field_row_is_rejected(tmp_path: Path):
     assert any("4 fields" in reason for reason in findings[0].reasons)
 
 
+def test_two_field_row_is_rejected(tmp_path: Path):
+    """A row missing its trailing timestamp entirely (no trailing comma).
+
+    The mirror image of the four-field case, and a plausible hand-edit artifact.
+    """
+    bad = _write_cache(tmp_path, "hp", "HP:0001250,Seizure\n")
+    findings = check_cache_file(bad)
+    assert len(findings) == 1
+    assert any("2 fields" in reason for reason in findings[0].reasons)
+
+
 def test_empty_retrieved_at_is_rejected(tmp_path: Path):
     """Regression fixture for the ``GO:0016887`` row that was on ``main``."""
     bad = _write_cache(tmp_path, "go", "GO:0016887,ATP hydrolysis activity,\n")
@@ -100,6 +121,15 @@ def test_malformed_retrieved_at_is_rejected(tmp_path: Path):
     findings = check_cache_file(bad)
     assert len(findings) == 1
     assert any("ISO-8601" in reason for reason in findings[0].reasons)
+
+
+def test_date_only_retrieved_at_is_rejected(tmp_path: Path):
+    """``datetime.fromisoformat`` accepts a bare date, but the cache writer
+    always emits date *and* time — a date-only value is a truncation."""
+    bad = _write_cache(tmp_path, "hp", "HP:0001250,Seizure,2026-08-02\n")
+    findings = check_cache_file(bad)
+    assert len(findings) == 1
+    assert any("missing its time component" in r for r in findings[0].reasons)
 
 
 def test_retrieved_at_with_curie_tail_is_rejected(tmp_path: Path):
@@ -201,6 +231,108 @@ def test_wrong_header_is_rejected(tmp_path: Path):
 def test_header_only_file_passes(tmp_path: Path):
     """A freshly-created, still-empty cache is structurally fine."""
     assert check_cache_file(_write_cache(tmp_path, "hp", "")) == []
+
+
+def test_duplicate_curie_is_rejected(tmp_path: Path):
+    """Four of the eight corruptions found on ``main`` were duplicates in
+    disguise. A clobber producing a valid-looking CURIE already present in the
+    file passes every other check, so duplicates are flagged on their own."""
+    bad = _write_cache(
+        tmp_path,
+        "hp",
+        "HP:0001250,Seizure,2026-03-18T01:50:00.134167\n"
+        "HP:0002014,Diarrhea,2026-03-18T01:50:00.134167\n"
+        "HP:0001250,Seizures,2026-07-31T17:35:40.810696\n",
+    )
+    findings = check_cache_file(bad)
+    assert len(findings) == 1
+    assert findings[0].line == 4
+    assert any("duplicate curie" in r and "line 2" in r for r in findings[0].reasons)
+
+
+def test_duplicate_curie_detection_is_case_insensitive(tmp_path: Path):
+    bad = _write_cache(
+        tmp_path,
+        "hgnc",
+        "hgnc:746,ABCA4,2026-03-18T01:50:00.134167\n"
+        "HGNC:746,ABCA4,2026-03-18T01:50:00.134167\n",
+    )
+    findings = check_cache_file(bad)
+    assert any(any("duplicate curie" in r for r in f.reasons) for f in findings), (
+        _reasons(findings)
+    )
+
+
+def test_headerless_file_still_checks_its_first_row(tmp_path: Path):
+    """A file with no header must not have its first *data* row silently
+    consumed as the header and skipped."""
+    path = tmp_path / "hp" / "terms.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "HP:0001250,Seizure,not-a-timestamp\n"
+        "HP:0002014,Diarrhea,2026-03-18T01:50:00.134167\n",
+        encoding="utf-8",
+    )
+    findings = check_cache_file(path)
+    lines = {f.line for f in findings}
+    # line 1: the missing header, *and* the malformed timestamp on that row.
+    assert lines == {1}, _reasons(findings)
+    reasons = [r for f in findings for r in f.reasons]
+    assert any("header must be" in r for r in reasons), _reasons(findings)
+    assert any("ISO-8601" in r for r in reasons), _reasons(findings)
+
+
+def test_valid_enum_cache_passes(tmp_path: Path):
+    """Enum membership caches are single-column and mixed-prefix by design."""
+    good = _write_enum_cache(
+        tmp_path, "phenotypeterm_abc123", "HP:0001250\nMONDO:0018019\nhgnc:746\n"
+    )
+    assert check_enum_cache_file(good) == []
+
+
+def test_enum_cache_rejects_malformed_curie(tmp_path: Path):
+    bad = _write_enum_cache(tmp_path, "phenotypeterm_abc123", "HP:0001250\n887\n")
+    findings = check_enum_cache_file(bad)
+    assert len(findings) == 1
+    assert findings[0].line == 3
+    assert any("not a PREFIX:LOCALID CURIE" in r for r in findings[0].reasons)
+
+
+def test_enum_cache_rejects_extra_column(tmp_path: Path):
+    """The concatenation vector applied to an enum cache: a label glued on."""
+    bad = _write_enum_cache(
+        tmp_path, "diseaseterm_abc123", "MONDO:0012013,Weill-Marchesani syndrome 2\n"
+    )
+    findings = check_enum_cache_file(bad)
+    assert len(findings) == 1
+    assert any("expected 1" in r for r in findings[0].reasons)
+
+
+def test_enum_cache_rejects_duplicate_curie(tmp_path: Path):
+    bad = _write_enum_cache(
+        tmp_path, "phenotypeterm_abc123", "HP:0001250\nHP:0001250\n"
+    )
+    findings = check_enum_cache_file(bad)
+    assert len(findings) == 1
+    assert any("duplicate curie" in r for r in findings[0].reasons)
+
+
+def test_enum_cache_rejects_wrong_header(tmp_path: Path):
+    path = tmp_path / "enums" / "phenotypeterm_abc123.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("id\nHP:0001250\n", encoding="utf-8")
+    findings = check_enum_cache_file(path)
+    assert any(any("header must be curie" in r for r in f.reasons) for f in findings), (
+        _reasons(findings)
+    )
+
+
+def test_scan_cache_dir_covers_enum_caches(tmp_path: Path):
+    _write_cache(tmp_path, "hp", "HP:0001250,Seizure,2026-03-18T01:50:00.134167\n")
+    _write_enum_cache(tmp_path, "phenotypeterm_abc123", "HP:0001250\n887\n")
+    findings = scan_cache_dir(tmp_path)
+    assert len(findings) == 1, _reasons(findings)
+    assert findings[0].path.parent.name == "enums"
 
 
 def test_scan_cache_dir_reports_every_ontology(tmp_path: Path):

@@ -1552,8 +1552,13 @@ just check-term-cache-integrity
 `just check-term-cache-integrity` validates every `cache/*/terms.csv`: the
 header, that each row parses to exactly three fields (`>3` is the truncation
 signature above), that `curie` is a `PREFIX:LOCALID` matching its cache
-directory, that `label` is non-empty, and that `retrieved_at` is a parseable
-ISO-8601 timestamp. It runs as part of `just qc` before the heavier validators.
+directory, that `label` is non-empty, that `retrieved_at` is an ISO-8601 date
+*and* time, and that no CURIE is duplicated within a file. It applies the same
+shape/field-count/duplicate rules to the single-column `cache/enums/*.csv`
+dynamic-enum membership caches, which stand in for an authority the same way —
+`linkml-term-validator` uses them as the positive-hit set for `reachable_from`,
+so a clobbered CURIE there silently changes what passes enum validation.
+It runs as part of `just qc` before the heavier validators.
 Like the reference-cache check, this is **only** a structural check — it does
 not re-derive labels from OAK, so `just validate-terms` remains the last line of
 defence, and a *repaired* truncation is still invisible to it. When reviewing a
