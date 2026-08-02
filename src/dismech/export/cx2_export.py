@@ -31,7 +31,7 @@ from dismech.graph import (
     build_causal_graph,
     graph_to_json,
 )
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load, safe_load_path
 
 logger = logging.getLogger(__name__)
 
@@ -373,7 +373,7 @@ def _load_prefix_map() -> dict[str, str]:
     """Load CURIE prefix mappings from the schema."""
     if not _SCHEMA_PATH.exists():
         return {}
-    data = safe_load(_SCHEMA_PATH.read_text())
+    data = safe_load_path(_SCHEMA_PATH)
     prefixes = data.get("prefixes", {}) if isinstance(data, dict) else {}
     return {
         prefix: base

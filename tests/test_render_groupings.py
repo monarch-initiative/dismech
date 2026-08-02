@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 from dismech.render import render_all_groupings, render_grouping_index
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 
 def _write_yaml(path: Path, data: dict) -> None:
@@ -136,7 +136,7 @@ def test_render_all_groupings_builds_index_from_grouping_yaml(tmp_path: Path) ->
             },
         },
     )
-    beta_group = safe_load((input_dir / "Beta_Group.yaml").read_text())
+    beta_group = safe_load_path(input_dir / "Beta_Group.yaml")
     beta_group["members"] = [
         {
             "member": "Beta Disorder",

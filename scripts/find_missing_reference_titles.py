@@ -14,7 +14,7 @@ each are missing their title (blank/absent counts as missing).
 import sys
 from pathlib import Path
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 DISORDERS = Path("kb/disorders")
 
@@ -49,7 +49,7 @@ def walk(node, missing_ev, missing_ref):
 def main():
     rows = []
     for path in sorted(DISORDERS.glob("*.yaml")):
-        data = safe_load(path.read_text())
+        data = safe_load_path(path)
         if data is None:
             continue
         missing_ev, missing_ref = [], []

@@ -21,10 +21,9 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
-from pathlib import Path
 from typing import Any
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load, safe_load_path
 
 KEY_CANDIDATES = ["name", "id", "reference", "hypothesis_group_id", "preferred_term"]
 
@@ -457,8 +456,8 @@ def main():
     ignore = {f.strip() for f in args.ignore_fields.split(",") if f.strip()}
 
     if args.command == "files":
-        old_data = safe_load(Path(args.old_file).read_text())
-        new_data = safe_load(Path(args.new_file).read_text())
+        old_data = safe_load_path(args.old_file)
+        new_data = safe_load_path(args.new_file)
         changes = diff_dicts(old_data, new_data, ignore_fields=ignore)
         result = FileDiffResult(
             filename=f"{args.old_file} -> {args.new_file}", changes=changes

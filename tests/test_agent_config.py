@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from dismech.yaml_io import safe_load
+from dismech.yaml_io import safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ACTION_DIR = REPO_ROOT / ".github" / "actions" / "resolve-agent-config"
@@ -116,7 +116,7 @@ def test_managed_workflows_use_the_resolver_action():
     the config: single-model workflows must `uses:` the composite action;
     matrix workflows (curation-scanner) instead call the resolver script from a
     setup job, so they're checked for that path."""
-    config = safe_load(CONFIG_PATH.read_text())
+    config = safe_load_path(CONFIG_PATH)
     texts = _workflow_texts()
     for stem, entry in config["workflows"].items():
         text = texts.get(stem, "")
