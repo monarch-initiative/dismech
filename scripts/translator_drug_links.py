@@ -409,7 +409,11 @@ def poll_for_merged(
             print(f"  [{status}] {summarize_trace(trace)}", file=sys.stderr)
         if status and status != "Running":
             if not merged_pk:
-                raise SystemExit(f"ARS run {pk} finished with status {status} but produced no merged result set.")
+                raise SystemExit(
+                    f"ARS run {pk} finished with status {status} but produced no merged result set. "
+                    "If this was a non-default --via, no ARA answers that intermediate type today "
+                    "(only `gene` has broad support); try --via gene or --pathfinder."
+                )
             return merged_pk, True
 
         current = trace_signature(trace)

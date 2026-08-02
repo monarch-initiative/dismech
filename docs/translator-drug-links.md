@@ -182,7 +182,12 @@ predicate, primary knowledge sources and PMIDs.
 ```
 
 `--via` picks the intermediate node type: `gene` (default), `protein`,
-`gene-or-protein`, `pathway`, `process`, `phenotype`, `chemical`, `any`.
+`gene-or-protein`, `pathway`, `process`, `phenotype`, `chemical`, `any`. In
+practice **only `gene` has broad KP support** — an everolimus→TSC run with
+`--via process` came back with no merged result set at all, because no ARA
+answers a `BiologicalProcessOrActivity` intermediate. The other values are
+wired up and worth retrying as coverage improves, but do not expect answers
+today.
 Predicates are deliberately left open — `physically_interacts_with`, `affects`
 and `interacts_with` are all used for the same drug-target relation by different
 providers, so constraining the predicate silently drops real routes.
@@ -321,7 +326,49 @@ Review it exactly like an LLM provider report — with one extra caveat specific
 to this provider: a `report_quote` in the assessment sidecar will be quoting a
 *graph assertion*, not a sentence from a paper.
 
-**Absence is a result.** The committed worked example above is a negative one,
+### Side by side with OpenScientist
+
+Three hypotheses now carry a `translator.md` next to a provider report, and the
+contrast is the point — they answer different questions and fail in different
+directions:
+
+| | OpenScientist | Translator |
+| --- | --- | --- |
+| TSC / `canonical_tsc1_tsc2_mtorc1_hyperactivation_model` | 564 lines, 48 citations, ~46 min. Verdict "STRONGLY SUPPORTED with seven critical qualifications" — RCT evidence that everolimus does *not* improve IQ or autism, mTORC1-independent pathways, the developmental critical window | 3 paths, 4 citations, ~4 min. TSC1 and TSC2 matched to the entry's own pathophysiology node; one unmatched IFNG route |
+| Gorlin / `gli_bypass_resistance_model` | narrative assessment of SMO-inhibitor resistance | 3 paths, all three intermediates (SUFU, PTCH2, PTCH1) matched to curated genes |
+| Siderius XLID / `mtor_targeting` | — | 2 weak routes, neither through PHF8/RSK1/mTOR |
+
+Read that as a division of labour, not a ranking. OpenScientist weighs a
+hypothesis against the literature and argues; Translator says what a dozen
+curated knowledge graphs *already assert*, in minutes, with the answers already
+diffed against the entry. The Gorlin run is the cleanest illustration: every
+returned intermediate was one the entry curates, so the honest conclusion is
+"the graph adds nothing here" — quick, and worth knowing before commissioning a
+deep-research run.
+
+**Know what the query shape can and cannot express.** In the TSC run, `MTOR` —
+everolimus's actual target and the whole subject of the hypothesis — never
+appears. A gene-intermediate two-hop asks for genes that are *associated with
+the disease* and that the drug touches, and MTOR is correctly not a TSC disease
+gene. The mode therefore finds disease genes the drug contacts, not a mechanism
+of action.
+
+Neither alternative rescued it for this pair, and it is worth knowing before you
+go looking:
+
+| Query | Result for everolimus → TSC |
+| ----- | --------------------------- |
+| two-hop `--via gene` (default) | TSC1, TSC2 — correct disease genes, both matched to the entry's own pathophysiology node; plus one unmatched IFNG route |
+| `--via process` | **no merged result set at all** — no ARA answers a `BiologicalProcessOrActivity` intermediate |
+| `--pathfinder` | 12 routes, every one through generic intermediates (Apoptosis, IL4, interferon-γ, phosphorylation) at score ≈0.17; no MTOR, TSC1 or TSC2 |
+
+So for a drug whose mechanism is textbook, the Translator graph does not carry
+the drug → target → pathway chain in any mode currently queryable, and the plain
+two-hop gives the most on-target answer. Treat "what does the graph assert" and
+"what is the mechanism" as different questions — which is the whole reason this
+output is filed as leads.
+
+**Absence is a result.** The Siderius worked example is a negative one,
 and deliberately so. The `mtor_targeting` hypothesis (status `EMERGING`) rests
 on a single Phf8-knockout mouse study in which rapamycin reversed the
 phenotype. Translator returns just two weak routes from sirolimus to the
