@@ -82,7 +82,7 @@ from dismech.yaml_io import safe_load
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DISORDERS_DIR = os.path.join(ROOT, "kb", "disorders")
 GROUPINGS_DIR = os.path.join(ROOT, "kb", "groupings")
-MONDO_URL = "http://purl.obolibrary.org/obo/mondo.obo"
+MONDO_URL = "https://purl.obolibrary.org/obo/mondo.obo"
 
 HEREDITARY = "MONDO:0003847"
 INFECTIOUS = "MONDO:0005550"
@@ -108,6 +108,7 @@ ACQUIRED_PATTERNS = [
     r"\bradiation\b", r"\btraumatic\b", r"\bpost-?(?:infectious|traumatic|operative|surgical)\b",
     r"\bsecondary\b", r"\balcoholic\b", r"\btoxic\b", r"\biatrogenic\b",
     r"\binfectious\b", r"\bviral\b", r"\bbacterial\b", r"\bparasitic\b",
+    r"\bdiabet(?:ic|es)\b",
 ]
 ACQUIRED_RE = re.compile("|".join(ACQUIRED_PATTERNS), re.IGNORECASE)
 SUSCEPTIBILITY_RE = re.compile(r"susceptib|predispos", re.IGNORECASE)
@@ -215,7 +216,17 @@ class Mondo:
         return seen
 
     def tier(self, term: str) -> str:
-        """Assign one heterogeneity tier to a descendant class."""
+        """Assign ONE heterogeneity tier to a descendant class.
+
+        Precedence is deliberate and load-bearing, not incidental: infectious first (an
+        infectious disease is never a genetic one, whatever else it carries), then
+        SUSCEPTIBILITY **before** MENDELIAN, so that an OMIM ``{braces}`` risk locus which
+        MONDO has nonetheless given a gene relation still counts as a risk locus rather than
+        as a Mendelian disease -- the whole distinction this audit turns on. Gene-defined
+        classes are therefore MENDELIAN only if they are not declared susceptibility
+        classes, and the label-based ACQUIRED test runs last so that a gene-defined disease
+        whose label happens to contain e.g. "diabetic" is not miscounted as acquired.
+        """
         label = self.label.get(term, "")
         if term in self.infectious_agent or INFECTIOUS in self.ancestors(term):
             return "INFECTIOUS"
@@ -301,13 +312,15 @@ def dismech_anchors() -> tuple[dict[str, set[str]], dict[str, set[str]], dict[st
                 yield from mondo_ids_in(v)
 
     for path in sorted(glob.glob(os.path.join(DISORDERS_DIR, "*.yaml"))):
-        doc = safe_load(open(path, encoding="utf-8")) or {}
+        with open(path, encoding="utf-8") as fh:
+            doc = safe_load(fh) or {}
         name = doc.get("name") or os.path.basename(path)[:-5]
         for block in (doc.get("disease_term"), doc.get("mappings"), doc.get("has_subtypes")):
             for mid in mondo_ids_in(block):
                 disorders[mid].add(name)
     for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
-        doc = safe_load(open(path, encoding="utf-8")) or {}
+        with open(path, encoding="utf-8") as fh:
+            doc = safe_load(fh) or {}
         name = doc.get("name") or os.path.basename(path)[:-5]
         for mid in mondo_ids_in(doc.get("mappings")):
             groupings[mid].add(name)
@@ -410,7 +423,7 @@ def ensure_obo(path: str | None) -> str:
     if path and os.path.exists(path):
         return path
     dest = path or os.path.join(ROOT, ".cache", "mondo.obo")
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
     if not os.path.exists(dest):
         sys.stderr.write(f"downloading {MONDO_URL} -> {dest}\n")
         urllib.request.urlretrieve(MONDO_URL, dest)

@@ -72,8 +72,9 @@ $ uv run python scripts/omimps_grouping_audit.py --detail MONDO:0005130
 PS212750's 15 rows are all `{Celiac disease, susceptibility to, N}` — brace-annotated
 susceptibility entries, not diseases. Only three rows carry phenotype mapping key 3
 (molecular basis known): the two 6p21.32 rows, `HLA-DQA1` and `HLA-DQB1`, and CELIAC4 at
-19p13.1. The remaining twelve are key 2 — a linkage/association interval with no gene
-(CELIAC2, 3, 5–13). Several are recognisable as GWAS regions rather than loci in the Mendelian
+19p13.1. The remaining twelve are key 2 — a linkage/association interval with no gene:
+the eleven anonymous celiac loci (CELIAC2, 3, 5–13) plus the co-mapped 4q27
+`{Autoimmune disease, susceptibility to, 5}` row. Several are recognisable as GWAS regions rather than loci in the Mendelian
 sense; CELIAC6 at 4q27, for instance, is the IL2/IL21 region.
 
 Three consequences:
@@ -138,11 +139,17 @@ The audit's "contradicted today" column counts descendants already provably non-
 reads low (7 across all 42) because MONDO models acquired forms of these entities sparsely,
 not because the entities lack them. Two illustrations from the same release:
 
-- **Diabetic cataract** (`MONDO:0001687`) *is* a child of cataract, so it inherits the
-  hereditary claim today — the audit did not count it because the label carries no
-  "senile"/"acquired" marker.
+- **Diabetic cataract** (`MONDO:0001687`) and **diabetes-mellitus-type-2-associated
+  cataract** (`MONDO:0005408`) are children of cataract, so they inherit the hereditary
+  claim today. The Mondo audit's "contradicted" column did not count them because their
+  labels carry no "senile"/"acquired" marker; this audit initially missed them for the same
+  reason, and counts them only because the `ACQUIRED` label list was extended with
+  `diabet(ic|es)` after review. That is the shape of the whole problem: the count moves with
+  the vocabulary you happen to have enumerated.
 - **Drug-induced lupus erythematosus** (`MONDO:0016474`) escapes only by an accident of
   placement: it is a *sibling* of SLE under `lupus erythematosus`, not a child.
+- **Tetanic cataract** (`MONDO:0001811`, hypocalcaemic) is still uncounted here — an acquired
+  form whose label names neither an agent nor an age.
 
 Neither MONDO nor this audit models secondary craniosynostosis, acquired hypogonadotropic
 hypogonadism, secondary parkinsonism, or acquired bronchiectasis at all — every one a real,
@@ -160,7 +167,8 @@ axis label as "no acquired form *in MONDO*", not "no acquired form".
 | `MENDELIAN_SERIES` | 22 | Germline gene-defined diseases; no acquired form in MONDO | **grouping** is well-formed, if dismech has ≥3 member entries |
 
 Heterogeneity axes across all 42: `M+R` 24, `R` only 8, `M` only 6, `M+R+A` 3, `M+A` 1. So
-**36 of 42 mix at least two member kinds**, and only 6 are a clean Mendelian series. The
+**28 of 42 (67%) mix at least two member kinds**, and only 6 are a clean Mendelian series
+(a further 8 are pure risk-locus series with no Mendelian member at all). The
 dominant mixture is not genetic-plus-acquired — it is **genetic-plus-risk-locus**, the OMIM
 series bundling `{susceptibility}` entries with gene-defined Mendelian diseases under one PS
 number. That is the heterogeneity that actually bites, and it is invisible in the `inherited`
@@ -173,11 +181,11 @@ flag because both kinds of member are "genetic" in a loose sense.
 
 | Series kind | n | % |
 |---|---:|---:|
-| MENDELIAN_SERIES | 461 | 76% |
+| MENDELIAN_SERIES | 457 | 75% |
 | LOCUS_SERIES | 49 | 8% |
 | SUSCEPTIBILITY_SERIES | 31 | 5% |
 | SPARSE | 62 | 10% |
-| MIXED_GENETIC_ACQUIRED | 5 | 1% |
+| MIXED_GENETIC_ACQUIRED | 9 | 1% |
 
 So the OMIMPS pattern is right three times out of four, and the risk-locus problem is a
 **13% tail (80 classes)** rather than a systematic failure — but that tail is heavily
@@ -209,14 +217,14 @@ acquired (infectious + acquired + somatic) member counts.
 | preeclampsia `MONDO:0005081` | PS189800 | LOCUS_SERIES | 2 / 3 / 0 | M+R | 0 | SINGLE_DISEASE |
 | multinodular goiter `MONDO:0000334` | PS138800 | LOCUS_SERIES | 0 / 3 / 0 | R | 0 | SINGLE_DISEASE |
 | immunodeficiency disease `MONDO:0021094` | PS300755 | MIXED_GENETIC_ACQUIRED | 182 / 56 / 1 | M+R+A | 16 | GROUPING_CANDIDATE |
-| cataract `MONDO:0005129` | PS116200 | MIXED_GENETIC_ACQUIRED | 35 / 15 / 3 | M+R+A | 0 | NO_DISMECH_BASIS |
+| cataract `MONDO:0005129` | PS116200 | MIXED_GENETIC_ACQUIRED | 35 / 15 / 5 | M+R+A | 0 | NO_DISMECH_BASIS |
 | central precocious puberty `MONDO:0019165` | PS176400 | MIXED_GENETIC_ACQUIRED | 2 / 0 / 3 | M+A | 0 | NO_DISMECH_BASIS |
 | spermatogenic failure `MONDO:0004983` | PS258150 | MENDELIAN_SERIES | 106 / 7 / 0 | M+R | 0 | NO_DISMECH_BASIS |
 | craniosynostosis `MONDO:0015469` | PS123100 | MENDELIAN_SERIES | 34 / 27 / 0 | M+R | 6 | COVERED_BY_GROUPING |
-| hypogonadotropic hypogonadism `MONDO:0018555` | PS147950 | MENDELIAN_SERIES | 56 / 7 / 0 | M+R | 6 | GROUPING_CANDIDATE |
+| hypogonadotropic hypogonadism `MONDO:0018555` | PS147950 | MENDELIAN_SERIES | 56 / 7 / 0 | M+R | 6 | GROUPING_EXISTS |
 | arthrogryposis multiplex congenita `MONDO:0015168` | PS617468 | MENDELIAN_SERIES | 26 / 5 / 0 | M+R | 3 | GROUPING_CANDIDATE |
 | Parkinson disease `MONDO:0005180` | PS168600 | MENDELIAN_SERIES | 14 / 12 / 0 | M+R | 3 | GROUPING_CANDIDATE |
-| holoprosencephaly `MONDO:0016296` | PS236100 | MENDELIAN_SERIES | 11 / 5 / 0 | M+R | 3 | GROUPING_CANDIDATE |
+| holoprosencephaly `MONDO:0016296` | PS236100 | MENDELIAN_SERIES | 11 / 5 / 0 | M+R | 3 | GROUPING_EXISTS |
 | lymphoproliferative syndrome `MONDO:0016537` | PS308240 | MENDELIAN_SERIES | 11 / 2 / 0 | M+R | 3 | COVERED_BY_GROUPING |
 | hypotrichosis `MONDO:0003037` | PS605389 | MENDELIAN_SERIES | 13 / 4 / 0 | M+R | 1 | GROUPING_DEFERRED |
 | visceral heterotaxy `MONDO:0018677` | PS306955 | MENDELIAN_SERIES | 14 / 3 / 0 | M+R | 0 | NO_DISMECH_BASIS |
