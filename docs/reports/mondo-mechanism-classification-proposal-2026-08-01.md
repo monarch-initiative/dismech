@@ -186,15 +186,21 @@ NTR, and MONDO should pick one explicitly:
 2. **Keep the "intoxication-type" label** and drop the FAO/ketogenesis members
    plus TANGO2, aligning the class strictly with Saudubray group 1.
 
-The same choice applies to the dismech grouping
-`kb/groupings/Intoxication-Type_Inborn_Errors_of_Metabolism.yaml`, which currently
-takes option 1's membership under option 2's name and should be reconciled.
+The dismech grouping `kb/groupings/Intoxication-Type_Inborn_Errors_of_Metabolism.yaml`
+(added in this PR) has **already adopted option 1**: its `display_name` reads
+"(Acute Metabolic Decompensation)" rather than claiming Saudubray group 1
+equivalence, and its `grouping_rationale` names the three members
+(`MONDO:0015515` CPT II, `MONDO:0011614` HMG-CoA synthase, `MONDO:0018820` TANGO2)
+that would have to be reconsidered if option 2 is ever preferred instead. The
+MONDO label proposed above should be decided the same way.
 
 **dismech provenance.** `kb/modules/metabolic_intoxication_decompensation.yaml` —
 node chain: Enzymatic Block in Intermediary Metabolism → Toxic Metabolite
 Accumulation and Energy Deficit → Acute Metabolic Decompensation → Acute Metabolic
 Encephalopathy → Neurological Injury and Multiorgan Crisis. **19 conforming
-disorder entries** — the largest non-excluded module in the KB.
+disorder entries** — the largest non-excluded module in the KB. Backing dismech
+grouping: `Intoxication-Type_Inborn_Errors_of_Metabolism` (added in this PR;
+19 members, `NECESSARY`, `skos:broadMatch` → `MONDO:0019052`).
 
 **Candidate MONDO members (19).**
 `MONDO:0009520` 3-hydroxy-3-methylglutaric aciduria ·
@@ -424,7 +430,9 @@ leaves *ASPM*-type primary microcephaly with no mechanistic home.
 Mitotic Spindle Perturbation → Abnormal Progenitor Division and Fate Choice →
 Progenitor Pool Distortion → Abnormal Cortical Neuron Output and Gyration, with
 programmed-cell-death and viral-cytopathy branches. **8 conforming disorder
-entries.** Related dismech groupings: `Primary_Microcephaly_Spectrum`,
+entries.** Backing dismech grouping: `Centrosomopathies` (added in this PR;
+8 members, `NECESSARY`, no MONDO mapping because no equivalent term exists).
+Related but phenotype-scoped groupings: `Primary_Microcephaly_Spectrum`,
 `Lissencephaly_and_Neuronal_Migration_Disorders`.
 
 **Candidate MONDO members (5 mapped of 8 dismech conformers).**
@@ -493,13 +501,22 @@ which would become a child.
 
 ---
 
-### 3.7 Hedgehog pathway signaling disease
+### 3.7 Hedgehog pathway activation disease
 
-- **Proposed label:** `Hedgehog pathway signaling disease`
-- **Synonyms:** Hedgehog-driven neoplasm; disorder of smoothened signaling pathway; Hedgehog pathway activation disease
+- **Proposed label:** `Hedgehog pathway activation disease`
+- **Synonyms:** Hedgehog-driven neoplasm; disorder of constitutive smoothened signaling; Hedgehog pathway signaling disease
 - **Proposed parents:** `MONDO:7770011 disease by molecular mechanism`
 - **Logical definition:** `MONDO:0000001 and (RO:0004021 some GO:0007224)`
   — *`GO:0007224 smoothened signaling pathway`* ✅ verified.
+  Per §1's necessary-condition caveat, this axiom is **direction-agnostic** and so
+  does not by itself exclude the loss-of-signaling disorders
+  (`Greig_Cephalopolysyndactyly`, `Pallister-Hall_Syndrome`, the
+  `Holoprosencephaly_9/12` entries, `Smith-Lemli-Opitz_syndrome`); the activation
+  direction is asserted textually. If MONDO prefers the direction encoded in the
+  axiom, `GO:0045879 negative regulation of smoothened signaling pathway` — already
+  used by the dismech module — is the better anchor. The label is deliberately
+  narrowed to `activation` to match the backing dismech grouping
+  `Hedgehog_Pathway_Activation_Disorders`, which scopes loss-of-signaling out.
 
 **Definition.** A disease caused by ligand-independent constitutive activation of
 the Hedgehog signaling pathway, arising either from loss of function of a negative
@@ -520,7 +537,13 @@ disease.
 **dismech provenance.** `kb/modules/hedgehog_pathway_activation.yaml` — Loss of
 Hedgehog Pathway Negative Regulation → Constitutive Smoothened Activity →
 Constitutive GLI Transcriptional Output → Hedgehog-Driven Proliferation and
-Tumorigenesis. **5 conforming disorder entries.**
+Tumorigenesis. **5 conforming disorder entries.** Backing dismech grouping:
+`Hedgehog_Pathway_Activation_Disorders` (added in this PR; 5 members,
+`NECESSARY_AND_SUFFICIENT` — the only N&S class of the four, since the defining
+lesion is a discrete molecular state — no MONDO mapping because no equivalent term
+exists). Note the 5 members are 3 disease-level entities: `Gorlin Syndrome` plus
+its own `PTCH1-` and `SUFU-related` molecular subdivisions, which the grouping's
+own member `notes` concede are not independent diseases.
 
 **Candidate MONDO members (5).**
 `MONDO:0007187` nevoid basal cell carcinoma syndrome (Gorlin) · `MONDO:0958174`
@@ -624,7 +647,12 @@ class, and dismech should follow suit.
 
 **dismech provenance.** `kb/modules/disabled_macroautophagy.yaml` — Autophagy
 Machinery Decline → Failure of Cytoplasmic Quality Control → Accumulated Cellular
-Damage and Age-Related Disease. **5 conforming disorder entries.**
+Damage and Age-Related Disease. **5 conforming disorder entries.** Backing dismech
+grouping: `Macroautophagy_Deficiency_Disorders` (added in this PR; 5 members,
+`NECESSARY`, `skos:broadMatch` → `MONDO:0021179`, explicitly provisional pending
+the scoping decision in the caveat above). Note the 5 members are 4 distinct
+diseases — the VCP-MSP / IBMPFD pair is flagged in-file as substantially
+overlapping — and only 2 carry no partial-mechanism caveat.
 
 **Candidate MONDO members (5 in dismech).**
 `MONDO:0008178` / `MONDO:0000507` inclusion body myopathy with Paget disease of
@@ -712,7 +740,7 @@ synonyms, and definition text — despite MONDO carrying 25+ Bardet-Biedl and
 | 4 | synaptic vesicle cycle disorder | `RO:0004021 some GO:0099504` | `MONDO:0021017 synaptopathy` | `synaptic_vesicle_cycle` | 9 | 0 / 0 / 0 |
 | 5 | centrosomopathy | `RO:0004021 some GO:0007098` | `MONDO:7770011` + hereditary disease | `neural_progenitor_centrosome_spindle_dysfunction` | 8 | 0 / 0 / 0 |
 | 6 | meiotic recombination failure disorder | `RO:0004021 some GO:0007131` | `MONDO:7770011` + reproductive | `meiotic_prophase_failure` | 7 | 0 / 0 / 0 |
-| 7 | Hedgehog pathway signaling disease | `RO:0004021 some GO:0007224` | `MONDO:7770011` | `hedgehog_pathway_activation` | 5 | 0 / 0 / 0 |
+| 7 | Hedgehog pathway activation disease | `RO:0004021 some GO:0007224` | `MONDO:7770011` | `hedgehog_pathway_activation` | 5 | 0 / 0 / 0 |
 | 8 | polyglutamine expansion disease | *textual* (proteostasis-deficiencies style; synucleinopathy/TDP-43 sibling precedent) | `MONDO:0021179` | `polyglutamine_expansion_proteotoxicity` | 4 (+grouping) | 0 / 0 / 0 |
 | 9 | macroautophagy deficiency disorder | `RO:0004021 some GO:0016236` | `MONDO:0021179` | `disabled_macroautophagy` | 5 | 0 / 0 / 0 |
 | 10 | BBSome-opathy | complex-scoped; GO process term needed | `MONDO:0005308 ciliopathy` | `bbsome_trafficking` | 3 (+grouping) | 0 / 0 / 0 |
@@ -834,24 +862,30 @@ uv run runoak -i sqlite:obo:go info GO:0086001
 1. **Review and prune.** Ten is the requested count, not a claim that all ten are
    equally ready. #1–#7 are the strong set. #9 needs the scope decision described
    in its caveat; #10 may need a paired GO process request.
-2. **Mint dismech `kb/groupings/` entries for the four proposals that lack one** —
-   #1 intoxication-type IEM, #5 centrosomopathy, #7 Hedgehog pathway signaling
-   disease, #9 macroautophagy deficiency — with `membership_criteria` + `logic`
+2. ~~**Mint dismech `kb/groupings/` entries for the four proposals that lack one.**~~
+   **Done in this PR.** All ten proposals now have a dismech grouping backing them,
    so membership is machine-auditable via `just check-groupings` before anything
-   goes upstream. The other six already have a dismech grouping backing them:
+   goes upstream:
 
-   | Proposal | Existing dismech grouping |
-   |---|---|
-   | #2 cardiac channelopathy | `Inherited_Arrhythmia_Syndromes` (N&S criteria) |
-   | #3 FGFR-opathy | `FGFR_Related_Skeletal_Dysplasias` |
-   | #4 synaptic vesicle cycle disorder | `Synaptic_Vesicle_Cycle_Disorders` |
-   | #6 meiotic recombination failure | `Meiotic_Gametogenic_Failure` |
-   | #8 polyglutamine expansion disease | `Polyglutamine_Disorders` |
-   | #10 BBSome-opathy | `BBSome-opathies` (already records the MONDO gap) |
+   | Proposal | Backing dismech grouping | Status |
+   |---|---|---|
+   | #1 intoxication-type IEM | `Intoxication-Type_Inborn_Errors_of_Metabolism` (19 members, NECESSARY) | **added here** |
+   | #2 cardiac channelopathy | `Inherited_Arrhythmia_Syndromes` (N&S criteria) | pre-existing |
+   | #3 FGFR-opathy | `FGFR_Related_Skeletal_Dysplasias` | pre-existing |
+   | #4 synaptic vesicle cycle disorder | `Synaptic_Vesicle_Cycle_Disorders` | pre-existing |
+   | #5 centrosomopathy | `Centrosomopathies` (8 members, NECESSARY) | **added here** |
+   | #6 meiotic recombination failure | `Meiotic_Gametogenic_Failure` | pre-existing |
+   | #7 Hedgehog pathway activation disease | `Hedgehog_Pathway_Activation_Disorders` (5 members, N&S) | **added here** |
+   | #8 polyglutamine expansion disease | `Polyglutamine_Disorders` | pre-existing |
+   | #9 macroautophagy deficiency | `Macroautophagy_Deficiency_Disorders` (5 members, NECESSARY) | **added here** |
+   | #10 BBSome-opathy | `BBSome-opathies` (already records the MONDO gap) | pre-existing |
 
    Note #5's nearest existing groupings — `Primary_Microcephaly_Spectrum` and
    `Lissencephaly_and_Neuronal_Migration_Disorders` — are phenotype-scoped, not
-   centrosome-scoped, so a new grouping is genuinely needed rather than an edit.
+   centrosome-scoped, which is why `Centrosomopathies` was minted as a new grouping
+   rather than an edit to either. The four new groupings audit clean
+   (37/37 members SATISFIED, zero violations, no unlisted candidates on the one
+   N&S class).
 3. **File MONDO new-term requests** one per node, each carrying: label, synonyms,
    textual definition, the `RO:0004021` logical definition with its verified GO
    term, proposed parentage, and the candidate member list from §3.
