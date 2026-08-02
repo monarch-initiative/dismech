@@ -449,10 +449,15 @@ Worth preserving as curation patterns:
    > ```
    >
    > Validating a single file can therefore leave *thousands* of unrelated cache files
-   > modified — 3,073 in one run during this review. Pairing that with `git add -A` would
-   > commit all of them, which is exactly what CLAUDE.md's targeted-`git add` rule exists
-   > to prevent. Stage your edited YAML (and only the caches you deliberately re-fetched),
-   > then `git checkout -- references_cache/` to discard the rest.
+   > modified — observed runs during this review and its code review ranged from ~3,000 to
+   > ~7,800, the count depending on how much of the cache was already quoted when the
+   > recipe ran. Pairing that with `git add -A` would commit all of them, which is exactly
+   > what CLAUDE.md's targeted-`git add` rule exists to prevent.
+   >
+   > Recovery, **in this order**: stage your edited YAML (and only the caches you
+   > deliberately re-fetched) *first*, then `git checkout -- references_cache/` to discard
+   > the rest. The order is load-bearing — `git checkout -- <path>` restores from the
+   > index, not `HEAD`, so staging first is what protects your deliberate re-fetches.
 7. Replace the genuinely wrong citations in findings 8–9 (PMID:33533174, PMID:32361678,
    PMID:24707174)
 8. NSCLC / Asthma / COPD — backfill `evidence_source` (367 items)
