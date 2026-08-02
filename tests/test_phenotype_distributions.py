@@ -930,11 +930,10 @@ def test_lint_warns_when_a_component_belongs_to_no_arm(
         for arm in data["cohorts"][0]["arms"]:
             if arm["arm_name"] == "eds":
                 arm["associated_components"] = ["80"]
-            # The background arm is the declared catch-all; without dropping the
-            # flag it legitimately covers the components dropped above.
-            arm.pop("backs_remaining_components", None)
+            # The background arm's 0-79 range never covered 91/93/96, so no
+            # further mutation is needed to make them unclaimed.
 
-    assert "not listed by any cohort arm" in _warning_messages(
+    assert "not listed by any arm of cohort" in _warning_messages(
         _mutate(eds_collection_path, mutate)
     )
 
@@ -1097,7 +1096,7 @@ def test_a_ranged_arm_claim_covers_components_without_enumerating_them(
         data["distributions"].append(record)
 
     # Covered by the background arm's 0-79 range: no complaint.
-    assert "not listed by any cohort arm" not in _warning_messages(
+    assert "not listed by any arm of cohort" not in _warning_messages(
         _mutate(eds_collection_path, add_background_record)
     )
 
@@ -1108,7 +1107,7 @@ def test_a_ranged_arm_claim_covers_components_without_enumerating_them(
             if arm["arm_name"] == "eds":
                 arm["associated_components"].remove("96")
 
-    assert "component '96' is not listed by any cohort arm" in _warning_messages(
+    assert "component '96' is not listed by any arm of cohort" in _warning_messages(
         _mutate(eds_collection_path, drop_a_foreground_component)
     )
 
@@ -1157,3 +1156,85 @@ def test_lint_flags_a_component_claimed_by_two_arms(
     assert "claimed by both arm" in _error_messages(
         _mutate(eds_collection_path, overlap)
     )
+
+
+def _second_cohort(arm_name: str, **arm_extra) -> dict:
+    """A plain second cohort — `cohorts` is multivalued, so this is normal shape."""
+    return {
+        "cohort_id": "SECOND-COHORT",
+        "name": "A second declared cohort",
+        "n_individuals": 10,
+        "arms": [{"arm_name": arm_name, **arm_extra}],
+    }
+
+
+def test_two_cohorts_may_carry_the_same_components(
+    eds_collection_path: Path,
+) -> None:
+    """Arms partition a cohort; sharing components across cohorts is normal.
+
+    Collection-wide overlap accounting turned two populations carrying the same
+    shared block into one error per component — 80 of them — which would block
+    the first legitimate multi-cohort collection.
+    """
+    shared_block = {"associated_component_ranges": [{"range_lower": 0, "range_upper": 79}]}
+
+    def add_distinctly_named(data):
+        data["cohorts"].append(_second_cohort("other-background", **shared_block))
+
+    assert lint_collections([_mutate(eds_collection_path, add_distinctly_named)]).issues == []
+
+    # And the same when the arm reuses a common name: the verdict must come from
+    # the data, not from whether two cohorts happened to pick the same label.
+    def add_same_named(data):
+        data["cohorts"].append(_second_cohort("background", **shared_block))
+
+    assert lint_collections([_mutate(eds_collection_path, add_same_named)]).issues == []
+
+
+def test_an_unrelated_cohorts_arm_does_not_satisfy_a_records_component(
+    eds_collection_path: Path,
+) -> None:
+    """The reverse check resolves against the record's own cohort.
+
+    Merging claims collection-wide let a second cohort's arm cover a component
+    for a record belonging to the first — the mis-attributed denominator the
+    arms exist to catch, reached through an extra cohort instead of a flag.
+    """
+
+    def mutate(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "eds":
+                arm["associated_components"].remove("96")
+        data["cohorts"].append(
+            _second_cohort("unrelated", associated_components=["96"])
+        )
+
+    warnings = _warning_messages(_mutate(eds_collection_path, mutate))
+    assert "component '96' is not listed by any arm of cohort" in warnings
+    assert "CHARMPHENO-POPULATION-EDS" in warnings
+
+
+def test_intra_cohort_overlap_is_reported_once_per_arm_pair(
+    eds_collection_path: Path,
+) -> None:
+    """A real overlap still errors, names its cohort, and does not flood.
+
+    Eighty overlapping components are one mistake, not eighty; the range path
+    already learned this and the overlap path has to as well, or the one real
+    finding drowns.
+    """
+
+    def wide_overlap(data):
+        for arm in data["cohorts"][0]["arms"]:
+            if arm["arm_name"] == "eds":
+                arm["associated_component_ranges"] = [
+                    {"range_lower": 0, "range_upper": 79}
+                ]
+
+    errors = lint_collections([_mutate(eds_collection_path, wide_overlap)]).errors
+    assert len(errors) == 1, [e.message for e in errors]
+    message = errors[0].message
+    assert "in cohort 'CHARMPHENO-POPULATION-EDS'" in message
+    assert "+75 more" in message
+    assert "arm 'eds'" in message and "arm 'background'" in message

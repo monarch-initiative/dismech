@@ -877,20 +877,32 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
             )
         )
 
-    every_cohort = list(coll.data.get("cohorts") or [])
+    # Arms partition a cohort, so every arm/component structure below is keyed
+    # by cohort. Collection-wide accumulators were wrong three ways at once: two
+    # cohorts legitimately carrying the same shared block produced one error per
+    # component, two same-named arms in different cohorts collapsed into one and
+    # went silent, and an unrelated cohort's arm satisfied the reverse check for
+    # a record belonging to a different cohort — reintroducing the very
+    # mis-attributed denominator the arms exist to catch.
+    keyed_cohorts: list[tuple[str, dict[str, Any]]] = []
+    for cohort in coll.data.get("cohorts") or []:
+        keyed_cohorts.append((_cohort_key(cohort), cohort))
+    training_key: str | None = None
     if model.get("training_cohort"):
-        every_cohort.append(model["training_cohort"])
+        training_key = _cohort_key(model["training_cohort"])
+        keyed_cohorts.append((training_key, model["training_cohort"]))
+    elif model.get("training_cohort_ref"):
+        training_key = str(model["training_cohort_ref"])
     for rec in coll.records:
         if rec.get("cohort"):
-            every_cohort.append(rec["cohort"])
+            keyed_cohorts.append((_cohort_key(rec["cohort"]), rec["cohort"]))
 
-    claimed_components: set[str] = set()
-    any_arm_claims_components = False
-    claimed_by: dict[str, str] = {}
+    claims_by_cohort: dict[str, set[str]] = {}
     n_components = model.get("n_components")
 
-    for cohort in every_cohort:
+    for key, cohort in keyed_cohorts:
         arm_names: set[str] = set()
+        claimed_by: dict[str, str] = {}
         for arm in cohort.get("arms") or []:
             name = arm.get("arm_name")
             if name and str(name) in arm_names:
@@ -909,26 +921,31 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                     coll, arm, name, n_components
                 )
                 out.extend(claim_issues)
-                if claimed:
-                    any_arm_claims_components = True
-                # Two arms claiming one component is two denominators for one
-                # number, which is the ambiguity the arm block exists to remove.
+                # Two arms of ONE cohort claiming one component is two
+                # denominators for one number. Across cohorts it is normal:
+                # different populations carry the same shared components.
+                overlaps: dict[str, list[str]] = {}
                 for cid in claimed:
                     other = claimed_by.get(cid)
                     if other is not None and other != str(name):
-                        out.append(
-                            Issue(
-                                coll.path,
-                                "",
-                                "ERROR",
-                                f"component {cid!r} is claimed by both arm "
-                                f"{other!r} and arm {name!r}; a component backed "
-                                "by two sub-populations has no single denominator",
-                            )
-                        )
+                        overlaps.setdefault(other, []).append(cid)
                     else:
                         claimed_by[cid] = str(name)
-                claimed_components.update(claimed)
+                for other, cids in sorted(overlaps.items()):
+                    shown = ", ".join(sorted(cids, key=_component_sort_key)[:5])
+                    more = f" (+{len(cids) - 5} more)" if len(cids) > 5 else ""
+                    out.append(
+                        Issue(
+                            coll.path,
+                            "",
+                            "ERROR",
+                            f"in cohort {key!r}, component(s) {shown}{more} are "
+                            f"claimed by both arm {other!r} and arm {name!r}; a "
+                            "component backed by two sub-populations of one "
+                            "cohort has no single denominator",
+                        )
+                    )
+                claims_by_cohort.setdefault(key, set()).update(claimed)
             for step in arm.get("identification_steps") or []:
                 out.extend(_check_identification_step(coll, step, f"arm {name!r}"))
         for step in cohort.get("identification_steps") or []:
@@ -938,12 +955,36 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                 )
             )
 
-    # Once any arm claims components, a component claimed by none has an
-    # unstated denominator — the failure the arm block exists to prevent.
-    if any_arm_claims_components:
-        for rec in coll.records:
-            cid = (rec.get("latent_phenotype") or {}).get("component_id")
-            if cid is not None and str(cid) not in claimed_components:
+    # Once a cohort's arms claim components, a component of a record in that
+    # cohort claimed by none of them has an unstated denominator. Resolved
+    # against the record's OWN cohort, falling back to the fit's training cohort
+    # (components belong to the model, so its arms are what backed them) and
+    # only then to the union.
+    for rec in coll.records:
+        cid = (rec.get("latent_phenotype") or {}).get("component_id")
+        if cid is None:
+            continue
+        for key in _record_cohort_keys(rec, training_key):
+            claims = claims_by_cohort.get(key)
+            if claims:
+                if str(cid) not in claims:
+                    out.append(
+                        Issue(
+                            coll.path,
+                            str(rec.get("record_id", "")),
+                            "WARNING",
+                            f"component {cid!r} is not listed by any arm of "
+                            f"cohort {key!r}, so which sub-population backs it "
+                            "is unstated",
+                        )
+                    )
+                break
+        else:
+            # No cohort in the record's chain declares claiming arms; the union
+            # is the only statement available, and if it too is empty the
+            # collection simply does not use arms.
+            union = set().union(*claims_by_cohort.values()) if claims_by_cohort else set()
+            if union and str(cid) not in union:
                 out.append(
                     Issue(
                         coll.path,
@@ -955,6 +996,30 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                 )
     return out
 
+
+def _cohort_key(cohort: dict[str, Any]) -> str:
+    """Stable identity for a cohort, named or inline."""
+    cid = cohort.get("cohort_id")
+    return str(cid) if cid else f"<inline {cohort.get('name') or 'cohort'}>"
+
+
+def _component_sort_key(cid: str) -> tuple[int, Any]:
+    """Sort numeric component ids numerically, others lexically after them."""
+    return (0, int(cid)) if cid.lstrip("-").isdigit() else (1, cid)
+
+
+def _record_cohort_keys(
+    rec: dict[str, Any], training_key: str | None
+) -> list[str]:
+    """Cohort keys to consult for a record, most specific first."""
+    keys: list[str] = []
+    if rec.get("cohort_ref"):
+        keys.append(str(rec["cohort_ref"]))
+    elif rec.get("cohort"):
+        keys.append(_cohort_key(rec["cohort"]))
+    if training_key and training_key not in keys:
+        keys.append(training_key)
+    return keys
 
 def _arm_component_claims(
     coll: Collection, arm: dict[str, Any], name: Any, n_components: Any
