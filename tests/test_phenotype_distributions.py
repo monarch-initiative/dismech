@@ -38,6 +38,20 @@ EXAMPLES_DIR = REPO_ROOT / "examples" / "phenotype_distributions"
 KB_DIR = REPO_ROOT / "kb" / "phenotype_distributions"
 
 TARGET_CLASS = "PhenotypeDistributionCollection"
+PROFILE_CLASS = "ProfileSet"
+
+
+def _target_class_for(path: Path) -> str:
+    """Which tree root a file validates against, from its payload.
+
+    The two shapes share a directory and an extension, so the target class is
+    read off the file rather than assumed — validating a profile set against the
+    distribution class would report a wall of spurious errors.
+    """
+    import yaml
+
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return PROFILE_CLASS if "profiles" in data else TARGET_CLASS
 
 
 def _example_paths() -> list[Path]:
@@ -62,10 +76,16 @@ def _renderable_collections():
 # ---------------------------------------------------------------------------
 
 
-def test_schema_loads_with_single_tree_root() -> None:
+def test_schema_declares_exactly_the_two_intended_tree_roots() -> None:
+    """Two shapes, and only two.
+
+    A distribution collection and a profile set are different objects sharing
+    one file, one loader, and one citation bridge. Pinning the roots keeps a
+    third from being added without the question being asked out loud.
+    """
     sv = SchemaView(str(SCHEMA_PATH))
-    roots = [name for name, cls in sv.all_classes().items() if cls.tree_root]
-    assert roots == [TARGET_CLASS]
+    roots = {name for name, cls in sv.all_classes().items() if cls.tree_root}
+    assert roots == {TARGET_CLASS, PROFILE_CLASS}
 
 
 def test_evidence_direction_values_match_native_dismech_support_enum() -> None:
@@ -93,70 +113,11 @@ def test_frequency_class_values_match_native_frequency_enum() -> None:
         assert pv.meaning == theirs[name].meaning
 
 
-def test_model_layer_stays_at_the_common_denominator() -> None:
-    """Model-family-specific structure belongs in `model_properties`.
-
-    Latent phenotype model classes and their export shapes change fast. The
-    escape hatch is what keeps a new one recordable without a schema change, so
-    it must exist and the model class must carry it.
-    """
-    sv = SchemaView(str(SCHEMA_PATH))
-    assert "ModelProperty" in sv.all_classes()
-    model_slots = set(sv.class_slots("LatentPhenotypeModel"))
-    # An allowlist, not a denylist: a denylist only catches the family-specific
-    # slot names someone thought of today, and says nothing about the one added
-    # next year. Adding a slot here should require justifying it as common to
-    # every model class.
-    allowed = {
-        "model_name",
-        "model_family",
-        "version",
-        "n_components",
-        "component_count_inferred",
-        "vocabulary_size",
-        "covariate_formula",
-        "inference_method",
-        "hyperparameters",
-        "model_properties",
-        "training_cohort",
-        "training_cohort_ref",
-        "fit_metrics",
-        "contains_patient_data",
-        "artifact_url",
-        "sha256",
-        "software",
-        "description",
-        "notes",
-    }
-    assert model_slots == allowed, (
-        "LatentPhenotypeModel slots changed; family-specific structure belongs "
-        f"in model_properties. Unexpected: {sorted(model_slots - allowed)}"
-    )
-
-    # ModelDomain is the sibling the model layer can also grow sideways through,
-    # so pin it too rather than leaving one door guarded and the other open.
-    domain_slots = set(sv.class_slots("ModelDomain"))
-    allowed_domain = {
-        "domain_name",
-        "vocabulary",
-        "feature_namespace",
-        "feature_namespace_detail",
-        "n_features",
-        "domain_role",
-        "reliability",
-        "description",
-    }
-    assert domain_slots == allowed_domain, (
-        "ModelDomain slots changed; justify any addition as common to every "
-        f"model class. Unexpected: {sorted(domain_slots - allowed_domain)}"
-    )
-
-
 @pytest.mark.parametrize("path", _all_paths(), ids=lambda p: p.name)
 def test_collections_validate_against_schema(path: Path) -> None:
     from linkml.validator import validate_file
 
-    report = validate_file(str(path), str(SCHEMA_PATH), TARGET_CLASS)
+    report = validate_file(str(path), str(SCHEMA_PATH), _target_class_for(path))
     assert not report.results, [r.message for r in report.results]
 
 
@@ -208,7 +169,9 @@ def test_lint_flags_mismatched_evidence_reference(cf_collection_path: Path) -> N
 
 def test_lint_flags_unresolvable_target_entry(cf_collection_path: Path) -> None:
     def mutate(data):
-        data["distributions"][0]["dismech_bindings"][0]["target_entry"] = "No_Such_Disease"
+        data["distributions"][0]["dismech_bindings"][0]["target_entry"] = (
+            "No_Such_Disease"
+        )
 
     assert "does not" in _error_messages(_mutate(cf_collection_path, mutate))
 
@@ -233,38 +196,6 @@ def test_lint_flags_frequency_band_contradicting_point_estimate(
     assert "falls in the VERY_FREQUENT band" in _error_messages(
         _mutate(cf_collection_path, mutate)
     )
-
-
-def test_lint_flags_self_contradictory_identity_attestation(
-    cf_collection_path: Path,
-) -> None:
-    def mutate(data):
-        att = data["cohorts"][0]["identity_attestation"]
-        att["unique_person_count"] = 900
-
-    assert "one row per person" in _error_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_lint_flags_matrix_dimension_mismatch() -> None:
-    path = EXAMPLES_DIR / "charmpheno_population_eds.yaml"
-
-    def mutate(data):
-        for record in data["distributions"]:
-            for param in record["distribution"].get("parameters") or []:
-                if param.get("matrix_value"):
-                    param["matrix_value"]["values"].pop()
-                    return
-
-    assert "entries but lists" in _error_messages(_mutate(path, mutate))
-
-
-def test_lint_flags_latent_mixture_without_a_model() -> None:
-    path = EXAMPLES_DIR / "charmpheno_population_eds.yaml"
-
-    def mutate(data):
-        del data["model"]
-
-    assert "declares no `model`" in _error_messages(_mutate(path, mutate))
 
 
 # ---------------------------------------------------------------------------
@@ -321,24 +252,10 @@ def test_table_cells_never_contain_unescaped_pipes(cf_collection_path: Path) -> 
     coll = Collection(path=coll.path, data=copy.deepcopy(coll.data))
     coll.data["distributions"][0]["measure_description"] = "a | b | c"
     body = render_body(coll, coll.records[0])
-    line = next(ln for ln in body.splitlines() if ln.startswith("| Measure description"))
-    assert line.count("|") - line.count(r"\|") == 3  # two delimiters + separator
-
-
-def test_suppressed_bins_render_distinguishably_from_zero() -> None:
-    """A withheld bin and a reported zero must not look the same in the cache."""
-    path = EXAMPLES_DIR / "charmpheno_population_eds.yaml"
-    coll = load_collection(path)
-    record = next(
-        r for r in coll.records if r["record_id"] == "CHARMPHENO-EDS-T96-THETA-001"
+    line = next(
+        ln for ln in body.splitlines() if ln.startswith("| Measure description")
     )
-    body = render_body(coll, record)
-    bin_rows = [ln for ln in body.splitlines() if ln.startswith("| [0.")]
-    suppressed = [ln for ln in bin_rows if ln.rstrip().endswith("true |")]
-    reported_zero = [ln for ln in bin_rows if "| 0 |" in ln]
-    assert suppressed, bin_rows
-    assert reported_zero, bin_rows
-    assert not set(suppressed) & set(reported_zero)
+    assert line.count("|") - line.count(r"\|") == 3  # two delimiters + separator
 
 
 def test_illustrative_collections_cannot_be_rendered_into_the_cache(
@@ -415,77 +332,6 @@ def _warning_messages(coll: Collection) -> str:
     return " ".join(i.message for i in lint_collections([coll]).warnings)
 
 
-def test_lint_warns_when_a_model_declares_no_domains(eds_collection_path: Path) -> None:
-    """Omitting `domains` entirely must not be quieter than getting it wrong.
-
-    Guarding only the declaring side caught the careful curator and missed the
-    careless one: a collection that declared domains and forgot the enum warned,
-    while one that omitted the block said nothing.
-    """
-
-    def drop(data):
-        data.pop("domains")
-
-    assert "declares no `domains`" in _warning_messages(
-        _mutate(eds_collection_path, drop)
-    )
-
-    def empty(data):
-        data["domains"] = []
-
-    assert "declares no `domains`" in _warning_messages(
-        _mutate(eds_collection_path, empty)
-    )
-
-
-def test_lint_warns_when_a_domain_omits_its_feature_namespace(
-    eds_collection_path: Path,
-) -> None:
-    def mutate(data):
-        for domain in data["domains"]:
-            domain.pop("feature_namespace", None)
-
-    assert "does not declare a `feature_namespace`" in _warning_messages(
-        _mutate(eds_collection_path, mutate)
-    )
-
-
-def test_lint_errors_on_a_feature_referencing_an_undeclared_domain(
-    eds_collection_path: Path,
-) -> None:
-    """`domain_name` is how a feature reaches its namespace; a dangling ref breaks it."""
-
-    def mutate(data):
-        for record in data["distributions"]:
-            for feature in (record.get("latent_phenotype") or {}).get(
-                "top_features"
-            ) or []:
-                feature["domain_name"] = "nonexistent"
-                return
-
-    assert "is not declared in `domains`" in _error_messages(
-        _mutate(eds_collection_path, mutate)
-    )
-
-
-def test_lint_warns_on_an_ambiguous_feature_namespace(
-    eds_collection_path: Path,
-) -> None:
-    """With more than one domain declared, an unlabelled feature has no namespace."""
-
-    def mutate(data):
-        for record in data["distributions"]:
-            for feature in (record.get("latent_phenotype") or {}).get(
-                "top_features"
-            ) or []:
-                feature.pop("domain_name", None)
-                return
-
-    assert "its namespace is ambiguous" in _warning_messages(
-        _mutate(eds_collection_path, mutate)
-    )
-
-
 def test_docs_prefix_list_matches_the_code_exactly() -> None:
     """Pin the docs to the code, in both directions.
 
@@ -513,7 +359,9 @@ def test_docs_prefix_list_matches_the_code_exactly() -> None:
     documented = set(re.findall(r"`([A-Za-z0-9_-]+:)`", bullet))
     coded = set(_VERIFIABLE_PREFIXES)
 
-    assert not (coded - documented), f"docs omit verified prefixes: {sorted(coded - documented)}"
+    assert not (coded - documented), (
+        f"docs omit verified prefixes: {sorted(coded - documented)}"
+    )
     assert not (documented - coded), (
         "docs claim verification for prefixes the code does not check: "
         f"{sorted(documented - coded)}"
@@ -541,97 +389,6 @@ def _committed_text(path: Path) -> str | None:
     return out.stdout.decode("utf-8")
 
 
-def test_prose_domain_role_lists_are_complete() -> None:
-    """Any prose list of `domain_role` values must name all of them.
-
-    This omission has now been made twice from the same source text: `CLAUDE.md`
-    and `docs/phenotype-distributions.md` both listed four of five, dropping
-    `UNDETERMINED`. That is not a tidiness problem. The four survivors are all
-    *assessed* verdicts, so a curator with an unevaluated domain and no
-    `UNDETERMINED` in front of them reaches for `EXCLUDED`, which asserts the
-    domain was assessed and degraded performance — a claim they have no basis
-    for and nothing downstream can tell apart from a real one.
-
-    The check is deliberately wording-agnostic: it finds parenthesised
-    slash-separated backticked runs anywhere in either file and requires any run
-    already naming two or more roles to name them all. Prose can be rewritten
-    freely; it just cannot go back to being partial.
-
-    Be precise about what that enforces, because it is weaker than it sounds for
-    `CLAUDE.md`. The matched group is the whole parenthetical, and that one names
-    `UNDETERMINED` twice — in the slash-list and again in the inline "use
-    `UNDETERMINED` … *not* `EXCLUDED`" contrast. So the enforced property is "the
-    parenthetical names every value somewhere", not "each slash-list is
-    complete": deleting it from the list alone leaves the set intact and the
-    guard green. That is the property worth having. The harm is a curator meeting
-    four assessed verdicts and no way to say "not assessed", and a reader of that
-    parenthetical still meets all five whichever half carries them. Tightening
-    the regex to per-list granularity would buy precision this failure mode does
-    not need, at the cost of brittleness against ordinary rewording — which is
-    the thing this design is trying to avoid.
-    """
-    import re
-
-    roles = set(SchemaView(str(SCHEMA_PATH)).get_enum("DomainRoleEnum").permissible_values)
-
-    def enumerations(text: str) -> list[set[str]]:
-        """Every parenthesised run in `text` that is enumerating `DomainRoleEnum`.
-
-        Two matches qualify a run, not one: `PRIMARY` alone is a plausible word
-        in some unrelated list, but two role values together are not a
-        coincidence.
-        """
-        found = []
-        # Newlines are in the class because both files wrap these lists mid-run.
-        for group in re.findall(r"\(([^()]*`[A-Z_]+`[^()]*)\)", text, flags=re.DOTALL):
-            named = {v for v in re.findall(r"`([A-Z_]+)`", group) if v in roles}
-            if len(named) >= 2:
-                found.append(named)
-        return found
-
-    def assert_complete(where: Path, source: str, text: str) -> list[set[str]]:
-        # `where` is threaded through rather than closed over: this is called
-        # from inside a loop that rebinds `path`, and a late-binding closure is
-        # how a helper like this quietly starts naming the wrong file.
-        found = enumerations(text)
-        for named in found:
-            assert named == roles, (
-                f"{where} ({source}) enumerates domain_role but omits "
-                f"{sorted(roles - named)}; list every value or drop the parenthetical"
-            )
-        return found
-
-    for path in (CLAUDE_MD_PATH, DOCS_PATH):
-        # The working tree is checked so a curator editing prose sees their own
-        # drift before committing it — but only for completeness, never as the
-        # anchor. Anchoring here is what makes "delete the list" a green escape
-        # from "keep the list current", and it would also make the guard hostage
-        # to any tooling that mutates a checkout: an agent harness in this org
-        # blanks this repo's `CLAUDE.md` section, which would fire for a reason
-        # having nothing to do with the docs and invite whoever hit it to weaken
-        # a working guard.
-        assert_complete(
-            path, "working tree", (REPO_ROOT / path).read_text(encoding="utf-8")
-        )
-
-        # Everything that actually gates is asserted against the committed blob:
-        # it is what CI checks out and what readers get, and it is unaffected by
-        # local mutation. Completeness belongs here too, not only on the anchor —
-        # a mutated checkout whose worktree enumerations are empty would
-        # otherwise leave the committed list unchecked, which is exactly the
-        # exposure reading the blob exists to remove.
-        committed = _committed_text(path)
-        if committed is None:  # not a git checkout (sdist, vendored tree)
-            continue
-        assert assert_complete(path, "committed", committed), (
-            f"{path} no longer enumerates domain_role anywhere in the committed "
-            "blob. Either the guidance moved — point this test at its new home "
-            "rather than deleting it — or a list eroded down to a single value, "
-            "which falls under the two-value threshold and so reads here as no "
-            "list at all."
-        )
-
-
 def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
     """Silently treating the wrong file as an empty collection is worse than failing.
 
@@ -640,7 +397,9 @@ def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
     findings, which reads exactly like success.
     """
     not_a_collection = tmp_path / "wrong.yaml"
-    not_a_collection.write_text("id: https://example.org/x\nname: x\n", encoding="utf-8")
+    not_a_collection.write_text(
+        "id: https://example.org/x\nname: x\n", encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="not a phenotype-distribution collection"):
         load_collection(not_a_collection)
 
@@ -691,7 +450,9 @@ def test_lint_rejects_a_quote_not_in_the_cited_reference(
 
     def mutate(data):
         line = data["distributions"][0]["evidence_lines"][1]
-        line["has_evidence_items"][0]["item_value"] = "This sentence is not in the paper."
+        line["has_evidence_items"][0]["item_value"] = (
+            "This sentence is not in the paper."
+        )
 
     assert "not a verbatim substring" in _error_messages(
         _mutate(cf_collection_path, mutate)
@@ -884,15 +645,6 @@ def test_referenced_cohort_renders_the_same_as_an_inline_one(
     assert render_body(inlined, inlined.records[0]) == by_reference
 
 
-def test_lint_flags_model_training_cohort_ref_that_does_not_resolve(
-    eds_collection_path: Path,
-) -> None:
-    def mutate(data):
-        data["model"]["training_cohort_ref"] = "NOPE"
-
-    assert "training_cohort_ref" in _error_messages(_mutate(eds_collection_path, mutate))
-
-
 def test_lint_warns_when_a_mapping_step_omits_its_relation(
     cf_collection_path: Path,
 ) -> None:
@@ -914,27 +666,8 @@ def test_lint_warns_when_an_expansion_step_omits_its_direction(
             if step["step_role"] == "EXPANSION":
                 step.pop("expansion_direction")
 
-    assert "expansion_direction" in _warning_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_lint_warns_when_a_component_belongs_to_no_arm(
-    eds_collection_path: Path,
-) -> None:
-    """A component with no arm has an unstated denominator.
-
-    The gated EDS components are estimated from 959 documents; read against the
-    191,876-document corpus they mean something else entirely.
-    """
-
-    def mutate(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_components"] = ["80"]
-            # The background arm's 0-79 range never covered 91/93/96, so no
-            # further mutation is needed to make them unclaimed.
-
-    assert "not listed by any arm of cohort" in _warning_messages(
-        _mutate(eds_collection_path, mutate)
+    assert "expansion_direction" in _warning_messages(
+        _mutate(cf_collection_path, mutate)
     )
 
 
@@ -997,7 +730,9 @@ def test_discrete_by_family_map_covers_the_enum() -> None:
     warning_text = _warning_messages(
         _mutate(
             EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml",
-            lambda data: data["distributions"][0]["distribution"].update(discrete=False),
+            lambda data: data["distributions"][0]["distribution"].update(
+                discrete=False
+            ),
         )
     )
     sources: list[tuple[str, str]] = [
@@ -1024,140 +759,6 @@ def test_discrete_by_family_map_covers_the_enum() -> None:
         assert not missing, f"{source} omits open-support families: {sorted(missing)}"
 
 
-def test_lint_flags_an_arm_component_outside_the_model_range(
-    eds_collection_path: Path,
-) -> None:
-    """Appending a bogus id, not replacing a real one.
-
-    The reverse check only fires when a *record's* component goes unclaimed, so
-    an arm listing all its real components plus one typo was silent. Bounds are
-    the decidable half: "no record describes this id" is normal (the arm names
-    twenty components, three have records), but an id outside the declared
-    model's range is wrong however few records exist.
-    """
-
-    def append_bogus(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_components"].append("T999-DOES-NOT-EXIST")
-
-    assert "matches no component index" in _error_messages(
-        _mutate(eds_collection_path, append_bogus)
-    )
-
-    def append_out_of_range(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_components"].append("100")
-
-    assert "outside the [0, 100) range" in _error_messages(
-        _mutate(eds_collection_path, append_out_of_range)
-    )
-
-
-def test_arm_components_within_range_but_unreported_are_not_flagged(
-    eds_collection_path: Path,
-) -> None:
-    """The normal case must stay silent, or the check is unusable.
-
-    The EDS arm lists twenty foreground components and the collection reports
-    records for three. Treating the other seventeen as dangling references would
-    fire on correct data.
-    """
-    coll = load_collection(eds_collection_path)
-    reported = {
-        str(r["latent_phenotype"]["component_id"])
-        for r in coll.records
-        if r.get("latent_phenotype")
-    }
-    arm = next(a for a in coll.data["cohorts"][0]["arms"] if a["arm_name"] == "eds")
-    assert len(set(arm["associated_components"]) - reported) > 10
-    assert lint_collections([coll]).issues == []
-
-
-def test_a_ranged_arm_claim_covers_components_without_enumerating_them(
-    eds_collection_path: Path,
-) -> None:
-    """A background arm states `0-79` as a block, not eighty ids — and stays checked.
-
-    The first attempt at this ergonomic was a `backs_remaining_components`
-    boolean, which stood the reverse check down for the entire collection: a
-    foreground component dropped from the `eds` arm then fell to the catch-all
-    silently, attributing 959 people's component to 190,917. A range keeps the
-    convenience and the check, so both halves are asserted here together.
-    """
-
-    def add_background_record(data):
-        record = copy.deepcopy(data["distributions"][2])
-        record["record_id"] = "CHARMPHENO-EDS-T12-CODEPROB-001"
-        record["latent_phenotype"]["component_id"] = "12"
-        record.pop("dismech_bindings", None)
-        record.pop("evidence_lines", None)
-        data["distributions"].append(record)
-
-    # Covered by the background arm's 0-79 range: no complaint.
-    assert "not listed by any arm of cohort" not in _warning_messages(
-        _mutate(eds_collection_path, add_background_record)
-    )
-
-    # And the substitution the range must not hide.
-    def drop_a_foreground_component(data):
-        add_background_record(data)
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_components"].remove("96")
-
-    assert "component '96' is not listed by any arm of cohort" in _warning_messages(
-        _mutate(eds_collection_path, drop_a_foreground_component)
-    )
-
-
-def test_lint_flags_a_component_range_that_leaves_the_model(
-    eds_collection_path: Path,
-) -> None:
-    """A bad range is reported once, as a range.
-
-    Expanding first and validating after buried the actual mistake under a
-    hundred out-of-range ids and twenty spurious overlaps with the arm next
-    door, which is how a lint teaches people to ignore it.
-    """
-
-    def widen(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "background":
-                arm["associated_component_ranges"][0]["range_upper"] = 200
-
-    errors = lint_collections([_mutate(eds_collection_path, widen)]).errors
-    assert len(errors) == 1, [e.message for e in errors]
-    assert "leaves the [0, 100) range" in errors[0].message
-
-    def invert(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "background":
-                arm["associated_component_ranges"][0].update(
-                    range_lower=79, range_upper=0
-                )
-
-    errors = lint_collections([_mutate(eds_collection_path, invert)]).errors
-    assert len(errors) == 1, [e.message for e in errors]
-    assert "lower bound exceeds its upper bound" in errors[0].message
-
-
-def test_lint_flags_a_component_claimed_by_two_arms(
-    eds_collection_path: Path,
-) -> None:
-    """Two arms claiming one component is two denominators for one number."""
-
-    def overlap(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_components"].append("12")
-
-    assert "claimed by both arm" in _error_messages(
-        _mutate(eds_collection_path, overlap)
-    )
-
-
 def _second_cohort(arm_name: str, **arm_extra) -> dict:
     """A plain second cohort — `cohorts` is multivalued, so this is normal shape."""
     return {
@@ -1168,171 +769,150 @@ def _second_cohort(arm_name: str, **arm_extra) -> dict:
     }
 
 
-def test_two_cohorts_may_carry_the_same_components(
-    eds_collection_path: Path,
-) -> None:
-    """Arms partition a cohort; sharing components across cohorts is normal.
 
-    Collection-wide overlap accounting turned two populations carrying the same
-    shared block into one error per component — 80 of them — which would block
-    the first legitimate multi-cohort collection.
+# ---------------------------------------------------------------------------
+# EHR-derived profiles
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def profile_set_path() -> Path:
+    return EXAMPLES_DIR / "charmpheno_population_eds.yaml"
+
+
+def test_profile_set_is_recognised_as_the_other_shape(profile_set_path: Path) -> None:
+    coll = load_collection(profile_set_path)
+    assert coll.is_profile_set
+    assert coll.profiles
+    assert not coll.records
+
+
+def test_profiles_carry_no_model_layer() -> None:
+    """The model layer is gone, and should not come back by accident.
+
+    An earlier draft grew component counts, inference methods, per-domain
+    reliability and cohort arms. That is model evaluation rather than
+    disease-page content, and the fastest-moving part of the pipeline — a
+    curation schema encoding it needs revising every time the models move.
+    Anything model-specific now goes in `profile_source.profile_metadata`.
     """
-    shared_block = {"associated_component_ranges": [{"range_lower": 0, "range_upper": 79}]}
+    sv = SchemaView(str(SCHEMA_PATH))
+    classes = set(sv.all_classes())
+    gone = {
+        "LatentPhenotypeModel",
+        "LatentPhenotype",
+        "WeightedFeature",
+        "ModelProperty",
+        "ModelDomain",
+        "DomainReliability",
+        "ReliabilityReadout",
+        "CohortArm",
+        "ComponentIndexRange",
+        "IdentityAttestation",
+    }
+    assert not (classes & gone), f"model layer reintroduced: {sorted(classes & gone)}"
 
-    def add_distinctly_named(data):
-        data["cohorts"].append(_second_cohort("other-background", **shared_block))
-
-    assert lint_collections([_mutate(eds_collection_path, add_distinctly_named)]).issues == []
-
-    # And the same when the arm reuses a common name: the verdict must come from
-    # the data, not from whether two cohorts happened to pick the same label.
-    def add_same_named(data):
-        data["cohorts"].append(_second_cohort("background", **shared_block))
-
-    assert lint_collections([_mutate(eds_collection_path, add_same_named)]).issues == []
+    slots = set(sv.class_slots("Profile")) | set(sv.class_slots("ProfileSet"))
+    assert "profile_share" in slots
+    # The word the data producer asked this schema to stop using for a weight.
+    for name in slots:
+        assert "prevalence" not in name, f"{name} reintroduces `prevalence`"
 
 
-def test_an_unrelated_cohorts_arm_does_not_satisfy_a_records_component(
-    eds_collection_path: Path,
+def test_codes_are_generic_with_a_declared_vocabulary() -> None:
+    """No OMOP-shaped field names.
+
+    Hard-coding `concept_id`/`concept_name` quietly makes OMOP the only
+    representable case; data may arrive already coded in ICD or LOINC. The
+    lesson that survives is narrower — do not put a source-vocabulary CURIE in a
+    code field — so the code stays opaque and the vocabulary is declared.
+    """
+    sv = SchemaView(str(SCHEMA_PATH))
+    code_slots = set(sv.class_slots("WeightedCode"))
+    assert {"code", "code_label", "code_weight"} <= code_slots
+    assert not {"concept_id", "concept_name"} & code_slots
+
+    dist_slots = set(sv.class_slots("CodeDistribution"))
+    assert "code_vocabulary" in dist_slots
+    assert sv.get_slot("code_vocabulary").range == "CodeVocabularyEnum"
+    assert sv.induced_slot("code_vocabulary", "CodeDistribution").required
+
+
+def test_lint_flags_weights_summing_above_one(profile_set_path: Path) -> None:
+    def mutate(data):
+        data["profiles"][0]["code_distributions"][0]["weighted_codes"][0][
+            "code_weight"
+        ] = 0.99
+
+    assert "above 1.0" in _error_messages(_mutate(profile_set_path, mutate))
+
+
+def test_lint_warns_when_a_short_distribution_is_not_marked_truncated(
+    profile_set_path: Path,
 ) -> None:
-    """The reverse check resolves against the record's own cohort.
+    """A top-N export and a distribution that lost mass look identical.
 
-    Merging claims collection-wide let a second cohort's arm cover a component
-    for a record belonging to the first — the mis-attributed denominator the
-    arms exist to catch, reached through an extra cohort instead of a flag.
+    Only `truncated` tells them apart, so weights that fall short without it
+    should say so rather than be read as a complete distribution.
     """
 
     def mutate(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_components"].remove("96")
-        data["cohorts"].append(
-            _second_cohort("unrelated", associated_components=["96"])
-        )
+        data["profiles"][0]["code_distributions"][0].pop("truncated")
 
-    warnings = _warning_messages(_mutate(eds_collection_path, mutate))
-    assert "component '96' is not listed by any arm of cohort" in warnings
-    assert "CHARMPHENO-POPULATION-EDS" in warnings
-
-
-def test_intra_cohort_overlap_is_reported_once_per_arm_pair(
-    eds_collection_path: Path,
-) -> None:
-    """A real overlap still errors, names its cohort, and does not flood.
-
-    Eighty overlapping components are one mistake, not eighty; the range path
-    already learned this and the overlap path has to as well, or the one real
-    finding drowns.
-    """
-
-    def wide_overlap(data):
-        for arm in data["cohorts"][0]["arms"]:
-            if arm["arm_name"] == "eds":
-                arm["associated_component_ranges"] = [
-                    {"range_lower": 0, "range_upper": 79}
-                ]
-
-    errors = lint_collections([_mutate(eds_collection_path, wide_overlap)]).errors
-    assert len(errors) == 1, [e.message for e in errors]
-    message = errors[0].message
-    assert "in cohort 'CHARMPHENO-POPULATION-EDS'" in message
-    assert "+75 more" in message
-    assert "arm 'eds'" in message and "arm 'background'" in message
-
-
-def test_inline_cohort_identity_does_not_come_from_its_label(
-    eds_collection_path: Path,
-) -> None:
-    """Two inline cohorts are distinct even when nameless or same-named.
-
-    Keying inline cohorts by label repeated, one level up, the bug the
-    cohort-scoped rewrite fixed: whether a component was reported depended on
-    what a curator happened to call the cohort rather than on the data.
-    """
-
-    def two_inline_cohorts(name_a: str | None, name_b: str | None):
-        def mutate(data):
-            data["model"].pop("training_cohort_ref", None)
-            for rec in data["distributions"]:
-                rec.pop("cohort_ref", None)
-            owner = next(
-                r
-                for r in data["distributions"]
-                if (r.get("latent_phenotype") or {}).get("component_id") == "96"
-            )
-            other = next(
-                r
-                for r in data["distributions"]
-                if (r.get("latent_phenotype") or {}).get("component_id") == "91"
-            )
-            # The owner of 96 is in a cohort whose arm does NOT claim 96.
-            owner["cohort"] = {
-                "cohort_id": "OWNER",
-                "n_individuals": 5,
-                "arms": [{"arm_name": "a", "associated_components": ["80"]}],
-            }
-            other["cohort"] = {
-                "cohort_id": "OTHER",
-                "n_individuals": 5,
-                "arms": [{"arm_name": "b", "associated_components": ["96", "91"]}],
-            }
-            for rec, label in ((owner, name_a), (other, name_b)):
-                rec["cohort"].pop("cohort_id")
-                if label:
-                    rec["cohort"]["name"] = label
-
-        return mutate
-
-    # Whatever the labels, the owner's own cohort must decide: it does not claim
-    # 96, so 96 is reported — and the neighbour's claim must not cover it.
-    for labels in ((None, None), ("Clinic subset", "Clinic subset"), ("A", "B")):
-        warnings = _warning_messages(
-            _mutate(eds_collection_path, two_inline_cohorts(*labels))
-        )
-        assert "component '96' is not listed by any arm" in warnings, labels
-
-
-def test_an_inline_cohort_with_arms_must_carry_a_cohort_id(
-    eds_collection_path: Path,
-) -> None:
-    """The documented rule, made real.
-
-    The docs already said an inline cohort that differs from its parent needs
-    its own `cohort_id`; nothing enforced it, and identity decides which
-    components a record is measured against.
-    """
-
-    def mutate(data):
-        data["distributions"][0].pop("cohort_ref", None)
-        data["distributions"][0]["cohort"] = {
-            "name": "Unnamed subset",
-            "n_individuals": 5,
-            "arms": [{"arm_name": "a", "associated_components": ["96"]}],
-        }
-
-    assert "has no `cohort_id`" in _error_messages(_mutate(eds_collection_path, mutate))
-
-
-def test_a_cohort_declaring_no_arms_is_not_measured_against_another(
-    eds_collection_path: Path,
-) -> None:
-    """Saying nothing is not the same as having nothing said about you.
-
-    `claims_by_cohort.get(key)` returned None both for a cohort with no claiming
-    arms and for a key matching no cohort, so a record whose own cohort declared
-    no arms fell through to the union and was judged by an unrelated cohort's.
-    """
-
-    def mutate(data):
-        data["cohorts"][0].pop("arms")
-        data["cohorts"].append(
-            {
-                "cohort_id": "AN-UNRELATED-COHORT",
-                "n_individuals": 9,
-                "arms": [{"arm_name": "x", "associated_components": ["0"]}],
-            }
-        )
-
-    assert "not listed by any" not in _warning_messages(
-        _mutate(eds_collection_path, mutate)
+    assert "not marked `truncated: true`" in _warning_messages(
+        _mutate(profile_set_path, mutate)
     )
+
+
+def test_lint_flags_a_duplicated_code(profile_set_path: Path) -> None:
+    def mutate(data):
+        codes = data["profiles"][0]["code_distributions"][0]["weighted_codes"]
+        codes.append(dict(codes[0]))
+
+    assert "twice" in _error_messages(_mutate(profile_set_path, mutate))
+
+
+def test_lint_flags_a_profile_binding_that_does_not_match(
+    profile_set_path: Path,
+) -> None:
+    def mutate(data):
+        data["profiles"][0]["dismech_bindings"][0]["evidence_reference"] = (
+            "PHENODIST:something-else"
+        )
+
+    assert "does not match this profile" in _error_messages(
+        _mutate(profile_set_path, mutate)
+    )
+
+
+def test_profiles_export_through_the_same_citation_bridge(
+    profile_set_path: Path, tmp_path: Path
+) -> None:
+    """One bridge over both shapes.
+
+    A disease entry cites `PHENODIST:<id>` and quotes a row whether the id names
+    a distribution record or a profile; duplicating that mechanism per shape is
+    what the shared schema exists to avoid.
+    """
+    from dismech.phenotype_distribution import profile_cache_entry
+
+    coll = load_collection(profile_set_path)
+    entry = profile_cache_entry(coll, coll.profiles[1])
+    assert entry.reference_id == "PHENODIST:CHARMPHENO-EDS-DYSAUTONOMIA-001"
+    assert entry.filename() == "PHENODIST_CHARMPHENO-EDS-DYSAUTONOMIA-001.md"
+    # Rows are quotable substrings, the same contract the other shape keeps.
+    row = "| 4159659 | Postural orthostatic tachycardia syndrome | 0.11381 |"
+    assert row in entry.body
+    assert "| Vocabulary | OMOP_CONCEPT_ID |" in entry.body
+
+
+def test_profile_rendering_is_deterministic(profile_set_path: Path) -> None:
+    from dismech.phenotype_distribution import render_profile_body
+
+    coll = load_collection(profile_set_path)
+    first = [render_profile_body(coll, p) for p in coll.profiles]
+    second = [
+        render_profile_body(load_collection(profile_set_path), p)
+        for p in coll.profiles
+    ]
+    assert first == second

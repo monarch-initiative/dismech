@@ -2,9 +2,10 @@
 
 A **phenotype distribution** is the full statistical object behind a number that
 dismech currently records as a single coarse value: the distribution of a
-phenotype, an onset age, a lab value, an event count, or a latent phenotype
-profile, within a defined disease cohort — curated as a separate artifact and
-cited from a disease entry as evidence.
+phenotype, an onset age, a lab value, or an event count within a defined
+disease cohort — curated as a separate artifact and cited from a disease entry
+as evidence. The same file format also carries **EHR-derived phenotype
+profiles**, a smaller and quite different object described below.
 
 Schema: [`src/dismech/schema/phenotype_distribution.yaml`](https://github.com/monarch-initiative/dismech/blob/main/src/dismech/schema/phenotype_distribution.yaml)
 Tooling: `src/dismech/phenotype_distribution.py`
@@ -88,7 +89,7 @@ The lint rejects a band that the record's own point estimate contradicts.
 | Binary occurrence | `BERNOULLI`, `BINOMIAL`, `BETA`, `BETA_BINOMIAL` | phenotype proportion, penetrance |
 | Continuous | `NORMAL`, `LOGNORMAL`, `GAMMA`, `WEIBULL`, `EMPIRICAL`, `NONPARAMETRIC_QUANTILE`, `KAPLAN_MEIER` | onset age, lab value, time to event |
 | Counts and rates | `POISSON`, `NEGATIVE_BINOMIAL`, and zero-inflated forms | exacerbations per year |
-| Compositional | `CATEGORICAL`, `DIRICHLET`, `LOGISTIC_NORMAL`, `MULTIVARIATE_NORMAL` | latent phenotype profile weights |
+| Compositional | `CATEGORICAL`, `DIRICHLET`, `LOGISTIC_NORMAL`, `MULTIVARIATE_NORMAL` | weights over a simplex |
 
 Family alone does not fix the parameterization — gamma shape/rate and
 shape/scale are different numbers — so `parameterization_note` records the
@@ -114,231 +115,110 @@ percentage applies to. Use `measure_type: TIME_TO_EVENT` with
 `family: KAPLAN_MEIER` and populate `time_to_event.curve`, so the estimate stays
 a curve.
 
-## Latent phenotypes
+## EHR-derived phenotype profiles
 
-Model-derived records come from unsupervised phenotype models over structured
-records — the reference implementation being
-[CHARMPheno](https://github.com/oneilsh/CHARMPheno), which fits LDA / HDP /
-structural topic models to OMOP data and exports probabilistic patient profiles.
+The second shape this schema carries, and a much smaller one. A
+`PhenotypeDistributionCollection` records the full statistical object behind a
+literature estimate. A **`ProfileSet`** records something different: what
+co-occurs in a disease cohort, exported from a fitted model, reduced to what a
+disease page can show.
 
-### Design principle: the common denominator, not one model's output
-
-This area iterates fast. Model classes, export shapes, and even which
-diagnostics are trustworthy have all changed repeatedly, with decisions
-explicitly reversed as evidence came in. A curation schema that encoded one
-family's export would need revising every time that family moved, and would
-quietly misrepresent the next one.
-
-So the model layer holds only what LDA, HDP, structural topic models, matrix
-factorizations, mixtures, and their successors all share:
-
-| Common to all model classes | Where it goes |
-|---|---|
-| A component with an identity, label, and ranked weighted features | `LatentPhenotype` + `WeightedFeature` |
-| A distribution of component weight over a population | `DistributionEstimate` (`EMPIRICAL`, `DIRICHLET`, `LOGISTIC_NORMAL`, …) |
-| Optional covariate dependence of component weight | `CovariateEffect` |
-| Per-component quality metrics | `ReliabilityReadout` |
-| How much data actually backed the component | `LatentPhenotype.estimation_scope` (+ `_size`) |
-| Enough provenance to find the fit again | `LatentPhenotypeModel` |
-
-Everything family-specific — block and arm layouts, masking rules, optimization
-schedules, bespoke diagnostics — goes in `model_properties` as name/value pairs,
-or in `notes`:
-
-```yaml
-model:
-  model_properties:
-  - name: gating_variable
-    property_value: source_cohort
-  - name: correlation_reference_component
-    property_value: '0'
+```
+ProfileSet ──has──> Profile ──has──> CodeDistribution ──has──> WeightedCode
+     │                 │                (per domain,            (code + label
+profile_source      disease              with its                + weight
+(provenance)        (MONDO)              vocabulary)             + qualifier?)
 ```
 
-Note where the line falls: the *mechanism* of gating is family-specific and
-belongs here, but the sub-populations it produces and the components each one
-backs are cohort structure, and belong in `cohorts[].arms`.
+```yaml
+profiles:
+- profile_id: CHARMPHENO-EDS-DYSAUTONOMIA-001
+  profile_label: EDS dysautonomia — POTS, syncope, and GI dysmotility
+  disease:
+    disease_name: Ehlers-Danlos Syndrome
+    disease_term: {term_id: MONDO:0020066, term_label: Ehlers-Danlos syndrome}
+  profile_share: 0.00011972462747401996
+  code_distributions:
+  - clinical_domain: CONDITION
+    code_vocabulary: OMOP_CONCEPT_ID
+    truncated: true
+    weighted_codes:
+    - {code: '444070', code_label: Tachycardia, code_weight: 0.15634}
+    - {code: '4159659', code_label: Postural orthostatic tachycardia syndrome, code_weight: 0.11381}
+```
 
-A new export shape should be recordable without a schema change. If it is not,
-the missing thing is probably not a common denominator. A test asserts that
-family-specific structure has not crept back into `LatentPhenotypeModel` as
-first-class slots.
+### Design principle: a disease page, not a model report
 
-A slot earns a place on `LatentPhenotypeModel` only if it clears three bars:
-every model class in scope can answer it, it has a machine-readable type worth
-validating, and independent exporters would otherwise spell it differently. That
-last bar is what keeps `n_components`, `vocabulary_size`, `inference_method` and
-`component_count_inferred` out of `model_properties` — as free name/value pairs
-they would arrive as `K`, `n_topics`, and `num_components`, and no query could
-span two collections. `covariate_formula` is there because every
-`CovariateEffect` coefficient in a collection is relative to it. Anything that
-fails a bar goes in `model_properties`, and the fast path stays optional: a model
-class without a fixed component count simply omits the slot.
+An earlier draft of this schema grew a full model layer — component counts,
+inference methods, hyperparameters, per-domain reliability, cohort arms and the
+denominators attached to them. That was the wrong altitude twice over. Per-domain
+weights, reliability and precision/recall are **model evaluation**, not
+disease-page content; and they are the fastest-moving part of the pipeline, so a
+curation schema encoding them would need revising every time the models moved.
+
+What a page needs is a label, a disease, and weighted codes. Everything else
+lives in `profile_source`, including an open `profile_metadata` key/value map, so
+the model layer can be reshaped freely without touching the profile contract.
+
+The shape follows the proposal from the author of the models that produce this
+data ([CHARMPheno](https://github.com/oneilsh/CHARMPheno)); the design decisions
+below are theirs, and the reasoning is recorded because the alternative was tried
+first and did not survive review.
+
+### One profile, one MONDO term
+
+A profile points at a single MONDO term. Nesting and overlap between cohorts is
+expressed by MONDO's own subclass tree, which dismech already renders, so this
+schema ships **no** cohort, arm, or grouping vocabulary of its own for profiles.
+
+### Codes are opaque; the vocabulary is declared
+
+`code` is a bare identifier — an OMOP concept id, an ICD-10-CM code, a LOINC
+code — and `code_vocabulary` on the enclosing distribution says which system it
+belongs to. Two things drove this:
+
+* **Not a CURIE.** Exposing source-vocabulary CURIEs (SNOMED, RxNorm, LOINC)
+  directly proved brittle in practice. A consumer resolves the code against the
+  declared vocabulary and version, not against a prefix map.
+* **Not OMOP-shaped either.** An earlier draft named the fields `concept_id` and
+  `concept_name`, which quietly made OMOP the only representable case. Data may
+  arrive already coded in something else, so the field names stay generic and the
+  vocabulary is stated.
+
+A profile's codes are **clinical codes, not ontology terms**. A consumer that
+reads them as HPO terms because dismech is HPO-centric would be wrong today for
+every existing profile.
+
+### Multi-domain, kept factored
+
+A profile holds one distribution *per domain* and encodes **no** cross-domain
+combination — no weights, no merged vector. How a condition distribution and a
+drug distribution should be weighed against each other is an open modelling
+question and a rendering choice, and freezing an answer into the contract would
+make the schema wrong as soon as the answer changed.
 
 ### Weights are not prevalences
 
 The topic-model literature calls a component's share of corpus mass its
-"prevalence". This schema never does. In a disease knowledge base `prevalence`
-means a count of patients carrying a label over a stated denominator of patients
-at risk, and dismech has a `prevalence[]` block that means exactly that. A
-component weight is a fraction of fitted model mass over a denominator of
-documents; the two are not convertible, and for a gated rare-disease component
-the weight is mostly a statement about how much corpus the component was given.
-So the slot is `corpus_share`, covariate coefficients act on *component weight*,
-and where the source's own wording is quoted the example says explicitly that
-the word does not carry its usual meaning.
+"prevalence". This schema never does, in either shape. In a disease knowledge
+base `prevalence` means a count of patients carrying a label over a stated
+denominator of patients at risk, and dismech has a `prevalence[]` block that
+means exactly that. A profile's share is a fraction of fitted model mass; the two
+are not convertible, and rendering one beside the other under the same word
+invites a comparison that does not hold. The slots are `profile_share` and
+`code_weight`.
 
-`estimation_scope` is the one place where a mechanism like gating does need to
-leave a trace, because what a consumer needs downstream is not the mechanism but
-its consequence: a component estimated from an arm holding 0.5% of the corpus is
-backed by ~959 documents, not by the 191,876-document corpus.
+`code_weight` is a code's mass *within its own distribution*, which is not the
+frequency of that finding among patients — the confusion worth guarding hardest
+against, because the numbers look like frequencies.
 
-### Compositional distributions
+### Truncation is stated, not inferred
 
-Two families cover what these models emit, and both need vector or matrix
-parameters:
+Almost every display export is a top-N subset, so its weights do not sum to 1.
+`truncated: true` says so. Without it, a top-N export and a distribution that
+lost mass are indistinguishable; the lint warns when weights fall short and the
+flag is absent, and errors when they exceed 1.
 
-* **Dirichlet / categorical** — a concentration or weight vector over
-  components. Store it as a `DistributionParameter` with `vector_value` and
-  `index_labels`.
-* **Logistic-normal** — component weight conditioned on covariates and
-  sampled as `eta ~ Normal(mu, Sigma); theta = softmax(eta)`. Store `mu` as a
-  vector parameter and the correlation matrix as a `MatrixParameter`, naming the
-  pinned `reference_component` and recording `identified` and `support_count`.
-  Unlike a Dirichlet this represents components that co-vary, which is the
-  reason such models exist.
-
-Covariate coefficients go in `covariate_effects` with a mandatory
-`coefficient_scale` — a coefficient on a latent logit scale is not a probability
-difference and cannot be read as one.
-
-### What the distribution is over
-
-The single most important fact about a profile is its **feature namespace** —
-the identifier system its features are drawn from. Declare it per domain
-(`ModelDomain.feature_namespace`).
-
-The lint guards both sides of that link, because declaring a namespace is no use
-if a feature cannot reach it. For a model-derived collection it **warns** when
-the `domains` block is absent or empty, when a domain omits `feature_namespace`,
-and when a feature omits `domain_name` while more than one domain is declared
-(with one domain there is no ambiguity, so it stays silent) — and it **errors**
-when a feature's `domain_name` does not resolve to a declared domain, since that
-reference is simply broken.
-
-Profiles are distributions over **clinical codes, not ontology terms**. Current
-CHARMPheno work is over OMOP concept IDs from harmonized All of Us data.
-Plausible future work is over the source terminologies (ICD, LOINC, RxNorm,
-SNOMED). A mappable MONDO/HP subset is a distant and deliberately lossy option,
-not the default — so a reader who assumes a component's top features are HPO
-terms, because dismech is HPO-centric, is wrong today for every existing
-profile.
-
-Keep this separate from how the *cohort* was identified, which is routinely a
-different vocabulary and rarely a single hop. A recent fit names its target in
-MONDO, crosses to SNOMED CT through exact-synonym mappings, walks the SNOMED
-hierarchy to assemble sub- and super-cohorts, and still emits profiles over OMOP
-concept IDs. `CohortDescriptor.identification_steps` records that as an ordered
-chain rather than one vocabulary name, because every hop is a place the cohort
-can stop meaning what its seed term means:
-
-```yaml
-identification_steps:
-- step_role: SEED
-  identification_vocabulary: MONDO
-  identification_terms: [MONDO:0009061]
-- step_role: MAPPING
-  identification_vocabulary: SNOMED_CT
-  identification_terms: [SNOMEDCT:190905008]
-  mapping_relation: EXACT_MATCH      # a BROAD_MATCH here would widen the cohort
-- step_role: EXPANSION
-  identification_vocabulary: SNOMED_CT
-  expansion_direction: SELF_AND_DESCENDANTS
-```
-
-A cohort identified by one term in one vocabulary is a one-step chain; the point
-of the list is that it does not have to be. Where a fit splits the population
-into arms, `cohorts[].arms` names them and `associated_components` says which
-components each arm backs — or `associated_component_ranges` for a contiguous
-block, since block-structured fits assign components in runs (`0-79` shared,
-`80-99` foreground) and eighty enumerated ids is noise nobody maintains. Ranges
-are inclusive at both ends and expand before every check, so a ranged claim is
-exactly as checked as an enumerated one — the thing that stops a foreground component
-estimated from 0.5% of the corpus being read against the whole-corpus
-denominator.
-
-### Declare a shared cohort once
-
-A cohort used by more than one record goes in the collection-level `cohorts:`
-list and is referenced by `cohort_ref` (`model.training_cohort_ref` for the fit's
-own cohort). Copying the same description onto every record makes the copies look
-like independent assertions a reader then has to diff, and lets them drift.
-Inline `cohort:` is for a population specific to one record — and when that
-population differs from the parent cohort, it needs its own `cohort_id` rather
-than a re-declaration of the parent's with a different denominator. The rendered
-reference-cache body resolves references, so a cited record still shows its
-cohort in full and moving a cohort up does not change any cited text.
-
-### A component is not a disease concept
-
-`LatentPhenotype` separates what the model produced (`top_features`,
-`component_quality`, `corpus_share`) from a curator's judgement about what
-it means (`mapped_phenotype_terms` plus a stated `mapping_basis`). Never import
-a component weight into a phenotype slot without that mapping — and note that
-even with it, a component's code probability is conditional on the component, so
-it still is not the phenotype's frequency in the cohort.
-
-`component_quality` matters here. An `anchor`-quality component largely restates
-the diagnosis code that defined its cohort — in the worked example, one such
-component puts half its mass on the EDS type-3 code itself — so it is close to
-circular as evidence. A `phenotype`-quality component whose top codes form a
-coherent clinical pattern is a different proposition.
-
-### Suppression is not zero
-
-Exported histograms routinely withhold bins whose cell count falls below a
-privacy threshold. `DistributionBin.suppressed` keeps that distinct from a
-reported zero and from an unreported bin — the difference between "the tail is
-small" and "the tail is unknown". In the worked example twelve of fifty bins are
-suppressed, all in the upper tail.
-
-## Reliability and bias
-
-Two blocks exist because an EHR-derived number is only as good as the data
-domain it came from.
-
-`ModelDomain` / `DomainReliability` record, per source domain (conditions,
-drugs, measurements, procedures), what the reliability assessment rests on and
-what it measured. Domains are identified **by name, never by position**, so that
-reordering them cannot silently reassign an assessment to the wrong data.
-
-Read reliability as a caution flag, not a weight. Where domain weighting has
-been tested directly the headroom was small and not recoverable from quantities
-read off the fitted model — structural distinctiveness and token ownership
-underperformed both a fixed baseline and directly learned weights — and no fixed
-combination rule beat the primary domain alone in aggregate, while a secondary
-domain still rescued the individual diseases whose evidence lives in it. That is
-a routing conclusion, which is why `domain_role` (`PRIMARY` / `SPECIALIST` /
-`SUPPORTING` / `EXCLUDED` / `UNDETERMINED`) sits alongside `reliability_score`
-and is the field a consumer should act on. `PRIMARY` versus `SPECIALIST` is the
-distinction the readout work actually produced, and without it two listed
-domains give a consumer no signal that one carries essentially all of it.
-
-List the domains the analysis used. A domain assessed and left out need not
-appear at all — omission is the ordinary way to say a domain is not in play, and
-`EXCLUDED` is for the narrower case where the negative result is worth recording,
-e.g. to stop the next person re-adding a domain already shown to hurt. Reach for
-`UNDETERMINED` when nobody has evaluated the domain; do not read an absent domain
-as `UNDETERMINED`.
-
-`IdentityAttestation` asserts `row_count`, `unique_person_count`, and
-`one_row_per_person` without persisting identifiers. A held-out supervised
-readout is honest only when each analysed row is a distinct person; an
-attestation that is missing, false, or self-contradictory should have the
-readout **rejected**, not discounted. The lint enforces internal consistency.
-
-`bias_risks` is an enum rather than prose so records can be filtered before
-import, and so "nobody checked" is visibly different from "checked and clean".
-The lint warns when a record declares neither `bias_risks` nor `caveats`.
 
 ## Evidence modelling: SEPIO
 
@@ -478,9 +358,10 @@ term check.
 The lint catches what LinkML cannot express: duplicate record ids, an
 `evidence_reference` disagreeing with its record, a `target_entry` that does not
 resolve to a real kb file, a matrix whose value count contradicts its
-dimensions, an interval that fails to bracket its point estimate, a
-self-contradictory identity attestation, and a frequency band the point estimate
-does not support.
+dimensions, an interval that fails to bracket its point estimate, and a
+frequency band the point estimate does not support. On the profile side it
+catches code weights summing above 1, a short distribution that does not declare
+itself `truncated`, and a code listed twice under the same qualifier.
 
 ## The worked examples
 
@@ -497,29 +378,21 @@ already cached and verified in this repository and is scoped to the qualitative
 claim it actually supports — deliberately paired with the quantitative cohort
 line so the two evidence strengths sit side by side.
 
-**`charmpheno_population_eds.yaml`** — the model-derived side, populated from a
-**real exported model** currently displayed in the CHARMPheno dashboard: the
-`population_eds` bundle, a gated block-wise correlated STM over 191,876
-one-document-per-person records with K=100 (80 shared background + 20
-Ehlers-Danlos foreground components). Every number — theta histograms, NPMI,
-pair coverage, corpus share, code probabilities, covariate coefficients,
-correlations, the eta scale and its standard error — is transcribed from the
-bundle's exported JSON. What is curator judgement, and marked as such, is the
-mapping from an unsupervised component to a dismech phenotype.
+**`charmpheno_population_eds.yaml`** — the profile side, populated from a
+**real exported model** in the CHARMPheno dashboard's `population_eds` bundle.
+Every number — the code probabilities and the profile shares — is transcribed
+from that bundle's exported JSON. What is curator judgement, and marked as such,
+is the reading of an unsupervised component as a named clinical pattern.
 
-Its five records are each chosen to show a different failure mode:
+Its two profiles are each chosen to show something:
 
-| Record | Shows |
+| Profile | Shows |
 |---|---|
-| `MIXTURE-001` | Vector-valued weights across all 20 foreground components; prior capacity is not patient proportion |
-| `T96-THETA-001` | A whole-population theta distribution that is a spike at zero with 12/50 bins suppressed — correct and useless |
-| `T96-CODEPROB-001` | An `anchor`-quality component with half its mass on its own diagnosis code |
-| `T91-CODEPROB-001` | A `phenotype`-quality component recovering the EDS-dysautonomia association from coding alone |
-| `T93-LOGISTICNORMAL-F63-001` | Covariate conditioning plus a correlation block supported by 1,124 observations, not 191,876 |
+| `CHARMPHENO-EDS-HYPERMOBILE-001` | An `anchor`-quality profile with half its mass on its own diagnosis code — real, precise, and a tautology. Binding `REJECTED`. |
+| `CHARMPHENO-EDS-DYSAUTONOMIA-001` | A profile recovering the EDS-dysautonomia association from coding alone. Binding `PROPOSED`, because there is no denominator a frequency band could come from. |
 
-Three of the five bindings are `REJECTED` or `DEFERRED`. That is the point: a
-record can be real, precise, well-provenanced, and still be the wrong number for
-the slot.
+That both bindings fall short of import is the point: a profile can be real,
+precise, well-provenanced, and still be the wrong number for the slot.
 
 ## Relationship to existing dismech blocks
 

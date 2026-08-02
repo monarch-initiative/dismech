@@ -71,9 +71,6 @@ _FREQUENCY_BANDS = {
 #: Estimands whose values are proportions, and so can imply a frequency band.
 _PROPORTION_MEASURES = {"PHENOTYPE_PROPORTION", "PENETRANCE"}
 
-#: Estimands that may describe a whole latent mixture rather than one phenotype.
-_MIXTURE_MEASURES = {"LATENT_PHENOTYPE_WEIGHT", "CODE_PROBABILITY"}
-
 #: Support discreteness implied by the distribution family, where the family
 #: settles it. Families absent from this map genuinely leave it open — an
 #: EMPIRICAL tabulation may be over counts or over bins of a continuous
@@ -144,6 +141,22 @@ class Collection:
         return list(self.data.get("distributions") or [])
 
     @property
+    def profiles(self) -> list[dict[str, Any]]:
+        """EHR-derived profiles, for a `ProfileSet` rather than a collection."""
+        return list(self.data.get("profiles") or [])
+
+    @property
+    def is_profile_set(self) -> bool:
+        """Whether this file is a `ProfileSet` rather than a distribution collection.
+
+        The two shapes share a file extension, a directory, and the citation
+        bridge, but almost nothing else: a distribution record carries a fitted
+        family and an interval, a profile carries weighted codes. Branching on
+        the payload keeps one loader and one cache export over both.
+        """
+        return "profiles" in self.data and "distributions" not in self.data
+
+    @property
     def cohorts(self) -> dict[str, dict[str, Any]]:
         """Collection-level cohorts, keyed by ``cohort_id``."""
         out: dict[str, dict[str, Any]] = {}
@@ -158,10 +171,10 @@ class Collection:
         A referenced cohort renders exactly as an inline one would, so moving a
         shared cohort up to the collection does not change any cited body.
         """
-        inline = node.get("cohort") or node.get("training_cohort")
+        inline = node.get("cohort")
         if inline:
             return dict(inline)
-        ref = node.get("cohort_ref") or node.get("training_cohort_ref")
+        ref = node.get("cohort_ref")
         if ref:
             return dict(self.cohorts.get(str(ref)) or {})
         return {}
@@ -177,10 +190,14 @@ def load_collection(path: Path) -> Collection:
     # through as "a collection with 0 records" and be reported as checked. Naming
     # the wrong file is the easy mistake here — the schema itself is a mapping,
     # and passing it produces a clean-looking summary that verified nothing.
-    if "collection_id" not in data and "distributions" not in data:
+    if (
+        "collection_id" not in data
+        and "distributions" not in data
+        and "profiles" not in data
+    ):
         raise ValueError(
-            f"{path}: not a phenotype-distribution collection "
-            "(no `collection_id` and no `distributions`)"
+            f"{path}: not a phenotype-distribution collection or profile set "
+            "(no `collection_id`, `distributions`, or `profiles`)"
         )
     return Collection(path=path, data=data)
 
@@ -548,18 +565,8 @@ def lint_record(
     def warn(msg: str) -> None:
         out.append(Issue(coll.path, rid, "WARNING", msg))
 
-    if not record.get("phenotype") and not record.get("latent_phenotype"):
-        # A record over a whole latent mixture legitimately has no single
-        # subject phenotype — but only if the model that defines the
-        # components is declared, otherwise the component indices mean nothing.
-        if record.get("measure_type") in _MIXTURE_MEASURES:
-            if not coll.data.get("model"):
-                err(
-                    "record describes a latent mixture but its collection "
-                    "declares no `model`, so the components are uninterpretable"
-                )
-        else:
-            err("record has neither a `phenotype` nor a `latent_phenotype`")
+    if not record.get("phenotype"):
+        err("record has no `phenotype`")
 
     # A cohort is declared once and referenced, or described inline — not both.
     declared = coll.cohorts
@@ -639,9 +646,6 @@ def lint_record(
             )
 
     # Identity attestations must not contradict themselves.
-    for message in _attestation_errors(record):
-        err(message)
-
     # A proportion's implied frequency band must match its own point estimate.
     band = record.get("implied_frequency_class")
     if band:
@@ -705,150 +709,14 @@ def lint_record(
     return out
 
 
-def _attestation_errors(node: Any, where: str = "record") -> list[str]:
-    """Messages for every self-contradictory identity attestation under ``node``.
-
-    Shared between the record lint and the collection-level cohort lint: an
-    attestation is just as wrong when it sits on a cohort hoisted up to the
-    collection, and hoisting a cohort must not quietly move it out of scope.
-    """
-    out: list[str] = []
-    for att, at in _iter_attestations(node, where):
-        rows = att.get("row_count")
-        persons = att.get("unique_person_count")
-        one_per = att.get("one_row_per_person")
-        if one_per and rows is not None and persons is not None and rows != persons:
-            out.append(
-                f"{at}: identity attestation claims one row per person but "
-                f"reports {rows} rows for {persons} persons"
-            )
-        if persons is not None and rows is not None and persons > rows:
-            out.append(
-                f"{at}: attestation reports more persons ({persons}) than rows ({rows})"
-            )
-    return out
-
-
-def _iter_attestations(node: Any, where: str = "record") -> Iterator[tuple[dict, str]]:
-    """Yield every identity attestation in a record, with a location label."""
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key == "identity_attestation" and isinstance(value, dict):
-                yield value, where
-            else:
-                yield from _iter_attestations(value, f"{where}.{key}")
-    elif isinstance(node, list):
-        for i, item in enumerate(node):
-            yield from _iter_attestations(item, f"{where}[{i}]")
-
-
-def _check_feature_namespaces(coll: Collection) -> list[Issue]:
-    """Check that every model-derived feature resolves to a declared namespace.
-
-    A model-derived collection whose feature space is undeclared cannot be read
-    correctly — the codes could be OMOP concepts, source terminology codes, or
-    ontology terms, and a consumer that guesses wrong misreads every component.
-
-    Both sides of the link are checked, because guarding only the declaring side
-    catches the careful curator and misses the careless one: a collection that
-    declares domains and forgets the enum would warn, while one that omits the
-    `domains` block entirely would say nothing at all. A feature reaches its
-    namespace through `domain_name`, so a dangling or absent reference breaks the
-    resolution just as thoroughly as a missing declaration.
-    """
-    if not coll.data.get("model"):
-        return []
-
-    out: list[Issue] = []
-    domains = coll.data.get("domains") or []
-
-    if not domains:
-        return [
-            Issue(
-                coll.path,
-                "",
-                "WARNING",
-                (
-                    "collection is model-derived but declares no `domains`, so "
-                    "no feature has a resolvable `feature_namespace`; what the "
-                    "distribution ranges over should not be guessed"
-                ),
-            )
-        ]
-
-    declared: set[str] = set()
-    for domain in domains:
-        name = domain.get("domain_name")
-        if name:
-            declared.add(str(name))
-        if not domain.get("feature_namespace"):
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "WARNING",
-                    (
-                        f"domain {name!r} does not declare a "
-                        "`feature_namespace`; what the distribution ranges over "
-                        "should not be guessed"
-                    ),
-                )
-            )
-
-    for record in coll.records:
-        rid = str(record.get("record_id", ""))
-        latent = record.get("latent_phenotype") or {}
-        for feature in latent.get("top_features") or []:
-            ref = feature.get("domain_name")
-            fid = feature.get("feature_id")
-            if ref is None:
-                if len(domains) > 1:
-                    out.append(
-                        Issue(
-                            coll.path,
-                            rid,
-                            "WARNING",
-                            (
-                                f"feature {fid!r} omits `domain_name` while "
-                                f"{len(domains)} domains are declared, so its "
-                                "namespace is ambiguous"
-                            ),
-                        )
-                    )
-            elif str(ref) not in declared:
-                out.append(
-                    Issue(
-                        coll.path,
-                        rid,
-                        "ERROR",
-                        (
-                            f"feature {fid!r} references domain {ref!r}, which "
-                            "is not declared in `domains`; its feature "
-                            "namespace cannot be resolved"
-                        ),
-                    )
-                )
-    return out
-
-
 def _check_cohorts(coll: Collection) -> list[Issue]:
-    """Check collection-level cohorts, their arms, and references into them.
+    """Check collection-level cohorts and the references into them.
 
-    Arms and their component subsets are where a gated fit's denominators live:
-    a foreground component estimated from 0.5% of the corpus is only safe to
-    read if the arm backing it is named.
-
-    `associated_components` is checked in both directions, but not
-    symmetrically, because the two directions are not equally decidable. An arm
-    names components *of the model*, and a collection normally reports records
-    for only a few of them — the EDS arm legitimately lists all twenty
-    foreground components while three have records — so "no record describes
-    this id" cannot distinguish a typo from the normal case. What is decidable
-    is the model's own bound: with numeric component ids and a declared
-    `n_components`, an id outside ``[0, n_components)`` is wrong no matter how
-    few records exist. In the other direction, a record whose component no arm
-    claims is flagged, which is what catches the dangerous typo — substituting
-    ``69`` for ``96`` leaves component 96 unclaimed and warns.
+    Much smaller than it was. An earlier draft carried cohort arms and the
+    machinery to attribute a model's components to them; that went out with the
+    model layer, because a profile keyed to a MONDO term does not have
+    components to attribute and a literature record's population is described
+    rather than partitioned.
     """
     out: list[Issue] = []
     declared: set[str] = set()
@@ -873,299 +741,21 @@ def _check_cohorts(coll: Collection) -> list[Issue]:
                 )
             )
         declared.add(str(cid))
-        for message in _attestation_errors(cohort, f"cohorts[{cid}]"):
-            out.append(Issue(coll.path, "", "ERROR", message))
 
-    model = coll.data.get("model") or {}
-    ref = model.get("training_cohort_ref")
-    if ref and model.get("training_cohort"):
-        out.append(
-            Issue(
-                coll.path,
-                "",
-                "ERROR",
-                "model sets both `training_cohort` and `training_cohort_ref`",
-            )
-        )
-    elif ref and str(ref) not in declared:
-        out.append(
-            Issue(
-                coll.path,
-                "",
-                "ERROR",
-                f"model `training_cohort_ref` {ref!r} does not resolve to a "
-                "cohort in `cohorts`",
-            )
-        )
-
-    # Arms partition a cohort, so every arm/component structure below is keyed
-    # by cohort. Collection-wide accumulators were wrong three ways at once: two
-    # cohorts legitimately carrying the same shared block produced one error per
-    # component, two same-named arms in different cohorts collapsed into one and
-    # went silent, and an unrelated cohort's arm satisfied the reverse check for
-    # a record belonging to a different cohort — reintroducing the very
-    # mis-attributed denominator the arms exist to catch.
-    keyed_cohorts: list[tuple[str, dict[str, Any]]] = []
-    for cohort in coll.data.get("cohorts") or []:
-        keyed_cohorts.append((_cohort_key(cohort), cohort))
-    training_key: str | None = None
-    if model.get("training_cohort"):
-        training_key = _cohort_key(model["training_cohort"])
-        keyed_cohorts.append((training_key, model["training_cohort"]))
-    elif model.get("training_cohort_ref"):
-        training_key = str(model["training_cohort_ref"])
+    every_cohort = list(coll.data.get("cohorts") or [])
     for rec in coll.records:
         if rec.get("cohort"):
-            keyed_cohorts.append((_cohort_key(rec["cohort"]), rec["cohort"]))
+            every_cohort.append(rec["cohort"])
 
-    claims_by_cohort: dict[str, set[str]] = {}
-    # Every cohort the collection actually declares, so "declares no arms" can
-    # be told apart from "not a cohort at all".
-    known_keys = {key for key, _ in keyed_cohorts} | declared
-    cohort_by_key = {key: cohort for key, cohort in keyed_cohorts}
-    n_components = model.get("n_components")
-
-    for key, cohort in keyed_cohorts:
-        # The docs already require an inline cohort that differs from its parent
-        # to carry its own `cohort_id`; nothing enforced it. It matters most when
-        # the cohort declares arms, because then its identity decides which
-        # components a record is measured against — and an unnamed cohort can
-        # only be reported as `<inline cohort>`.
-        if cohort.get("arms") and not cohort.get("cohort_id"):
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "ERROR",
-                    "an inline cohort declaring `arms` has no `cohort_id`; give "
-                    "it one so its arms can be attributed and reported",
-                )
-            )
-        arm_names: set[str] = set()
-        claimed_by: dict[str, str] = {}
-        for arm in cohort.get("arms") or []:
-            name = arm.get("arm_name")
-            if name and str(name) in arm_names:
-                out.append(
-                    Issue(
-                        coll.path,
-                        "",
-                        "ERROR",
-                        f"duplicate arm_name {name!r} in cohort "
-                        f"{cohort.get('cohort_id')!r}",
-                    )
-                )
-            if name:
-                arm_names.add(str(name))
-                claimed, claim_issues = _arm_component_claims(
-                    coll, arm, name, n_components
-                )
-                out.extend(claim_issues)
-                # Two arms of ONE cohort claiming one component is two
-                # denominators for one number. Across cohorts it is normal:
-                # different populations carry the same shared components.
-                overlaps: dict[str, list[str]] = {}
-                for cid in claimed:
-                    other = claimed_by.get(cid)
-                    if other is not None and other != str(name):
-                        overlaps.setdefault(other, []).append(cid)
-                    else:
-                        claimed_by[cid] = str(name)
-                for other, cids in sorted(overlaps.items()):
-                    shown = ", ".join(sorted(cids, key=_component_sort_key)[:5])
-                    more = f" (+{len(cids) - 5} more)" if len(cids) > 5 else ""
-                    out.append(
-                        Issue(
-                            coll.path,
-                            "",
-                            "ERROR",
-                            f"in cohort {_cohort_label(key, cohort)}, "
-                            f"component(s) {shown}{more} are "
-                            f"claimed by both arm {other!r} and arm {name!r}; a "
-                            "component backed by two sub-populations of one "
-                            "cohort has no single denominator",
-                        )
-                    )
-                claims_by_cohort.setdefault(key, set()).update(claimed)
-            for step in arm.get("identification_steps") or []:
-                out.extend(_check_identification_step(coll, step, f"arm {name!r}"))
+    for cohort in every_cohort:
         for step in cohort.get("identification_steps") or []:
             out.extend(
                 _check_identification_step(
                     coll, step, f"cohort {cohort.get('cohort_id')!r}"
                 )
             )
-
-    # Once a cohort's arms claim components, a component of a record in that
-    # cohort claimed by none of them has an unstated denominator. Resolved
-    # against the record's OWN cohort, falling back to the fit's training cohort
-    # (components belong to the model, so its arms are what backed them).
-    #
-    # A cohort that exists but declares no arms has affirmatively said nothing,
-    # which is different from a record that resolves to no cohort at all — only
-    # the latter falls back to the union. Collapsing the two let an unrelated
-    # cohort's arms decide a record they say nothing about.
-    for rec in coll.records:
-        cid = (rec.get("latent_phenotype") or {}).get("component_id")
-        if cid is None:
-            continue
-        resolved = [
-            key for key in _record_cohort_keys(rec, training_key) if key in known_keys
-        ]
-        chosen = next((k for k in resolved if claims_by_cohort.get(k)), None)
-        if chosen is not None:
-            if str(cid) not in claims_by_cohort[chosen]:
-                out.append(
-                    Issue(
-                        coll.path,
-                        str(rec.get("record_id", "")),
-                        "WARNING",
-                        f"component {cid!r} is not listed by any arm of cohort "
-                        f"{_cohort_label(chosen, cohort_by_key.get(chosen))}, so "
-                        "which sub-population backs it is unstated",
-                    )
-                )
-        elif not resolved:
-            # No cohort in the record's chain is declared, so the union of every
-            # arm's claims is the only statement available.
-            union: set[str] = set()
-            for claims in claims_by_cohort.values():
-                union |= claims
-            if union and str(cid) not in union:
-                out.append(
-                    Issue(
-                        coll.path,
-                        str(rec.get("record_id", "")),
-                        "WARNING",
-                        f"component {cid!r} is not listed by any cohort arm, so "
-                        "which sub-population backs it is unstated",
-                    )
-                )
     return out
 
-
-def _cohort_key(cohort: dict[str, Any]) -> str:
-    """Stable identity for a cohort, named or inline.
-
-    An inline cohort without a `cohort_id` is keyed by object identity, not by
-    its label. Deriving identity from a name repeated the very bug this keying
-    was introduced to fix, one level up: two nameless or same-named inline
-    cohorts merged their claims, so whether a component was reported depended on
-    what a curator called the cohort rather than on the data.
-    """
-    cid = cohort.get("cohort_id")
-    return str(cid) if cid else f"<inline:{id(cohort):x}>"
-
-
-def _cohort_label(key: str, cohort: dict[str, Any] | None) -> str:
-    """Human-readable name for a cohort in a message, given its opaque key."""
-    if not key.startswith("<inline:"):
-        return repr(key)
-    name = (cohort or {}).get("name")
-    return f"<inline cohort {name!r}>" if name else "<inline cohort>"
-
-
-def _component_sort_key(cid: str) -> tuple[int, Any]:
-    """Sort numeric component ids numerically, others lexically after them."""
-    return (0, int(cid)) if cid.lstrip("-").isdigit() else (1, cid)
-
-
-def _record_cohort_keys(
-    rec: dict[str, Any], training_key: str | None
-) -> list[str]:
-    """Cohort keys to consult for a record, most specific first."""
-    keys: list[str] = []
-    if rec.get("cohort_ref"):
-        keys.append(str(rec["cohort_ref"]))
-    elif rec.get("cohort"):
-        keys.append(_cohort_key(rec["cohort"]))
-    if training_key and training_key not in keys:
-        keys.append(training_key)
-    return keys
-
-
-def _arm_component_claims(
-    coll: Collection, arm: dict[str, Any], name: Any, n_components: Any
-) -> tuple[set[str], list[Issue]]:
-    """Every component id an arm claims, from explicit ids and expanded ranges.
-
-    Ranges are expanded here rather than handled separately so that everything
-    downstream — disjointness, and the reverse "which arm backs this component"
-    check — sees one set and cannot treat a ranged claim as weaker than an
-    enumerated one.
-
-    Validation happens before expansion, and a range that fails it is dropped
-    rather than expanded. Reporting a bad range once as a range is the whole
-    point: expanding `[0, 200]` against a 100-component model first would bury
-    the actual mistake under a hundred out-of-range ids and twenty spurious
-    overlaps with the arm next door.
-    """
-    out: list[Issue] = []
-    claimed: set[str] = set()
-
-    explicit = [str(c) for c in arm.get("associated_components") or []]
-    numeric = [c for c in explicit if c.lstrip("-").isdigit()]
-    for cid in explicit:
-        # Only index-style ids can be bounds-checked; a collection using opaque
-        # component names is out of scope rather than wrong.
-        if not isinstance(n_components, int) or not numeric:
-            claimed.add(cid)
-        elif cid not in numeric:
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "ERROR",
-                    f"arm {name!r} lists component {cid!r} among otherwise "
-                    "numeric component ids; it matches no component index of a "
-                    f"{n_components}-component model",
-                )
-            )
-        elif not 0 <= int(cid) < n_components:
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "ERROR",
-                    f"arm {name!r} lists component {cid!r}, outside the "
-                    f"[0, {n_components}) range of the declared model",
-                )
-            )
-        else:
-            claimed.add(cid)
-
-    for block in arm.get("associated_component_ranges") or []:
-        lower = block.get("range_lower")
-        upper = block.get("range_upper")
-        if not isinstance(lower, int) or not isinstance(upper, int):
-            continue
-        if lower > upper:
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "ERROR",
-                    f"arm {name!r} declares component range [{lower}, {upper}], "
-                    "whose lower bound exceeds its upper bound",
-                )
-            )
-            continue
-        if isinstance(n_components, int) and not (
-            0 <= lower and upper < n_components
-        ):
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "ERROR",
-                    f"arm {name!r} declares component range [{lower}, {upper}], "
-                    f"which leaves the [0, {n_components}) range of the "
-                    "declared model",
-                )
-            )
-            continue
-        claimed.update(str(i) for i in range(lower, upper + 1))
-    return claimed, out
 
 
 def _check_identification_step(
@@ -1208,6 +798,89 @@ def _check_identification_step(
     return out
 
 
+def lint_profile(
+    coll: Collection,
+    profile: dict[str, Any],
+    known_entries: dict[str, set[str]],
+    cache_dir: Path = DEFAULT_CACHE_DIR,
+) -> list[Issue]:
+    """Lint one EHR-derived profile.
+
+    Far fewer rules than a distribution record needs, which is the point of the
+    shape: a profile is a label, a disease, and weighted codes, so most of what
+    can go wrong is a code whose vocabulary is unstated or a weight vector that
+    does not say it was truncated.
+    """
+    pid = str(profile.get("profile_id", ""))
+    out: list[Issue] = []
+
+    def err(msg: str) -> None:
+        out.append(Issue(coll.path, pid, "ERROR", msg))
+
+    def warn(msg: str) -> None:
+        out.append(Issue(coll.path, pid, "WARNING", msg))
+
+    if not (profile.get("disease") or {}).get("disease_term"):
+        warn(
+            "profile declares no `disease.disease_term`; a profile is keyed to "
+            "one MONDO term and the hierarchy is MONDO's, so the term is what "
+            "places it"
+        )
+
+    for dist in profile.get("code_distributions") or []:
+        codes = dist.get("weighted_codes") or []
+        domain = dist.get("clinical_domain")
+        total = sum(
+            c["code_weight"]
+            for c in codes
+            if isinstance(c.get("code_weight"), (int, float))
+        )
+        # Weights that do not sum to 1 are fine for a top-N export and wrong for
+        # a complete one, and only `truncated` tells the two apart.
+        if total > 1.001:
+            err(
+                f"{domain} distribution weights sum to {total:.3f}, above 1.0; "
+                "a categorical distribution cannot carry more than its own mass"
+            )
+        elif total < 0.999 and not dist.get("truncated"):
+            warn(
+                f"{domain} distribution weights sum to {total:.3f} but the "
+                "distribution is not marked `truncated: true`; a top-N export "
+                "should say so rather than look like a distribution that lost mass"
+            )
+        seen: set[tuple[str, Any]] = set()
+        for c in codes:
+            key = (str(c.get("code")), c.get("value_qualifier"))
+            if key in seen:
+                err(
+                    f"{domain} distribution lists code {c.get('code')!r} twice "
+                    "with the same value qualifier"
+                )
+            seen.add(key)
+
+    for binding in profile.get("dismech_bindings") or []:
+        ref = binding.get("evidence_reference")
+        if ref and ref != f"{PREFIX}:{pid}":
+            err(
+                f"binding evidence_reference {ref!r} does not match this profile; "
+                f"expected {PREFIX}:{pid}"
+            )
+        kind = binding.get("target_kind")
+        entry = binding.get("target_entry")
+        if kind and entry:
+            names = known_entries.get(kind, set())
+            if names and entry not in names:
+                err(
+                    f"binding targets {kind} entry {entry!r}, which does not "
+                    f"resolve to a file in {_TARGET_DIRS[kind].relative_to(REPO_ROOT)}"
+                )
+
+    for severity, message in _check_quoted_items(profile, cache_dir):
+        out.append(Issue(coll.path, pid, severity, message))
+
+    return out
+
+
 def lint_collections(
     collections: Iterable[Collection],
     cache_dir: Path = DEFAULT_CACHE_DIR,
@@ -1218,10 +891,35 @@ def lint_collections(
     result = LintResult(n_collections=len(collections))
 
     for coll in collections:
-        result.issues.extend(_check_feature_namespaces(coll))
         result.issues.extend(_check_cohorts(coll))
 
     seen: dict[str, Path] = {}
+    for coll in collections:
+        for profile in coll.profiles:
+            result.n_records += 1
+            pid = str(profile.get("profile_id", ""))
+            if not pid:
+                result.issues.append(
+                    Issue(
+                        coll.path,
+                        "",
+                        "ERROR",
+                        "profile has no `profile_id`, so nothing can cite it",
+                    )
+                )
+            elif pid in seen:
+                result.issues.append(
+                    Issue(
+                        coll.path,
+                        pid,
+                        "ERROR",
+                        f"duplicate profile_id, already used in {seen[pid].name}",
+                    )
+                )
+            else:
+                seen[pid] = coll.path
+            result.issues.extend(lint_profile(coll, profile, known_entries, cache_dir))
+
     for coll, record in iter_records(collections):
         result.n_records += 1
         rid = str(record.get("record_id", ""))
@@ -1335,9 +1033,6 @@ def _phenotype_name(record: dict[str, Any]) -> str:
     pheno = record.get("phenotype") or {}
     if pheno:
         return _fmt(pheno.get("preferred_term") or _term(pheno.get("phenotype_term")))
-    latent = record.get("latent_phenotype") or {}
-    if latent:
-        return _fmt(latent.get("label") or latent.get("component_id"))
     return "-"
 
 
@@ -1663,97 +1358,6 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
             lines.append(_row(["Adjusted for", "; ".join(comparison["adjusted_for"])]))
         lines.append("")
 
-    latent = record.get("latent_phenotype") or {}
-    if latent:
-        lines.append("## Latent phenotype")
-        lines.append("")
-        lines.append("| FIELD | VALUE |")
-        lines.append(_row(["Component", latent.get("component_id")]))
-        if latent.get("label"):
-            lines.append(_row(["Label", latent.get("label")]))
-        for label, key in (
-            ("Quality", "component_quality"),
-            ("Estimation scope", "estimation_scope"),
-            ("Estimation scope size", "estimation_scope_size"),
-            ("Corpus share", "corpus_share"),
-        ):
-            if latent.get(key) is not None:
-                lines.append(_row([label, latent.get(key)]))
-        if latent.get("mapping_basis"):
-            lines.append(_row(["Mapping basis", latent.get("mapping_basis")]))
-        for mapped in latent.get("mapped_phenotype_terms") or []:
-            lines.append(
-                _row(
-                    [
-                        "Mapped term",
-                        (
-                            f"{_fmt(mapped.get('preferred_term'))} "
-                            f"({_term(mapped.get('term'))})"
-                        ),
-                    ]
-                )
-            )
-        lines.append("")
-        if latent.get("top_features"):
-            lines.append("| FEATURE | LABEL | WEIGHT | DOMAIN |")
-            for f in latent["top_features"]:
-                lines.append(
-                    _row(
-                        [
-                            f.get("feature_id"),
-                            f.get("label"),
-                            f.get("weight"),
-                            f.get("domain_name"),
-                        ]
-                    )
-                )
-            lines.append("")
-
-    domains = coll.data.get("domains") or []
-    if domains:
-        lines.append("## Domain reliability")
-        lines.append("")
-        lines.append("| DOMAIN | VOCABULARY | FEATURES | BASIS | SCORE |")
-        for d in domains:
-            rel = d.get("reliability") or {}
-            lines.append(
-                _row(
-                    [
-                        d.get("domain_name"),
-                        d.get("vocabulary"),
-                        d.get("n_features"),
-                        rel.get("reliability_basis"),
-                        rel.get("reliability_score"),
-                    ]
-                )
-            )
-        lines.append("")
-
-    model = coll.data.get("model") or {}
-    if model:
-        lines.append("## Model")
-        lines.append("")
-        lines.append("| FIELD | VALUE |")
-        for label, key in (
-            ("Name", "model_name"),
-            ("Family", "model_family"),
-            ("Version", "version"),
-            ("Components", "n_components"),
-            ("Vocabulary size", "vocabulary_size"),
-            ("Covariate formula", "covariate_formula"),
-            ("Inference", "inference_method"),
-            ("Contains patient data", "contains_patient_data"),
-            ("Artifact", "artifact_url"),
-        ):
-            if model.get(key) is not None:
-                lines.append(_row([label, model.get(key)]))
-        lines.append("")
-        if model.get("model_properties"):
-            lines.append("| PROPERTY | VALUE |")
-            for prop in model["model_properties"]:
-                lines.append(_row([prop.get("name"), prop.get("property_value")]))
-            lines.append("")
-
     risks = record.get("bias_risks") or []
     caveats = record.get("caveats") or []
     if risks or caveats:
@@ -1836,6 +1440,114 @@ def render_body(coll: Collection, record: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_profile_body(coll: Collection, profile: dict[str, Any]) -> str:
+    """Render the deterministic markdown body for one profile's cache file.
+
+    Same contract as `render_body`: stable bytes, line-oriented, so a
+    curator-quoted snippet keeps matching across regenerations.
+    """
+    lines: list[str] = []
+    src = profile.get("profile_source") or coll.data.get("profile_source") or {}
+    disease = profile.get("disease") or {}
+
+    lines.append("## Profile")
+    lines.append("")
+    lines.append("| FIELD | VALUE |")
+    lines.append(_row(["Label", profile.get("profile_label")]))
+    if profile.get("profile_id"):
+        lines.append(_row(["Profile", profile.get("profile_id")]))
+    if disease:
+        lines.append(
+            _row(
+                [
+                    "Disease",
+                    f"{_fmt(disease.get('disease_name'))} "
+                    f"({_term(disease.get('disease_term'))})",
+                ]
+            )
+        )
+    if profile.get("profile_share") is not None:
+        lines.append(_row(["Profile share", profile.get("profile_share")]))
+    if profile.get("description"):
+        lines.append(_row(["Description", profile.get("description")]))
+    lines.append("")
+
+    for dist in profile.get("code_distributions") or []:
+        lines.append(f"## {_fmt(dist.get('clinical_domain'))} codes")
+        lines.append("")
+        lines.append("| FIELD | VALUE |")
+        lines.append(_row(["Vocabulary", dist.get("code_vocabulary")]))
+        if dist.get("code_vocabulary_version"):
+            lines.append(
+                _row(["Vocabulary version", dist.get("code_vocabulary_version")])
+            )
+        if dist.get("truncated") is not None:
+            lines.append(_row(["Truncated", dist.get("truncated")]))
+        lines.append("")
+        lines.append("| CODE | LABEL | WEIGHT | QUALIFIER |")
+        for c in dist.get("weighted_codes") or []:
+            lines.append(
+                _row(
+                    [
+                        c.get("code"),
+                        c.get("code_label"),
+                        c.get("code_weight"),
+                        c.get("value_qualifier") or "-",
+                    ]
+                )
+            )
+        lines.append("")
+
+    if src:
+        lines.append("## Source")
+        lines.append("")
+        lines.append("| FIELD | VALUE |")
+        for label, key in (
+            ("Resource", "resource"),
+            ("Method", "method"),
+            ("Dataset", "dataset"),
+            ("Dataset version", "dataset_version"),
+            ("Model version", "model_version"),
+            ("Cohort size", "cohort_size"),
+            ("URL", "url"),
+        ):
+            if src.get(key) is not None:
+                lines.append(_row([label, src.get(key)]))
+        lines.append("")
+        if src.get("profile_metadata"):
+            lines.append("| PROPERTY | VALUE |")
+            for item in src["profile_metadata"]:
+                lines.append(
+                    _row([item.get("metadata_key"), item.get("metadata_value")])
+                )
+            lines.append("")
+
+    if profile.get("notes"):
+        lines.append("## Notes")
+        lines.append("")
+        lines.append(_fmt(profile.get("notes")))
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def profile_cache_entry(
+    coll: Collection, profile: dict[str, Any]
+) -> ReferenceCacheEntry:
+    """Build the reference-cache entry for one profile."""
+    pid = str(profile["profile_id"])
+    disease = (profile.get("disease") or {}).get("disease_name") or ""
+    title = f"{_fmt(profile.get('profile_label'))} phenotype profile"
+    if disease:
+        title = f"{title} in {disease}"
+    return ReferenceCacheEntry(
+        reference_id=f"{PREFIX}:{pid}",
+        title=title,
+        body=render_profile_body(coll, profile),
+        content_type="structured_record",
+    )
+
+
 def cache_entry(coll: Collection, record: dict[str, Any]) -> ReferenceCacheEntry:
     """Build the reference-cache entry for one record."""
     rid = str(record["record_id"])
@@ -1882,17 +1594,24 @@ def write_cache_files(
 
     written: list[Path] = []
     cache_dir.mkdir(parents=True, exist_ok=True)
-    for coll, record in iter_records(collections):
-        entry = cache_entry(coll, record)
+
+    def emit(entry: ReferenceCacheEntry) -> None:
         path = cache_dir / entry.filename()
         text = entry.render()
-        if path.exists() and path.read_text(encoding="utf-8") == text:
-            written.append(path)
-            continue
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(text, encoding="utf-8")
-        tmp.replace(path)
+        if not (path.exists() and path.read_text(encoding="utf-8") == text):
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(text, encoding="utf-8")
+            tmp.replace(path)
         written.append(path)
+
+    # Both shapes export through the same bridge: a disease entry cites
+    # `PHENODIST:<id>` and quotes a row, whether the id names a distribution
+    # record or a profile.
+    for coll, record in iter_records(collections):
+        emit(cache_entry(coll, record))
+    for coll in collections:
+        for profile in coll.profiles:
+            emit(profile_cache_entry(coll, profile))
 
     pruned: list[Path] = []
     if prune:

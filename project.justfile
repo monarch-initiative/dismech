@@ -210,8 +210,19 @@ validate-phenotype-distributions:
         echo "No phenotype distribution collections found."
         exit 0
     fi
-    printf 'Validating %s phenotype distribution collection(s).\n' "${#files[@]}"
-    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class PhenotypeDistributionCollection "${files[@]}"
+    printf 'Validating %s phenotype distribution file(s).\n' "${#files[@]}"
+    # Two shapes share this directory: a PhenotypeDistributionCollection holds
+    # statistical records, a ProfileSet holds EHR-derived profiles. Validating a
+    # file against the wrong tree root reports a wall of spurious errors, so the
+    # target class is read off the payload rather than assumed.
+    for f in "${files[@]}"; do
+        if grep -qE '^profiles:' "$f"; then
+            target=ProfileSet
+        else
+            target=PhenotypeDistributionCollection
+        fi
+        uv run linkml-validate --schema {{phenodist_schema_path}} --target-class "$target" "$f"
+    done
     uv run python -m dismech.phenotype_distribution --check-terms "${files[@]}"
 
 # Regenerate references_cache/PHENODIST_*.md for curated (kb/) collections.

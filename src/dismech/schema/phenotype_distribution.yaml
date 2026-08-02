@@ -451,137 +451,6 @@ enums:
       OTHER:
         description: Other matrix semantics.
 
-  ModelFamilyEnum:
-    description: >-
-      Coarse family label for the model that produced a latent phenotype. A
-      label only — no part of the schema branches on it, and `OTHER` plus a
-      `model_name` is always an acceptable answer for a family not listed here.
-      Variants within a family (gated, correlated, supervised, and so on) belong
-      in `model_properties`, not in new enum values.
-    permissible_values:
-      LATENT_DIRICHLET_ALLOCATION:
-        description: Latent Dirichlet allocation with a fixed component count.
-      HIERARCHICAL_DIRICHLET_PROCESS:
-        description: >-
-          Hierarchical Dirichlet process; the component count is inferred rather
-          than fixed in advance.
-      STRUCTURAL_TOPIC_MODEL:
-        description: >-
-          Topic model whose component weight depends on document covariates
-          through a logistic-normal prior. The topic-model literature calls that
-          weight a topic's "prevalence"; this schema does not, because in a
-          disease knowledge base `prevalence` already means a count of patients
-          over a stated denominator.
-      NON_NEGATIVE_MATRIX_FACTORIZATION:
-        description: Non-negative matrix factorization.
-      MIXTURE_MODEL:
-        description: Finite mixture model.
-      LATENT_CLASS_ANALYSIS:
-        description: Latent class analysis.
-      AUTOENCODER:
-        description: Neural autoencoder embedding.
-      REGRESSION:
-        description: Regression model.
-      SURVIVAL_MODEL:
-        description: Survival or time-to-event model.
-      OTHER:
-        description: Other model family.
-
-  InferenceMethodEnum:
-    description: Algorithm used to fit the model.
-    permissible_values:
-      VARIATIONAL_BAYES:
-        description: Batch variational Bayes.
-      STOCHASTIC_VARIATIONAL_INFERENCE:
-        description: Online / mini-batch stochastic variational inference.
-      COLLAPSED_GIBBS:
-        description: Collapsed Gibbs sampling.
-      STOCHASTIC_EM:
-        description: Stochastic expectation-maximization.
-      LAPLACE_APPROXIMATION:
-        description: Laplace approximation at the mode.
-      EXPECTATION_MAXIMIZATION:
-        description: Expectation-maximization.
-      MAP:
-        description: Maximum a posteriori optimization.
-      MAXIMUM_LIKELIHOOD:
-        description: Maximum-likelihood optimization.
-      SPECTRAL_INITIALIZATION:
-        description: Spectral or anchor-word initialization.
-      OTHER:
-        description: Other inference algorithm.
-
-  ReliabilityBasisEnum:
-    description: What a domain reliability assessment rests on.
-    permissible_values:
-      SUPERVISED_HELDOUT_READOUT:
-        description: >-
-          Supervised prediction on held-out rows against a task the domain is
-          supposed to support. The only basis here that is actual task evidence.
-          Honest only with a valid identity attestation showing one row per
-          person.
-      NESTED_CROSS_VALIDATION:
-        description: Repeated nested cross-validation.
-      CROSS_VALIDATION:
-        description: Single-level cross-validation.
-      TEST_RETEST:
-        description: Test-retest or split-half stability.
-      EXTERNAL_REPLICATION:
-        description: Replication in an independent cohort or site.
-      TOPIC_COHERENCE:
-        description: Intrinsic component-coherence metric.
-      FITTED_STRUCTURAL_METRIC:
-        description: >-
-          A property read off the fitted model itself — structural
-          distinctiveness, token ownership, or their product. These are useful
-          *priors or inputs*, not substitutes for task evidence: when tested
-          against per-disease case-finding they underperformed both a fixed
-          domain baseline and directly learned weights. Never present a
-          reliability derived this way as if it were a validated weight.
-      EXPERT_REVIEW:
-        description: Expert clinical review of the domain's content.
-      UNASSESSED:
-        description: Reliability not assessed. Treat derived numbers as provisional.
-
-  ReadoutMetricEnum:
-    description: Metric reported for a reliability readout.
-    permissible_values:
-      AUROC:
-        description: Area under the receiver operating characteristic curve.
-      AUPRC:
-        description: Area under the precision-recall curve.
-      AVERAGE_PRECISION:
-        description: >-
-          Average precision. Preferred over AUROC for rare-disease case finding,
-          where AUROC hides the precision cost of a low-signal domain.
-      PAIR_COVERAGE:
-        description: >-
-          Fraction of top-feature pairs with nonzero co-occurrence support; the
-          companion to NPMI, which is undefined on zero-support pairs and so
-          silently penalizes rare phenotypes.
-      PREDICTIVE_GAIN:
-        description: Gain in held-out predictive likelihood attributable to a component.
-      ACCURACY:
-        description: Classification accuracy.
-      BALANCED_ACCURACY:
-        description: Balanced accuracy.
-      F1:
-        description: F1 score.
-      R2:
-        description: Coefficient of determination.
-      CONCORDANCE_INDEX:
-        description: Concordance (c-) index.
-      CALIBRATION_SLOPE:
-        description: Calibration slope.
-      BRIER_SCORE:
-        description: Brier score.
-      TOPIC_COHERENCE_NPMI:
-        description: Normalized pointwise mutual information topic coherence.
-      HELD_OUT_PERPLEXITY:
-        description: Held-out perplexity.
-      OTHER:
-        description: Other readout metric.
-
   BiasRiskEnum:
     description: >-
       Known threats to the validity of a record. Enumerated rather than left to
@@ -653,29 +522,33 @@ enums:
       OTHER:
         description: Other bias risk; describe it in `caveats`.
 
-  FeatureNamespaceEnum:
+  CodeVocabularyEnum:
     description: >-
-      The identifier system a latent phenotype's features are drawn from — what
-      the distribution is actually *over*.
+      The identifier system a set of codes is drawn from — what a distribution
+      is actually *over*.
 
       This is the single most important fact about a profile and must never be
-      assumed. Profiles are distributions over **clinical codes**, not over
-      ontology terms: current work is over OMOP concept IDs (from harmonized
-      All of Us data), plausible future work is over the source terminologies
-      (ICD, LOINC, RxNorm, SNOMED), and a mappable MONDO/HP subset is a distant
-      and deliberately lossy option rather than the default. A consumer that
-      reads a component's top features as HPO terms because dismech is
-      HPO-centric would be wrong today for every existing profile.
+      assumed. Profiles range over **clinical codes**, not over ontology terms:
+      current work is over OMOP concept ids (from harmonized All of Us data),
+      but data may equally arrive already coded in a source terminology (ICD,
+      LOINC, RxNorm, SNOMED), so the vocabulary is declared rather than fixed by
+      the schema. A consumer that reads a profile's codes as HPO terms because
+      dismech is HPO-centric would be wrong today for every existing profile.
+
+      Declaring the vocabulary is what lets the code fields stay generic. An
+      earlier draft named them `concept_id`/`concept_name` after OMOP, which
+      quietly made OMOP the only representable case; the lesson that survived
+      from that draft is the narrower one — do not put a *source-vocabulary
+      CURIE* in a code field and expect it to resolve, because that proved
+      brittle in practice. Name the vocabulary once, keep the code opaque.
 
       Terminology identities are stable even though model internals churn, so
-      this is an enum rather than an escape-hatch property; `OTHER` plus
-      `feature_namespace_detail` covers anything unlisted (procedure and
-      drug-class systems such as CPT/HCPCS and ATC are the likely next
-      additions). ICD revisions are separate values rather than one `ICD` with
-      the revision in prose: an ICD-9-CM code is not interpretable as ICD-10-CM,
-      and a consumer filtering by revision should not have to parse free text to
-      find out — the same "machine-readable, never assumed" reasoning that
-      motivates the enum at all.
+      this is an enum rather than an escape-hatch property; `OTHER` plus a
+      version string covers anything unlisted (procedure and drug-class systems
+      such as CPT/HCPCS and ATC are the likely next additions). ICD revisions
+      are separate values rather than one `ICD` with the revision in prose: an
+      ICD-9-CM code is not interpretable as ICD-10-CM, and a consumer filtering
+      by revision should not have to parse free text to find out.
     permissible_values:
       OMOP_CONCEPT_ID:
         description: >-
@@ -777,23 +650,60 @@ enums:
       SELF_AND_ANCESTORS:
         description: The listed terms together with their ancestors.
 
-  CohortArmRoleEnum:
+  ClinicalDomainEnum:
     description: >-
-      What an arm is for. Recorded because a component estimated only from a
-      foreground arm is backed by that arm's documents, not by the corpus, and
-      a consumer that cannot tell the arms apart will read the wrong
-      denominator.
+      Source data domain a code distribution ranges over.
+
+      A profile holds one distribution *per domain* and states no cross-domain
+      combination — no weights, no merged vector. How domains combine is an open
+      modelling question and a rendering choice, and is deliberately outside this
+      contract rather than frozen into it.
     permissible_values:
-      BACKGROUND:
-        description: >-
-          The general population the analysis runs over, subject only to base
-          data-availability criteria.
-      FOREGROUND:
-        description: A disease-specific arm the analysis targets.
-      COMPARATOR:
-        description: An arm existing to be contrasted against another.
+      CONDITION:
+        description: Diagnosis / problem-list codes.
+      DRUG:
+        description: Drug exposure codes.
+      MEASUREMENT:
+        description: Laboratory and other measurements, optionally value-aware.
+      OBSERVATION:
+        description: Observation codes.
+      PROCEDURE:
+        description: Procedure codes.
+      DEVICE:
+        description: Device exposure codes.
       OTHER:
-        description: Another arm role; describe it in `description`.
+        description: Another domain; name it in the distribution's `description`.
+
+  ValueQualifierEnum:
+    description: >-
+      Direction of a value-aware code, for domains where the same concept means
+      different things at different values — a measurement code carries no
+      clinical signal until you know whether it was high or low.
+    permissible_values:
+      HIGH:
+        description: Value above the reference interval.
+      LOW:
+        description: Value below the reference interval.
+      NORMAL:
+        description: Value within the reference interval.
+      ABNORMAL:
+        description: Value outside the reference interval, direction unstated.
+      POSITIVE:
+        description: Qualitative positive result.
+      NEGATIVE:
+        description: Qualitative negative result.
+
+  ProfileMethodEnum:
+    description: How the profiles in a set were derived.
+    permissible_values:
+      COMPUTATIONAL_INFERENCE:
+        description: >-
+          Inferred by a model fitted to structured records — the topic-model
+          family and its successors.
+      EHR_COHORT_ASSOCIATION:
+        description: Direct co-occurrence statistics over an EHR cohort.
+      OTHER:
+        description: Another method; describe it in `source.description`.
 
   ProvenanceTierEnum:
     description: >-
@@ -816,30 +726,6 @@ enums:
           Synthetic or placeholder values existing to demonstrate the schema.
           Must never be cited from a kb entry and must never be rendered into
           the reference cache.
-
-  DomainRoleEnum:
-    description: >-
-      How a data domain is actually used, which is a routing decision rather
-      than a weight. Multi-domain experiments repeatedly found that no fixed
-      combination rule beat the primary domain alone in aggregate, while a
-      secondary domain still rescued the specific diseases whose evidence lives
-      there. Recording the role keeps that distinction, instead of implying a
-      global weighting that does not exist.
-    permissible_values:
-      PRIMARY:
-        description: Carries most of the signal and is used for the majority of cases.
-      SPECIALIST:
-        description: >-
-          Weak in aggregate but decisive for a specific subset of diseases —
-          deploy by routing, not by blending into every estimate.
-      SUPPORTING:
-        description: Contributes marginally alongside the primary domain.
-      EXCLUDED:
-        description: >-
-          Assessed and left out because it degraded performance; record why in
-          `downweight_rationale`.
-      UNDETERMINED:
-        description: Role not yet assessed.
 
   FrequencyClassEnum:
     description: >-
@@ -1095,16 +981,6 @@ slots:
   source:
     description: Where the collection's numbers came from.
     range: SourceDescriptor
-  model:
-    description: >-
-      The latent-variable model that produced the records, when they are
-      model-derived rather than read out of a publication.
-    range: LatentPhenotypeModel
-  domains:
-    description: Data domains the analysis drew on, with their reliability.
-    multivalued: true
-    range: ModelDomain
-    inlined_as_list: true
   distributions:
     description: The distribution records in this collection.
     multivalued: true
@@ -1127,11 +1003,6 @@ slots:
   phenotype:
     description: The phenotype whose distribution this is.
     range: PhenotypeContext
-  latent_phenotype:
-    description: >-
-      The learned latent phenotype this record describes, for model-derived
-      records that do not map onto a single HPO term.
-    range: LatentPhenotype
   measure_type:
     description: The estimand — what quantity is distributed.
     range: DistributionMeasureEnum
@@ -1574,28 +1445,6 @@ slots:
   exclusion_criteria:
     description: Exclusion criteria.
     multivalued: true
-  identity_attestation:
-    description: >-
-      Attestation that the analysed rows are one-per-person, without exposing
-      identifiers.
-    range: IdentityAttestation
-  row_count:
-    description: Number of analysed rows.
-    range: integer
-    minimum_value: 0
-  unique_person_count:
-    description: Number of distinct persons among those rows.
-    range: integer
-    minimum_value: 0
-  one_row_per_person:
-    description: >-
-      Whether every analysed row is a distinct person. Held-out folds are honest
-      only when this is true; a supervised readout without it should be rejected
-      rather than discounted.
-    range: boolean
-  attestation_method:
-    description: How the attestation was produced and by what.
-
   # --- stratum ---
   variable:
     description: The stratifying variable.
@@ -1644,135 +1493,7 @@ slots:
     description: Model component the effect applies to.
 
   # --- latent phenotype model ---
-  model_family:
-    description: Family of the model.
-    range: ModelFamilyEnum
-    required: true
-  model_name:
-    description: Name of the model or bundle.
-  n_components:
-    description: Number of components (topics) in the fitted model.
-    range: integer
-    minimum_value: 1
-  component_count_inferred:
-    description: Whether the component count was inferred rather than fixed.
-    range: boolean
-  vocabulary_size:
-    description: Number of distinct features in the model vocabulary.
-    range: integer
-    minimum_value: 1
-  covariate_formula:
-    description: >-
-      Design formula for covariate-conditioned component weight (e.g. `~ age_bin
-      * sex`). Records exactly what the linear predictor conditions on, and so
-      what every `CovariateEffect` coefficient in the collection is relative to;
-      a coefficient read without its design formula is uninterpretable, which is
-      why this is a first-class slot rather than a `model_properties` entry.
-  inference_method:
-    description: Algorithm used to fit the model.
-    range: InferenceMethodEnum
-  hyperparameters:
-    description: >-
-      Model hyperparameters and their values, including any scale or
-      concentration parameter and its uncertainty. Uses the same
-      `DistributionParameter` shape as fitted parameters, so a hyperparameter
-      selected by held-out likelihood can carry its own interval.
-    multivalued: true
-    range: DistributionParameter
-    inlined_as_list: true
-  training_cohort:
-    description: >-
-      Cohort the model was fitted on, described inline. Use `training_cohort_ref`
-      instead when the cohort is one of the collection's declared `cohorts`.
-    range: CohortDescriptor
-  training_cohort_ref:
-    description: >-
-      `cohort_id` of the collection-level cohort the model was fitted on.
-      Mutually exclusive with an inline `training_cohort`.
-  contains_patient_data:
-    description: >-
-      Whether the distributed model artifact contains individual-level data.
-      Aggregate-only bundles can be shared where row-level data cannot.
-    range: boolean
-  artifact_url:
-    description: Location of the model bundle or analysis artifact.
-  fit_metrics:
-    description: Held-out or intrinsic quality metrics for the fitted model.
-    multivalued: true
-    range: ReliabilityReadout
-    inlined_as_list: true
-
   # --- latent phenotype ---
-  component_id:
-    description: Identifier of the component within the model.
-    required: true
-  top_features:
-    description: Highest-probability features characterizing the component.
-    multivalued: true
-    range: WeightedFeature
-    inlined_as_list: true
-  mapped_phenotype_terms:
-    description: >-
-      HPO or MONDO terms a curator judges the component to correspond to. A
-      judgement about an unsupervised component, not a model output — keep the
-      basis in `mapping_basis`.
-    multivalued: true
-    range: TermDescriptor
-    inlined_as_list: true
-  mapping_basis:
-    description: How the component was mapped to ontology terms, and by whom.
-  component_quality:
-    description: >-
-      Quality tag the fit assigned to the component (e.g. `anchor` for one
-      dominated by the defining code, `phenotype` for a coherent clinical
-      pattern, `background` for diffuse content). An anchor component largely
-      restates its own diagnosis code and is weak evidence for anything beyond
-      the presence of that code.
-  estimation_scope:
-    description: >-
-      The subset of the corpus this component was actually estimated from, when
-      it is not the whole corpus. Covers any mechanism that restricts a
-      component to a subpopulation — a gated block or arm, a per-cohort fit, a
-      masked group — without committing to how a particular model implements it.
-      The number that matters downstream is how many documents backed the
-      estimate, not the mechanism's name.
-  estimation_scope_size:
-    description: Number of documents the component was estimated from.
-    range: integer
-    minimum_value: 0
-  corpus_share:
-    description: >-
-      Share of the whole corpus's weight that this component accounts for.
-
-      Deliberately NOT called a prevalence. A prevalence is a count of patients
-      carrying a label over a stated denominator of patients at risk; this is a
-      fraction of fitted model mass over a denominator of documents, and the two
-      are not convertible. For a rare-disease foreground component the number is
-      tiny by construction — an artifact of how much corpus the component was
-      given, not an estimate of how many people have the disease. Anything that
-      reads this slot as an occurrence rate is reading it wrong.
-    range: float
-    minimum_value: 0.0
-    maximum_value: 1.0
-  feature_id:
-    description: >-
-      Identifier of the feature, drawn from the domain's declared
-      `feature_namespace` (e.g. an OMOP concept id). Do not assume it is an
-      ontology term — see `FeatureNamespaceEnum`.
-    required: true
-  feature_namespace:
-    description: >-
-      Identifier system this domain's `feature_id` values are drawn from.
-      Declare it: a profile whose feature space is unstated cannot be read
-      correctly, and the answer has already changed once and is expected to
-      change again.
-    range: FeatureNamespaceEnum
-  feature_namespace_detail:
-    description: >-
-      Free-text refinement of the namespace — the OMOP vocabulary release, the
-      SNOMED edition and release date, or the system named when
-      `feature_namespace` is OTHER. Not the ICD revision: that is an enum value
-      (`ICD9CM` / `ICD10CM` / `ICD11`) precisely so it does not live in prose.
   identification_steps:
     description: >-
       Ordered chain of steps by which the cohort (or arm) was identified.
@@ -1794,12 +1515,12 @@ slots:
     required: true
   identification_vocabulary:
     description: >-
-      Vocabulary this step operates in. Shares `FeatureNamespaceEnum` with
+      Vocabulary this step operates in. Shares `CodeVocabularyEnum` with
       `feature_namespace` deliberately: identification and feature spaces are
       drawn from the same universe of terminologies, and sharing the value space
       is what lets a consumer see at a glance that a cohort was identified in
       MONDO while its profiles are emitted over OMOP concept IDs.
-    range: FeatureNamespaceEnum
+    range: CodeVocabularyEnum
   identification_vocabulary_detail:
     description: >-
       Free-text refinement of the step's vocabulary — the SNOMED edition and
@@ -1818,119 +1539,11 @@ slots:
   expansion_direction:
     description: For an EXPANSION step, which way the hierarchy was walked.
     range: HierarchyExpansionEnum
-  arms:
-    description: >-
-      Named sub-populations the analysis identifies within this cohort, each
-      with its own identification chain and, for a model-derived collection, the
-      subset of components estimated from it.
-    multivalued: true
-    range: CohortArm
-    inlined_as_list: true
-  arm_name:
-    description: Name of the arm, unique within the cohort.
-    required: true
-  arm_role:
-    description: What the arm is for.
-    range: CohortArmRoleEnum
-  associated_components:
-    description: >-
-      `component_id` values of the latent phenotypes associated with this arm.
-
-      A gated or block-structured fit does not estimate every component from
-      every document: a foreground arm holding 0.5% of the corpus backs its own
-      components and nothing else. Naming the association here is what stops a
-      consumer reading a foreground component's numbers against the whole-corpus
-      denominator.
-
-      The association is structural, not itself a denominator. An arm's
-      `n_individuals` need not be the number a given component was estimated
-      from — a shared block is commonly fitted across every document while being
-      *carried* by one arm's members — so the authoritative per-component figure
-      stays `LatentPhenotype.estimation_scope_size`, and an arm whose two differ
-      should say so in its `description`.
-    multivalued: true
-  associated_component_ranges:
-    description: >-
-      Contiguous blocks of component indices this arm is associated with, as an
-      alternative to listing them one by one.
-
-      Block-structured fits assign components in runs — 0-79 shared, 80-99
-      foreground — and eighty enumerated ids to say "the shared block" is noise
-      a curator will not maintain. A range says the same thing in one line and
-      stays checkable: it is expanded before the arm/component checks run, so a
-      component covered by a range is claimed exactly as if it had been listed.
-      Use alongside `associated_components` for a block plus a few strays.
-    multivalued: true
-    range: ComponentIndexRange
-    inlined_as_list: true
-  range_lower:
-    description: First component index in the block, inclusive.
-    range: integer
-    minimum_value: 0
-    required: true
-  range_upper:
-    description: >-
-      Last component index in the block, inclusive. Inclusive on both ends
-      because these are named component indices rather than a measurement
-      interval — `0-79` should mean the eighty components a curator would count.
-    range: integer
-    minimum_value: 0
-    required: true
-
   # --- generic model properties ---
-  model_properties:
-    description: >-
-      Named properties of the fit that this schema does not model as first-class
-      slots. The escape hatch for model-class-specific structure — block or arm
-      layout, masking rules, step-size schedules, whatever a given model family
-      exports — so that a new or changed export shape does not require a schema
-      change to be recorded faithfully.
-    multivalued: true
-    range: ModelProperty
-    inlined_as_list: true
   property_value:
     description: Value of the property, as text. Numbers are written out.
 
   # --- domains and reliability ---
-  domain_role:
-    description: How the domain is actually used.
-    range: DomainRoleEnum
-  domain_name:
-    description: >-
-      Name of the data domain (e.g. condition, drug, measurement, procedure).
-      Identify domains by name, never by position — positional identification
-      silently shifts when the domain order changes.
-  vocabulary:
-    description: >-
-      Free-text provenance of the domain's content — where the codes came from
-      and how they were derived (e.g. "OMOP condition concepts, SNOMED-derived").
-      This is NOT the identifier system: that is `feature_namespace`, and it is
-      the one a consumer resolves `feature_id` against. The two routinely differ,
-      which is the point — SNOMED-derived OMOP concepts are OMOP identifiers, not
-      SNOMED ones.
-  n_features:
-    description: Number of features contributed by the domain.
-    range: integer
-    minimum_value: 0
-  reliability:
-    description: Reliability assessment for the domain.
-    range: DomainReliability
-  reliability_basis:
-    description: What the reliability assessment rests on.
-    range: ReliabilityBasisEnum
-    required: true
-  reliability_score:
-    description: >-
-      Summary reliability on a 0-1 scale, where higher is more reliable. Only
-      meaningful alongside `reliability_basis`.
-    range: float
-    minimum_value: 0.0
-    maximum_value: 1.0
-  readouts:
-    description: Individual reliability readouts backing the assessment.
-    multivalued: true
-    range: ReliabilityReadout
-    inlined_as_list: true
   n_folds:
     description: Number of cross-validation folds.
     range: integer
@@ -1939,18 +1552,6 @@ slots:
     description: Number of repeats of the cross-validation scheme.
     range: integer
     minimum_value: 1
-  metric:
-    description: Metric reported.
-    range: ReadoutMetricEnum
-    required: true
-  metric_value:
-    description: Value of the metric.
-    range: float
-  downweight_rationale:
-    description: >-
-      Why a domain is down-weighted or excluded, when it is. Records the
-      judgement so a later reviewer can disagree with it.
-
   # --- source ---
   source_name:
     description: Name of the source.
@@ -2086,6 +1687,142 @@ slots:
 # Classes
 # ---------------------------------------------------------------------------
 
+  # --- EHR-derived phenotype profiles ---
+  profile_id:
+    description: >-
+      Stable identifier for the profile within its set. Cited from a dismech
+      entry as `PHENODIST:<profile_id>`, so it must not be renumbered once
+      published — a component index is not a stable name.
+  profiles:
+    description: The profiles in this set.
+    multivalued: true
+    range: Profile
+    inlined_as_list: true
+  profile_source:
+    description: >-
+      Where the profiles came from and how they were made.
+
+      Everything model-specific lives here, including an open `metadata` map, so
+      the model layer can be reshaped without touching the profile contract. A
+      profile is a label, a disease, and weighted codes; if a consumer has to
+      understand the fit to read it, the split has failed.
+    range: ProfileSource
+  profile_label:
+    description: >-
+      Short human-readable name for the pattern, written for a disease page
+      rather than for the fit — "chronic pain and GI dysmotility", not
+      "component 88".
+    required: true
+  code_distributions:
+    description: >-
+      One categorical distribution over codes per domain. Required: a profile
+      with no distribution is a label with nothing under it.
+    multivalued: true
+    range: CodeDistribution
+    inlined_as_list: true
+    required: true
+  clinical_domain:
+    description: Domain this distribution ranges over.
+    range: ClinicalDomainEnum
+    required: true
+  weighted_codes:
+    description: The codes and their weights, conventionally in descending weight.
+    multivalued: true
+    range: WeightedCode
+    inlined_as_list: true
+    required: true
+  truncated:
+    description: >-
+      Whether the listed codes are a top-N subset rather than the full
+      distribution. Almost always true for a display export, and worth stating:
+      weights that do not sum to 1 are otherwise indistinguishable from a bug.
+    range: boolean
+  code:
+    description: >-
+      The code itself, as a bare identifier in the distribution's declared
+      `code_vocabulary` — an OMOP concept id, an ICD-10-CM code, a LOINC code.
+
+      Deliberately opaque and deliberately not a CURIE. Prefixing it would imply
+      the code resolves the way an ontology term does, and source-vocabulary
+      CURIEs proved brittle in exactly that way; a consumer resolves this
+      against `code_vocabulary` and `code_vocabulary_version`, not against a
+      prefix map. Typed as a string rather than an integer so the field does not
+      silently assume OMOP.
+    required: true
+  code_label:
+    description: >-
+      Human-readable name of the code, carried alongside it so a disease page is
+      readable without a vocabulary lookup.
+    required: true
+  code_vocabulary:
+    description: >-
+      Identifier system this distribution's codes are drawn from. Required: a
+      distribution whose vocabulary is unstated cannot be read correctly, and
+      the answer differs between data sources rather than being fixed.
+    range: CodeVocabularyEnum
+    required: true
+  code_vocabulary_version:
+    description: >-
+      Release of that vocabulary — the OMOP vocabulary release, the SNOMED
+      edition and date, the ICD revision year. Declared per distribution
+      alongside the vocabulary itself, so a consumer never has to look in two
+      places to resolve one code.
+  code_weight:
+    description: >-
+      Weight of this code within its distribution. A share of the
+      distribution's mass, not a patient count and not a frequency of the
+      finding among patients.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+    required: true
+  value_qualifier:
+    description: Direction of a value-aware code.
+    range: ValueQualifierEnum
+  profile_share:
+    description: >-
+      Share of the cohort's profile mass this profile accounts for.
+
+      Deliberately not called a prevalence. Shares across the profiles of one
+      cohort are compositional — they divide the fit's mass — whereas a
+      prevalence counts patients against a stated denominator of patients at
+      risk, which is what dismech's own `prevalence[]` block means. Rendering
+      one next to the other under the same word would invite exactly the
+      comparison that does not hold.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  resource:
+    description: Name of the resource or pipeline that produced the profiles.
+  method:
+    description: How the profiles were derived.
+    range: ProfileMethodEnum
+  dataset:
+    description: Dataset the profiles were derived from (e.g. All of Us Controlled Tier).
+  dataset_version:
+    description: Version or release of that dataset.
+  model_version:
+    description: Identifier of the fit or run that produced the profiles.
+  cohort_size:
+    description: >-
+      Number of individuals in the cohort the profiles were derived from. An
+      aggregate count only; instances carry no patient-level data.
+    range: integer
+    minimum_value: 0
+  profile_metadata:
+    description: >-
+      Open key/value map for anything model-specific. The escape hatch that
+      keeps a fast-moving model layer out of the profile contract.
+    multivalued: true
+    range: MetadataItem
+    inlined_as_list: true
+  metadata_key:
+    description: Name of the property.
+    required: true
+  metadata_value:
+    description: Value of the property, as text.
+    required: true
+
 classes:
 
   PhenotypeDistributionCollection:
@@ -2101,8 +1838,6 @@ classes:
       - provenance_tier
       - disease
       - source
-      - model
-      - domains
       - cohorts
       - distributions
       - generated_date
@@ -2125,7 +1860,6 @@ classes:
     slots:
       - record_id
       - phenotype
-      - latent_phenotype
       - measure_type
       - measure_description
       - unit
@@ -2364,7 +2098,6 @@ classes:
       - ascertainment
       - case_definition
       - identification_steps
-      - arms
       - definition_ref
       - geography
       - care_setting
@@ -2375,7 +2108,6 @@ classes:
       - observation_end
       - inclusion_criteria
       - exclusion_criteria
-      - identity_attestation
       - notes
 
   CohortIdentificationStep:
@@ -2399,63 +2131,6 @@ classes:
     slot_usage:
       step_role:
         required: true
-
-  CohortArm:
-    description: >-
-      A named sub-population within a cohort, with its own identification chain
-      and its own component subset.
-
-      Analyses over a general population routinely carry a background arm and
-      one or more disease-specific foreground arms, identified by different
-      chains and backing different components. Modelling the arm explicitly
-      keeps a foreground component's denominator attached to the arm that
-      produced it instead of leaving it to be inferred from the corpus size.
-    slots:
-      - arm_name
-      - arm_role
-      - description
-      - n_individuals
-      - identification_steps
-      - associated_components
-      - associated_component_ranges
-      - notes
-    slot_usage:
-      arm_name:
-        required: true
-
-  ComponentIndexRange:
-    description: >-
-      A contiguous, inclusive block of component indices.
-
-      Exists so a block-structured fit can state "components 0-79" without
-      enumerating eighty ids — and, more to the point, without the alternative
-      that was tried first: a boolean saying "this arm backs everything else",
-      which stood the arm/component checks down for the whole collection and so
-      silenced the very mis-attribution the arms were added to catch. A bound
-      the curator already knows should be written down, not waived.
-    slots:
-      - range_lower
-      - range_upper
-      - description
-    slot_usage:
-      range_lower:
-        required: true
-      range_upper:
-        required: true
-
-  IdentityAttestation:
-    description: >-
-      Assertion that the analysed rows are one-per-person, proving cardinality
-      and uniqueness without persisting identifiers or hashes. A supervised
-      held-out readout is only honest when each row is a distinct person; a
-      readout whose attestation is missing, false, or internally inconsistent
-      should be rejected rather than discounted.
-    slots:
-      - row_count
-      - unique_person_count
-      - one_row_per_person
-      - attestation_method
-      - notes
 
   Stratum:
     description: One covariate value defining the subgroup a record applies to.
@@ -2516,162 +2191,6 @@ classes:
       - p_value
       - description
 
-  LatentPhenotypeModel:
-    description: >-
-      The unsupervised or semi-supervised model that produced model-derived
-      records.
-
-      Deliberately restricted to what every model class in this space has in
-      common: an identity, a component count, a vocabulary, an inference method,
-      a training cohort, quality metrics, and a pointer to the artifact. That is
-      enough to make a component interpretable later — a component index means
-      nothing without the fit that produced it — while staying stable as model
-      classes and their export shapes change. Anything specific to one family
-      goes in `model_properties` rather than a dedicated slot.
-
-      A slot is first-class here only if it clears three bars: every model class
-      in scope can answer it, it has a machine-readable type worth validating,
-      and independent exporters would otherwise spell it differently. That last
-      bar is why `n_components`, `vocabulary_size`, `inference_method` and
-      `component_count_inferred` are not `model_properties` entries — as free
-      name/value pairs they arrive as `K`, `n_topics`, and `num_components`, and
-      no query spans two collections. `covariate_formula` is here because every
-      `CovariateEffect` coefficient in the collection is relative to it. The
-      fast path stays optional: a model class with no fixed component count
-      simply omits the slot, and nothing about it is unrecordable.
-    slots:
-      - model_name
-      - model_family
-      - version
-      - n_components
-      - component_count_inferred
-      - vocabulary_size
-      - covariate_formula
-      - inference_method
-      - hyperparameters
-      - model_properties
-      - training_cohort
-      - training_cohort_ref
-      - fit_metrics
-      - contains_patient_data
-      - artifact_url
-      - sha256
-      - software
-      - description
-      - notes
-
-  LatentPhenotype:
-    description: >-
-      One learned component of a LatentPhenotypeModel. A component is a
-      statistical object, not a disease concept; `mapped_phenotype_terms`
-      records a curator's judgement about what it corresponds to and
-      `mapping_basis` records how that judgement was reached. Do not import a
-      component's weight into a dismech phenotype slot without that mapping.
-    slots:
-      - component_id
-      - label
-      - description
-      - component_quality
-      - estimation_scope
-      - estimation_scope_size
-      - corpus_share
-      - top_features
-      - mapped_phenotype_terms
-      - mapping_basis
-      - notes
-
-  WeightedFeature:
-    description: One feature and its weight within a latent phenotype.
-    slots:
-      - feature_id
-      - label
-      - weight
-      - domain_name
-
-  ModelProperty:
-    description: >-
-      One named property of a fit that the schema does not model explicitly.
-
-      Latent phenotype modelling is a fast-moving area, and export shapes change
-      faster than a curation schema should. Rather than growing a first-class
-      slot for each model class's structure — and inheriting its churn — anything
-      outside the common denominator is recorded here as a name/value pair with
-      an explanation. A consumer that understands a particular model family can
-      read these; a consumer that does not can still read the distribution.
-    slots:
-      - name
-      - property_value
-      - description
-    slot_usage:
-      name:
-        required: true
-      property_value:
-        required: true
-
-  ModelDomain:
-    description: >-
-      One data domain contributing features to an analysis, with its role and
-      reliability. Domains are identified by name rather than by position, so
-      that adding or reordering domains cannot silently reassign a reliability
-      assessment to the wrong data.
-
-      List the domains the analysis used. A domain that was assessed and left
-      out does not have to appear at all — omission is the normal way to say a
-      domain is not in play, and `EXCLUDED` exists for the narrower case where
-      recording the negative result is worth something, e.g. to stop the next
-      person re-adding a domain that has already been shown to hurt. Do not read
-      an absent domain as `UNDETERMINED`.
-    slots:
-      - domain_name
-      - vocabulary
-      - feature_namespace
-      - feature_namespace_detail
-      - n_features
-      - domain_role
-      - reliability
-      - description
-    slot_usage:
-      domain_name:
-        required: true
-
-  DomainReliability:
-    description: >-
-      How much the analysis's use of a domain can bear. A phenotype distribution
-      read out of EHR condition codes and one read out of medication or
-      observation records are not equally trustworthy, and the difference is a
-      property of the domain rather than of the phenotype.
-
-      Read this as a caution flag, not as a weight. Where domain weighting has
-      been tested directly, the headroom has been small and not recoverable from
-      quantities read off the fitted model, and no fixed combination rule has
-      beaten the primary domain alone in aggregate — while a secondary domain
-      still rescued the individual diseases whose evidence lives in it. That is
-      a routing conclusion rather than a weighting one, which is why
-      `domain_role` sits alongside `reliability_score` and is the field a
-      consumer should act on.
-    slots:
-      - reliability_basis
-      - reliability_score
-      - readouts
-      - identity_attestation
-      - downweight_rationale
-      - notes
-
-  ReliabilityReadout:
-    description: One measured reliability or model-quality readout.
-    slots:
-      - metric
-      - metric_value
-      - interval_lower
-      - interval_upper
-      - interval_type
-      - interval_level
-      - n_folds
-      - n_repeats
-      - domain_name
-      - identity_attestation
-      - description
-
   SourceDescriptor:
     description: Where a collection's numbers came from, and under what terms.
     slots:
@@ -2684,6 +2203,139 @@ classes:
       - license
       - primary_references
       - description
+
+  # --- EHR-derived phenotype profiles ---
+
+  ProfileSet:
+    tree_root: true
+    description: >-
+      A set of EHR-derived phenotype profiles from one modelling run.
+
+      The second of the two shapes this schema carries, and deliberately much
+      smaller than the first. A `PhenotypeDistributionCollection` records the
+      full statistical object behind a literature estimate — a family, its
+      parameters, an interval, an ascertainment context. A `ProfileSet` records
+      something different: an interpretable summary of what co-occurs in a
+      disease cohort, exported from a fitted model for a disease page to show.
+
+      Modelled on the proposal in monarch-initiative/dismech#7612 by the author
+      of the models that produce this data, and small on purpose. An earlier
+      draft of this schema grew a full model layer — component counts,
+      inference methods, per-domain reliability, cohort arms — and that was the
+      wrong call twice over: it is model *evaluation* rather than disease-page
+      content, and it is the fastest-moving part of the pipeline, so a curation
+      schema encoding it would need revising every time the models moved. What
+      a page needs is a label, a disease, and weighted codes.
+    slots:
+      - collection_id
+      - name
+      - description
+      - provenance_tier
+      - profile_source
+      - profiles
+      - generated_date
+      - tracked_issues
+      - notes
+    slot_usage:
+      collection_id:
+        required: true
+      profiles:
+        required: true
+
+  Profile:
+    description: >-
+      One computationally-derived phenotype pattern for one disease.
+
+      A profile points at a single MONDO term. Any nesting or overlap between
+      cohorts is expressed by MONDO's own subclass tree, which dismech already
+      renders, so this schema ships no cohort or grouping vocabulary of its own.
+    slots:
+      - profile_id
+      - profile_label
+      - description
+      - disease
+      - profile_share
+      - code_distributions
+      - profile_source
+      - evidence_lines
+      - dismech_bindings
+      - notes
+    slot_usage:
+      profile_label:
+        required: true
+      disease:
+        required: true
+      code_distributions:
+        required: true
+
+  CodeDistribution:
+    description: >-
+      A categorical distribution over codes within one domain.
+
+      One per domain, with no cross-domain combination stated anywhere: how a
+      condition distribution and a drug distribution should be weighed against
+      each other is an open modelling question, and freezing an answer into the
+      contract would make the schema wrong as soon as the answer changed.
+    slots:
+      - clinical_domain
+      - code_vocabulary
+      - code_vocabulary_version
+      - description
+      - weighted_codes
+      - truncated
+      - notes
+    slot_usage:
+      clinical_domain:
+        required: true
+      code_vocabulary:
+        required: true
+      weighted_codes:
+        required: true
+
+  WeightedCode:
+    description: One OMOP concept and its weight within a distribution.
+    slots:
+      - code
+      - code_label
+      - code_weight
+      - value_qualifier
+    slot_usage:
+      code:
+        required: true
+      code_label:
+        required: true
+      code_weight:
+        required: true
+
+  ProfileSource:
+    description: >-
+      Where a profile set came from, and everything model-specific about it.
+
+      The quarantine. Method, dataset, vocabulary release, model version, and an
+      open `profile_metadata` map all live here, so the model layer can be
+      reshaped freely without touching the profile contract above it.
+    slots:
+      - resource
+      - description
+      - method
+      - dataset
+      - dataset_version
+      - cohort_size
+      - model_version
+      - url
+      - primary_references
+      - profile_metadata
+
+  MetadataItem:
+    description: One open key/value property of a profile source.
+    slots:
+      - metadata_key
+      - metadata_value
+    slot_usage:
+      metadata_key:
+        required: true
+      metadata_value:
+        required: true
 
   # --- SEPIO-aligned evidence layer ---
 
