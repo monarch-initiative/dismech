@@ -341,8 +341,20 @@ All ten recommended fixes were applied in the same branch. Post-fix state:
 - **Schema:** 10/10 `No issues found`.
 - **Snippet fidelity:** **602/602** snippets exact substrings (578 before; net +24
   evidence items added, none removed except the two retired `PMID:19364190` items).
-- **Frequency bands:** 36 → 13, and **13/13 remaining bands are quantitatively
-  supported** (0 unsupported, down from 24).
+- **Frequency bands:** 36 → 7. A follow-up audit of the 13 bands left by the
+  first pass found that only some were genuinely supported, so a second sweep
+  dropped 6 more (Lead `Anemia`; CO `Syncope`, `Coma`, `Chest pain`; Cadmium
+  `Acute Respiratory Distress Syndrome`; Thallium `Constipation`) whose snippets
+  carried no frequency signal, and re-banded 3 that contradicted their own
+  snippet (Lead `Hypertension` and `Gout` `OCCASIONAL` → `FREQUENT`, per the
+  source's "frequently presents"; CO `Headache` `VERY_FREQUENT` → `FREQUENT`).
+  Of the **7** bands that remain: 4 are quantitatively supported (Pattern A —
+  CO `Cognitive impairment` 15–40%, CO `Myocardial injury` ~one-third of
+  moderate-to-severe cases, Thallium `Alopecia` 68%, Thallium `Abdominal pain`
+  51%), 2 rest on a qualitative literature term mapped to a band (Pattern C —
+  Lead `Hypertension`, `Gout`), and 1 is a documented clinical estimate
+  (Pattern D — CO `Headache`). Every remaining band names its pattern in the
+  evidence `explanation`.
 - **Unevidenced top-level items:** 21 → 12, with all *mechanism* nodes and all
   disease *subtypes* now evidenced.
 
@@ -357,7 +369,7 @@ Four new references were fetched via the cache pipeline (never hand-written):
 | 4 | Direct Osteoblast Toxicity | Downgraded to `supports: PARTIAL`; the unsupported `biological_processes: osteoblast differentiation / DECREASED` assertion **removed**; description rewritten to say the direct arm is *not* established by the curated evidence and that the independence-from-renal claim is unsupported. New `KNOWLEDGE_GAP` discussion (`gap_cadmium_direct_osteoblast_toxicity`) with two proposed experiments — osteoblast/osteoclast culture, and an animal comparison with vs without renal phosphate wasting. |
 | 5 | Unevidenced quantitative specifics | All five removed (bioavailability percentages, 200 mcg/g cortex threshold, ~7 kDa, the 5/50 mcg/L blood cut-offs in both `biochemical` and `diagnosis`, and the per-cigarette / smoker-ratio figures). Replaced with qualitative statements plus an explicit note that numeric cut-offs are laboratory- and population-specific and are deliberately not asserted. |
 | 6 | Two misleading snippets | Lead `phenotypes[Peripheral neuropathy]`: snippet re-drawn from `PMID:20142857` to the sentence describing five battery-factory workers with electrophysiologically characterised radial neuropathy; the description now says motor-predominance is a tendency not an exclusive pattern, and the sensory-polyneuropathy case's `explanation` flags the discrepancy rather than hiding it. OP `phenotypes[Miosis]`: the "were less common in our patient population" snippet **replaced** with the positive sign list from `PMID:32626615`. |
-| 7 | Unsupported frequency bands | **23 bands dropped** (9 Lead, 8 Cadmium, 4 CO, 2 Thallium), including both Cadmium `VERY_FREQUENT` bands that rested on single case reports. The 13 bands with genuine quantitative or explicit qualitative support were kept. |
+| 7 | Unsupported frequency bands | **23 bands dropped** in the first pass (9 Lead, 8 Cadmium, 4 CO, 2 Thallium), including both Cadmium `VERY_FREQUENT` bands that rested on single case reports. A second sweep (see the Resolution note above) dropped **6 more** and re-banded **3**, leaving **7**. |
 | 8 | Histopathology nodes | Claims relaxed to what the sources show and the three "multiple organ damage" citations downgraded to `PARTIAL` with corrected explanations. Descriptions now state which features (hyaline membranes, type II pneumocyte hyperplasia, hepatocellular necrosis) are the *expected* pattern rather than an observed finding in the curated sources. |
 | 9 | Mercury scope, ALS claim, missing sections | ALS negative claim **sourced** to `PMID:30558238`, with the explanation noting the design limit (online self-report case-control, 401 vs 452) — absence of an observed association, not proof of no effect. Added `diagnosis` (blood/hair/toenail mercury, `PARTIAL`, carrying the source's own caveat that these matrices may not reflect remote injury; plus umbilical-cord methylmercury for prenatal exposure) and `treatments` (exposure cessation; supportive care, cited to "There is no effective treatment."). Added a `SCOPE NOTE` to the description and a `KNOWLEDGE_GAP` (`gap_mercury_inorganic_arm_not_curated`) recording that the elemental/inorganic arm is named but not modelled. Mercury evidence items 9 → 15. |
 | 10 | Silicosis subtypes / Asbestosis mechanism nodes | All three Silicosis subtypes evidenced with `PMID:25191413` (the three-way acute/chronic/accelerated classification by exposure intensity and symptom onset) and `PMID:30053129` (accelerated silicosis after ~2 years of intense sandblasting). Both Asbestosis mechanism nodes evidenced: `Pro-fibrotic mediator release` with `PMID:12444030` (pulmonary TGF-beta1 alone is sufficient to produce fibroproliferative disease) and `PMID:37569765`; `Excessive extracellular matrix deposition` with `PMID:38192052` and `PMID:32553000`. Both descriptions now flag which sub-claims come from the wider literature rather than the curated sources. |
