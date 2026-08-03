@@ -7,6 +7,7 @@ were never rendered. These tests pin the gate's behaviour on that shape.
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ sys.modules[_SPEC.name] = check_browser_data_links
 _SPEC.loader.exec_module(check_browser_data_links)
 
 find_broken_links = check_browser_data_links.find_broken_links
+find_ignored_paths = check_browser_data_links.find_ignored_paths
 extract_page_urls = check_browser_data_links.extract_page_urls
 parse_search_data = check_browser_data_links.parse_search_data
 BrowserDataError = check_browser_data_links.BrowserDataError
@@ -66,7 +68,9 @@ def test_unrendered_page_is_reported_as_broken(tmp_path):
     _render_pages(tmp_path, ["Asthma"])
     broken, total = find_broken_links(data_path)
     assert total == 2
-    assert [name for name, _ in broken] == ["ADPRS-Related Neurodegeneration"]
+    assert [(name, reason) for name, _, reason in broken] == [
+        ("ADPRS-Related Neurodegeneration", "missing")
+    ]
 
 
 def test_missing_pages_directory_reports_every_link(tmp_path):
@@ -95,6 +99,43 @@ def test_data_js_with_no_links_is_an_error(tmp_path):
     data_path.write_text("window.searchData = [];\n", encoding="utf-8")
     with pytest.raises(BrowserDataError):
         find_broken_links(data_path)
+
+
+def test_git_ignored_page_is_a_dead_link(tmp_path):
+    """A page that renders but is .gitignore'd never reaches the published site."""
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    names = ["Asthma", "Holt-Oram syndrome"]
+    data_path = _write_data_js(tmp_path, names)
+    _render_pages(tmp_path, names)
+    (tmp_path / ".gitignore").write_text(
+        "pages/disorders/Holt-Oram_syndrome.html\n", encoding="utf-8"
+    )
+    broken, total = find_broken_links(data_path)
+    assert total == 2
+    # Present on disk, so the existence check alone would have passed it.
+    assert (tmp_path / "pages" / "disorders" / "Holt-Oram_syndrome.html").exists()
+    assert [(name, reason) for name, _, reason in broken] == [
+        ("Holt-Oram syndrome", "git-ignored")
+    ]
+
+
+def test_tracked_page_is_not_flagged_even_if_a_pattern_matches(tmp_path):
+    # git check-ignore reports ignored AND untracked paths only; a committed
+    # page must never be flagged.
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    data_path = _write_data_js(tmp_path, ["Asthma"])
+    _render_pages(tmp_path, ["Asthma"])
+    (tmp_path / ".gitignore").write_text("pages/disorders/Asthma.html\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-f", "pages/"], cwd=tmp_path, check=True)
+    broken, _ = find_broken_links(data_path)
+    assert broken == []
+
+
+def test_ignored_check_is_inert_outside_a_git_repo(tmp_path):
+    names = ["Asthma"]
+    data_path = _write_data_js(tmp_path, names)
+    _render_pages(tmp_path, names)
+    assert find_broken_links(data_path)[0] == []
 
 
 def test_parse_search_data_rejects_missing_assignment():
