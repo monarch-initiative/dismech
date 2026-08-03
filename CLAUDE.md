@@ -613,6 +613,17 @@ just validate-history path/to/history.yaml
 just validate-history-all
 ```
 
+**Renamed or retargeted entries.** History records are append-only — never rewrite
+an existing record's `target.slug`/`target.path` when an entry is later renamed,
+retargeted, or merged. That record accurately describes the session as it ran. Add
+a `target.superseded_by` block (`slug` + `path` + `reason`, all required) pointing
+at the successor entry, and move the record files into the successor's slug
+directory. `test_committed_history_records_follow_layout` accepts a missing
+`target.path` only when `superseded_by.path` resolves, so an ordinary bad slug still
+fails. Unlike the frozen `target.slug`/`target.path`, `superseded_by` describes
+current repository state and *may* be repointed in place if the successor is renamed
+again.
+
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
 Quick classification rules (use these before tagging):
