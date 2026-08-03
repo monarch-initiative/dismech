@@ -22,6 +22,7 @@ Usage::
 
     uv run python scripts/check_browser_data_links.py
     uv run python scripts/check_browser_data_links.py --data app/data.js --limit 25
+    uv run python scripts/check_browser_data_links.py --data app/discussions/data.js
 
 Design invariant: **never silently pass.** A ``data.js`` whose structure this
 script cannot parse is an error, not a clean run — the same fail-safe stance
@@ -48,7 +49,7 @@ def parse_search_data(text: str) -> list[dict]:
     """Extract the ``window.searchData`` array from a ``data.js`` payload.
 
     The file is generated as ``window.searchData = <json array>;`` followed by
-    a ``window.searchStats`` object, so the array ends at the first ``];`` that
+    a ``window.searchMetrics`` object, so the array ends at the first ``];`` that
     starts a line.
     """
     start = text.find(SEARCH_DATA_MARKER)
@@ -88,6 +89,17 @@ def extract_page_urls(text: str) -> list[tuple[str, str]]:
     return pairs
 
 
+def page_target(url: str) -> str:
+    """Strip the in-page fragment from a ``page_url`` to get the file it names.
+
+    The sibling indexes ``app/discussions/data.js`` and ``app/models/data.js``
+    point at an anchor within a disorder page
+    (``../../pages/disorders/Crohn_Disease.html#computational-model-…``), so the
+    raw value is not a path. The page file is what has to exist.
+    """
+    return url.split("#", 1)[0]
+
+
 def find_ignored_paths(paths: list[Path], cwd: Path) -> set[str]:
     """Return the subset of ``paths`` that git would refuse to commit.
 
@@ -100,7 +112,9 @@ def find_ignored_paths(paths: list[Path], cwd: Path) -> set[str]:
         return set()
     try:
         proc = subprocess.run(
-            ["git", "check-ignore", "--stdin"],
+            # -c core.quotePath=false: git otherwise C-quotes non-ASCII paths
+            # ("Alstr\303\266m_syndrome.html"), which would not match our keys.
+            ["git", "-c", "core.quotePath=false", "check-ignore", "--stdin"],
             input="\n".join(str(p) for p in paths),
             capture_output=True,
             text=True,
@@ -133,15 +147,20 @@ def find_broken_links(data_path: Path) -> tuple[list[tuple[str, str, str]], int]
     broken: list[tuple[str, str, str]] = []
     present: list[tuple[str, str]] = []
     for name, url in pairs:
-        if (base / url).exists():
+        if (base / page_target(url)).exists():
             present.append((name, url))
         else:
             broken.append((name, url, "missing"))
 
-    resolved = {str((base / url).resolve()): (name, url) for name, url in present}
+    resolved = {
+        str((base / page_target(url)).resolve()): (name, url) for name, url in present
+    }
     for ignored in find_ignored_paths([Path(p) for p in resolved], base):
-        name, url = resolved[ignored]
-        broken.append((name, url, "git-ignored"))
+        # .get(): a git build that still quotes the path would otherwise take a
+        # fail-closed gate down with a KeyError instead of reporting.
+        pair = resolved.get(ignored)
+        if pair is not None:
+            broken.append((pair[0], pair[1], "git-ignored"))
 
     return broken, len(pairs)
 

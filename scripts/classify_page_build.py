@@ -174,9 +174,18 @@ def count_disorder_inputs(disorders_dir: Path) -> int:
     )
 
 
+#: Pages in the disorder directory that do not correspond to a disorder YAML.
+#: ``render._prune_orphan_pages`` keeps these (``keep_names``), so counting them
+#: would leave the KB and page counts permanently unequal and escalate every
+#: build to full forever. None exists today; this keeps that true if one lands.
+NON_DISORDER_PAGES = frozenset({"index.html"})
+
+
 def count_rendered_pages(pages_dir: Path) -> int:
-    """Count the rendered ``pages/disorders/*.html`` files."""
-    return sum(1 for _ in pages_dir.glob("*.html"))
+    """Count the rendered per-disorder ``pages/disorders/*.html`` files."""
+    return sum(
+        1 for path in pages_dir.glob("*.html") if path.name not in NON_DISORDER_PAGES
+    )
 
 
 def detect_page_drift(disorders_dir: Path, pages_dir: Path) -> str | None:

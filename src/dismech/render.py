@@ -19,7 +19,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.export.utils import RESEARCH_REPORT_PATTERN
+from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
@@ -176,11 +176,6 @@ def curie_to_url(curie: str) -> str:
 def _strip_line_end_whitespace(text: str) -> str:
     """Remove renderer-introduced spaces at line ends without changing content."""
     return re.sub(r"[ \t]+(?=\r?\n|$)", "", text)
-
-
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
 
 
 def _prune_orphan_pages(

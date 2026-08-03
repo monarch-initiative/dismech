@@ -39,7 +39,7 @@ def _write_data_js(tmp_path: Path, names: list[str]) -> Path:
     data_path = app_dir / "data.js"
     data_path.write_text(
         f"window.searchData = {json.dumps(records, indent=2)};\n"
-        'window.searchStats = {"total_disorders": ' + str(len(records)) + "};\n"
+        'window.searchMetrics = {"total_disorders": ' + str(len(records)) + "};\n"
         "window.dispatchEvent(new Event('searchDataReady'));\n",
         encoding="utf-8",
     )
@@ -131,11 +131,60 @@ def test_tracked_page_is_not_flagged_even_if_a_pattern_matches(tmp_path):
     assert broken == []
 
 
-def test_ignored_check_is_inert_outside_a_git_repo(tmp_path):
+def test_ignored_check_is_inert_when_git_is_unavailable(tmp_path, monkeypatch):
+    """No git binary must degrade to the on-disk check, not crash the gate."""
     names = ["Asthma"]
     data_path = _write_data_js(tmp_path, names)
     _render_pages(tmp_path, names)
+
+    def _no_git(*args, **kwargs):
+        raise OSError("git not found")
+
+    monkeypatch.setattr(check_browser_data_links.subprocess, "run", _no_git)
+    assert find_ignored_paths([Path("x")], tmp_path) == set()
     assert find_broken_links(data_path)[0] == []
+
+
+def test_ignored_check_is_inert_when_git_errors(tmp_path, monkeypatch):
+    """A non-repo cwd (rc=128) must not be read as 'everything is ignored'."""
+    names = ["Asthma"]
+    data_path = _write_data_js(tmp_path, names)
+    _render_pages(tmp_path, names)
+
+    class _Result:
+        returncode = 128
+        stdout = "fatal: not a git repository\n"
+
+    monkeypatch.setattr(
+        check_browser_data_links.subprocess, "run", lambda *a, **k: _Result()
+    )
+    assert find_broken_links(data_path)[0] == []
+
+
+def test_fragment_bearing_page_url_resolves_to_the_page_file(tmp_path):
+    """app/discussions/data.js and app/models/data.js link to an in-page anchor."""
+    app_dir = tmp_path / "app" / "discussions"
+    app_dir.mkdir(parents=True)
+    pages_dir = tmp_path / "pages" / "disorders"
+    pages_dir.mkdir(parents=True)
+    (pages_dir / "Crohn_Disease.html").write_text("<html></html>")
+    records = [
+        {
+            "name": "Crohn Disease",
+            "page_url": "../../pages/disorders/Crohn_Disease.html#gap_abc",
+        },
+        {
+            "name": "Missing Disease",
+            "page_url": "../../pages/disorders/Missing_Disease.html#gap_xyz",
+        },
+    ]
+    data_path = app_dir / "data.js"
+    data_path.write_text(f"window.searchData = {json.dumps(records, indent=2)};\n")
+    broken, total = find_broken_links(data_path)
+    assert total == 2
+    assert [(name, reason) for name, _, reason in broken] == [
+        ("Missing Disease", "missing")
+    ]
 
 
 def test_parse_search_data_rejects_missing_assignment():
