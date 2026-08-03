@@ -305,6 +305,15 @@ entry's curated treatments, gene answers against its curated mechanism.
     knowledge graph instead of a language model — and it is exactly why
     Translator output is filed as leads.
 
+    The run that exposed this is **deliberately not committed**: a report built
+    on a conflated node does not belong in `kb/hypotheses/`, however useful the
+    defect is. To reproduce it, re-run
+    `just translator-drug-paths kb/disorders/Atrial_Fibrillation.yaml "trimethylamine N-oxide"`
+    and read the banner, or open ARS pk `0eac7f2c-b0a7-4bc0-9acd-0e07620e308c`
+    in the Translator UI. The guard itself is regression-tested in
+    `tests/test_translator_drug_links.py`, so the behaviour is pinned without
+    keeping the artifact.
+
 !!! warning "Gene lookups are pinned to human"
 
     An unrestricted name-resolver lookup for `ABL1` returns the **dog**
