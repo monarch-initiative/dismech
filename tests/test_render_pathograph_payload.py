@@ -178,7 +178,7 @@ def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> No
     assert "allelic_event: DELETION" in html
     assert "allelic_event: LOSS_OF_HETEROZYGOSITY" in html
     assert "functional_impact_category: LOSS_OF_FUNCTION" in html
-    assert "Reduced AIP AHR/HSP90 co-chaperone binding function" in html
+    assert "Reduced AIP-AHR co-chaperone binding function" in html
     assert ">hgnc:348</a>" in html
     assert "AHR-dependent transcriptional response" in html
     assert "Dysregulated AHR target-gene transcriptional response" in html
@@ -206,7 +206,7 @@ def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> No
         "allelic_events": ["DELETION", "LOSS_OF_HETEROZYGOSITY"],
         "gene_terms": [{"label": "AIP", "id": "hgnc:358"}],
     }
-    assert node_meta["Reduced AIP AHR/HSP90 co-chaperone binding function"][
+    assert node_meta["Reduced AIP-AHR co-chaperone binding function"][
         "gene_terms"
     ] == [
         {"label": "AIP", "id": "hgnc:358"},
