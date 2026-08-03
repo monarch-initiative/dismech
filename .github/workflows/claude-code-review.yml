@@ -98,8 +98,87 @@ jobs:
       - name: Install project
         run: uv sync --dev --group export
 
+      # Preflight: claude-code-action fetches the PR through GitHub's GraphQL API
+      # and reads `pullRequest.files.nodes` with no null guard. Above GitHub's
+      # diff-size ceiling that field comes back **null with no `errors` entry** —
+      # a silent null, not an API error — so the action dies with
+      # "TypeError: null is not an object (evaluating 'pullRequest.files.nodes')"
+      # and no review is posted. Seen on PR #7912 (5,924 changed files: a full
+      # page rebuild) and again on a regen PR on 2026-08-02. GraphQL also reports
+      # changedFiles: 0 for these, while the REST files endpoint still paginates
+      # fine — so this is a GraphQL-side limit, not missing data.
+      #
+      # Detect it up front and skip the agent with a loud notice instead of a red
+      # X on a PR nobody can do anything about. Note this does NOT unblock the
+      # merge: branch protection requires 1 approving review, which the bot
+      # normally supplies, so an oversized PR still needs a human approval.
+      # Upstream: anthropics/claude-code-action should null-guard the field.
+      - name: Check the PR diff is enumerable by the review action
+        id: diff-scale
+        env:
+          GH_TOKEN: ${{ steps.reviewer-token.outputs.token || github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          owner="${REPO%/*}"; name="${REPO#*/}"
+
+          # Ask jq for an explicit token. Do NOT select the field directly and
+          # compare against "null": gh --jq prints an EMPTY STRING for a JSON
+          # null, so a naive `[ "$x" != "null" ]` never fires.
+          probe() {
+            gh api graphql \
+              -f query='query($owner:String!,$name:String!,$pr:Int!){
+                repository(owner:$owner,name:$name){
+                  pullRequest(number:$pr){ files(first:1){ nodes{ path } } }
+                }
+              }' \
+              -F owner="$owner" -F name="$name" -F pr="${PR_NUMBER}" \
+              --jq 'if .data.repository.pullRequest.files == null
+                    then "FILES_NULL" else "FILES_OK" end' 2>/dev/null
+          }
+
+          verdict=""
+          for attempt in 1 2 3; do
+            verdict="$(probe || true)"
+            case "$verdict" in
+              FILES_NULL|FILES_OK) break ;;
+            esac
+            echo "GraphQL probe attempt ${attempt} inconclusive; retrying." >&2
+            sleep 5
+          done
+
+          # Fail OPEN. A transient API error must not silently disable review —
+          # only a definite FILES_NULL earns a skip.
+          if [ "$verdict" != "FILES_NULL" ]; then
+            echo "PR #${PR_NUMBER}: probe=${verdict:-<none>}; running the review."
+            echo "oversized=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Deliberately no file count in the message. GitHub reports
+          # changedFiles: 0 for these PRs and stops paginating the REST files
+          # endpoint after one page, so any number we printed would be wrong —
+          # worse than none. Describe the condition instead.
+          msg="GitHub cannot enumerate PR #${PR_NUMBER}'s diff: the GraphQL API returns \
+          pullRequest.files = null (and changedFiles: 0) for diffs past its size ceiling, \
+          so the review action cannot fetch the PR and dies on the null. Skipping the \
+          review rather than failing on something this PR cannot fix. NOTE: branch \
+          protection still requires 1 approving review, so this PR needs a HUMAN \
+          approval to merge. Typical cause: an automated full page rebuild on \
+          auto/generate-pages (PR #7912 was ~5,900 files). Check the diff locally with \
+          'git diff --stat origin/main...<head>'."
+          echo "::notice title=Claude review skipped: diff too large to fetch::${msg}"
+          {
+            echo "### ⏭️ Claude review skipped — diff too large to fetch"
+            echo
+            echo "${msg}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "oversized=true" >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code Review
         id: claude-review
+        if: steps.diff-scale.outputs.oversized != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           # Auth precedence: ANTHROPIC_API_KEY (pay-per-use) wins when it is set —
@@ -170,7 +249,10 @@ jobs:
       # out a usage-limit distinctly (it was far too hard to diagnose otherwise)
       # so the next breakage is a loud red X, not a silent pass.
       - name: Verify the review agent actually ran
-        if: always()
+        # Skipped only when the preflight above proved the action *cannot* fetch
+        # this PR. Every other path still gets the hardening — a missing
+        # execution log must stay a loud red X, not a silent pass.
+        if: always() && steps.diff-scale.outputs.oversized != 'true'
         env:
           EXECUTION_FILE: ${{ steps.claude-review.outputs.execution_file }}
         run: |
