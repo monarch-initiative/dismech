@@ -59,6 +59,11 @@ bill of health and away from a spurious "discard the report":
   report.
 * A single incidental mention of the canonical gene is not enough for
   ``PASS``; ``min_signal`` applies to the expected gene as well as to rivals.
+* ``FAIL`` is only issued when nothing contradicts it. If a lookup failed
+  (so the alias rescue that could have found the canonical gene never ran),
+  or if the report's OMIM IDs agree with the MONDO xref (an *independent*
+  identity anchor pointing at the right disease), the verdict is capped at
+  ``WARN``.
 """
 from __future__ import annotations
 
@@ -158,8 +163,10 @@ class MondoRecord:
     #: and are still bare CURIEs. A report can never mention these, so they
     #: must not be read as evidence that the report is about another disease.
     unresolved_genes: tuple[str, ...] = ()
-    #: Canonical symbol -> previous/alias symbols from HGNC. A report that
-    #: says "NHE1" is still talking about SLC9A1.
+    #: Canonical symbol -> previous/alias symbols as HGNC records them. A
+    #: report written in terms of SLC9A1's previous symbol "PPP1R143" is still
+    #: about SLC9A1. Only symbols HGNC actually lists are rescued: a purely
+    #: protein-level name (NHE1) is not an HGNC alias and will not be.
     gene_aliases: dict[str, tuple[str, ...]] = field(default_factory=dict)
     #: Human-readable descriptions of lookups that *failed* (as opposed to
     #: lookups that legitimately returned nothing). Never silently dropped.
@@ -329,7 +336,9 @@ def _symbol_like(value: str) -> bool:
     return bool(match) and value.upper() not in NON_GENE_TOKENS
 
 
-def fetch_mondo_record(mondo_id: str, adapter=None, hgnc_adapter=None) -> MondoRecord:
+def fetch_mondo_record(
+    mondo_id: str, adapter=None, hgnc_adapter=None, *, use_hgnc: bool = True
+) -> MondoRecord:
     """Look up the label, causal gene(s), and OMIM xrefs for a MONDO term.
 
     The causal gene comes from the ``RO:0004003`` relation. Contrary to an
@@ -343,6 +352,10 @@ def fetch_mondo_record(mondo_id: str, adapter=None, hgnc_adapter=None) -> MondoR
     :attr:`MondoRecord.unresolved_genes` so the caller can refuse to draw a
     conclusion from it. Every lookup that *errors* (as opposed to legitimately
     returning nothing) is recorded in :attr:`MondoRecord.lookup_errors`.
+
+    ``use_hgnc=False`` keeps the whole function offline: HGNC is never opened,
+    so ``--no-hgnc`` really is an offline mode rather than only a swap of the
+    token lexicon.
     """
     if adapter is None:
         from oaklib import get_adapter
@@ -353,7 +366,10 @@ def fetch_mondo_record(mondo_id: str, adapter=None, hgnc_adapter=None) -> MondoR
 
     # The HGNC adapter is only needed to repair a missing label or to pull
     # aliases, so it is built lazily and its absence is not fatal.
-    hgnc_state: dict[str, object] = {"adapter": hgnc_adapter, "tried": hgnc_adapter is not None}
+    hgnc_state: dict[str, object] = {
+        "adapter": hgnc_adapter,
+        "tried": hgnc_adapter is not None or not use_hgnc,
+    }
 
     def _hgnc():
         if not hgnc_state["tried"]:
@@ -394,7 +410,7 @@ def fetch_mondo_record(mondo_id: str, adapter=None, hgnc_adapter=None) -> MondoR
         if not resolved:
             unresolved.append(symbol)
             continue
-        gene_aliases = _gene_aliases(obj, _hgnc, errors)
+        gene_aliases = _gene_aliases(obj, symbol, _hgnc, errors)
         if gene_aliases:
             aliases[symbol] = gene_aliases
 
@@ -440,7 +456,11 @@ def _resolve_gene_symbol(curie, adapter, hgnc_getter, errors: list[str]) -> tupl
         hgnc = hgnc_getter()
         if hgnc is not None:
             try:
-                symbol = hgnc.label(curie) or symbol
+                for variant in _curie_variants(curie):
+                    repaired = hgnc.label(variant)
+                    if repaired:
+                        symbol = repaired
+                        break
             except Exception as exc:  # pragma: no cover - adapter variance
                 errors.append(f"gene-symbol lookup for {curie} failed in HGNC: {exc}")
 
@@ -453,26 +473,86 @@ def _resolve_gene_symbol(curie, adapter, hgnc_getter, errors: list[str]) -> tupl
     return symbol, True
 
 
-def _gene_aliases(curie, hgnc_getter, errors: list[str]) -> tuple[str, ...]:
-    """Previous/alias symbols for a gene, so ``NHE1`` still counts for ``SLC9A1``.
+def _curie_variants(curie: str) -> tuple[str, ...]:
+    """The CURIE plus its opposite-cased prefix, e.g. ``hgnc:11071``.
+
+    MONDO emits ``HGNC:11071`` while this repository's canonical form is
+    lowercase ``hgnc:`` (see ``CLAUDE.md`` -> "CURIE Prefix Casing"). An OAK
+    adapter keyed on the other casing answers such a lookup with an empty
+    result *without raising*, which would make the alias rescue silently inert
+    -- and that rescue is load-bearing for not manufacturing a ``FAIL``.
+    """
+    curie = str(curie)
+    if ":" not in curie:
+        return (curie,)
+    prefix, local = curie.split(":", 1)
+    variants = [curie]
+    for alternative in (prefix.upper(), prefix.lower()):
+        candidate = f"{alternative}:{local}"
+        if candidate not in variants:
+            variants.append(candidate)
+    return tuple(variants)
+
+
+def _alias_belongs_elsewhere(alias: str, curie: str, hgnc, errors: list[str]) -> bool:
+    """True if ``alias`` is the *approved* symbol of some other HGNC gene.
+
+    ``claimed`` in :func:`assess` both credits an alias to the expected gene and
+    removes it from the rival list, so an alias that collides with another
+    gene's approved symbol would be double-discounted and bias the verdict
+    towards ``PASS``. On a lookup failure the alias is *kept* (and the failure
+    recorded): dropping it could suppress the expected gene's count and
+    manufacture a ``FAIL``, which is the worse direction to be wrong in.
+    """
+    lookup = getattr(hgnc, "curies_by_label", None)
+    if lookup is None:  # adapter cannot answer; not a failure, just a gap
+        return False
+    try:
+        hits = list(lookup(alias) or [])
+    except Exception as exc:  # pragma: no cover - adapter variance
+        errors.append(f"alias collision check for {alias} failed: {exc}")
+        return False
+    if not hits:
+        return False
+    own = {c.lower() for c in _curie_variants(curie)}
+    return not any(str(hit).lower() in own for hit in hits)
+
+
+def _gene_aliases(curie, symbol: str, hgnc_getter, errors: list[str]) -> tuple[str, ...]:
+    """Previous/alias symbols for a gene, so ``PPP1R143`` still counts for ``SLC9A1``.
 
     Aliases are filtered to symbol-shaped tokens the report scanner could
     actually produce; free-text names ("sodium/hydrogen exchanger 1") are
-    dropped because :data:`GENE_TOKEN_RE` would never emit them.
+    dropped because :data:`GENE_TOKEN_RE` would never emit them. The gene's own
+    approved symbol is dropped -- it is already counted directly, and leaving it
+    in would double it. Aliases that are *another* gene's approved symbol are
+    dropped too (see :func:`_alias_belongs_elsewhere`).
     """
     hgnc = hgnc_getter()
     if hgnc is None:
         return ()
+    curie = str(curie)
+    raw: list = []
     try:
-        raw = hgnc.entity_aliases(str(curie)) or []
+        for variant in _curie_variants(curie):
+            # ``entity_aliases`` on the wrong prefix casing answers ``[None]``
+            # rather than raising, so a truthiness test on the raw list is not
+            # enough to tell "this variant is the right key" from "it is not".
+            candidates = [a for a in (hgnc.entity_aliases(variant) or []) if a]
+            if candidates:
+                raw = candidates
+                break
     except Exception as exc:  # pragma: no cover - adapter variance
         errors.append(f"alias lookup for {curie} failed: {exc}")
         return ()
     seen: list[str] = []
     for alias in raw:
         alias = str(alias).strip()
-        if _symbol_like(alias) and alias not in seen:
-            seen.append(alias)
+        if not _symbol_like(alias) or alias in seen or alias == symbol:
+            continue
+        if _alias_belongs_elsewhere(alias, curie, hgnc, errors):
+            continue
+        seen.append(alias)
     return tuple(seen)
 
 
@@ -494,7 +574,8 @@ def assess(
     resolvable = [g for g in expected if g not in unresolved]
 
     # An alias mention counts towards its canonical gene: a report that writes
-    # "NHE1" throughout is still about SLC9A1, and must not be binned as NEC.
+    # a previous HGNC symbol throughout ("PPP1R143" for SLC9A1) is still about
+    # that gene, and must not be binned as NEC.
     alias_mentions: dict[str, int] = {}
     expected_mentions: dict[str, int] = {}
     alias_symbols: set[str] = set()
@@ -567,13 +648,44 @@ def assess(
     expected_str = "/".join(resolvable)
 
     if expected_total == 0 and rivals:
-        result.verdict = FAIL
         top_sym, top_n = rivals[0]
-        result.reasons.append(
-            f"Expected gene {expected_str} is never mentioned, but {top_sym} is "
-            f"mentioned {top_n} times. The report is most likely about a "
-            "different disease entity — discard it rather than cherry-picking."
-        )
+        omim_agrees = bool(record.omim_ids and (set(record.omim_ids) & report_omim))
+        # FAIL is the tool's most destructive instruction ("discard the
+        # report"), so it is issued only when nothing contradicts it. A lookup
+        # that failed is exactly the lookup that could have found the expected
+        # gene under an alias, and an OMIM match is an *independent* identity
+        # anchor. Either one downgrades to WARN.
+        if record.lookup_errors:
+            result.verdict = WARN
+            result.reasons.append(
+                f"Expected gene {expected_str} is never mentioned while {top_sym} is "
+                f"mentioned {top_n} times — but an ontology lookup failed, so alias "
+                "symbols could not be checked and the absence of the canonical symbol "
+                "is not conclusive. Verify the report's identity manually rather than "
+                "discarding it on this evidence."
+            )
+        elif omim_agrees:
+            result.verdict = WARN
+            shared = ", ".join(sorted(set(record.omim_ids) & report_omim))
+            result.reasons.append(
+                f"Expected gene {expected_str} is never mentioned while {top_sym} is "
+                f"mentioned {top_n} times, but the report cites OMIM {shared}, which "
+                f"matches the {record.id} xref. That independent identity anchor "
+                "contradicts the gene-frequency signal — reconcile the two manually "
+                "instead of discarding the report."
+            )
+        else:
+            result.verdict = FAIL
+            result.reasons.append(
+                f"Expected gene {expected_str} is never mentioned, but {top_sym} is "
+                f"mentioned {top_n} times. The report is most likely about a "
+                "different disease entity — discard it rather than cherry-picking."
+            )
+        if result.lookup_errors:
+            result.reasons.append(
+                "Some ontology lookups failed, so this verdict is incomplete: "
+                + "; ".join(result.lookup_errors)
+            )
         return result
 
     if expected_total == 0:
@@ -649,11 +761,17 @@ def preflight(
     lexicon=None,
     min_signal: int = DEFAULT_MIN_SIGNAL,
     rival_ratio: float = DEFAULT_RIVAL_RATIO,
+    use_hgnc: bool = True,
 ) -> PreflightResult:
-    """Run the full NEC preflight on a report file against a MONDO ID."""
+    """Run the full NEC preflight on a report file against a MONDO ID.
+
+    ``use_hgnc=False`` is a genuine offline mode: neither the token lexicon nor
+    the MONDO symbol/alias repair opens the HGNC adapter.
+    """
     text = Path(report_path).read_text(encoding="utf-8")
-    lexicon = lexicon if lexicon is not None else default_lexicon()
-    record = fetch_mondo_record(mondo_id, adapter=adapter)
+    if lexicon is None:
+        lexicon = HeuristicLexicon() if not use_hgnc else default_lexicon()
+    record = fetch_mondo_record(mondo_id, adapter=adapter, use_hgnc=use_hgnc)
     try:
         counts = extract_gene_mentions(text, lexicon)
     except LexiconUnavailable as exc:
@@ -726,7 +844,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-hgnc",
         action="store_true",
-        help="Skip HGNC validation of gene tokens (offline heuristic mode; noisier).",
+        help=(
+            "Do not open the HGNC adapter at all: gene tokens are accepted by the "
+            "heuristic lexicon and MONDO gene symbols are not repaired or expanded "
+            "to aliases (offline mode; noisier)."
+        ),
     )
     parser.add_argument(
         "--require-hgnc",
@@ -740,7 +862,10 @@ def main(argv: list[str] | None = None) -> int:
         "--min-signal",
         type=int,
         default=DEFAULT_MIN_SIGNAL,
-        help=f"Mentions before a rival gene counts as substantive (default {DEFAULT_MIN_SIGNAL}).",
+        help=(
+            "Mentions before a gene counts as substantive, applied to the expected "
+            f"gene as well as to rivals (default {DEFAULT_MIN_SIGNAL})."
+        ),
     )
     parser.add_argument(
         "--rival-ratio",
@@ -774,6 +899,7 @@ def main(argv: list[str] | None = None) -> int:
         lexicon=lexicon,
         min_signal=args.min_signal,
         rival_ratio=args.rival_ratio,
+        use_hgnc=not args.no_hgnc,
     )
 
     if args.json:
