@@ -38,7 +38,16 @@ morphologically and immunologically indistinguishable from those of IBM occur in
 |---|---|
 | Long-standing denervation (postpoliomyelitis muscular atrophy) — vacuoles in 31% of biopsies, Congo-red positive in 27.8% | [PMID:9781653](https://pubmed.ncbi.nlm.nih.gov/9781653/) |
 | Congenital myopathy of children — "the full morphological phenotype of IBM including beta-amyloid and tau protein deposits" | [PMID:16788822](https://pubmed.ncbi.nlm.nih.gov/16788822/) |
-| Oculopharyngeal muscular dystrophy and familial IBM-like disorder (ubiquitin arm; the beta-amyloid antibody did discriminate here, but in only "a few fibres" and against structures the authors declined to identify) | [PMID:8268725](https://pubmed.ncbi.nlm.nih.gov/8268725/) |
+
+**Oculopharyngeal muscular dystrophy is *not* on that list**, and it is worth saying why,
+because it is the obvious third candidate. OPMD shares the ubiquitinated filamentous
+inclusions, but the one study here that applied a beta-amyloid antibody to it reports the
+opposite of what the non-specificity argument would need: *"Labelling with
+anti-beta-amyloid-protein antibody was seen in a few fibres in IBM but not in the other two
+conditions"* ([PMID:8268725](https://pubmed.ncbi.nlm.nih.gov/8268725/) — the other two being
+familial IBM-like disorder and OPMD). That item is curated `PARTIAL`, and OPMD appears in
+this entry only as an experimental control arm, never as evidence. Denervation and
+congenital myopathy carry the specificity argument on their own.
 
 The postpolio authors draw the general conclusion the specificity claim cannot survive:
 *"The chronicity of the underlying disease, rather than the cause, may lead to vacuolar

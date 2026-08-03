@@ -2126,6 +2126,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    # Module hypothesis boxes show the same support/refute balance as disorder
+    # pages. Only the tally is computed here: modules do not render hypothesis
+    # chips on pathophysiology nodes, so the rest of
+    # _annotate_hypothesis_group_links has nothing to attach to.
+    for hypothesis in module.get("mechanistic_hypotheses") or []:
+        if isinstance(hypothesis, dict):
+            hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
     yaml_content = yaml_path.read_text()
 
     if template_path is None:
