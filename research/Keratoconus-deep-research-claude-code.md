@@ -108,10 +108,10 @@ Recording these explicitly so the next curator does not re-run the same searches
 
 | Lead | Axis | Why deferred |
 |---|---|---|
-| `PMID:39448666` Keratoconus (Nat Rev Dis Primers, 2024) | atopy/rubbing | The authoritative primer; cached but not yet mined. High-value follow-up — it is the natural source for a broader phenotype and natural-history pass. Deferred only because this PR round was scoped to the review items. |
-| `PMID:38830186` The Pathophysiology of Keratoconus (Cornea, 2025) | biomechanics | Directly on-topic for the pathograph; cached. Candidate for a second pathophysiology pass, especially the enzymatic/oxidative-stress arm the current graph compresses into one node. |
-| `PMID:39535071` polygenic risk score (Hum Mol Genet, 2025) | genetics | Cached. Would support a PRS statement in `genetic`, but the entry already carries the 12.5%-of-variance figure; adding a PRS claim needs care about which cohort the AUC refers to. |
-| `PMID:39671084` Definition of Progressive Keratoconus: systematic review (Cornea, 2025) | progression | Cached. Natural source for tightening the `progression` section, now partly superseded by the Edition 2 consensus criteria. |
+| ~~`PMID:39448666` Keratoconus (Nat Rev Dis Primers, 2024)~~ | atopy/rubbing | **Now mined** (round 3) — supplied the UV-light-exposure and contact-lens-wear `environmental:` records. |
+| ~~`PMID:38830186` The Pathophysiology of Keratoconus (Cornea, 2025)~~ | biomechanics | **Now mined** (round 3) — supplied two new pathophysiology nodes (`Corneal Oxidative Stress`, `Keratocyte Apoptosis`), a biomechanical-primacy evidence item, and two REFUTE items strengthening the inflammatory-status controversy. |
+| ~~`PMID:39535071` polygenic risk score (Hum Mol Genet, 2025)~~ | genetics | **Now mined** (round 3) — added as two evidence items on the `Polygenic susceptibility architecture` genetic record. The cohort ambiguity flagged here was handled by quoting the biobank by name in each snippet (EstBB OR 2.28; UKB AUC 0.84→0.88) rather than stating a bare AUC. |
+| ~~`PMID:39671084` Definition of Progressive Keratoconus: systematic review (Cornea, 2025)~~ | progression | **Now mined** (round 3) — supplied a "Documented progression (the cross-linking indication)" `progression:` record; typed the lack-of-unified-criteria conclusion PARTIAL, and cross-referenced the Edition 2 consensus in the diagnosis section rather than presenting it as superseded. |
 | `PMID:39681212` Corneal cross-linking (Prog Retin Eye Res, 2025); `PMID:37938377` epi-on vs epi-off meta-analysis; `PMID:36094374` oxygen in CXL | CXL evidence | The entry's CXL treatment is already evidenced. These would deepen protocol-level detail, which is below the abstraction level this KB curates. |
 | `PMID:39943883` PK vs DALK meta-analysis (27,018 eyes); `PMID:27802912` | keratoplasty | Would support a surgical-outcomes elaboration of the existing keratoplasty treatment. Not a mechanism claim. |
 | `PMID:38317314` Management of acute corneal hydrops (2024) | hydrops | Management-level; the hydrops *mechanism* is already curated from `PMID:24491416` and was split into two atomic nodes in this PR. |
@@ -131,9 +131,32 @@ Recording these explicitly so the next curator does not re-run the same searches
 | `comorbidities` (separate files) | absent | still absent — deliberately, see above |
 | `clinical_trials` | absent | still absent — deliberately, see above |
 
+## Round 3 — mining pass over cached-but-unconsumed references
+
+Prompted by the second PR review, which flagged that four references shipped in
+`references_cache/` in this PR were consumed by zero evidence items. All four are now
+mined; no new literature search was run and no new cache files were fetched.
+
+| Section | After round 2 | After round 3 |
+|---|---|---|
+| `pathophysiology` | 12 nodes | 14 nodes (`Corneal Oxidative Stress`, `Keratocyte Apoptosis`) |
+| `environmental` | 2 | 4 (UV exposure, contact lens wear) |
+| `progression` | 1 record | 2 records (progression definition / CXL indication) |
+| `genetic` evidence on the polygenic record | 1 item | 3 items (PRS validation in two biobanks) |
+| verified snippets | 73/73 | 85/85 |
+| cached-but-unconsumed references | 4 | 0 |
+
+Both new pathophysiology nodes carry a `notes:` stating which upstream edge was
+deliberately *not* asserted and why — the source reports oxidative stress and keratocyte
+apoptosis without establishing what drives either, and "along with" is co-observation, not
+causation. The `Anterior Limiting Membrane Rupture` → `Loss of Corneal Biomechanical
+Rigidity` edge was also recalibrated from `DIRECT` to `INDIRECT_UNKNOWN_INTERMEDIATES`
+(review suggestion 2): the snippets establish the lesion histopathologically, not its
+biomechanical consequence, and Bowman's layer is ablated wholesale in PRK without
+inducing ectasia.
+
 ## Open follow-ups worth issues
 
-1. **Mine `PMID:39448666` (Nat Rev Dis Primers) and `PMID:38830186` (Cornea 2025 pathophysiology).** These are the two highest-value unmined sources for this disease.
-2. **`keratoconus_corneal_ectasia` mechanism module.** Keratoconus carries both an HP and a MONDO id and is used as a *phenotype* by at least five other entries (`Ehlers-Danlos_Syndrome`, `Arterial_Tortuosity_Syndrome`, `Spondylodysplastic_Ehlers-Danlos_Syndrome`, `CRB1_Retinal_Dystrophies`, `GUCY2D-Related_Retinopathy`). That is the "disease-like phenotype" pattern that glaucoma, cataract and osteoporosis each model as a disorder entry *plus* a `kb/modules/` module. Raised by the PR reviewer (suggestion 13) and endorsed here.
-3. **MAXO NTR for corneal collagen cross-linking.** Neither MAXO nor NCIT codes CXL; the entry uses `NCIT:C15301` Phototherapy + `CHEBI:17015` riboflavin as an interim composition.
-4. **OSA-keratoconus** (`PMID:37227479`) as a candidate comorbidity pair.
+1. **`keratoconus_corneal_ectasia` mechanism module.** Keratoconus carries both an HP and a MONDO id and is used as a *phenotype* by at least five other entries (`Ehlers-Danlos_Syndrome`, `Arterial_Tortuosity_Syndrome`, `Spondylodysplastic_Ehlers-Danlos_Syndrome`, `CRB1_Retinal_Dystrophies`, `GUCY2D-Related_Retinopathy`). That is the "disease-like phenotype" pattern that glaucoma, cataract and osteoporosis each model as a disorder entry *plus* a `kb/modules/` module. Raised by the PR reviewer (suggestion 13) and endorsed here.
+2. **MAXO NTR for corneal collagen cross-linking.** Neither MAXO nor NCIT codes CXL; the entry uses `NCIT:C15301` Phototherapy + `CHEBI:17015` riboflavin as an interim composition.
+3. **OSA-keratoconus** (`PMID:37227479`) as a candidate comorbidity pair.
