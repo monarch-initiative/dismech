@@ -106,7 +106,7 @@ CASE_GENES = FakeLexicon({"SLC9A1", "SNX14", "C12orf57", "CHSY1", "JAG1", "AR", 
 def _stub_adapter(monkeypatch, record):
     monkeypatch.setattr(
         "dismech.preflight_dr.fetch_mondo_record",
-        lambda mondo_id, adapter=None: record,
+        lambda mondo_id, adapter=None, **kwargs: record,
     )
 
 
@@ -479,6 +479,140 @@ def test_a_failed_omim_lookup_caps_the_verdict_at_warn():
     assert "lookup failed" in format_report(result)
 
 
+# --------------------------------------------------------------------------
+# FAIL is the most destructive verdict, so nothing may contradict it
+# --------------------------------------------------------------------------
+
+
+def test_a_failed_alias_lookup_does_not_manufacture_a_fail():
+    """The alias rescue is what makes an alias-written report survive.
+
+    When that lookup is the one that failed, the absence of the canonical
+    symbol says nothing — telling the curator to discard a correct report is
+    the worst outcome this tool can produce.
+    """
+    record = MondoRecord(
+        id="MONDO:0014572",
+        label="Lichtenstein-Knorr syndrome",
+        genes=("SLC9A1",),
+        omim_ids=("616291",),
+        lookup_errors=("alias lookup for HGNC:11071 failed: hgnc down",),
+    )
+    result = assess(record, Counter({"NHE1": 41}), {"616291"})
+    assert result.verdict == WARN
+    joined = " ".join(result.reasons)
+    assert "not conclusive" in joined
+    assert "discard it rather than cherry-picking" not in joined
+    assert "Some ontology lookups failed" in joined
+
+
+def test_a_matching_omim_downgrades_a_fail_to_a_warn():
+    """An OMIM match is an independent identity anchor for the *right* disease."""
+    record = MondoRecord(
+        id="MONDO:0014572",
+        label="Lichtenstein-Knorr syndrome",
+        genes=("SLC9A1",),
+        omim_ids=("616291",),
+    )
+    result = assess(record, Counter({"NHE1": 41}), {"616291"})
+    assert result.verdict == WARN
+    joined = " ".join(result.reasons)
+    assert "616291" in joined
+    assert "contradicts the gene-frequency signal" in joined
+
+
+@requires_reports
+def test_the_lichtenstein_knorr_fixture_still_fails_despite_the_new_rescues():
+    """Neither rescue applies to the real NEC report: it cites 616354, not 616291."""
+    counts = extract_gene_mentions(LICHTENSTEIN_KNORR.read_text(), CASE_GENES)
+    omim = extract_omim_ids(LICHTENSTEIN_KNORR.read_text())
+    assert "616291" not in omim
+    result = assess(REC_LIKNS, counts, omim)
+    assert result.verdict == FAIL
+
+
+def test_a_mismatched_omim_leaves_the_fail_intact():
+    result = assess(REC_LIKNS, Counter({"SNX14": 43}), {"616354"})
+    assert result.verdict == FAIL
+    assert "discard it rather than cherry-picking" in " ".join(result.reasons)
+
+
+# --------------------------------------------------------------------------
+# Alias handling
+# --------------------------------------------------------------------------
+
+
+class StubHgnc:
+    """HGNC adapter stub keyed on a single canonical CURIE casing."""
+
+    def __init__(self, curie="HGNC:11071", symbol="SLC9A1", aliases=(), approved=None):
+        self._curie = curie
+        self._symbol = symbol
+        self._aliases = list(aliases)
+        #: label -> CURIE, i.e. which gene each symbol is the *approved* symbol of
+        self._approved = dict(approved or {symbol: curie})
+
+    def label(self, curie):
+        return self._symbol if curie == self._curie else None
+
+    def entity_aliases(self, curie):
+        return list(self._aliases) if curie == self._curie else []
+
+    def curies_by_label(self, label):
+        curie = self._approved.get(label)
+        return [curie] if curie else []
+
+
+def test_alias_lookup_survives_a_curie_prefix_case_mismatch():
+    """MONDO emits `HGNC:`, this repo's canonical form is lowercase `hgnc:`."""
+    adapter = StubMondoAdapter(
+        labels={"MONDO:0014572": "Lichtenstein-Knorr syndrome"},
+        relationships=[("MONDO:0014572", "RO:0004003", "HGNC:11071")],
+    )
+    hgnc = StubHgnc(curie="hgnc:11071", aliases=["NHE1", "APNH"])
+    record = fetch_mondo_record("MONDO:0014572", adapter=adapter, hgnc_adapter=hgnc)
+    assert record.genes == ("SLC9A1",)
+    assert record.gene_aliases["SLC9A1"] == ("NHE1", "APNH")
+
+
+def test_an_alias_that_is_another_genes_approved_symbol_is_dropped():
+    """Otherwise a genuine rival is double-discounted, biasing towards PASS."""
+    adapter = StubMondoAdapter(
+        labels={
+            "MONDO:0014572": "Lichtenstein-Knorr syndrome",
+            "HGNC:11071": "SLC9A1",
+        },
+        relationships=[("MONDO:0014572", "RO:0004003", "HGNC:11071")],
+    )
+    hgnc = StubHgnc(
+        aliases=["NHE1", "SNX14"],
+        approved={"SLC9A1": "HGNC:11071", "SNX14": "HGNC:14977"},
+    )
+    record = fetch_mondo_record("MONDO:0014572", adapter=adapter, hgnc_adapter=hgnc)
+    assert record.gene_aliases["SLC9A1"] == ("NHE1",)
+    # SNX14 is therefore still counted as a rival rather than credited to SLC9A1.
+    result = assess(record, Counter({"SNX14": 43}))
+    assert result.verdict == FAIL
+
+
+def test_no_hgnc_mode_never_opens_the_hgnc_adapter(monkeypatch):
+    """`--no-hgnc` documents itself as offline; make it actually be offline."""
+    def _explode(*_args, **_kwargs):  # pragma: no cover - must never run
+        raise AssertionError("HGNC adapter was opened in --no-hgnc mode")
+
+    monkeypatch.setattr("oaklib.get_adapter", _explode)
+    adapter = StubMondoAdapter(
+        labels={
+            "MONDO:0014572": "Lichtenstein-Knorr syndrome",
+            "HGNC:11071": "SLC9A1",
+        },
+        relationships=[("MONDO:0014572", "RO:0004003", "HGNC:11071")],
+    )
+    record = fetch_mondo_record("MONDO:0014572", adapter=adapter, use_hgnc=False)
+    assert record.genes == ("SLC9A1",)
+    assert record.lookup_errors == ()
+
+
 @pytest.mark.skipif(
     os.environ.get("DISMECH_OAK_INTEGRATION") != "1",
     reason="set DISMECH_OAK_INTEGRATION=1 to check the live sqlite:obo:mondo adapter",
@@ -495,3 +629,9 @@ def test_integration_live_mondo_adapter_resolves_the_canonical_gene_symbol():
     assert record.genes == ("SLC9A1",)
     assert record.unresolved_genes == ()
     assert "616291" in record.omim_ids
+    # The alias rescue is load-bearing for not manufacturing a FAIL, and it is
+    # the one part of it that a prefix-case mismatch would silently disable.
+    assert "PPP1R143" in record.gene_aliases.get("SLC9A1", ())
+    # The gene's own approved symbol must not be listed as its alias: `assess`
+    # would then count every SLC9A1 mention twice.
+    assert "SLC9A1" not in record.gene_aliases.get("SLC9A1", ())
