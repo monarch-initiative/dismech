@@ -9,18 +9,24 @@ pre-existing backlog so this test fails only on newly introduced ones.
 See scripts/check_snippet_length.py and dismech issue #7450.
 """
 
+import subprocess
+from collections import Counter
 from pathlib import Path
 
 import pytest
 
+from scripts import check_snippet_length as csl
 from scripts.check_snippet_length import (
+    BASELINE_REF_ENV,
     MIN_SNIPPET_WORDS,
     _baseline_key,
+    baseline_from_ref,
     count_words,
     find_violations,
     is_structured_row,
     load_baseline,
     new_findings,
+    resolve_baseline,
     scan_repo,
     write_baseline,
 )
@@ -42,7 +48,11 @@ def _entry(snippet: str, reference: str = "PMID:1") -> dict:
 
 
 def test_no_new_short_snippets():
-    baseline = load_baseline()
+    # resolve_baseline() grandfathers against origin/main when CI sets
+    # SNIPPET_BASELINE_REF (so the base branch is green by construction and
+    # parallel merges cannot clobber the grandfather set), and falls back to
+    # the committed baseline for local runs / shallow checkouts.
+    baseline = resolve_baseline()
     new = [
         f"{rel}:{location}: {words} word(s): {snippet!r}"
         for rel, location, words, snippet in new_findings(scan_repo(), baseline)
@@ -186,3 +196,79 @@ def test_baseline_tolerates_the_pre_count_line_format(tmp_path):
     assert not new_findings(
         [("kb/disorders/X.yaml", "p[0]", 1, "Strabismus")], baseline
     )
+
+
+# --- ref-derived grandfather baseline (baseline_from_ref / resolve_baseline) ---
+
+
+def _init_git_repo(path: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, check=True)
+
+
+def test_baseline_from_ref_reads_kb_at_the_ref(tmp_path):
+    # A throwaway repo with one kb/ entry: baseline_from_ref should git-archive
+    # kb/ at the ref, scan it, and key the finding relative to kb/ (via rel_to)
+    # exactly as the working-tree scan does -- if that remap regresses, every
+    # key mismatches and the whole backlog reads as "new".
+    disorders = tmp_path / "kb" / "disorders"
+    disorders.mkdir(parents=True)
+    (disorders / "X.yaml").write_text(
+        "name: T\n"
+        "phenotypes:\n"
+        "- name: X\n"
+        "  evidence:\n"
+        "  - reference: PMID:1\n"
+        "    snippet: Strabismus\n",
+        encoding="utf-8",
+    )
+    _init_git_repo(tmp_path)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=tmp_path, check=True)
+
+    counts = baseline_from_ref("HEAD", root=tmp_path)
+    assert counts is not None
+    assert counts[_baseline_key("kb/disorders/X.yaml", "Strabismus")] == 1
+
+
+def test_baseline_from_ref_returns_none_for_an_unknown_ref(tmp_path):
+    _init_git_repo(tmp_path)
+    assert baseline_from_ref("no-such-ref-deadbeef", root=tmp_path) is None
+
+
+def test_resolve_baseline_prefers_the_explicit_ref_over_env_and_committed_file(monkeypatch):
+    seen = {}
+    sentinel = Counter({"kb/x.yaml\tfoo": 3})
+
+    def fake(ref, **kw):
+        seen["ref"] = ref
+        return sentinel
+
+    monkeypatch.setattr(csl, "baseline_from_ref", fake)
+    # An explicit argument must win over the env var (opposite direction from
+    # test_resolve_baseline_reads_the_env_var) and the *right* ref must be used.
+    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
+    assert resolve_baseline("origin/explicit") is sentinel
+    assert seen["ref"] == "origin/explicit"
+
+
+def test_resolve_baseline_reads_the_env_var(monkeypatch):
+    seen = {}
+    sentinel = Counter({"k": 1})
+
+    def fake(ref, **kw):
+        seen["ref"] = ref
+        return sentinel
+
+    monkeypatch.setattr(csl, "baseline_from_ref", fake)
+    monkeypatch.setenv(BASELINE_REF_ENV, "origin/from-env")
+    assert resolve_baseline() is sentinel
+    assert seen["ref"] == "origin/from-env"
+
+
+def test_resolve_baseline_falls_back_when_the_ref_is_unreadable(monkeypatch):
+    monkeypatch.setattr(csl, "baseline_from_ref", lambda ref, **kw: None)
+    monkeypatch.delenv(BASELINE_REF_ENV, raising=False)
+    # Unreadable ref -> the committed baseline, identical to a no-ref call.
+    assert resolve_baseline("bad-ref") == load_baseline()
