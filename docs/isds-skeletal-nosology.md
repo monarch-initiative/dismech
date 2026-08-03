@@ -239,10 +239,10 @@ cite a group by *name and revision*, never by a bare number.)
 | Albright hereditary osteodystrophy (GNAS) | 17 acromelic dysplasias | 28 PTH signaling; or the brachydactyly group, where the 2019 revision listed it as "Pseudohypoparathyroidism type IA" (2019 group 38, whose 2023 successor is group 19) |
 | Meier-Gorlin syndrome (ORC1, ORC4, ORC6, CDT1, CDC6, GMNN, CDC45, MCM3/5/7, GINS2) | 21 primordial dwarfism and slender bones | 37 patellar dysostoses — the disorder's own name begins "ear-patella" |
 
-The Meier-Gorlin row is the strongest *name-based* trap in the set. The
-disorder is called ear-patella-short stature syndrome, so the patellar
+The Meier-Gorlin row is the strongest *name-based* trap in the set. The 2019
+revision called it ear-patella-short stature syndrome, so the patellar
 dysostoses group looks obviously right — but all eleven of its rows are in
-group 21, and the 2023 rename to "ear-patella-**primordial short stature**
+group 21, and the 2023 rename to "ear-patella-**primordial** short stature
 syndrome" is the tell. Group 37 holds only ischiopatellar dysplasia (TBX4),
 nail-patella syndrome (LMX1B), and genitopatellar syndrome (KAT6B). Both the
 group 21 and group 37 enum descriptions state the placement explicitly, in
