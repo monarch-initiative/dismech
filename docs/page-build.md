@@ -50,6 +50,35 @@ disorder's page until that page is next rendered. A **daily scheduled run** does
 a full rebuild to heal any such drift, and a manual `workflow_dispatch` run is
 always full as well.
 
+## Page/KB drift and the dead-link gate
+
+The daily backstop alone was not enough. An incremental render is scoped to a
+single push's `event.before..sha` range, but the workflow's concurrency group
+uses `cancel-in-progress: false`, so **queued runs collapse**: only the newest
+pending run survives, and its range covers only its own push. Disorder YAMLs
+belonging to the collapsed pushes are never rendered at all — while `app/data.js`
+is *always* rebuilt from the whole KB. The browser index then lists disorders
+whose `page_url` 404s. [PR #7903](https://github.com/monarch-initiative/dismech/pull/7903)
+published 205 such dead links (1,826 KB entries vs. 1,621 rendered pages).
+
+Two mechanisms now close that gap:
+
+1. **Self-healing escalation.** After an incremental render, the workflow runs
+   `classify_page_build.py --check-page-drift`, which compares the number of
+   `kb/disorders/*.yaml` inputs with the number of `pages/disorders/*.html`
+   files. They are 1:1 in a healthy tree (page filenames are
+   `slugify(disease name).html`, and slugs are unique). Any inequality means an
+   earlier build under- or over-rendered, and the workflow escalates to
+   `just gen-pages` in the same run. The check runs *after* rendering on purpose —
+   before it, every disorder-adding push looks drifted and would escalate.
+2. **A hard gate before publishing.** After `just gen-browser-data`, the workflow
+   runs [`just check-browser-links`](https://github.com/monarch-initiative/dismech/blob/main/scripts/check_browser_data_links.py),
+   which resolves every `page_url` in `window.searchData` against the filesystem
+   and **fails the job** if any target is missing. A count comparison cannot see
+   a rename that keeps the counts equal but changes a slug; this can.
+
+Run the gate locally against a build with `just check-browser-links`.
+
 ## Running it locally
 
 ```bash

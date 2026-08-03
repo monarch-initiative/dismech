@@ -933,6 +933,13 @@ schema-doc:
 gen-browser-data:
     uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; files=[p for p in sorted(Path('kb/disorders').glob('*.yaml')) if not p.name.endswith('.history.yaml')]; BrowserExporter().export_to_js(files, Path('app/data.js'))"
 
+# Verify every page_url in app/data.js points at a rendered page (no dead links).
+# data.js is always rebuilt from the whole KB while pages may build incrementally,
+# so the two can drift apart — this is the gate that catches it (see PR #7903).
+[group('Browser')]
+check-browser-links:
+    uv run python scripts/check_browser_data_links.py
+
 # Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
 gen-discussions-data:
