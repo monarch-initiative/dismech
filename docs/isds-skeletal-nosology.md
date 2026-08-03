@@ -56,6 +56,11 @@ a single listed entity: group numbers move between revisions and disorder
 names get rewritten (see [Revision handling](#revision-handling)), but the
 row number pins which line of which table a `notes:` claim came from.
 
+The group prefix is **revision-specific**, exactly like a bare group number:
+`NOS 17-0150` only resolves once you know it is a 2023 row, since the same
+entity carried a 2019 group-38 number. So a quoted `NOS` id needs its revision
+stated alongside it, just as the group name does.
+
 Quoting it is optional and currently rare — most `notes:` cite the group name
 plus the listed disorder name, which is enough. Use it when the entity is
 easy to confuse with a neighbour, as `Pseudohypoparathyroidism` does
@@ -232,6 +237,16 @@ cite a group by *name and revision*, never by a bare number.)
 | Spondylodysplastic Ehlers-Danlos syndrome | types 1 (B4GALT7) and 2 (B3GALT6) → 5 multiple joint dislocations; type 3 (SLC39A13) → 13 SE(M)D | one group for all three |
 | Acrodysostosis (PRKAR1A, PDE4D) | 17 acromelic dysplasias | 28 PTH signaling — see below |
 | Albright hereditary osteodystrophy (GNAS) | 17 acromelic dysplasias | 28 PTH signaling; or the brachydactyly group, where the 2019 revision listed it as "Pseudohypoparathyroidism type IA" (2019 group 38, whose 2023 successor is group 19) |
+| Meier-Gorlin syndrome (ORC1, ORC4, ORC6, CDT1, CDC6, GMNN, CDC45, MCM3/5/7, GINS2) | 21 primordial dwarfism and slender bones | 37 patellar dysostoses — the disorder's own name begins "ear-patella" |
+
+The Meier-Gorlin row is the strongest *name-based* trap in the set. The
+disorder is called ear-patella-short stature syndrome, so the patellar
+dysostoses group looks obviously right — but all eleven of its rows are in
+group 21, and the 2023 rename to "ear-patella-**primordial short stature**
+syndrome" is the tell. Group 37 holds only ischiopatellar dysplasia (TBX4),
+nail-patella syndrome (LMX1B), and genitopatellar syndrome (KAT6B). Both the
+group 21 and group 37 enum descriptions state the placement explicitly, in
+both directions.
 
 The GNAS row is a rename *and* a move, which makes it easy to miss: OMIM 103580
 appears in the 2019 revision as `Pseudohypoparathyroidism type IA` in group 38
