@@ -46,6 +46,23 @@ Groups mix organizing principles deliberately:
 | 33-37 | Dysostoses (cleidocranial, craniosynostosis, craniofacial, vertebral/costal, patellar) |
 | 38-41 | Limb reduction, split hand/foot, polydactyly-syndactyly, synostoses |
 
+### Entry numbers (`NOS <group>-<entry>`)
+
+Each row of the 2023 Table 1 carries its own identifier in the form
+`NOS 05-0060` / `NOS 17-0150` — the two-digit group number, then a
+four-digit within-group sequence. It is the nosology's own row identifier,
+not something this repo invents, and it is the most precise way to point at
+a single listed entity: group numbers move between revisions and disorder
+names get rewritten (see [Revision handling](#revision-handling)), but the
+row number pins which line of which table a `notes:` claim came from.
+
+Quoting it is optional and currently rare — most `notes:` cite the group name
+plus the listed disorder name, which is enough. Use it when the entity is
+easy to confuse with a neighbour, as `Pseudohypoparathyroidism` does
+(`NOS 17-0150`, the row whose name changed between revisions). Always pair it
+with the OMIM number when the source row has one: OMIM survives renames, and
+the two together make the identification checkable without the paper.
+
 ## Revision handling
 
 The nosology is revised every few years (2002, 2007, 2011, 2015, 2019, 2023).
@@ -214,7 +231,7 @@ cite a group by *name and revision*, never by a bare number.)
 | Weyers acrofacial (acrodental) dysostosis | 35 craniofacial dysostoses | 10 skeletal ciliopathies (with Ellis-van Creveld) |
 | Spondylodysplastic Ehlers-Danlos syndrome | types 1 (B4GALT7) and 2 (B3GALT6) → 5 multiple joint dislocations; type 3 (SLC39A13) → 13 SE(M)D | one group for all three |
 | Acrodysostosis (PRKAR1A, PDE4D) | 17 acromelic dysplasias | 28 PTH signaling — see below |
-| Albright hereditary osteodystrophy (GNAS) | 17 acromelic dysplasias | 19 syndromic brachydactylies (its 2019 placement, under the name "Pseudohypoparathyroidism type IA"), or 28 PTH signaling |
+| Albright hereditary osteodystrophy (GNAS) | 17 acromelic dysplasias | 28 PTH signaling; or the brachydactyly group, where the 2019 revision listed it as "Pseudohypoparathyroidism type IA" (2019 group 38, whose 2023 successor is group 19) |
 
 The GNAS row is a rename *and* a move, which makes it easy to miss: OMIM 103580
 appears in the 2019 revision as `Pseudohypoparathyroidism type IA` in group 38
@@ -238,7 +255,13 @@ For the two dismech entries this affects:
   Albright hereditary osteodystrophy, which PPHP manifests (AHO without hormone
   resistance), so label and OMIM disagree about coverage. Assigning on the label
   would be inference; the honest state is unassigned. If a future revision lists
-  PPHP separately, group 17 is where it would go.
+  PPHP separately, group 17 is where it would go. Note that **MONDO disagrees**:
+  `MONDO:0012912` pseudopseudohypoparathyroidism is a descendant of
+  `MONDO:0019695` acromelic dysplasia, so the ontology already places it in this
+  family. That is not evidence the entry was simply overlooked here — it is a
+  second classification making its own call, and this axis transcribes the ISDS
+  committee rather than deferring to MONDO (which is also why the group carries
+  no `meaning:`; see [MONDO mappings](#mondo-mappings)).
 
 The Acrodysostosis row is a live trap in the other direction. Acrodysostosis is
 mechanistically a PTH/PTHrP-signalling disorder, so group 28 looks right — but
