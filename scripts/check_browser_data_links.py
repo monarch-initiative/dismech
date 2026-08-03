@@ -11,6 +11,13 @@ Nothing in the pipeline noticed. This script is the hard gate: it resolves
 every ``page_url`` in ``window.searchData`` against the filesystem and exits
 non-zero if any target is missing.
 
+It also catches a second, sneakier shape. A page can render perfectly on the
+build machine and still never reach the published site, because ``.gitignore``
+drops it from the commit — ``pages/disorders/Holt-Oram_syndrome.html`` sat in
+the ``.gitignore`` "Local files" block and was therefore a *permanent* dead
+link that an on-disk existence check cannot see. ``git check-ignore`` reports
+only ignored **and untracked** paths, which is exactly the failing set.
+
 Usage::
 
     uv run python scripts/check_browser_data_links.py
@@ -26,6 +33,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 from pathlib import Path
 
 SEARCH_DATA_MARKER = "window.searchData = "
@@ -80,18 +88,61 @@ def extract_page_urls(text: str) -> list[tuple[str, str]]:
     return pairs
 
 
-def find_broken_links(data_path: Path) -> tuple[list[tuple[str, str]], int]:
-    """Return the broken ``(name, page_url)`` pairs and the total link count.
+def find_ignored_paths(paths: list[Path], cwd: Path) -> set[str]:
+    """Return the subset of ``paths`` that git would refuse to commit.
+
+    ``git check-ignore`` reports a path only when it is ignored **and**
+    untracked, which is precisely the set that renders locally but never
+    reaches the published site. Returns an empty set when git is unavailable or
+    ``cwd`` is not a repository — the on-disk check still applies.
+    """
+    if not paths:
+        return set()
+    try:
+        proc = subprocess.run(
+            ["git", "check-ignore", "--stdin"],
+            input="\n".join(str(p) for p in paths),
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    # 0 = some paths ignored, 1 = none ignored; anything else means git could
+    # not answer (not a repo, etc.) and the check simply does not apply.
+    if proc.returncode not in (0, 1):
+        return set()
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+
+
+def find_broken_links(data_path: Path) -> tuple[list[tuple[str, str, str]], int]:
+    """Return the broken ``(name, page_url, reason)`` triples and total link count.
 
     ``page_url`` values are relative to the directory holding ``data.js``
-    (``app/``), matching how the browser resolves them.
+    (``app/``), matching how the browser resolves them. A link is broken when
+    the target is ``missing`` from disk, or present but ``git-ignored`` — the
+    latter renders on the build machine and is then dropped from the commit.
     """
     text = data_path.read_text(encoding="utf-8")
     pairs = extract_page_urls(text)
     if not pairs:
         raise BrowserDataError(f"no page_url values found in {data_path}")
     base = data_path.parent
-    broken = [pair for pair in pairs if not (base / pair[1]).exists()]
+
+    broken: list[tuple[str, str, str]] = []
+    present: list[tuple[str, str]] = []
+    for name, url in pairs:
+        if (base / url).exists():
+            present.append((name, url))
+        else:
+            broken.append((name, url, "missing"))
+
+    resolved = {str((base / url).resolve()): (name, url) for name, url in present}
+    for ignored in find_ignored_paths([Path(p) for p in resolved], base):
+        name, url = resolved[ignored]
+        broken.append((name, url, "git-ignored"))
+
     return broken, len(pairs)
 
 
@@ -125,19 +176,29 @@ def main() -> int:
         print(f"OK: all {total} page_url targets in {args.data} exist on disk.")
         return 0
 
+    n_missing = sum(1 for *_, reason in broken if reason == "missing")
+    n_ignored = len(broken) - n_missing
     print(
         f"ERROR: {len(broken)} of {total} page_url targets in {args.data} "
-        f"have no rendered page ({len(broken) / total:.1%} dead links)."
+        f"will be dead links ({len(broken) / total:.1%}): "
+        f"{n_missing} never rendered, {n_ignored} rendered but git-ignored."
     )
-    for name, url in broken[: args.limit]:
-        print(f"  {name} -> {url}")
+    for name, url, reason in broken[: args.limit]:
+        print(f"  [{reason}] {name} -> {url}")
     if len(broken) > args.limit:
         print(f"  ... and {len(broken) - args.limit} more")
-    print(
-        "\nThe browser index was rebuilt from the whole KB but the pages were not.\n"
-        "Fix with a full page build: 'just gen-pages' (or re-dispatch the\n"
-        "generate-pages workflow, which forces mode=full on workflow_dispatch)."
-    )
+    if n_missing:
+        print(
+            "\nmissing: the browser index was rebuilt from the whole KB but the\n"
+            "pages were not. Fix with a full page build: 'just gen-pages' (or\n"
+            "re-dispatch generate-pages, which forces mode=full on dispatch)."
+        )
+    if n_ignored:
+        print(
+            "\ngit-ignored: the page renders here but .gitignore drops it from the\n"
+            "commit, so it can never reach the published site. Remove the pattern\n"
+            "from .gitignore (check with 'git check-ignore -v <path>')."
+        )
     return 1
 
 

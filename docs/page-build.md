@@ -77,7 +77,21 @@ Two mechanisms now close that gap:
    and **fails the job** if any target is missing. A count comparison cannot see
    a rename that keeps the counts equal but changes a slug; this can.
 
+The gate also catches a second, sneakier shape: a page that renders perfectly on
+the build machine but is dropped from the commit by `.gitignore`, and so never
+reaches the published site. That is a *permanent* dead link, invisible to both an
+on-disk existence check and a count comparison — the file is right there on the
+runner. `pages/disorders/Holt-Oram_syndrome.html` had sat in the `.gitignore`
+"Local files" block since it was added, so that disorder was published in the
+browser index with no page behind it on every single build. `git check-ignore`
+reports ignored **and untracked** paths, which is exactly the failing set
+(a committed page matching an ignore pattern is correctly not flagged).
+
 Run the gate locally against a build with `just check-browser-links`.
+
+**Never add a `pages/` path to `.gitignore`.** If a rendered page is unwanted,
+remove the disorder or fix the renderer — ignoring the output just publishes a
+dead link.
 
 ## Running it locally
 
