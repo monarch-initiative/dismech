@@ -613,6 +613,17 @@ just validate-history path/to/history.yaml
 just validate-history-all
 ```
 
+**Renamed or retargeted entries.** History records are append-only — never rewrite
+an existing record's `target.slug`/`target.path` when an entry is later renamed,
+retargeted, or merged. That record accurately describes the session as it ran. Add
+a `target.superseded_by` block (`slug` + `path` + `reason`, all required) pointing
+at the successor entry, and move the record files into the successor's slug
+directory. `test_committed_history_records_follow_layout` accepts a missing
+`target.path` only when `superseded_by.path` resolves, so an ordinary bad slug still
+fails. Unlike the frozen `target.slug`/`target.path`, `superseded_by` describes
+current repository state and *may* be repointed in place if the successor is renamed
+again.
+
 See `docs/history.md` and `src/dismech/schema/history.yaml` for the full format.
 
 Quick classification rules (use these before tagging):
@@ -1360,7 +1371,41 @@ about the disease you actually intended to curate.
   SCAR1–SCAR20 or CMT types)
 
 **Mandatory NEC preflight — run BEFORE using any DR content:** confirm the report's
-primary disease identity matches the MONDO entity you intend to curate.
+primary disease identity matches the MONDO entity you intend to curate. Run the
+automated check first:
+
+```bash
+just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
+```
+
+It counts gene-symbol mentions in the report, compares them against the MONDO term's
+canonical causal gene (`RO:0004003`) and OMIM xref, and prints one of four verdicts:
+
+| Verdict | Meaning | Action |
+|---------|---------|--------|
+| `PASS` | The canonical gene dominates the report's gene mentions. | Proceed to the normal reference/term verification. |
+| `WARN` | The canonical gene is present but a rival gene is also discussed substantively; or the report's OMIM IDs disagree with the MONDO xref; or no genes were found; or the canonical gene appears fewer than `--min-signal` times (default 3); or a lookup the verdict depends on failed. | Exclude the rival entity's sections before curating (the Temtamy pattern), and resolve any reported lookup failure. |
+| `FAIL` | The canonical gene is absent while another gene is discussed substantively. | **Discard the report entirely — do NOT cherry-pick from it** (the Lichtenstein-Knorr pattern). |
+| `SKIP` | MONDO genuinely records no causal gene (complex/multifactorial disease or a grouping term). | The automated check cannot discriminate — run the manual steps below. |
+
+The recipe exits non-zero on `FAIL` (and on `WARN` too with `--strict`), so it can gate a
+curation script. Add `--json` for machine-readable output.
+
+**Read a degraded run as a degraded run.** The tool is deliberately biased away from
+both a false clearance and a false "discard": an unreachable HGNC adapter falls back to
+a noisier heuristic lexicon and *says so* on the `lexicon:` line (pass `--require-hgnc`
+to hard-error instead — use this if you ever gate CI on it); a MONDO lookup that
+*errors* is reported as a failed lookup on a `! lookup failed :` line and caps the
+verdict at `WARN`, rather than being reported as an affirmative "no causal gene"; and a
+causal gene whose symbol cannot be resolved produces `WARN`, never `FAIL`. HGNC alias
+symbols recorded in HGNC count towards the canonical gene, so a report written in terms
+of a gene's previous symbol (`PPP1R143` for `SLC9A1`) is not mistaken for a wrong-entity
+report. `FAIL` itself is withheld whenever something contradicts it — a failed lookup
+(the alias rescue never ran) or a report OMIM that matches the MONDO xref both cap the
+verdict at `WARN`, because "discard the report entirely" is the most destructive
+instruction this tool can give.
+
+A `WARN`/`SKIP` verdict is not a clearance — fall back to the manual checks:
 
 1. Pull the authoritative MONDO record for the intended disease:
    ```bash
@@ -1376,17 +1421,19 @@ primary disease identity matches the MONDO entity you intend to curate.
    tool resolved. If the report keyed off a synonym that is *also* a synonym (or label) of
    a **different** MONDO entry, treat the report as NEC-suspect.
 5. **On any mismatch: discard the DR report entirely — do NOT cherry-pick from it.**
-   Rebuild from primary literature anchored on the verified gene/OMIM. (Note: the local
-   `sqlite:obo:mondo` adapter does not expose gene associations via `relationships`; read
-   the gene from the `def:` text and OMIM/synonym xrefs as above.)
+   Rebuild from primary literature anchored on the verified gene/OMIM. (The local
+   `sqlite:obo:mondo` adapter *does* expose the causal gene as an `RO:0004003`
+   relationship — this is what `just preflight-dr` reads — so `runoak ... -O obo` shows
+   it on a `relationship:` line as well as in the `def:` text.)
 
 **High-NEC-risk classes** (numbered series, shared eponyms, recently reclassified
 synonyms, locus-adjacent disorders) are enumerated in
 [`research/nec_risk_disease_classes.md`](research/nec_risk_disease_classes.md); the audit
 that produced it is `scripts/nec_risk_audit.py` (#3947). Apply extra scrutiny when the
-queried disease falls in one of those classes. A `just preflight-dr` automation of this
-gene-frequency-vs-MONDO check is in progress (#3902); until it lands, run the manual
-preflight above.
+queried disease falls in one of those classes. The per-report gene-frequency-vs-MONDO
+check is implemented in `src/dismech/preflight_dr.py` and exposed as `just preflight-dr`
+(see above); the two are complementary — the audit flags NEC-prone disease *classes*,
+the preflight checks an individual *report*.
 
 ### 3. Validation Workflow
 
