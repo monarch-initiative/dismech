@@ -216,12 +216,15 @@ lists each disorder **exactly once**. So:
   groups moved from 37/38 to 18/19 between 2019 and 2023. Cite the
   group by name and revision in `notes:`, never by bare number.
 - **Entities the nosology flags but declines to decompose** get the group on
-  the entity only. Fanconi anemia (group 39) is the worked case: its gene
-  column reads "Several" and the group footnote says the complementation
-  groups are "acknowledged but not further listed". That is a caveat about
-  genetic decomposition, not about membership — so assign group 39 to Fanconi
-  anemia, note the caveat, and do not invent per-complementation-group
-  placements.
+  the entity only. Fanconi anemia is the worked case: it sits in group 38
+  "Limb hypoplasia – reduction defects" in the 2023 revision (group 39 in
+  2019 — note the shift, and that 2023 group 39 is a different group,
+  "Split hand/foot"). Its gene column reads "(several)" and the group
+  footnote says the complementation groups are "acknowledged but not further
+  listed". That is a caveat about genetic decomposition, not about membership
+  — so assign `limb_hypoplasia_reduction_defects` to Fanconi anemia, note the
+  caveat, and do not invent per-complementation-group placements. Assign the
+  enum key, not a number: the key is revision-stable, the number is not.
 
 ```yaml
 classifications:
