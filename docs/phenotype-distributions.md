@@ -244,6 +244,13 @@ just validate-phenotype-distributions
 just phenodist-rebuild
 ```
 
+`phenodist-rebuild` is a **no-op today** and prints "No phenotype profile sets
+found": it globs `kb/phenotype_distributions/` only, and that directory does not
+exist until the first curated set lands. The empty output is the correct result,
+not a failure — the worked example is deliberately out of scope for it. It still
+prunes, so a full rebuild after every curated set is deleted clears their cache
+files rather than leaving them citable.
+
 `validate-phenotype-distributions` runs schema validation, the lint, and the OAK
 term check.
 

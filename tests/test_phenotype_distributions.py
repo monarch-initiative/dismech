@@ -522,9 +522,70 @@ def test_profiles_carry_no_model_layer() -> None:
 
     stale = sorted(n for n in gone if n in blob)
     assert not stale, f"schema prose still describes deleted classes: {stale}"
-    for dead_slot in ("model_properties", "feature_namespace", "domain_role"):
+    dead = (
+        "model_properties",
+        "feature_namespace",
+        "domain_role",
+        # Not slot names but the vocabulary the deleted binding carried. The
+        # `TOOL_EXPORTED` tier said records "normally enter as PROPOSED
+        # bindings pending review" — a published description pointing at a
+        # status enum the schema no longer has. Matching deleted *names* could
+        # not see it, because the word that survived was never a name here.
+        "PROPOSED",
+        "import_status",
+    )
+    for dead_slot in dead:
         assert dead_slot not in blob, (
             f"schema prose still refers to the deleted slot `{dead_slot}`"
+        )
+
+
+def test_schema_section_comments_head_something() -> None:
+    """The last surface the deletion could hide in: YAML comments.
+
+    Every guard above reads the schema through `SchemaView`, which discards
+    comments at parse. So a deletion could — and did — leave eleven consecutive
+    `# --- … ---` markers heading nothing, and strand the top-level `# Classes`
+    banner 150 lines up inside the `slots:` block, where the next person to add
+    a class would put it in the wrong section. Nothing structural breaks; the
+    file just stops describing itself. This reads the raw text, which is the
+    only way to see it.
+    """
+    lines = SCHEMA_PATH.read_text(encoding="utf-8").splitlines()
+
+    def is_marker(ln: str) -> bool:
+        """A `# --- name ---` section marker, not a `# -----` banner rule."""
+        s = ln.strip()
+        return s.startswith("# ---") and s.endswith("---") and bool(s[5:-3].strip(" -"))
+
+    empty: list[str] = []
+    for i, line in enumerate(lines):
+        if not is_marker(line):
+            continue
+        # A marker must be followed by at least one definition before the next
+        # marker, the next banner, or the end of the file.
+        for nxt in lines[i + 1 :]:
+            if is_marker(nxt) or nxt.startswith("#"):
+                empty.append(f"{i + 1}: {line.strip()}")
+                break
+            if nxt.strip() and not nxt.lstrip().startswith("#"):
+                break
+        else:
+            empty.append(f"{i + 1}: {line.strip()}")
+    assert not empty, f"section markers heading no definition: {empty}"
+
+    # And the top-level banners must sit above the block they name.
+    for banner, key in (
+        ("# Enums", "enums:"),
+        ("# Slots", "slots:"),
+        ("# Classes", "classes:"),
+    ):
+        b = [i for i, ln in enumerate(lines) if ln.strip() == banner]
+        k = [i for i, ln in enumerate(lines) if ln.rstrip() == key]
+        assert len(b) == 1 and len(k) == 1, f"expected one {banner} and one `{key}`"
+        assert 0 < k[0] - b[0] < 6, (
+            f"the `{banner}` banner is at line {b[0] + 1} but `{key}` opens at "
+            f"line {k[0] + 1}; the banner has drifted away from its block"
         )
 
 
