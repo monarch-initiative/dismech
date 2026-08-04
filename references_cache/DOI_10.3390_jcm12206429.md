@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm12206429"
+reference_id: DOI:10.3390/jcm12206429
 title: A Review of FLT3 Kinase Inhibitors in AML
 authors:
 - Cristina Negotei
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2023'
 doi: 10.3390/jcm12206429
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Review of FLT3 Kinase Inhibitors in AML

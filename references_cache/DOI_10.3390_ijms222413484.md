@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms222413484"
+reference_id: DOI:10.3390/ijms222413484
 title: Characterization of a Novel Splicing Variant in Acylglycerol Kinase (AGK) Associated with Fatal Sengers Syndrome
 authors:
 - Sofia Barbosa-Gouveia
@@ -17,6 +17,7 @@ journal: International Journal of Molecular Sciences
 year: '2021'
 doi: 10.3390/ijms222413484
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Characterization of a Novel Splicing Variant in Acylglycerol Kinase (AGK) Associated with Fatal Sengers Syndrome

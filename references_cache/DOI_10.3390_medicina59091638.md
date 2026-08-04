@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina59091638"
+reference_id: DOI:10.3390/medicina59091638
 title: "Bartter Syndrome: A Systematic Review of Case Reports and Case Series"
 authors:
 - Rakhtan K. Qasba
@@ -23,6 +23,7 @@ journal: Medicina
 year: '2023'
 doi: 10.3390/medicina59091638
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Bartter Syndrome: A Systematic Review of Case Reports and Case Series

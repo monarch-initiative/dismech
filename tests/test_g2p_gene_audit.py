@@ -6,10 +6,14 @@ from pathlib import Path
 import yaml
 from typer.testing import CliRunner
 
-from dismech.compare.g2p import build_release_row_table
 from dismech.compare.g2p import app as g2p_compare_app
-from dismech.compare.g2p import compare_gene, run_comparison, survey_genes
-from dismech.compare.g2p import compute_release_overview
+from dismech.compare.g2p import (
+    build_release_row_table,
+    compare_gene,
+    compute_release_overview,
+    run_comparison,
+    survey_genes,
+)
 from dismech.compare.g2p_audit import compare_gene as compat_compare_gene
 
 

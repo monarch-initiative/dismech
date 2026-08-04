@@ -16,16 +16,13 @@ import argparse
 import csv
 import sqlite3
 import sys
-from collections import Counter
-from collections import defaultdict
-from collections import deque
+from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load_path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +34,6 @@ DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
 DEFAULT_CLINGEN_CSV = REPO_ROOT / "cache" / "clingen" / "gene_validity.csv"
 DEFAULT_CONFIG = REPO_ROOT / "conf" / "mondo_prioritizer.yaml"
 
-YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 HIGH_CONFIDENCE = {"HIGH", "MEDIUM"}
 
@@ -259,23 +255,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_yaml(path: Path) -> Any:
-    with path.open(encoding="utf-8") as stream:
-        return yaml.load(stream, Loader=YAML_LOADER)
-
-
 def load_mondo_priority_helpers() -> tuple[Any, Any, Any, Any]:
     sys.path.insert(0, str(REPO_ROOT / "src"))
-    from dismech.compare.mondo_priority import CandidateTerm
-    from dismech.compare.mondo_priority import build_coverage_index
-    from dismech.compare.mondo_priority import load_config
-    from dismech.compare.mondo_priority import score_candidates
+    from dismech.compare.mondo_priority import (
+        CandidateTerm,
+        build_coverage_index,
+        load_config,
+        score_candidates,
+    )
 
     return CandidateTerm, build_coverage_index, load_config, score_candidates
 
 
 def load_source_diseases(path: Path) -> list[dict[str, Any]]:
-    payload = load_yaml(path)
+    payload = safe_load_path(path)
     if not isinstance(payload, dict):
         raise ValueError(f"Expected YAML object in {path}")
     diseases = payload.get("diseases")
@@ -602,26 +595,26 @@ def render_table(rows: list[RankedCandidate], top_n: int) -> str:
 
 def render_methodology(source_path: Path, missing_count: int, top_n: int) -> str:
     lines = [
-        "- Parsed the downloaded Monarch YAML at "
-        f"`{source_path}` and used the top-level `diseases` list.",
-        "- Treated a disease as having drug-indication data when it contained at least one "
-        "non-empty `research[].drug_label` block.",
-        "- Counted `Drug rows` as the number of such `drug_label` blocks; counted "
-        "`Medium/high evidence rows` from nested evidence objects where `confidence_drug` "
-        "was `MEDIUM` or `HIGH`.",
-        "- Considered a disease already covered only when an existing "
-        "`kb/disorders/*.yaml` file had the same `disease_term.term.id` MONDO CURIE.",
-        "- Reused the repo's `dismech.compare.mondo_priority` heuristics to label each "
-        "missing disease as `CURATE_ROOT`, `CURATE_ROOT_WITH_SUBTYPES`, or a lower-fit "
-        "series/review case based on MONDO hierarchy metadata from the local sqlite DB.",
-        "- Loaded ClinGen support from cached `cache/clingen/gene_validity.csv` and counted "
-        "Definitive/Strong assertions on the candidate MONDO term or its descendants, which "
-        "reduces false negatives for broad disease roots.",
-        "- Final rank = quantitative score (specificity + drug-signal density + treatment rank "
-        "+ descendant-aware ClinGen support) plus a transparent curator-fit adjustment. "
-        "Those manual adjustments mainly downgraded broad, heterogeneous, or awkwardly granular "
-        "terms whose drug lists were dominated by symptomatic/general therapy rather than a clear "
-        "disease-mechanism target.",
+        ("- Parsed the downloaded Monarch YAML at "
+         f"`{source_path}` and used the top-level `diseases` list."),
+        ("- Treated a disease as having drug-indication data when it contained at least one "
+         "non-empty `research[].drug_label` block."),
+        ("- Counted `Drug rows` as the number of such `drug_label` blocks; counted "
+         "`Medium/high evidence rows` from nested evidence objects where `confidence_drug` "
+         "was `MEDIUM` or `HIGH`."),
+        ("- Considered a disease already covered only when an existing "
+         "`kb/disorders/*.yaml` file had the same `disease_term.term.id` MONDO CURIE."),
+        ("- Reused the repo's `dismech.compare.mondo_priority` heuristics to label each "
+         "missing disease as `CURATE_ROOT`, `CURATE_ROOT_WITH_SUBTYPES`, or a lower-fit "
+         "series/review case based on MONDO hierarchy metadata from the local sqlite DB."),
+        ("- Loaded ClinGen support from cached `cache/clingen/gene_validity.csv` and counted "
+         "Definitive/Strong assertions on the candidate MONDO term or its descendants, which "
+         "reduces false negatives for broad disease roots."),
+        ("- Final rank = quantitative score (specificity + drug-signal density + treatment rank "
+         "+ descendant-aware ClinGen support) plus a transparent curator-fit adjustment. "
+         "Those manual adjustments mainly downgraded broad, heterogeneous, or awkwardly granular "
+         "terms whose drug lists were dominated by symptomatic/general therapy rather than a clear "
+         "disease-mechanism target."),
     ]
     if missing_count <= top_n:
         lines.append(
@@ -645,7 +638,7 @@ def write_report(
     action_counts: dict[str, int],
     top_n: int,
 ) -> None:
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     markdown = "\n".join(
         [

@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1161/ATVBAHA.119.313885"
-title: "A Novel Recurrent
-            <i>COL5A1</i>
-            Genetic Variant Is Associated With a Dysplasia-Associated Arterial Disease Exhibiting Dissections and Fibromuscular Dysplasia"
+reference_id: DOI:10.1161/ATVBAHA.119.313885
+title: "A Novel Recurrent <i>COL5A1</i> Genetic Variant Is Associated With a Dysplasia-Associated Arterial Disease Exhibiting Dissections and Fibromuscular Dysplasia"
 authors:
 - Julie Richer
 - Hannah L. Hill
@@ -36,11 +34,10 @@ journal: "Arteriosclerosis, Thrombosis, and Vascular Biology"
 year: '2020'
 doi: 10.1161/ATVBAHA.119.313885
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# A Novel Recurrent
-            <i>COL5A1</i>
-            Genetic Variant Is Associated With a Dysplasia-Associated Arterial Disease Exhibiting Dissections and Fibromuscular Dysplasia
+# A Novel Recurrent <i>COL5A1</i> Genetic Variant Is Associated With a Dysplasia-Associated Arterial Disease Exhibiting Dissections and Fibromuscular Dysplasia
 **Authors:** Julie Richer, Hannah L. Hill, Yu Wang, Min-Lee Yang, Kristina L. Hunker, Jamie Lane, Susan Blackburn, Dawn M. Coleman, Jonathan Eliason, Guillaume Sillon, Maria-Daniela D’Agostino, Prasad Jetty, François-Pierre Mongeon, Anne-Marie Laberge, Stephen E. Ryan, Natalia Fendrikova-Mahlay, Thais Coutinho, Michael R. Mathis, Matthew Zawistowski, Stanley L. Hazen, Alexander E. Katz, Heather L. Gornik, Chad M. Brummett, Goncalo Abecasis, Ingrid L. Bergin, James C. Stanley, Jun Z. Li, Santhi K. Ganesh
 **Journal:** Arteriosclerosis, Thrombosis, and Vascular Biology (2020)
 **DOI:** [10.1161/ATVBAHA.119.313885](https://doi.org/10.1161/ATVBAHA.119.313885)

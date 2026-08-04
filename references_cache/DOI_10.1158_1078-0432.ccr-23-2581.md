@@ -1,9 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-2581"
-title: "<i>RAS/RAF</i>
-                    Comutation and
-                    <i>ERBB2</i>
-                    Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer"
+reference_id: DOI:10.1158/1078-0432.ccr-23-2581
+title: "<i>RAS/RAF</i> Comutation and <i>ERBB2</i> Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer"
 authors:
 - Harshabad Singh
 - Pranshu Sahgal
@@ -51,12 +48,10 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-23-2581
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>RAS/RAF</i>
-                    Comutation and
-                    <i>ERBB2</i>
-                    Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer
+# <i>RAS/RAF</i> Comutation and <i>ERBB2</i> Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer
 **Authors:** Harshabad Singh, Pranshu Sahgal, Kevin Kapner, Steven M. Corsello, Hersh Gupta, Rahul Gujrathi, Yvonne Y. Li, Andrew D. Cherniack, Raquelle El Alam, Joseph Kerfoot, Elizabeth Andrews, Annette Lee, Chetan Nambiar, Alison M. Hannigan, Joshua Remland, Lauren Brais, Meghan E. Leahy, Douglas A. Rubinson, Benjamin L. Schlechter, Matthew Meyerson, Yanan Kuang, Cloud P. Paweletz, Jessica K. Lee, Julia C.F. Quintanilha, Andrew J. Aguirre, Kimberly J. Perez, Brandon M. Huffman, Humberto Rossi, Thomas A. Abrams, Sheheryar Kabraji, Livio Trusolino, Andrea Bertotti, Ewa T. Sicinska, Aparna R. Parikh, Brian M. Wolpin, Alexa B. Schrock, Marios Giannakis, Kimmie Ng, Jeffrey A. Meyerhardt, Jason L. Hornick, Nilay S. Sethi, James M. Cleary
 **Journal:** Clinical Cancer Research (2024)
 **DOI:** [10.1158/1078-0432.ccr-23-2581](https://doi.org/10.1158/1078-0432.ccr-23-2581)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13175211"
+reference_id: DOI:10.3390/jcm13175211
 title: Evidence on Hidradenitis Suppurativa as an Autoinflammatory Skin Disease
 authors:
 - Martina D’Onghia
@@ -14,6 +14,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13175211
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Evidence on Hidradenitis Suppurativa as an Autoinflammatory Skin Disease

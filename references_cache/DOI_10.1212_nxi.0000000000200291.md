@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000200291"
+reference_id: DOI:10.1212/nxi.0000000000200291
 title: Diagnostic Value of Inter-Eye Difference Metrics on OCT for Myelin Oligodendrocyte Glycoprotein Antibody-Associated Optic Neuritis
 authors:
 - Giulio Volpe
@@ -21,6 +21,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2024'
 doi: 10.1212/nxi.0000000000200291
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Diagnostic Value of Inter-Eye Difference Metrics on OCT for Myelin Oligodendrocyte Glycoprotein Antibody-Associated Optic Neuritis

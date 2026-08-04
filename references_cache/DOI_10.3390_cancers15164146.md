@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15164146"
+reference_id: DOI:10.3390/cancers15164146
 title: "RET-Altered Cancers—A Tumor-Agnostic Review of Biology, Diagnosis and Targeted Therapy Activity"
 authors:
 - Antoine Desilets
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15164146
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # RET-Altered Cancers—A Tumor-Agnostic Review of Biology, Diagnosis and Targeted Therapy Activity
