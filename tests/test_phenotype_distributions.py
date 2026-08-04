@@ -373,15 +373,28 @@ def test_term_check_reports_a_wrong_label_without_a_local_ontology(
     """
     import oaklib
 
-    from dismech.phenotype_distribution import check_terms
+    from dismech.phenotype_distribution import check_terms, iter_terms
 
+    # Derived from the examples rather than hardcoded. A closed map would make
+    # the clean-file assertion below fail the moment anyone adds a term to an
+    # example — reporting `does not exist` and blaming the new term, when the
+    # term is fine and the fixture simply has not heard of it. The stub is
+    # meant to stand in for the ontology, not to pin the example's contents.
     labels = {
-        "HP:0410017": "Otitis externa",
-        "MONDO:0020066": "Ehlers-Danlos syndrome",
+        t["term_id"]: t["term_label"]
+        for coll in discover_collections(_example_paths())
+        for t, _where in iter_terms(coll.data)
     }
+    assert labels, "expected the example to declare at least one ontology term"
+    # The one deliberate contradiction: the real label of the CURIE that
+    # slipped through review, against the disease label the file carries.
+    labels["HP:0410017"] = "Otitis externa"
+
+    consulted: list[str] = []
 
     class _StubAdapter:
         def label(self, curie: str) -> str | None:
+            consulted.append(curie)
             return labels.get(curie)
 
     monkeypatch.setattr(oaklib, "get_adapter", lambda spec: _StubAdapter())
@@ -392,6 +405,17 @@ def test_term_check_reports_a_wrong_label_without_a_local_ontology(
     issues = check_terms([_mutate(profile_set_path, wrong_curie)])
     assert any("Otitis externa" in i.message for i in issues), (
         "term check failed to flag a CURIE whose label is not its own"
+    )
+    # The patch reaches `check_terms` only because its `get_adapter` import is
+    # inside the function. Hoist that import to module scope and the name binds
+    # at import time, the stub is bypassed, and this test quietly goes back to
+    # consulting real OAK — passing where `hp.db` happens to exist and failing
+    # elsewhere for a reason unrelated to its name. A comment would document
+    # that coupling; this asserts it.
+    assert consulted, (
+        "the stub adapter was never consulted, so this test is exercising real "
+        "OAK rather than the code path it claims to pin — check that "
+        "`check_terms` still imports `get_adapter` inside the function"
     )
 
     def nonexistent(data):
