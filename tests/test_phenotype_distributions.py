@@ -901,7 +901,9 @@ def test_a_sum_claim_is_checked_with_or_without_the_tilde(
         ).errors
         == []
     )
-    # And the same for the phrasing the live example uses.
+    # The live example's phrasing, kept as a regression pin and *not* part of
+    # the mutation argument: `re.search` takes `~0.4` before it ever reaches
+    # the trailing `1`, so this stays silent under the permissive regex too.
     assert (
         lint_collections(
             [truncated_to(0.4, "Top codes, so the weights sum to ~0.4 rather than 1")]

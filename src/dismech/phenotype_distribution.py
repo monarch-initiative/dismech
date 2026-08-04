@@ -439,6 +439,13 @@ def lint_profile(
         # tolerance. A distribution asserting it sums to 1 is already covered by
         # the truncation warning below.
         #
+        # Known and deliberate: the exclusion is by decimal point, not by
+        # negation, so "do not sum to 1.0" would be read as a claim and flagged.
+        # No description in the tree phrases it that way, and the failure is a
+        # loud false positive a curator resolves by rewording — the direction
+        # this check chose over silence. Detecting negation in prose is the kind
+        # of cleverness that fails quietly, which is the worse trade here.
+        #
         # `[\d.]+` would swallow a sentence-final period and hand `float()` a
         # string like "0.73.", turning a lint finding into a traceback out of a
         # `just qc` gate — a worse failure than the drift being guarded against.
@@ -459,9 +466,13 @@ def lint_profile(
             decimals = len(text.partition(".")[2])
             tolerance = 0.5 * 10**-decimals + 1e-9
             if abs(float(text) - total) > tolerance:
+                # Quote the number as written, without re-adding the `~`: the
+                # tilde is optional in the claim, so putting it back would make
+                # the diagnostic misquote the file. A message about prose that
+                # says what the file does not should not be one.
                 err(
                     f"{domain} distribution description says the weights sum to "
-                    f"~{text}, but they sum to {total:.5f}"
+                    f"{text}, but they sum to {total:.5f}"
                 )
 
         if total < 0.999 and not dist.get("truncated"):
