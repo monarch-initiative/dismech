@@ -806,6 +806,49 @@ def test_a_distribution_description_cannot_misstate_its_own_sum(
     )
 
 
+def test_the_sum_claim_is_judged_at_the_precision_it_was_written_to(
+    profile_set_path: Path,
+) -> None:
+    """A guard against drift must never contradict correct arithmetic.
+
+    The first version used a fixed `>= 0.005`, which is *exactly* the largest
+    legitimate rounding error for a two-decimal claim — so the boundary case,
+    a distribution summing to 0.7350 correctly written "~0.74", was reported
+    as a misstatement. The live example sat 0.0001 from that edge. The same
+    fixed number was simultaneously far too strict one digit up: "~0.7" is the
+    right way to describe 0.7269, and it was flagged.
+
+    Half a unit in the last written place is what makes both come out right,
+    so both directions are pinned here.
+    """
+
+    def with_codes(total_pairs, text):
+        def mutate(data):
+            dist = data["profiles"][0]["code_distributions"][0]
+            dist["weighted_codes"] = [
+                {"code": str(i), "code_label": f"c{i}", "code_weight": w}
+                for i, w in enumerate(total_pairs)
+            ]
+            dist["description"] = text
+
+        return _mutate(profile_set_path, mutate)
+
+    # Exactly halfway: 0.735 rounds to 0.74, so the claim is correct.
+    assert lint_collections([with_codes([0.5, 0.235], "sum to ~0.74")]).errors == []
+    # And rounding the other way is equally correct at that precision.
+    assert lint_collections([with_codes([0.5, 0.235], "sum to ~0.73")]).errors == []
+    # A whole unit out at that precision is still a misstatement.
+    assert "they sum to 0.73500" in _error_messages(
+        with_codes([0.5, 0.235], "sum to ~0.75")
+    )
+
+    # One decimal is judged to one decimal: 0.72693 is "~0.7", not an error.
+    assert lint_collections([with_codes([0.5, 0.22693], "sum to ~0.7")]).errors == []
+    assert "they sum to 0.72693" in _error_messages(
+        with_codes([0.5, 0.22693], "sum to ~0.6")
+    )
+
+
 def test_backticked_identifiers_in_schema_prose_resolve() -> None:
     """A deleted slot must not survive as an option in someone's prose.
 

@@ -431,11 +431,24 @@ def lint_profile(
         # string like "0.73.", turning a lint finding into a traceback out of a
         # `just qc` gate — a worse failure than the drift being guarded against.
         claimed = re.search(r"sum to ~(\d+(?:\.\d+)?)", dist.get("description") or "")
-        if claimed and abs(float(claimed.group(1)) - total) >= 0.005:
-            err(
-                f"{domain} distribution description says the weights sum to "
-                f"~{claimed.group(1)}, but they sum to {total:.5f}"
-            )
+        if claimed:
+            text = claimed.group(1)
+            # Judge the claim at the precision it was written to. A fixed
+            # tolerance cannot: 0.005 is *exactly* the largest legitimate
+            # rounding error for a two-decimal claim, so `>= 0.005` rejects a
+            # correct round-half-up (0.7350 written "~0.74") — and the same
+            # fixed number is far too strict for a one-decimal claim, where
+            # "~0.7" against 0.7269 is right and would have been flagged.
+            # Half a unit in the last written place is the rule that makes both
+            # cases come out correctly; the epsilon is for binary float noise,
+            # since 0.74 - 0.735 evaluates just above 0.005.
+            decimals = len(text.partition(".")[2])
+            tolerance = 0.5 * 10**-decimals + 1e-9
+            if abs(float(text) - total) > tolerance:
+                err(
+                    f"{domain} distribution description says the weights sum to "
+                    f"~{text}, but they sum to {total:.5f}"
+                )
 
         if total < 0.999 and not dist.get("truncated"):
             warn(
