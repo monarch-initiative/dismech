@@ -193,23 +193,15 @@ validate-synthesis-all:
     uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
     uv run python -m dismech.research_synthesis "${files[@]}"
 
-# Validate a single phenotype-distribution collection or profile set
+# Validate a single phenotype profile set
 [group('QC')]
 validate-phenotype-distribution file:
     #!/usr/bin/env bash
     set -e
-    # Same payload dispatch as the plural recipe: two shapes share this
-    # directory, and validating one against the other's tree root reports a wall
-    # of spurious errors that reads as a malformed file.
-    if grep -qE '^profiles:' {{file}}; then
-        target=ProfileSet
-    else
-        target=PhenotypeDistributionCollection
-    fi
-    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class "$target" {{file}}
+    uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet {{file}}
     uv run python -m dismech.phenotype_distribution --check-terms {{file}}
 
-# Validate all statistical phenotype-distribution collections (kb + examples)
+# Validate all phenotype profile sets (kb + examples)
 [group('QC')]
 validate-phenotype-distributions:
     #!/usr/bin/env bash
@@ -217,26 +209,17 @@ validate-phenotype-distributions:
     shopt -s nullglob
     files=({{phenodist_dir}}/*.yaml {{phenodist_examples_dir}}/*.yaml)
     if [ ${#files[@]} -eq 0 ]; then
-        echo "No phenotype distribution collections found."
+        echo "No phenotype profile sets found."
         exit 0
     fi
-    printf 'Validating %s phenotype distribution file(s).\n' "${#files[@]}"
-    # Two shapes share this directory: a PhenotypeDistributionCollection holds
-    # statistical records, a ProfileSet holds EHR-derived profiles. Validating a
-    # file against the wrong tree root reports a wall of spurious errors, so the
-    # target class is read off the payload rather than assumed.
+    printf 'Validating %s phenotype profile set(s).\n' "${#files[@]}"
     for f in "${files[@]}"; do
-        if grep -qE '^profiles:' "$f"; then
-            target=ProfileSet
-        else
-            target=PhenotypeDistributionCollection
-        fi
-        uv run linkml-validate --schema {{phenodist_schema_path}} --target-class "$target" "$f"
+        uv run linkml-validate --schema {{phenodist_schema_path}} --target-class ProfileSet "$f"
     done
     uv run python -m dismech.phenotype_distribution --check-terms "${files[@]}"
 
-# Regenerate references_cache/PHENODIST_*.md for curated (kb/) collections.
-# Examples are deliberately excluded: their numbers are synthetic and must not
+# Regenerate references_cache/PHENODIST_*.md for curated (kb/) profile sets.
+# Examples are deliberately excluded: they are demonstrations and must not
 # become citable. NEVER hand-write these cache files.
 [group('Data')]
 phenodist-rebuild:

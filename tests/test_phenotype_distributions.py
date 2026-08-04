@@ -1,6 +1,6 @@
-"""Tests for the statistical phenotype-distribution schema and tooling.
+"""Tests for the phenotype-profile schema and tooling.
 
-Covers three things: that the schema and its worked examples stay valid, that
+Covers three things: that the schema and its worked example stay valid, that
 the lint catches the inconsistencies the schema itself cannot express, and that
 the reference-cache export keeps the contract curator-quoted snippets depend on.
 """
@@ -15,12 +15,11 @@ from linkml_runtime.utils.schemaview import SchemaView
 
 from dismech.phenotype_distribution import (
     Collection,
-    cache_entry,
     discover_collections,
     lint_collections,
     load_collection,
-    render_body,
-    summary_row,
+    profile_cache_entry,
+    render_profile_body,
     write_cache_files,
 )
 from dismech.reference_cache_frontmatter import main as frontmatter_main
@@ -37,21 +36,7 @@ DOCS_PATH = Path("docs/phenotype-distributions.md")
 EXAMPLES_DIR = REPO_ROOT / "examples" / "phenotype_distributions"
 KB_DIR = REPO_ROOT / "kb" / "phenotype_distributions"
 
-TARGET_CLASS = "PhenotypeDistributionCollection"
-PROFILE_CLASS = "ProfileSet"
-
-
-def _target_class_for(path: Path) -> str:
-    """Which tree root a file validates against, from its payload.
-
-    The two shapes share a directory and an extension, so the target class is
-    read off the file rather than assumed — validating a profile set against the
-    distribution class would report a wall of spurious errors.
-    """
-    import yaml
-
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return PROFILE_CLASS if "profiles" in data else TARGET_CLASS
+TARGET_CLASS = "ProfileSet"
 
 
 def _example_paths() -> list[Path]:
@@ -76,18 +61,6 @@ def _renderable_collections():
 # ---------------------------------------------------------------------------
 
 
-def test_schema_declares_exactly_the_two_intended_tree_roots() -> None:
-    """Two shapes, and only two.
-
-    A distribution collection and a profile set are different objects sharing
-    one file, one loader, and one citation bridge. Pinning the roots keeps a
-    third from being added without the question being asked out loud.
-    """
-    sv = SchemaView(str(SCHEMA_PATH))
-    roots = {name for name, cls in sv.all_classes().items() if cls.tree_root}
-    assert roots == {TARGET_CLASS, PROFILE_CLASS}
-
-
 def test_evidence_direction_values_match_native_dismech_support_enum() -> None:
     """SEPIO direction must stay inter-convertible with native `supports`.
 
@@ -102,22 +75,11 @@ def test_evidence_direction_values_match_native_dismech_support_enum() -> None:
     assert ours == theirs
 
 
-def test_frequency_class_values_match_native_frequency_enum() -> None:
-    """Implied frequency bands must be the same bands dismech already uses."""
-    sv = SchemaView(str(SCHEMA_PATH))
-    native = SchemaView(str(NATIVE_SCHEMA_PATH))
-    ours = sv.get_enum("FrequencyClassEnum").permissible_values
-    theirs = native.get_enum("FrequencyEnum").permissible_values
-    assert set(ours) == set(theirs)
-    for name, pv in ours.items():
-        assert pv.meaning == theirs[name].meaning
-
-
 @pytest.mark.parametrize("path", _all_paths(), ids=lambda p: p.name)
 def test_collections_validate_against_schema(path: Path) -> None:
     from linkml.validator import validate_file
 
-    report = validate_file(str(path), str(SCHEMA_PATH), _target_class_for(path))
+    report = validate_file(str(path), str(SCHEMA_PATH), TARGET_CLASS)
     assert not report.results, [r.message for r in report.results]
 
 
@@ -130,7 +92,7 @@ def test_examples_lint_clean() -> None:
     result = lint_collections(discover_collections(_all_paths()))
     assert result.errors == [], [i.format() for i in result.errors]
     assert result.warnings == [], [i.format() for i in result.warnings]
-    assert result.n_records > 0
+    assert result.n_profiles > 0
 
 
 def _mutate(path: Path, mutator) -> Collection:
@@ -140,62 +102,8 @@ def _mutate(path: Path, mutator) -> Collection:
     return coll
 
 
-@pytest.fixture()
-def cf_collection_path() -> Path:
-    return EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml"
-
-
 def _error_messages(coll: Collection) -> str:
     return " ".join(i.message for i in lint_collections([coll]).errors)
-
-
-def test_lint_flags_duplicate_record_ids(cf_collection_path: Path) -> None:
-    def mutate(data):
-        data["distributions"][1]["record_id"] = data["distributions"][0]["record_id"]
-
-    assert "duplicate record_id" in _error_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_lint_flags_mismatched_evidence_reference(cf_collection_path: Path) -> None:
-    def mutate(data):
-        data["distributions"][0]["dismech_bindings"][0]["evidence_reference"] = (
-            "PHENODIST:something-else"
-        )
-
-    assert "does not match this record" in _error_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_lint_flags_unresolvable_target_entry(cf_collection_path: Path) -> None:
-    def mutate(data):
-        data["distributions"][0]["dismech_bindings"][0]["target_entry"] = (
-            "No_Such_Disease"
-        )
-
-    assert "does not" in _error_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_lint_flags_interval_not_bracketing_point_estimate(
-    cf_collection_path: Path,
-) -> None:
-    def mutate(data):
-        data["distributions"][0]["distribution"]["summary"]["point_estimate"] = 0.99
-
-    assert "above the interval upper bound" in _error_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_lint_flags_frequency_band_contradicting_point_estimate(
-    cf_collection_path: Path,
-) -> None:
-    def mutate(data):
-        data["distributions"][0]["implied_frequency_class"] = "OCCASIONAL"
-
-    assert "falls in the VERY_FREQUENT band" in _error_messages(
-        _mutate(cf_collection_path, mutate)
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -203,78 +111,27 @@ def test_lint_flags_frequency_band_contradicting_point_estimate(
 # ---------------------------------------------------------------------------
 
 
-def test_summary_row_column_contract(cf_collection_path: Path) -> None:
-    """The quotable summary row's column order is part of the cache contract.
-
-    Curators quote this row as an evidence snippet, so reordering or dropping a
-    column silently invalidates every snippet already quoted from it.
-    """
-    coll = load_collection(cf_collection_path)
-    record = coll.records[0]
-    row = summary_row(record)
-    cells = [c.strip() for c in row.strip().strip("|").split("|")]
-    assert cells == [
-        "CF-PI-PROPORTION-001",
-        "PHENOTYPE_PROPORTION",
-        "BETA",
-        "0.862",
-        "95% CREDIBLE_EQUAL_TAILED 0.842-0.881",
-        "n=1240",
-        "whole cohort",
-    ]
-
-
-def test_render_is_deterministic(cf_collection_path: Path) -> None:
-    coll = load_collection(cf_collection_path)
-    record = coll.records[0]
-    assert render_body(coll, record) == render_body(coll, record)
-
-
-def test_cache_entry_identifier_and_filename(cf_collection_path: Path) -> None:
-    coll = load_collection(cf_collection_path)
-    entry = cache_entry(coll, coll.records[0])
-    assert entry.reference_id == "PHENODIST:CF-PI-PROPORTION-001"
-    assert entry.filename() == "PHENODIST_CF-PI-PROPORTION-001.md"
-    assert entry.title.endswith("in Cystic Fibrosis")
-
-
-def test_rendered_body_contains_the_quotable_summary_row(
-    cf_collection_path: Path,
-) -> None:
-    coll = load_collection(cf_collection_path)
-    record = coll.records[0]
-    assert summary_row(record) in render_body(coll, record)
-
-
-def test_table_cells_never_contain_unescaped_pipes(cf_collection_path: Path) -> None:
-    """A stray pipe in free text must not break a quotable row."""
-    coll = load_collection(cf_collection_path)
-    coll = Collection(path=coll.path, data=copy.deepcopy(coll.data))
-    coll.data["distributions"][0]["measure_description"] = "a | b | c"
-    body = render_body(coll, coll.records[0])
-    line = next(
-        ln for ln in body.splitlines() if ln.startswith("| Measure description")
-    )
-    assert line.count("|") - line.count(r"\|") == 3  # two delimiters + separator
-
-
 def test_illustrative_collections_cannot_be_rendered_into_the_cache(
     tmp_path: Path,
 ) -> None:
-    """Synthetic numbers must not be able to become citable, even by mistake."""
-    illustrative = [
-        c
-        for c in discover_collections(_all_paths())
-        if c.data.get("provenance_tier") == "ILLUSTRATIVE"
-    ]
-    assert illustrative, "expected at least one illustrative example collection"
+    """Synthetic numbers must not be able to become citable, even by mistake.
+
+    Built by re-tiering a real set rather than read from a file: the tier guard
+    has to hold for whatever someone writes next, not only for a committed
+    example that happens to carry the tier today.
+    """
+
+    def mutate(data):
+        data["provenance_tier"] = "ILLUSTRATIVE"
+
+    illustrative = [_mutate(EXAMPLES_DIR / "charmpheno_population_eds.yaml", mutate)]
     with pytest.raises(ValueError, match="ILLUSTRATIVE"):
         write_cache_files(illustrative, tmp_path)
     assert not list(tmp_path.glob("*.md"))
 
 
-def test_write_cache_files_prunes_orphaned_records(tmp_path: Path) -> None:
-    """A renamed or deleted record must not leave a citable cache file behind."""
+def test_write_cache_files_prunes_orphaned_profiles(tmp_path: Path) -> None:
+    """A renamed or deleted profile must not leave a citable cache file behind."""
     collections = _renderable_collections()
     write_cache_files(collections, tmp_path)
     orphan = tmp_path / "PHENODIST_GONE-FOREVER-001.md"
@@ -321,11 +178,6 @@ def _verifiable_prefix_bullet() -> str:
     ):
         end += 1
     return "\n".join(lines[start:end])
-
-
-@pytest.fixture()
-def eds_collection_path() -> Path:
-    return EXAMPLES_DIR / "charmpheno_population_eds.yaml"
 
 
 def _warning_messages(coll: Collection) -> str:
@@ -400,15 +252,15 @@ def test_a_yaml_that_is_not_a_collection_is_rejected(tmp_path: Path) -> None:
     not_a_collection.write_text(
         "id: https://example.org/x\nname: x\n", encoding="utf-8"
     )
-    with pytest.raises(ValueError, match="not a phenotype-distribution collection"):
+    with pytest.raises(ValueError, match="not a phenotype profile set"):
         load_collection(not_a_collection)
 
     # The real schema is the file most likely to be passed by mistake.
-    with pytest.raises(ValueError, match="not a phenotype-distribution collection"):
+    with pytest.raises(ValueError, match="not a phenotype profile set"):
         load_collection(SCHEMA_PATH)
 
-    # And a genuine collection still loads.
-    assert load_collection(EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml").data
+    # And a genuine profile set still loads.
+    assert load_collection(EXAMPLES_DIR / "charmpheno_population_eds.yaml").data
 
 
 def test_cli_reports_bad_paths_as_errors_not_tracebacks(capsys) -> None:
@@ -443,39 +295,44 @@ def test_discover_collections_tolerates_a_missing_directory() -> None:
         discover_collections([Path("kb/phenotype_distributions/nope.yaml")])
 
 
+def _quoted_item(data: dict) -> dict:
+    """The one evidence item in the example that cites a fetchable document.
+
+    The example's own item cites a GitHub URL, which is deliberately not a
+    verifiable prefix, so the two tests below first repoint it at a PMID that is
+    cached for an unrelated kb entry — and therefore stays cached — before
+    breaking it. Found by walking rather than by a fixed index, so adding an
+    evidence line to the example does not silently move the target.
+    """
+    for profile in data["profiles"]:
+        for line in profile.get("evidence_lines") or []:
+            for item in line.get("has_evidence_items") or []:
+                return item
+    raise AssertionError("the example carries no evidence item to check")
+
+
 def test_lint_rejects_a_quote_not_in_the_cited_reference(
-    cf_collection_path: Path,
+    profile_set_path: Path,
 ) -> None:
     """Blocks laundering an unverified quote through the PHENODIST cache."""
 
     def mutate(data):
-        line = data["distributions"][0]["evidence_lines"][1]
-        line["has_evidence_items"][0]["item_value"] = (
-            "This sentence is not in the paper."
-        )
+        item = _quoted_item(data)
+        item["reported_in"]["id"] = "PMID:30986316"
+        item["item_value"] = "This sentence is not in the paper."
 
     assert "not a verbatim substring" in _error_messages(
-        _mutate(cf_collection_path, mutate)
+        _mutate(profile_set_path, mutate)
     )
 
 
 def test_lint_rejects_a_quote_whose_reference_is_not_cached(
-    cf_collection_path: Path,
+    profile_set_path: Path,
 ) -> None:
     def mutate(data):
-        line = data["distributions"][0]["evidence_lines"][1]
-        line["has_evidence_items"][0]["reported_in"]["id"] = "PMID:99999999"
+        _quoted_item(data)["reported_in"]["id"] = "PMID:99999999"
 
-    assert "is not cached" in _error_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_zero_point_estimate_implies_no_frequency_band() -> None:
-    """ "Never observed" is a different claim from "<5%"."""
-    from dismech.phenotype_distribution import _implied_band
-
-    assert _implied_band(0.0) is None
-    assert _implied_band(0.01) == "VERY_RARE"
-    assert _implied_band(1.0) == "OBLIGATE"
+    assert "is not cached" in _error_messages(_mutate(profile_set_path, mutate))
 
 
 def test_float_rendering_does_not_truncate_precision() -> None:
@@ -493,39 +350,46 @@ def _hp_db_available() -> bool:
 
 
 @pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
-def test_term_check_catches_a_wrong_curie(cf_collection_path: Path) -> None:
+def test_term_check_catches_a_wrong_curie(profile_set_path: Path) -> None:
     """The regression guard for the CURIE that slipped through review.
 
-    HP:0410017 is "Otitis externa". It reached this PR because nothing
-    term-validated the new collections — `validate-terms-all` is hardcoded to
+    HP:0410017 is "Otitis externa". A wrong CURIE reached this PR because
+    nothing term-validated these files — `validate-terms-all` is hardcoded to
     `kb/disorders` with `-t Disease`.
+
+    Aimed at the set-level `disease_term`, which is also the regression guard
+    for the walk: lifting `disease` out of the profiles moved the one term
+    every set carries outside the loop that used to check terms, so a check
+    that only walked profiles would pass this file having verified nothing.
     """
     from dismech.phenotype_distribution import check_terms
 
     def mutate(data):
-        def walk(node):
-            if isinstance(node, dict):
-                if node.get("term_id") == "HP:0012236":
-                    node["term_id"] = "HP:0410017"
-                for v in node.values():
-                    walk(v)
-            elif isinstance(node, list):
-                for i in node:
-                    walk(i)
+        data["disease"]["disease_term"]["term_id"] = "HP:0410017"
 
-        walk(data)
-
-    issues = check_terms([_mutate(cf_collection_path, mutate)])
+    issues = check_terms([_mutate(profile_set_path, mutate)])
     assert issues, "term check failed to flag a known-wrong CURIE"
     assert any("Otitis externa" in i.message for i in issues)
 
 
 @pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
 def test_example_terms_are_all_valid() -> None:
+    """Errors only.
+
+    MONDO resolves through a network-backed adapter, so a lookup that could not
+    be performed is reported as a WARNING — deliberately, since it is not
+    evidence the term is wrong. Asserting on warnings here would make the suite
+    fail on a flaky connection, which is the same conflation the severity split
+    exists to avoid; `just qc` draws the line in the same place.
+    """
     from dismech.phenotype_distribution import check_terms
 
-    issues = check_terms(discover_collections(_all_paths()))
-    assert not issues, [i.format() for i in issues]
+    errors = [
+        i
+        for i in check_terms(discover_collections(_all_paths()))
+        if i.severity == "ERROR"
+    ]
+    assert not errors, [i.format() for i in errors]
 
 
 def test_written_cache_files_satisfy_the_frontmatter_contract(
@@ -556,16 +420,18 @@ def test_no_temporary_files_left_behind(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_example_collections_are_not_citable_from_kb_entries() -> None:
-    """Illustrative records carry synthetic numbers and must stay uncited.
+def test_example_profiles_are_not_citable_from_kb_entries() -> None:
+    """The worked example is a demonstration and must stay uncited.
 
-    They are still linted and rendered so the tooling is exercised, but nothing
-    under kb/ may cite one, and no cache file for one may be committed.
+    It is still linted and rendered so the tooling is exercised, but its
+    numbers come from a research artifact on a feature branch rather than a
+    published cohort, so nothing under kb/ may cite one and no cache file for
+    one may be committed.
     """
     example_ids = {
-        record["record_id"]
+        profile["profile_id"]
         for coll in discover_collections(_example_paths())
-        for record in coll.records
+        for profile in coll.profiles
     }
     assert example_ids
 
@@ -577,196 +443,14 @@ def test_example_collections_are_not_citable_from_kb_entries() -> None:
         for rid in example_ids:
             if f"PHENODIST:{rid}" in text:
                 cited.add((path.name, rid))
-    assert not cited, f"kb entries cite illustrative records: {sorted(cited)}"
+    assert not cited, f"kb entries cite example profiles: {sorted(cited)}"
 
     committed = [
         p.name
         for rid in example_ids
         if (p := REPO_ROOT / "references_cache" / f"PHENODIST_{rid}.md").exists()
     ]
-    assert not committed, f"illustrative cache files are committed: {sorted(committed)}"
-
-
-# ---------------------------------------------------------------------------
-# Cohort declaration, references, and identification chains
-# ---------------------------------------------------------------------------
-
-
-def test_lint_flags_unresolvable_cohort_ref(cf_collection_path: Path) -> None:
-    def mutate(data):
-        data["distributions"][0]["cohort_ref"] = "SYNTH-NO-SUCH-COHORT"
-
-    assert "does not resolve to a cohort" in _error_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_lint_flags_cohort_declared_both_inline_and_by_reference(
-    cf_collection_path: Path,
-) -> None:
-    """One cohort, one source of truth — the duplication this slot removes."""
-
-    def mutate(data):
-        data["distributions"][0]["cohort"] = {"cohort_id": "SYNTH-CF-EHR"}
-
-    assert "both `cohort` and `cohort_ref`" in _error_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_lint_warns_when_a_record_re_declares_a_collection_cohort(
-    cf_collection_path: Path,
-) -> None:
-    def mutate(data):
-        record = data["distributions"][0]
-        record.pop("cohort_ref")
-        record["cohort"] = {"cohort_id": "SYNTH-CF-EHR", "n_individuals": 1240}
-
-    assert "use `cohort_ref`" in _warning_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_referenced_cohort_renders_the_same_as_an_inline_one(
-    cf_collection_path: Path,
-) -> None:
-    """Hoisting a shared cohort must not change a single cited byte.
-
-    Cache bodies are quoted as evidence snippets, so a purely organizational
-    move that altered the rendered text would silently invalidate citations.
-    """
-    coll = load_collection(cf_collection_path)
-    record = coll.records[0]
-    by_reference = render_body(coll, record)
-
-    inlined = Collection(path=coll.path, data=copy.deepcopy(coll.data))
-    target = inlined.records[0]
-    target["cohort"] = copy.deepcopy(inlined.cohorts[target.pop("cohort_ref")])
-    inlined.data.pop("cohorts")
-
-    assert render_body(inlined, inlined.records[0]) == by_reference
-
-
-def test_lint_warns_when_a_mapping_step_omits_its_relation(
-    cf_collection_path: Path,
-) -> None:
-    """An exact-synonym crossing and a broad-match crossing are different cohorts."""
-
-    def mutate(data):
-        for step in data["cohorts"][0]["identification_steps"]:
-            if step["step_role"] == "MAPPING":
-                step.pop("mapping_relation")
-
-    assert "mapping_relation" in _warning_messages(_mutate(cf_collection_path, mutate))
-
-
-def test_lint_warns_when_an_expansion_step_omits_its_direction(
-    cf_collection_path: Path,
-) -> None:
-    def mutate(data):
-        for step in data["cohorts"][0]["identification_steps"]:
-            if step["step_role"] == "EXPANSION":
-                step.pop("expansion_direction")
-
-    assert "expansion_direction" in _warning_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_lint_flags_discrete_contradicting_its_family(cf_collection_path: Path) -> None:
-    def mutate(data):
-        data["distributions"][0]["distribution"]["discrete"] = True
-
-    assert "contradicts family BETA" in _error_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_lint_warns_when_discrete_merely_restates_its_family(
-    cf_collection_path: Path,
-) -> None:
-    def mutate(data):
-        data["distributions"][0]["distribution"]["discrete"] = False
-
-    assert "restates what family BETA already fixes" in _warning_messages(
-        _mutate(cf_collection_path, mutate)
-    )
-
-
-def test_discrete_by_family_map_covers_the_enum() -> None:
-    """The map and its four prose copies must not drift from the enum.
-
-    A family added to the enum but not the map lands in the "support is open"
-    bucket by omission: the lint silently stops checking it, and the six-value
-    list repeated in the slot description, the warning text, `CLAUDE.md`, and
-    the docs all become wrong with no signal.
-    """
-    from dismech.phenotype_distribution import _DISCRETE_BY_FAMILY
-
-    sv = SchemaView(str(SCHEMA_PATH))
-    families = set(sv.get_enum("DistributionFamilyEnum").permissible_values)
-
-    unmapped = families - set(_DISCRETE_BY_FAMILY)
-    open_support = {
-        "EMPIRICAL",
-        "KAPLAN_MEIER",
-        "MIXTURE",
-        "NONPARAMETRIC_QUANTILE",
-        "OTHER",
-        "UNIFORM",
-    }
-    assert unmapped == open_support, (
-        "families whose support the family itself does not fix changed; update "
-        "_DISCRETE_BY_FAMILY and every prose copy of the list together. "
-        f"Unexpectedly unmapped: {sorted(unmapped - open_support)}; "
-        f"unexpectedly mapped: {sorted(open_support - unmapped)}"
-    )
-    assert not set(_DISCRETE_BY_FAMILY) - families, (
-        "_DISCRETE_BY_FAMILY maps a family the enum does not define: "
-        f"{sorted(set(_DISCRETE_BY_FAMILY) - families)}"
-    )
-
-    # The prose copies name the same six, so a reader is never told a different
-    # list from the one the lint enforces.
-    slot_description = sv.get_slot("discrete").description or ""
-    warning_text = _warning_messages(
-        _mutate(
-            EXAMPLES_DIR / "cystic_fibrosis_illustrative.yaml",
-            lambda data: data["distributions"][0]["distribution"].update(
-                discrete=False
-            ),
-        )
-    )
-    sources: list[tuple[str, str]] = [
-        ("the `discrete` slot description", slot_description),
-        ("the lint warning", warning_text),
-    ]
-    # Prose files are read at HEAD, not from the working tree, for the reason
-    # `_committed_text` exists: a checkout with unrelated local mutation would
-    # otherwise fail this guard on content that is correct as committed. Its
-    # sibling `test_prose_domain_role_lists_are_complete` was moved onto the
-    # committed blob for exactly this, and reading the working tree here
-    # reintroduced what that change removed.
-    for label, path in (
-        ("CLAUDE.md", CLAUDE_MD_PATH),
-        ("the docs", DOCS_PATH),
-    ):
-        committed = _committed_text(path)
-        if committed is None:  # not a git checkout (sdist, vendored tree)
-            continue
-        sources.append((label, committed))
-
-    for source, text in sources:
-        missing = [f for f in open_support if f not in text]
-        assert not missing, f"{source} omits open-support families: {sorted(missing)}"
-
-
-def _second_cohort(arm_name: str, **arm_extra) -> dict:
-    """A plain second cohort — `cohorts` is multivalued, so this is normal shape."""
-    return {
-        "cohort_id": "SECOND-COHORT",
-        "name": "A second declared cohort",
-        "n_individuals": 10,
-        "arms": [{"arm_name": arm_name, **arm_extra}],
-    }
+    assert not committed, f"example cache files are committed: {sorted(committed)}"
 
 
 # ---------------------------------------------------------------------------
@@ -777,13 +461,6 @@ def _second_cohort(arm_name: str, **arm_extra) -> dict:
 @pytest.fixture()
 def profile_set_path() -> Path:
     return EXAMPLES_DIR / "charmpheno_population_eds.yaml"
-
-
-def test_profile_set_is_recognised_as_the_other_shape(profile_set_path: Path) -> None:
-    coll = load_collection(profile_set_path)
-    assert coll.is_profile_set
-    assert coll.profiles
-    assert not coll.records
 
 
 def test_profiles_carry_no_model_layer() -> None:
@@ -808,11 +485,21 @@ def test_profiles_carry_no_model_layer() -> None:
         "CohortArm",
         "ComponentIndexRange",
         "IdentityAttestation",
+        # The literature/statistical shape, cut as out of scope for this
+        # iteration. Its residue is the same hazard as the model layer's: prose
+        # describing a second tree root that no longer exists sends a curator
+        # looking for a payload the schema cannot validate.
+        "PhenotypeDistributionCollection",
+        "PhenotypeDistributionRecord",
+        "DistributionFamilyEnum",
+        "IdentificationStep",
+        "DistributionBin",
+        "DismechBinding",
     }
     assert not (classes & gone), f"model layer reintroduced: {sorted(classes & gone)}"
 
     slots = set(sv.class_slots("Profile")) | set(sv.class_slots("ProfileSet"))
-    assert "profile_share" in slots
+    assert "profile_weight" in slots
     # The word the data producer asked this schema to stop using for a weight.
     for name in slots:
         assert "prevalence" not in name, f"{name} reintroduces `prevalence`"
@@ -894,43 +581,55 @@ def test_lint_flags_a_duplicated_code(profile_set_path: Path) -> None:
     assert "twice" in _error_messages(_mutate(profile_set_path, mutate))
 
 
-def test_lint_flags_a_profile_binding_that_does_not_match(
-    profile_set_path: Path,
-) -> None:
-    def mutate(data):
-        data["profiles"][0]["dismech_bindings"][0]["evidence_reference"] = (
-            "PHENODIST:something-else"
-        )
+def test_the_schema_declares_no_reverse_pointer_to_kb_entries() -> None:
+    """A profile set names no dismech entry, in either direction.
 
-    assert "does not match this profile" in _error_messages(
-        _mutate(profile_set_path, mutate)
+    An earlier draft had each profile declare a `dismech_bindings` block naming
+    the entry and section it belonged to. Nothing else in this repo points that
+    way: ORPHA, ClinGen, ICEES and NCIT are all cited *by* an entry and know
+    nothing about it. A source-side pointer is a second place for the same fact
+    to be wrong, and the association a set does need — which disease — is the
+    MONDO term it already carries.
+    """
+    sv = SchemaView(str(SCHEMA_PATH))
+    names = set(sv.all_classes()) | set(sv.all_slots())
+    reverse = {
+        "DismechBinding",
+        "dismech_bindings",
+        "target_entry",
+        "target_kind",
+        "target_section",
+        "evidence_reference",
+    }
+    assert not (names & reverse), (
+        f"reverse pointer reintroduced: {sorted(names & reverse)}"
     )
 
 
-def test_profiles_export_through_the_same_citation_bridge(
+def test_profiles_export_through_the_citation_bridge(
     profile_set_path: Path, tmp_path: Path
 ) -> None:
-    """One bridge over both shapes.
+    """A profile becomes citable the same way every structured source does.
 
-    A disease entry cites `PHENODIST:<id>` and quotes a row whether the id names
-    a distribution record or a profile; duplicating that mechanism per shape is
-    what the shared schema exists to avoid.
+    A disease entry cites `PHENODIST:<id>` and quotes a row — the mechanism
+    ORPHA, ClinGen, ICEES and NCIT already use, rather than a bridge of this
+    schema's own.
     """
-    from dismech.phenotype_distribution import profile_cache_entry
-
     coll = load_collection(profile_set_path)
     entry = profile_cache_entry(coll, coll.profiles[1])
     assert entry.reference_id == "PHENODIST:CHARMPHENO-EDS-DYSAUTONOMIA-001"
     assert entry.filename() == "PHENODIST_CHARMPHENO-EDS-DYSAUTONOMIA-001.md"
-    # Rows are quotable substrings, the same contract the other shape keeps.
+    # Rows are quotable substrings — the contract curator snippets depend on.
     row = "| 4159659 | Postural orthostatic tachycardia syndrome | 0.11381 |"
     assert row in entry.body
     assert "| Vocabulary | OMOP_CONCEPT_ID |" in entry.body
+    # The disease is declared once for the set, but each cache file is read
+    # alone, so it has to carry the disease it is about.
+    assert "MONDO:0020066" in entry.body
+    assert entry.title.endswith("in Ehlers-Danlos Syndrome")
 
 
 def test_profile_rendering_is_deterministic(profile_set_path: Path) -> None:
-    from dismech.phenotype_distribution import render_profile_body
-
     coll = load_collection(profile_set_path)
     first = [render_profile_body(coll, p) for p in coll.profiles]
     second = [
@@ -939,22 +638,22 @@ def test_profile_rendering_is_deterministic(profile_set_path: Path) -> None:
     assert first == second
 
 
-def test_a_profile_share_requires_its_denominator(profile_set_path: Path) -> None:
+def test_a_profile_weight_requires_its_denominator(profile_set_path: Path) -> None:
     """A share without a denominator is silently incomparable.
 
-    The reason this slot is `profile_share` rather than `prevalence` is
+    The reason this slot is `profile_weight` rather than `prevalence` is
     denominator hygiene, so leaving the denominator to free-text prose gave up
     the point: a share over a whole corpus and a share over one disease arm
     differ by orders of magnitude and look identical.
     """
 
     def mutate(data):
-        data["profile_source"].pop("share_denominator")
+        data["profile_source"].pop("weight_basis")
 
-    assert "share_denominator" in _error_messages(_mutate(profile_set_path, mutate))
+    assert "weight_basis" in _error_messages(_mutate(profile_set_path, mutate))
 
 
-def test_profile_shares_cannot_exceed_the_mass_they_divide(
+def test_profile_weights_cannot_exceed_the_mass_they_divide(
     profile_set_path: Path,
 ) -> None:
     """Only an upper bound is meaningful.
@@ -965,8 +664,8 @@ def test_profile_shares_cannot_exceed_the_mass_they_divide(
     """
 
     def mutate(data):
-        data["profiles"][0]["profile_share"] = 0.7
-        data["profiles"][1]["profile_share"] = 0.7
+        data["profiles"][0]["profile_weight"] = 0.7
+        data["profiles"][1]["profile_weight"] = 0.7
 
     assert "above 1.0" in _error_messages(_mutate(profile_set_path, mutate))
 
@@ -1084,8 +783,6 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
 
     elsewhere = {
         # Real slots, but in the main dismech schema rather than this one.
-        "attaches_to",
-        "interpretation_bands",
         "prevalence",
         # A LinkML metaslot, and an export field of an external tool.
         "see_also",
@@ -1118,3 +815,16 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
         f"allowlist entries with no prose references, so the exemption has "
         f"outlived the text that needed it: {stale}"
     )
+
+    # And the same check one class wider. The identifier pattern above cannot
+    # see a backticked *path*, because slashes and hyphens fall outside it —
+    # which is how `docs/proposals/dismech-profiles` survived in a class
+    # description pointing at a directory this repo has never had. A reader
+    # follows it and finds nothing, the same failure as a dangling slot name.
+    missing = [
+        f"{where} -> `{token}`"
+        for where, text in descriptions
+        for token in _re.findall(r"`([A-Za-z0-9_./-]+/[A-Za-z0-9_./-]+)`", text)
+        if not (REPO_ROOT / token).exists()
+    ]
+    assert not missing, f"schema prose points at paths that do not exist: {missing}"

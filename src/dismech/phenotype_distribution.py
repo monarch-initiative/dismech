@@ -1,28 +1,27 @@
-"""Statistical phenotype distributions: loading, linting, and evidence export.
+"""EHR-derived phenotype profiles: loading, linting, and evidence export.
 
-A *phenotype distribution collection* is a YAML file conforming to
-``src/dismech/schema/phenotype_distribution.yaml``. Each collection holds
-records, and each record is one estimand for one phenotype in one disease in
-one stratum.
+A *profile set* is a YAML file conforming to
+``src/dismech/schema/phenotype_distribution.yaml``. Each set is about one
+disease and holds profiles; each profile is one interpretable pattern — a
+label and one weighted-code distribution per clinical domain.
 
 This module does three things:
 
-1. **Load** collections from ``kb/phenotype_distributions/`` (and the worked
-   examples under ``examples/phenotype_distributions/``).
-2. **Lint** them for the consistency the LinkML schema cannot express —
-   duplicate record ids, an ``evidence_reference`` that disagrees with its
-   record id, a ``target_entry`` that does not resolve to a real kb file, a
-   matrix whose value count contradicts its declared dimensions, an interval
-   that does not bracket its point estimate, an identity attestation that
-   contradicts itself, and a proportion banded into an HPO frequency class its
-   own point estimate does not support.
-3. **Export** each record as a ``references_cache/PHENODIST_<record_id>.md``
-   file, so a dismech entry can cite ``PHENODIST:<record_id>`` and quote a row
+1. **Load** sets from ``kb/phenotype_distributions/`` (and the worked example
+   under ``examples/phenotype_distributions/``).
+2. **Lint** what the LinkML schema cannot express — duplicate profile ids, code
+   weights summing above 1, a truncated distribution that does not say so, a
+   description misstating its own sum, a set whose weights exceed the mass they
+   divide, and a quoted evidence item that is not a verbatim substring of its
+   cited reference.
+3. **Export** each profile as a ``references_cache/PHENODIST_<profile_id>.md``
+   file, so a dismech entry can cite ``PHENODIST:<profile_id>`` and quote a row
    as an evidence ``snippet:`` — the same line-oriented flat-file mechanism the
-   Orphanet, ClinGen, and ICEES structured sources use.
+   Orphanet, ClinGen, and ICEES structured sources use, and the same direction:
+   the entry cites the source, not the other way round.
 
-The generated body is deterministic: the same collection always renders the
-same bytes, so a curator-quoted snippet keeps matching across regenerations.
+The generated body is deterministic: the same set always renders the same
+bytes, so a curator-quoted snippet keeps matching across regenerations.
 
 Like every other file in ``references_cache/``, these are generated artifacts.
 Never hand-write or hand-edit one — regenerate with
@@ -51,54 +50,6 @@ DEFAULT_COLLECTION_DIRS = (
     REPO_ROOT / "examples" / "phenotype_distributions",
 )
 DEFAULT_CACHE_DIR = REPO_ROOT / "references_cache"
-
-#: ``target_kind`` -> directory holding the target entries.
-_TARGET_DIRS = {
-    "DISEASE": REPO_ROOT / "kb" / "disorders",
-    "MODULE": REPO_ROOT / "kb" / "modules",
-    "GROUPING": REPO_ROOT / "kb" / "groupings",
-    "COMORBIDITY": REPO_ROOT / "kb" / "comorbidities",
-}
-
-#: HPO frequency bands as half-open proportion intervals ``[lower, upper)``.
-#: OBLIGATE is the closed point 1.0 and is handled separately.
-_FREQUENCY_BANDS = {
-    "VERY_RARE": (0.0, 0.05),
-    "OCCASIONAL": (0.05, 0.30),
-    "FREQUENT": (0.30, 0.80),
-    "VERY_FREQUENT": (0.80, 1.0),
-}
-
-#: Estimands whose values are proportions, and so can imply a frequency band.
-_PROPORTION_MEASURES = {"PHENOTYPE_PROPORTION", "PENETRANCE"}
-
-#: Support discreteness implied by the distribution family, where the family
-#: settles it. Families absent from this map genuinely leave it open — an
-#: EMPIRICAL tabulation may be over counts or over bins of a continuous
-#: quantity — and are the only ones where `discrete` carries information.
-_DISCRETE_BY_FAMILY = {
-    "BERNOULLI": True,
-    "BINOMIAL": True,
-    "BETA_BINOMIAL": True,
-    "CATEGORICAL": True,
-    "MULTINOMIAL": True,
-    "DIRICHLET_MULTINOMIAL": True,
-    "POISSON": True,
-    "NEGATIVE_BINOMIAL": True,
-    "ZERO_INFLATED_POISSON": True,
-    "ZERO_INFLATED_NEGATIVE_BINOMIAL": True,
-    "BETA": False,
-    "DIRICHLET": False,
-    "LOGISTIC_NORMAL": False,
-    "NORMAL": False,
-    "MULTIVARIATE_NORMAL": False,
-    "LOGNORMAL": False,
-    "GAMMA": False,
-    "EXPONENTIAL": False,
-    "WEIBULL": False,
-    "STUDENT_T": False,
-    "KERNEL_DENSITY": False,
-}
 
 #: Document prefixes whose quoted text must be verifiable against the cache.
 #: Clinical trials are cited as ``clinicaltrials:NCT12345678`` and cached as
@@ -138,47 +89,9 @@ class Collection:
         return str(self.data.get("collection_id", self.path.stem))
 
     @property
-    def records(self) -> list[dict[str, Any]]:
-        return list(self.data.get("distributions") or [])
-
-    @property
     def profiles(self) -> list[dict[str, Any]]:
         """EHR-derived profiles, for a `ProfileSet` rather than a collection."""
         return list(self.data.get("profiles") or [])
-
-    @property
-    def is_profile_set(self) -> bool:
-        """Whether this file is a `ProfileSet` rather than a distribution collection.
-
-        The two shapes share a file extension, a directory, and the citation
-        bridge, but almost nothing else: a distribution record carries a fitted
-        family and an interval, a profile carries weighted codes. Branching on
-        the payload keeps one loader and one cache export over both.
-        """
-        return "profiles" in self.data and "distributions" not in self.data
-
-    @property
-    def cohorts(self) -> dict[str, dict[str, Any]]:
-        """Collection-level cohorts, keyed by ``cohort_id``."""
-        out: dict[str, dict[str, Any]] = {}
-        for cohort in self.data.get("cohorts") or []:
-            if isinstance(cohort, dict) and cohort.get("cohort_id"):
-                out[str(cohort["cohort_id"])] = cohort
-        return out
-
-    def resolve_cohort(self, node: dict[str, Any]) -> dict[str, Any]:
-        """Return the cohort for a record (or model), inline or by reference.
-
-        A referenced cohort renders exactly as an inline one would, so moving a
-        shared cohort up to the collection does not change any cited body.
-        """
-        inline = node.get("cohort")
-        if inline:
-            return dict(inline)
-        ref = node.get("cohort_ref")
-        if ref:
-            return dict(self.cohorts.get(str(ref)) or {})
-        return {}
 
 
 def load_collection(path: Path) -> Collection:
@@ -188,17 +101,13 @@ def load_collection(path: Path) -> Collection:
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a mapping at the top level")
     # A YAML file that is a mapping but not a collection would otherwise sail
-    # through as "a collection with 0 records" and be reported as checked. Naming
+    # through as "a set with 0 profiles" and be reported as checked. Naming
     # the wrong file is the easy mistake here — the schema itself is a mapping,
     # and passing it produces a clean-looking summary that verified nothing.
-    if (
-        "collection_id" not in data
-        and "distributions" not in data
-        and "profiles" not in data
-    ):
+    if "collection_id" not in data and "profiles" not in data:
         raise ValueError(
-            f"{path}: not a phenotype-distribution collection or profile set "
-            "(no `collection_id`, `distributions`, or `profiles`)"
+            f"{path}: not a phenotype profile set "
+            "(no `collection_id` and no `profiles`)"
         )
     return Collection(path=path, data=data)
 
@@ -238,15 +147,6 @@ def _is_full_rebuild(paths: list[Path] | None) -> bool:
     return all(not p.suffix for p in paths)
 
 
-def iter_records(
-    collections: Iterable[Collection],
-) -> Iterator[tuple[Collection, dict[str, Any]]]:
-    """Yield ``(collection, record)`` for every record in every collection."""
-    for coll in collections:
-        for record in coll.records:
-            yield coll, record
-
-
 # ---------------------------------------------------------------------------
 # Linting
 # ---------------------------------------------------------------------------
@@ -257,12 +157,14 @@ class Issue:
     """One lint finding."""
 
     path: Path
-    record_id: str
+    profile_id: str
     severity: str  # ERROR | WARNING
     message: str
 
     def format(self) -> str:
-        loc = f"{self.path.name}:{self.record_id}" if self.record_id else self.path.name
+        loc = (
+            f"{self.path.name}:{self.profile_id}" if self.profile_id else self.path.name
+        )
         return f"[{self.severity}] {loc}: {self.message}"
 
 
@@ -272,7 +174,7 @@ class LintResult:
 
     issues: list[Issue] = field(default_factory=list)
     n_collections: int = 0
-    n_records: int = 0
+    n_profiles: int = 0
 
     @property
     def errors(self) -> list[Issue]:
@@ -281,88 +183,6 @@ class LintResult:
     @property
     def warnings(self) -> list[Issue]:
         return [i for i in self.issues if i.severity == "WARNING"]
-
-
-def _entry_names(directory: Path) -> set[str]:
-    """File stems of the YAML entries in a kb directory."""
-    if not directory.is_dir():
-        return set()
-    return {
-        p.stem for p in directory.glob("*.yaml") if not p.name.endswith(".history.yaml")
-    }
-
-
-def _check_matrix(param: dict[str, Any]) -> str | None:
-    """Return an error message if a matrix parameter is self-inconsistent."""
-    matrix = param.get("matrix_value")
-    if not isinstance(matrix, dict):
-        return None
-    rows = matrix.get("n_rows")
-    cols = matrix.get("n_columns")
-    values = matrix.get("values") or []
-    if isinstance(rows, int) and isinstance(cols, int):
-        expected = rows * cols
-        if len(values) != expected:
-            return (
-                f"matrix parameter {param.get('parameter_name')!r} declares "
-                f"{rows}x{cols} = {expected} entries but lists {len(values)}"
-            )
-    for axis, labels, n in (
-        ("row_labels", matrix.get("row_labels"), rows),
-        ("column_labels", matrix.get("column_labels"), cols),
-    ):
-        if labels and isinstance(n, int) and len(labels) != n:
-            return (
-                f"matrix parameter {param.get('parameter_name')!r} has "
-                f"{len(labels)} {axis} for {n} entries on that axis"
-            )
-    return None
-
-
-def _check_interval(
-    summary: dict[str, Any],
-) -> str | None:
-    """Return an error message if an interval fails to bracket its estimate."""
-    lower = summary.get("interval_lower")
-    upper = summary.get("interval_upper")
-    point = summary.get("point_estimate")
-    # Degrade to a lint finding rather than a traceback if YAML hands us a
-    # string where a number belongs.
-    for name, val in (
-        ("interval_lower", lower),
-        ("interval_upper", upper),
-        ("point_estimate", point),
-    ):
-        if val is not None and not isinstance(val, (int, float)):
-            return f"{name} is {val!r}, which is not a number"
-    if lower is not None and upper is not None and lower > upper:
-        return f"interval bounds are inverted ({lower} > {upper})"
-    if point is None:
-        return None
-    if lower is not None and point < lower:
-        return f"point estimate {point} lies below the interval lower bound {lower}"
-    if upper is not None and point > upper:
-        return f"point estimate {point} lies above the interval upper bound {upper}"
-    return None
-
-
-def _implied_band(value: float) -> str | None:
-    """HPO frequency band a proportion falls in, or None if it has none.
-
-    A point estimate of exactly zero has no band: "never observed in this
-    cohort" is a different claim from VERY_RARE's "<5%", and collapsing the two
-    would let a null observation assert a frequency.
-    """
-    if value < 0.0 or value > 1.0:
-        return None
-    if value == 0.0:
-        return None
-    if value >= 1.0:
-        return "OBLIGATE"
-    for band, (lo, hi) in _FREQUENCY_BANDS.items():
-        if lo <= value < hi:
-            return band
-    return None
 
 
 def _cache_path_for(document_id: str, cache_dir: Path) -> Path | None:
@@ -382,21 +202,20 @@ def _cache_path_for(document_id: str, cache_dir: Path) -> Path | None:
 
 
 def _check_quoted_items(
-    record: dict[str, Any],
+    profile: dict[str, Any],
     cache_dir: Path,
 ) -> list[tuple[str, str]]:
     """Verify quoted evidence items against the reference cache.
 
     Returns ``(severity, message)`` pairs. A ``DataItem`` that cites a fetchable
-    document is a verbatim quote, and ``render_body`` writes it into the
-    generated PHENODIST cache file. Without this check a curator could later
+    document is a verbatim quote. Without this check a curator could later
     cite ``PHENODIST:<id>`` and quote that rendered row, and
     ``validate-references`` would verify it happily — laundering an unverified
     quote into a validated-looking snippet. So the quote is checked here, at the
     point it enters the system.
     """
     out: list[tuple[str, str]] = []
-    for line in record.get("evidence_lines") or []:
+    for line in profile.get("evidence_lines") or []:
         for item in line.get("has_evidence_items") or []:
             doc = item.get("reported_in") or {}
             doc_id = str(doc.get("id") or "")
@@ -436,8 +255,8 @@ def _normalize_quote(text: str) -> str:
     return " ".join(text.split())
 
 
-def iter_terms(node: Any, where: str = "record") -> Iterator[tuple[dict, str]]:
-    """Yield every ``{term_id, term_label}`` mapping in a record, with a path."""
+def iter_terms(node: Any, where: str = "set") -> Iterator[tuple[dict, str]]:
+    """Yield every ``{term_id, term_label}`` mapping under a node, with a path."""
     if isinstance(node, dict):
         if "term_id" in node and "term_label" in node:
             yield node, where
@@ -473,9 +292,16 @@ def check_terms(
     adapters: dict[str, Any] = {}
     unloadable: dict[str, str] = {}
     for coll in collections:
-        for record in coll.records:
-            rid = str(record.get("record_id", ""))
-            for term, where in iter_terms(record):
+        # Walk the whole set, not just its profiles. Lifting `disease` to the
+        # set level put the one term every set carries outside the profile
+        # loop, which would have left the disease CURIE — the term the citation
+        # bridge keys on — as the only unchecked one in the file.
+        scopes: list[tuple[str, Any]] = [
+            ("", {k: v for k, v in coll.data.items() if k != "profiles"})
+        ]
+        scopes += [(str(p.get("profile_id", "")), p) for p in coll.profiles]
+        for rid, scope in scopes:
+            for term, where in iter_terms(scope):
                 term_id = str(term.get("term_id") or "")
                 label = str(term.get("term_label") or "")
                 prefix = term_id.split(":", 1)[0] if ":" in term_id else ""
@@ -548,263 +374,16 @@ def check_terms(
     return issues
 
 
-def lint_record(
-    coll: Collection,
-    record: dict[str, Any],
-    known_entries: dict[str, set[str]],
-    cache_dir: Path = DEFAULT_CACHE_DIR,
-) -> list[Issue]:
-    """Lint one record. Returns the issues found."""
-    rid = str(record.get("record_id", ""))
-    out: list[Issue] = []
-
-    def err(msg: str) -> None:
-        out.append(Issue(coll.path, rid, "ERROR", msg))
-
-    def warn(msg: str) -> None:
-        out.append(Issue(coll.path, rid, "WARNING", msg))
-
-    if not record.get("phenotype"):
-        err("record has no `phenotype`")
-
-    # A cohort is declared once and referenced, or described inline — not both.
-    declared = coll.cohorts
-    ref = record.get("cohort_ref")
-    inline = record.get("cohort") or {}
-    if ref and inline:
-        err(
-            "record sets both `cohort` and `cohort_ref`; the two would have to "
-            "be kept in sync by hand, so only one is allowed"
-        )
-    elif ref and str(ref) not in declared:
-        known = ", ".join(sorted(declared)) or "none declared"
-        err(
-            f"`cohort_ref` {ref!r} does not resolve to a cohort in the "
-            f"collection's `cohorts` ({known})"
-        )
-    elif inline and str(inline.get("cohort_id") or "") in declared:
-        warn(
-            f"record describes cohort {inline.get('cohort_id')!r} inline even "
-            "though the collection declares it; use `cohort_ref` so the "
-            "description has one source of truth"
-        )
-    elif not ref and not inline:
-        warn(
-            "record declares no cohort; a distribution without a population is "
-            "unreadable"
-        )
-
-    dist = record.get("distribution") or {}
-
-    for param in dist.get("parameters") or []:
-        msg = _check_matrix(param)
-        if msg:
-            err(msg)
-
-    # `discrete` earns its place only where the family leaves it open.
-    declared_discrete = dist.get("discrete")
-    family = dist.get("family")
-    if declared_discrete is not None and family in _DISCRETE_BY_FAMILY:
-        implied = _DISCRETE_BY_FAMILY[family]
-        if bool(declared_discrete) != implied:
-            err(
-                f"`discrete: {bool(declared_discrete)}` contradicts family "
-                f"{family}, whose support is "
-                f"{'discrete' if implied else 'continuous'} by definition"
-            )
-        else:
-            warn(
-                f"`discrete` restates what family {family} already fixes; omit "
-                "it and set it only for families that leave the support open "
-                "(EMPIRICAL, MIXTURE, KAPLAN_MEIER, NONPARAMETRIC_QUANTILE, "
-                "UNIFORM, OTHER)"
-            )
-
-    summary = dist.get("summary") or {}
-    msg = _check_interval(summary)
-    if msg:
-        err(msg)
-    if (
-        summary.get("interval_lower") is not None
-        or summary.get("interval_upper") is not None
-    ) and not summary.get("interval_type"):
-        warn(
-            "summary reports an interval without an `interval_type`; a "
-            "confidence and a credible interval are not interchangeable"
-        )
-
-    # Bins that claim to partition the cohort should roughly sum to 1.
-    bins = dist.get("bins") or []
-    proportions = [b.get("proportion") for b in bins if b.get("proportion") is not None]
-    if len(proportions) == len(bins) and len(bins) > 1:
-        total = sum(proportions)
-        if abs(total - 1.0) > 0.02 and dist.get("family") != "CATEGORICAL":
-            warn(
-                f"bin proportions sum to {total:.3f}, not 1.0; if the bins are a "
-                "partial tabulation rather than a partition, say so in `notes`"
-            )
-
-    # Identity attestations must not contradict themselves.
-    # A proportion's implied frequency band must match its own point estimate.
-    band = record.get("implied_frequency_class")
-    if band:
-        if record.get("measure_type") not in _PROPORTION_MEASURES:
-            warn(
-                "`implied_frequency_class` is set on a record whose measure_type "
-                f"is {record.get('measure_type')!r}; frequency bands describe "
-                "proportions"
-            )
-        point = summary.get("point_estimate")
-        if isinstance(point, (int, float)):
-            expected = _implied_band(float(point))
-            if expected and expected != band:
-                err(
-                    f"implied_frequency_class is {band} but the point estimate "
-                    f"{point} falls in the {expected} band"
-                )
-        if not record.get("implied_frequency_basis"):
-            warn(
-                "`implied_frequency_class` is set without an `implied_frequency_basis`"
-            )
-
-    for binding in record.get("dismech_bindings") or []:
-        ref = binding.get("evidence_reference")
-        if ref and ref != f"{PREFIX}:{rid}":
-            err(
-                f"binding evidence_reference {ref!r} does not match this record; "
-                f"expected {PREFIX}:{rid}"
-            )
-        kind = binding.get("target_kind")
-        entry = binding.get("target_entry")
-        if kind and entry:
-            names = known_entries.get(kind, set())
-            if names and entry not in names:
-                err(
-                    f"binding targets {kind} entry {entry!r}, which does not "
-                    f"resolve to a file in {_TARGET_DIRS[kind].relative_to(REPO_ROOT)}"
-                )
-        if binding.get("import_status") in {
-            "REJECTED",
-            "DEFERRED",
-            "SUPERSEDED",
-        } and not (binding.get("binding_notes")):
-            warn(
-                f"binding is {binding.get('import_status')} without "
-                "`binding_notes` explaining why"
-            )
-
-    for severity, message in _check_quoted_items(record, cache_dir):
-        out.append(Issue(coll.path, rid, severity, message))
-
-    if not record.get("bias_risks") and not record.get("caveats"):
-        warn(
-            "record declares neither `bias_risks` nor `caveats`; 'nobody checked' "
-            "and 'checked and clean' should not look the same"
-        )
-
-    return out
-
-
-def _check_cohorts(coll: Collection) -> list[Issue]:
-    """Check collection-level cohorts and the references into them.
-
-    Much smaller than it was. An earlier draft carried cohort arms and the
-    machinery to attribute a model's components to them; that went out with the
-    model layer, because a profile keyed to a MONDO term does not have
-    components to attribute and a literature record's population is described
-    rather than partitioned.
-    """
-    out: list[Issue] = []
-    declared: set[str] = set()
-
-    for cohort in coll.data.get("cohorts") or []:
-        cid = cohort.get("cohort_id")
-        if not cid:
-            out.append(
-                Issue(
-                    coll.path,
-                    "",
-                    "ERROR",
-                    "a cohort in `cohorts` has no `cohort_id`, so no record can "
-                    "reference it",
-                )
-            )
-            continue
-        if str(cid) in declared:
-            out.append(
-                Issue(
-                    coll.path, "", "ERROR", f"duplicate cohort_id {cid!r} in `cohorts`"
-                )
-            )
-        declared.add(str(cid))
-
-    every_cohort = list(coll.data.get("cohorts") or [])
-    for rec in coll.records:
-        if rec.get("cohort"):
-            every_cohort.append(rec["cohort"])
-
-    for cohort in every_cohort:
-        for step in cohort.get("identification_steps") or []:
-            out.extend(
-                _check_identification_step(
-                    coll, step, f"cohort {cohort.get('cohort_id')!r}"
-                )
-            )
-    return out
-
-
-def _check_identification_step(
-    coll: Collection, step: dict[str, Any], where: str
-) -> list[Issue]:
-    """Check that a cohort-identification step carries what its role needs."""
-    out: list[Issue] = []
-    role = step.get("step_role")
-    if role == "MAPPING" and not step.get("mapping_relation"):
-        out.append(
-            Issue(
-                coll.path,
-                "",
-                "WARNING",
-                f"{where}: MAPPING step declares no `mapping_relation`; an "
-                "exact-synonym crossing and a broad-match crossing do not "
-                "select the same patients",
-            )
-        )
-    if role == "EXPANSION" and not step.get("expansion_direction"):
-        out.append(
-            Issue(
-                coll.path,
-                "",
-                "WARNING",
-                f"{where}: EXPANSION step declares no `expansion_direction`; "
-                "walking up and walking down produce different cohorts",
-            )
-        )
-    if role in {"SEED", "MAPPING"} and not step.get("identification_terms"):
-        out.append(
-            Issue(
-                coll.path,
-                "",
-                "WARNING",
-                f"{where}: {role} step lists no `identification_terms`, so the "
-                "cohort cannot be reproduced from this record",
-            )
-        )
-    return out
-
-
 def lint_profile(
     coll: Collection,
     profile: dict[str, Any],
-    known_entries: dict[str, set[str]],
     cache_dir: Path = DEFAULT_CACHE_DIR,
 ) -> list[Issue]:
     """Lint one EHR-derived profile.
 
-    Far fewer rules than a distribution record needs, which is the point of the
-    shape: a profile is a label, a disease, and weighted codes, so most of what
-    can go wrong is a code whose vocabulary is unstated or a weight vector that
-    does not say it was truncated.
+    Few rules, which is the point of the shape: a profile is a label and
+    weighted codes, so most of what can go wrong is a code whose vocabulary is
+    unstated or a weight vector that does not say it was truncated.
     """
     pid = str(profile.get("profile_id", ""))
     out: list[Issue] = []
@@ -817,23 +396,16 @@ def lint_profile(
 
     # A share without its denominator is uninterpretable, and silently
     # incomparable with the next set's — the exact hazard the slot is named
-    # `profile_share` rather than `prevalence` to avoid.
-    if profile.get("profile_share") is not None:
+    # `profile_weight` rather than `prevalence` to avoid.
+    if profile.get("profile_weight") is not None:
         source = profile.get("profile_source") or coll.data.get("profile_source") or {}
-        if not source.get("share_denominator"):
+        if not source.get("weight_basis"):
             err(
-                "profile declares a `profile_share` but its source declares no "
-                "`share_denominator`; a share over a whole corpus and a share "
+                "profile declares a `profile_weight` but its source declares no "
+                "`weight_basis`; a share over a whole corpus and a share "
                 "over one disease arm can differ by orders of magnitude and "
                 "look identical"
             )
-
-    if not (profile.get("disease") or {}).get("disease_term"):
-        warn(
-            "profile declares no `disease.disease_term`; a profile is keyed to "
-            "one MONDO term and the hierarchy is MONDO's, so the term is what "
-            "places it"
-        )
 
     for dist in profile.get("code_distributions") or []:
         codes = dist.get("weighted_codes") or []
@@ -881,23 +453,6 @@ def lint_profile(
                 )
             seen.add(key)
 
-    for binding in profile.get("dismech_bindings") or []:
-        ref = binding.get("evidence_reference")
-        if ref and ref != f"{PREFIX}:{pid}":
-            err(
-                f"binding evidence_reference {ref!r} does not match this profile; "
-                f"expected {PREFIX}:{pid}"
-            )
-        kind = binding.get("target_kind")
-        entry = binding.get("target_entry")
-        if kind and entry:
-            names = known_entries.get(kind, set())
-            if names and entry not in names:
-                err(
-                    f"binding targets {kind} entry {entry!r}, which does not "
-                    f"resolve to a file in {_TARGET_DIRS[kind].relative_to(REPO_ROOT)}"
-                )
-
     for severity, message in _check_quoted_items(profile, cache_dir):
         out.append(Issue(coll.path, pid, severity, message))
 
@@ -910,33 +465,42 @@ def lint_collections(
 ) -> LintResult:
     """Lint a set of collections, including cross-collection id uniqueness."""
     collections = list(collections)
-    known_entries = {kind: _entry_names(d) for kind, d in _TARGET_DIRS.items()}
     result = LintResult(n_collections=len(collections))
-
-    for coll in collections:
-        result.issues.extend(_check_cohorts(coll))
 
     seen: dict[str, Path] = {}
     for coll in collections:
-        shares = [
-            p["profile_share"]
+        # The disease is declared once for the set, not per profile: a dismech
+        # entry associates with the whole set, and any nesting between cohorts
+        # is MONDO's own subclass tree.
+        if not (coll.data.get("disease") or {}).get("disease_term"):
+            result.issues.append(
+                Issue(
+                    coll.path,
+                    "",
+                    "WARNING",
+                    "profile set declares no `disease.disease_term`; the MONDO "
+                    "term is what associates it with a dismech entry",
+                )
+            )
+        weights = [
+            p["profile_weight"]
             for p in coll.profiles
-            if isinstance(p.get("profile_share"), (int, float))
+            if isinstance(p.get("profile_weight"), (int, float))
         ]
         # Only an upper bound is meaningful: real exports are top-N, so shares
         # falling short of 1 is the normal case, but exceeding it is not.
-        if shares and sum(shares) > 1.001:
+        if weights and sum(weights) > 1.001:
             result.issues.append(
                 Issue(
                     coll.path,
                     "",
                     "ERROR",
-                    f"profile shares sum to {sum(shares):.3f}, above 1.0; shares "
-                    "divide one fit's mass and cannot total more than it",
+                    f"profile weights sum to {sum(weights):.3f}, above 1.0; "
+                    "weights divide one fit's mass and cannot total more than it",
                 )
             )
         for profile in coll.profiles:
-            result.n_records += 1
+            result.n_profiles += 1
             pid = str(profile.get("profile_id", ""))
             if not pid:
                 result.issues.append(
@@ -958,24 +522,7 @@ def lint_collections(
                 )
             else:
                 seen[pid] = coll.path
-            result.issues.extend(lint_profile(coll, profile, known_entries, cache_dir))
-
-    for coll, record in iter_records(collections):
-        result.n_records += 1
-        rid = str(record.get("record_id", ""))
-        if rid in seen:
-            result.issues.append(
-                Issue(
-                    coll.path,
-                    rid,
-                    "ERROR",
-                    f"duplicate record_id, already used in {seen[rid].name}; ids "
-                    "are cited from kb entries and must be stable and unique",
-                )
-            )
-        else:
-            seen[rid] = coll.path
-        result.issues.extend(lint_record(coll, record, known_entries, cache_dir))
+            result.issues.extend(lint_profile(coll, profile, cache_dir))
 
     return result
 
@@ -1023,472 +570,18 @@ def _term(descriptor: Any) -> str:
     return _fmt(tid or label)
 
 
-def _interval_text(node: dict[str, Any]) -> str:
-    """Render an interval as ``95% CREDIBLE_EQUAL_TAILED 0.84-0.88``."""
-    lower = node.get("interval_lower")
-    upper = node.get("interval_upper")
-    if lower is None and upper is None:
-        return "-"
-    level = node.get("interval_level")
-    kind = node.get("interval_type") or "INTERVAL"
-    prefix = f"{level * 100:g}% " if isinstance(level, (int, float)) else ""
-    return f"{prefix}{kind} {_fmt(lower)}-{_fmt(upper)}"
-
-
-def _stratum_text(record: dict[str, Any]) -> str:
-    strata = record.get("strata") or []
-    if not strata:
-        return "whole cohort"
-    parts = []
-    for s in strata:
-        label = s.get("variable_label") or s.get("variable")
-        parts.append(f"{label}={_fmt(s.get('stratum_value'))}")
-    return "; ".join(parts)
-
-
-def summary_row(record: dict[str, Any]) -> str:
-    """The one-line quotable summary of a record.
-
-    This is the row a curator is most likely to quote as an evidence
-    ``snippet:``, so its column order is part of the cache contract and must
-    not be reordered.
-    """
-    dist = record.get("distribution") or {}
-    summary = dist.get("summary") or {}
-    n = dist.get("n_observations")
-    return _row(
-        [
-            record.get("record_id"),
-            record.get("measure_type"),
-            dist.get("family"),
-            summary.get("point_estimate"),
-            _interval_text(summary),
-            f"n={n}" if n is not None else "-",
-            _stratum_text(record),
-        ]
-    )
-
-
-def _phenotype_name(record: dict[str, Any]) -> str:
-    pheno = record.get("phenotype") or {}
-    if pheno:
-        return _fmt(pheno.get("preferred_term") or _term(pheno.get("phenotype_term")))
-    return "-"
-
-
-def render_body(coll: Collection, record: dict[str, Any]) -> str:
-    """Render the deterministic markdown body for one record's cache file."""
-    lines: list[str] = []
-    dist = record.get("distribution") or {}
-    disease = coll.data.get("disease") or {}
-    source = coll.data.get("source") or {}
-
-    lines.append("## Distribution summary")
-    lines.append("")
-    lines.append("| RECORD | MEASURE | FAMILY | ESTIMATE | INTERVAL | N | STRATUM |")
-    lines.append(summary_row(record))
-    lines.append("")
-
-    lines.append("## Subject")
-    lines.append("")
-    lines.append("| FIELD | VALUE |")
-    lines.append(_row(["Disease", disease.get("disease_name")]))
-    lines.append(_row(["Disease term", _term(disease.get("disease_term"))]))
-    if disease.get("subtype"):
-        lines.append(_row(["Subtype", disease.get("subtype")]))
-    lines.append(_row(["Phenotype", _phenotype_name(record)]))
-    pheno = record.get("phenotype") or {}
-    if pheno.get("phenotype_term"):
-        lines.append(_row(["Phenotype term", _term(pheno.get("phenotype_term"))]))
-    if pheno.get("loinc_term"):
-        lines.append(_row(["LOINC term", _term(pheno.get("loinc_term"))]))
-    lines.append(_row(["Measure", record.get("measure_type")]))
-    if record.get("measure_description"):
-        lines.append(_row(["Measure description", record.get("measure_description")]))
-    if record.get("unit"):
-        lines.append(_row(["Unit", record.get("unit")]))
-    if pheno.get("phenotype_definition"):
-        lines.append(_row(["Phenotype definition", pheno.get("phenotype_definition")]))
-    lines.append("")
-
-    cohort = coll.resolve_cohort(record)
-    if cohort:
-        lines.append("## Cohort")
-        lines.append("")
-        lines.append("| FIELD | VALUE |")
-        for label, key in (
-            ("Name", "name"),
-            ("Data source type", "data_source_type"),
-            ("Data source", "data_source_name"),
-            ("Ascertainment", "ascertainment"),
-            ("Case definition", "case_definition"),
-            ("Geography", "geography"),
-            ("Care setting", "care_setting"),
-            ("Individuals", "n_individuals"),
-            ("Observation start", "observation_start"),
-            ("Observation end", "observation_end"),
-        ):
-            if cohort.get(key) is not None:
-                lines.append(_row([label, cohort.get(key)]))
-        if cohort.get("person_time") is not None:
-            lines.append(
-                _row(
-                    [
-                        "Person-time",
-                        f"{_fmt(cohort.get('person_time'))} "
-                        f"{_fmt(cohort.get('person_time_unit') or '')}".strip(),
-                    ]
-                )
-            )
-        att = cohort.get("identity_attestation") or {}
-        if att:
-            lines.append(
-                _row(
-                    [
-                        "Identity attestation",
-                        (
-                            f"rows={_fmt(att.get('row_count'))} "
-                            f"persons={_fmt(att.get('unique_person_count'))} "
-                            "one_row_per_person="
-                            f"{_fmt(att.get('one_row_per_person'))}"
-                        ),
-                    ]
-                )
-            )
-        lines.append("")
-
-    if record.get("strata"):
-        lines.append("## Stratum")
-        lines.append("")
-        lines.append("| VARIABLE | LABEL | VALUE | LOWER | UPPER | UNIT |")
-        for s in record["strata"]:
-            lines.append(
-                _row(
-                    [
-                        s.get("variable"),
-                        s.get("variable_label"),
-                        s.get("stratum_value"),
-                        s.get("lower_bound"),
-                        s.get("upper_bound"),
-                        s.get("unit"),
-                    ]
-                )
-            )
-        lines.append("")
-
-    lines.append("## Distribution")
-    lines.append("")
-    lines.append("| FIELD | VALUE |")
-    for label, key in (
-        ("Family", "family"),
-        ("Parameterization", "parameterization_note"),
-        ("Estimation framework", "estimation_framework"),
-        ("Observations", "n_observations"),
-        ("Events", "n_events"),
-        ("Censored", "n_censored"),
-        ("Unit", "unit"),
-        ("Software", "software"),
-    ):
-        if dist.get(key) is not None:
-            lines.append(_row([label, dist.get(key)]))
-    lines.append("")
-
-    summary = dist.get("summary") or {}
-    if summary:
-        lines.append("## Summary statistics")
-        lines.append("")
-        lines.append("| STATISTIC | VALUE |")
-        for label, key in (
-            ("Point estimate", "point_estimate"),
-            ("Point estimate type", "point_estimate_type"),
-            ("Standard deviation", "standard_deviation"),
-            ("Variance", "variance"),
-            ("Median", "median"),
-            ("IQR lower", "iqr_lower"),
-            ("IQR upper", "iqr_upper"),
-            ("Minimum observed", "minimum_observed"),
-            ("Maximum observed", "maximum_observed"),
-            ("Skewness", "skewness"),
-        ):
-            if summary.get(key) is not None:
-                lines.append(_row([label, summary.get(key)]))
-        if (
-            summary.get("interval_lower") is not None
-            or summary.get("interval_upper") is not None
-        ):
-            lines.append(_row(["Interval", _interval_text(summary)]))
-        lines.append("")
-
-    params = dist.get("parameters") or []
-    if params:
-        lines.append("## Parameters")
-        lines.append("")
-        lines.append("| PARAMETER | SYMBOL | VALUE | SE | INTERVAL |")
-        for p in params:
-            value = p.get("value")
-            if value is None and p.get("vector_value"):
-                value = "[" + ", ".join(_fmt(v) for v in p["vector_value"]) + "]"
-            elif value is None and p.get("matrix_value"):
-                m = p["matrix_value"]
-                value = (
-                    f"{_fmt(m.get('matrix_kind'))} "
-                    f"{_fmt(m.get('n_rows'))}x{_fmt(m.get('n_columns'))}"
-                )
-            lines.append(
-                _row(
-                    [
-                        p.get("parameter_name"),
-                        p.get("symbol"),
-                        value,
-                        p.get("standard_error"),
-                        _interval_text(p),
-                    ]
-                )
-            )
-        lines.append("")
-
-        for p in params:
-            labels = p.get("index_labels")
-            if p.get("vector_value") and labels:
-                lines.append(
-                    f"### Parameter {_fmt(p.get('parameter_name'))} by component"
-                )
-                lines.append("")
-                lines.append("| COMPONENT | VALUE |")
-                for label, value in zip(labels, p["vector_value"]):
-                    lines.append(_row([label, value]))
-                lines.append("")
-            matrix = p.get("matrix_value")
-            if isinstance(matrix, dict) and matrix.get("values"):
-                lines.append(f"### Parameter {_fmt(p.get('parameter_name'))} matrix")
-                lines.append("")
-                rows = matrix.get("n_rows") or 0
-                cols = matrix.get("n_columns") or 0
-                row_labels = matrix.get("row_labels") or [
-                    f"r{i + 1}" for i in range(rows)
-                ]
-                col_labels = matrix.get("column_labels") or [
-                    f"c{i + 1}" for i in range(cols)
-                ]
-                lines.append("| | " + " | ".join(_fmt(c) for c in col_labels) + " |")
-                values = matrix["values"]
-                for i, rlabel in enumerate(row_labels):
-                    chunk = values[i * cols : (i + 1) * cols]
-                    lines.append(_row([rlabel, *chunk]))
-                if matrix.get("reference_component"):
-                    lines.append("")
-                    lines.append(
-                        f"Reference component: {_fmt(matrix['reference_component'])}"
-                    )
-                lines.append("")
-
-    bins = dist.get("bins") or []
-    if bins:
-        lines.append("## Bins")
-        lines.append("")
-        lines.append("| BIN | LOWER | UPPER | COUNT | PROPORTION | SUPPRESSED |")
-        for b in bins:
-            lines.append(
-                _row(
-                    [
-                        b.get("bin_label"),
-                        b.get("lower_bound"),
-                        b.get("upper_bound"),
-                        b.get("count"),
-                        b.get("proportion"),
-                        b.get("suppressed"),
-                    ]
-                )
-            )
-        lines.append("")
-
-    quantiles = dist.get("quantiles") or []
-    if quantiles:
-        lines.append("## Quantiles")
-        lines.append("")
-        lines.append("| QUANTILE | VALUE | UNIT |")
-        for q in quantiles:
-            lines.append(_row([q.get("quantile"), q.get("value"), q.get("unit")]))
-        lines.append("")
-
-    tte = dist.get("time_to_event") or {}
-    if tte:
-        lines.append("## Time to event")
-        lines.append("")
-        lines.append("| FIELD | VALUE |")
-        for label, key in (
-            ("Time unit", "time_unit"),
-            ("Median time to event", "median_time_to_event"),
-            ("Restricted mean", "restricted_mean"),
-            ("Restricted mean horizon", "restricted_mean_horizon"),
-            ("Cumulative incidence", "cumulative_incidence"),
-        ):
-            if tte.get(key) is not None:
-                lines.append(_row([label, tte.get(key)]))
-        if (
-            tte.get("interval_lower") is not None
-            or tte.get("interval_upper") is not None
-        ):
-            lines.append(_row(["Interval", _interval_text(tte)]))
-        lines.append("")
-        if tte.get("curve"):
-            lines.append(
-                "| TIME | AT_RISK | EVENTS | PROBABILITY | CI_LOWER | CI_UPPER |"
-            )
-            for pt in tte["curve"]:
-                lines.append(
-                    _row(
-                        [
-                            pt.get("time"),
-                            pt.get("at_risk"),
-                            pt.get("events_at_time"),
-                            pt.get("probability"),
-                            pt.get("interval_lower"),
-                            pt.get("interval_upper"),
-                        ]
-                    )
-                )
-            lines.append("")
-
-    effects = record.get("covariate_effects") or []
-    if effects:
-        lines.append("## Covariate effects")
-        lines.append("")
-        lines.append(
-            "| COVARIATE | LEVEL | REFERENCE | COMPONENT | COEFFICIENT | SE | SCALE |"
-        )
-        for e in effects:
-            lines.append(
-                _row(
-                    [
-                        e.get("covariate"),
-                        e.get("covariate_level"),
-                        e.get("reference_level"),
-                        e.get("component"),
-                        e.get("coefficient"),
-                        e.get("standard_error"),
-                        e.get("coefficient_scale"),
-                    ]
-                )
-            )
-        lines.append("")
-
-    comparison = record.get("comparison") or {}
-    if comparison:
-        lines.append("## Comparison")
-        lines.append("")
-        lines.append("| FIELD | VALUE |")
-        ref = comparison.get("reference_group") or {}
-        if ref.get("name"):
-            lines.append(_row(["Reference group", ref.get("name")]))
-        for label, key in (
-            ("Effect measure", "effect_measure"),
-            ("Effect value", "effect_value"),
-            ("P value", "p_value"),
-            ("FDR", "fdr"),
-        ):
-            if comparison.get(key) is not None:
-                lines.append(_row([label, comparison.get(key)]))
-        if (
-            comparison.get("interval_lower") is not None
-            or comparison.get("interval_upper") is not None
-        ):
-            lines.append(_row(["Interval", _interval_text(comparison)]))
-        if comparison.get("adjusted_for"):
-            lines.append(_row(["Adjusted for", "; ".join(comparison["adjusted_for"])]))
-        lines.append("")
-
-    risks = record.get("bias_risks") or []
-    caveats = record.get("caveats") or []
-    if risks or caveats:
-        lines.append("## Caveats")
-        lines.append("")
-        if risks:
-            lines.append(_row(["Bias risks", "; ".join(risks)]))
-            lines.append("")
-        for c in caveats:
-            lines.append(f"- {_fmt(c)}")
-        lines.append("")
-
-    for line_ in record.get("evidence_lines") or []:
-        prop = line_.get("target_proposition") or {}
-        lines.append("## Evidence line")
-        lines.append("")
-        lines.append("| FIELD | VALUE |")
-        lines.append(_row(["Direction", line_.get("direction_of_evidence_provided")]))
-        lines.append(_row(["Strength", line_.get("strength_of_evidence_provided")]))
-        if line_.get("evidence_line_type"):
-            lines.append(_row(["Type", line_.get("evidence_line_type")]))
-        if prop.get("statement_text"):
-            lines.append(_row(["Proposition", prop.get("statement_text")]))
-        items = line_.get("has_evidence_items") or []
-        if items:
-            lines.append("")
-            lines.append("| ITEM_TYPE | DOCUMENT | DOCUMENT_TYPE | VALUE |")
-            for item in items:
-                doc = item.get("reported_in") or {}
-                lines.append(
-                    _row(
-                        [
-                            item.get("data_type"),
-                            doc.get("id"),
-                            doc.get("document_type"),
-                            item.get("item_value"),
-                        ]
-                    )
-                )
-        lines.append("")
-
-    bindings = record.get("dismech_bindings") or []
-    if bindings:
-        lines.append("## dismech bindings")
-        lines.append("")
-        lines.append("| KIND | ENTRY | SECTION | PATH | PROPOSED | STATUS |")
-        for b in bindings:
-            lines.append(
-                _row(
-                    [
-                        b.get("target_kind"),
-                        b.get("target_entry"),
-                        b.get("target_section"),
-                        b.get("target_path"),
-                        b.get("proposed_value"),
-                        b.get("import_status"),
-                    ]
-                )
-            )
-        lines.append("")
-
-    lines.append("## Source")
-    lines.append("")
-    lines.append("| FIELD | VALUE |")
-    lines.append(_row(["Collection", coll.collection_id]))
-    for label, key in (
-        ("Source", "source_name"),
-        ("Source type", "source_type"),
-        ("Source version", "source_version"),
-        ("URL", "url"),
-        ("Retrieved", "retrieved_date"),
-        ("License", "license"),
-    ):
-        if source.get(key) is not None:
-            lines.append(_row([label, source.get(key)]))
-    for ref in source.get("primary_references") or []:
-        lines.append(_row(["Primary reference", ref]))
-    lines.append("")
-
-    return "\n".join(lines).rstrip() + "\n"
-
-
 def render_profile_body(coll: Collection, profile: dict[str, Any]) -> str:
     """Render the deterministic markdown body for one profile's cache file.
 
-    Same contract as `render_body`: stable bytes, line-oriented, so a
-    curator-quoted snippet keeps matching across regenerations.
+    Stable bytes, line-oriented, so a curator-quoted snippet keeps matching
+    across regenerations.
     """
     lines: list[str] = []
     src = profile.get("profile_source") or coll.data.get("profile_source") or {}
-    disease = profile.get("disease") or {}
+    # The disease is declared once for the set, but every cache file has to
+    # stand alone: a curator reads one file and must see which disease it is
+    # about without opening the set it came from.
+    disease = coll.data.get("disease") or {}
 
     lines.append("## Profile")
     lines.append("")
@@ -1508,8 +601,8 @@ def render_profile_body(coll: Collection, profile: dict[str, Any]) -> str:
                 ]
             )
         )
-    if profile.get("profile_share") is not None:
-        lines.append(_row(["Profile share", profile.get("profile_share")]))
+    if profile.get("profile_weight") is not None:
+        lines.append(_row(["Profile weight", profile.get("profile_weight")]))
     if profile.get("description"):
         lines.append(_row(["Description", profile.get("description")]))
     lines.append("")
@@ -1578,7 +671,7 @@ def profile_cache_entry(
 ) -> ReferenceCacheEntry:
     """Build the reference-cache entry for one profile."""
     pid = str(profile["profile_id"])
-    disease = (profile.get("disease") or {}).get("disease_name") or ""
+    disease = (coll.data.get("disease") or {}).get("disease_name") or ""
     title = f"{_fmt(profile.get('profile_label'))} phenotype profile"
     if disease:
         title = f"{title} in {disease}"
@@ -1590,36 +683,17 @@ def profile_cache_entry(
     )
 
 
-def cache_entry(coll: Collection, record: dict[str, Any]) -> ReferenceCacheEntry:
-    """Build the reference-cache entry for one record."""
-    rid = str(record["record_id"])
-    disease = (coll.data.get("disease") or {}).get("disease_name") or ""
-    subject = _phenotype_name(record)
-    if subject == "-":
-        # A whole-mixture record has no single phenotype subject.
-        subject = "Latent phenotype mixture"
-    title = f"{subject} {record.get('measure_type')} distribution"
-    if disease:
-        title = f"{title} in {disease}"
-    return ReferenceCacheEntry(
-        reference_id=f"{PREFIX}:{rid}",
-        title=title,
-        body=render_body(coll, record),
-        content_type="structured_record",
-    )
-
-
 def write_cache_files(
     collections: Iterable[Collection],
     cache_dir: Path = DEFAULT_CACHE_DIR,
     prune: bool = True,
 ) -> tuple[list[Path], list[Path]]:
-    """Write one cache file per record, pruning orphans.
+    """Write one cache file per profile, pruning orphans.
 
     Returns ``(written, pruned)``. Pruning matters because a renamed or deleted
-    ``record_id`` would otherwise leave its old ``PHENODIST_<old_id>.md`` in the
-    cache forever, still resolvable and still citable from a kb entry — a
-    citation to a record that no longer exists.
+    ``profile_id`` would otherwise leave its old ``PHENODIST_<old_id>.md`` in
+    the cache forever, still resolvable and still citable from a kb entry — a
+    citation to a profile that no longer exists.
     """
     collections = list(collections)
     illustrative = [
@@ -1646,11 +720,6 @@ def write_cache_files(
             tmp.replace(path)
         written.append(path)
 
-    # Both shapes export through the same bridge: a disease entry cites
-    # `PHENODIST:<id>` and quotes a row, whether the id names a distribution
-    # record or a profile.
-    for coll, record in iter_records(collections):
-        emit(cache_entry(coll, record))
     for coll in collections:
         for profile in coll.profiles:
             emit(profile_cache_entry(coll, profile))
@@ -1673,20 +742,20 @@ def write_cache_files(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Lint statistical phenotype-distribution collections and export "
-            "their records as citable reference-cache files."
+            "Lint EHR-derived phenotype profile sets and export their profiles "
+            "as citable reference-cache files."
         )
     )
     parser.add_argument(
         "paths",
         nargs="*",
         type=Path,
-        help="Collection files or directories (default: kb/ and examples/ dirs).",
+        help="Profile-set files or directories (default: kb/ and examples/ dirs).",
     )
     parser.add_argument(
         "--write-cache",
         action="store_true",
-        help="Write references_cache/PHENODIST_<record_id>.md for each record.",
+        help="Write references_cache/PHENODIST_<profile_id>.md for each profile.",
     )
     parser.add_argument(
         "--cache-dir",
@@ -1728,7 +797,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     prune = _is_full_rebuild(args.paths) and not args.no_prune
     if not collections:
-        print("No phenotype-distribution collections found.")
+        print("No phenotype profile sets found.")
         # A full rebuild that finds nothing still has orphans to clear: the case
         # where every curated collection was deleted is exactly when stale
         # citable cache files would otherwise linger.
@@ -1745,8 +814,8 @@ def main(argv: list[str] | None = None) -> int:
         print(issue.format())
 
     print(
-        f"Checked {result.n_records} record(s) in {result.n_collections} "
-        f"collection(s): {len(result.errors)} error(s), "
+        f"Checked {result.n_profiles} profile(s) in {result.n_collections} "
+        f"profile set(s): {len(result.errors)} error(s), "
         f"{len(result.warnings)} warning(s)."
     )
 

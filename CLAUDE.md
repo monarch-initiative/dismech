@@ -197,44 +197,13 @@ Rules:
   entry's `association_signals`
 - See "Structured-Database Reference Sources" below
 
-### Statistical Phenotype Distributions and Phenotype Profiles (`kb/phenotype_distributions/`)
+### Phenotype Profiles (`kb/phenotype_distributions/`)
 
-One LinkML schema (`src/dismech/schema/phenotype_distribution.yaml`) carrying
-**two distinct shapes** that share a directory, a loader, and the citation
-bridge — and almost nothing else. Read the payload to know which you have:
-`distributions:` means one, `profiles:` means the other.
-
-**1. `PhenotypeDistributionCollection`** — the full statistical object behind a
-phenotype claim: the distribution of a phenotype, onset age, lab value, or event
-count in a defined disease cohort. One record = one estimand, one phenotype, one
-disease, one stratum, one analysis. This is the replacement for a bare
-`frequency:` band, and it is dismech-native: the source is literature.
-
-- **Distribution families** span binary occurrence (Bernoulli/binomial/Beta —
-  the statistical form of a `frequency:` band), continuous traits and onset ages
-  (normal/lognormal/gamma/Weibull/empirical quantiles), counts and rates
-  (Poisson/negative binomial), and censored time-to-event (Kaplan-Meier).
-- **Declare a shared cohort once.** A cohort used by more than one record goes in
-  the collection-level `cohorts:` list and is referenced with `cohort_ref`.
-  Inline `cohort:` is for a population specific to one record — and if it differs
-  from the parent, give it its own `cohort_id` rather than re-declaring the
-  parent's with a different denominator. The rendered cache body resolves
-  references, so a cited record still shows its cohort in full.
-- **`identification_steps`** records how a cohort was identified as an ordered
-  chain (`SEED` in MONDO → `MAPPING` to SNOMED CT with a SKOS `mapping_relation`
-  → `EXPANSION` over the hierarchy), because every hop can change who is counted.
-- **Do not restate what the family fixes.** `DistributionFamilyEnum` settles
-  support discreteness for all but a handful of values, so set `discrete:` only
-  for `EMPIRICAL`, `MIXTURE`, `KAPLAN_MEIER`, `NONPARAMETRIC_QUANTILE`,
-  `UNIFORM`, and `OTHER`. The lint errors on a value contradicting its family and
-  warns on one that merely repeats it.
-- `DistributionBin.suppressed` keeps a privacy-withheld bin distinct from a
-  reported zero.
-
-**2. `ProfileSet`** — EHR-derived phenotype profiles: what co-occurs in a disease
-cohort, exported from a fitted model. `ProfileSet` → `Profile` →
-`CodeDistribution` → `WeightedCode`, plus a `profile_source` provenance block.
-Deliberately small.
+EHR-derived phenotype profiles: what co-occurs in a disease cohort, exported
+from a model fitted to structured records. One LinkML schema
+(`src/dismech/schema/phenotype_distribution.yaml`), one tree root:
+`ProfileSet` → `Profile` → `CodeDistribution` → `WeightedCode`, plus a
+`profile_source` provenance block and a SEPIO evidence layer. Deliberately small.
 
 - **A disease page, not a model report.** An earlier draft grew component counts,
   inference methods, per-domain reliability, and cohort arms. That is model
@@ -242,9 +211,10 @@ Deliberately small.
   pipeline, so it is gone. Anything model-specific goes in
   `profile_source.profile_metadata` as open key/value pairs — never a new
   first-class slot; a test enforces the deleted classes stay deleted.
-- **One profile, one MONDO term.** Nesting and overlap between cohorts is
-  MONDO's subclass tree, which dismech already renders, so profiles ship no
-  cohort/arm/grouping vocabulary of their own.
+- **One set, one MONDO term.** `disease` sits on the `ProfileSet`, not on each
+  profile: every profile in a fit is about the same cohort. Nesting and overlap
+  between cohorts is MONDO's subclass tree, which dismech already renders, so
+  profiles ship no cohort/arm/grouping vocabulary of their own.
 - **Codes are opaque; the vocabulary is declared.** `code` is a bare identifier
   (an OMOP concept id, an ICD-10-CM code) and `code_vocabulary` on the enclosing
   distribution says which system it belongs to. Not a CURIE — source-vocabulary
@@ -257,41 +227,36 @@ Deliberately small.
 - **Truncation is stated.** Almost every export is top-N, so weights do not sum
   to 1; `truncated: true` says so. The lint warns when weights fall short without
   it and errors when they exceed 1.
-
-**Weights are not prevalences — in either shape.** The topic-model literature
-calls a component's share of mass its "prevalence"; this schema never does,
-because `prevalence` already means patients over a stated denominator of patients
-at risk (and dismech has a `prevalence[]` block that means exactly that). The
-slots are `profile_share` and `code_weight`, and `code_weight` is a code's mass
-within its own distribution — *not* the frequency of that finding among patients.
-
-**Shared by both shapes:**
+- **Weights are not prevalences.** The topic-model literature calls a component's
+  share of mass its "prevalence"; this schema never does, because `prevalence`
+  already means patients over a stated denominator of patients at risk (and
+  dismech has a `prevalence[]` block that means exactly that). The slots are
+  `profile_weight` and `code_weight`, and `code_weight` is a code's mass within
+  its own distribution — *not* the frequency of that finding among patients.
+  `profile_source.weight_basis` states the denominator, and the lint requires it
+  wherever a `profile_weight` appears.
 - **Evidence** follows SEPIO and reuses the vocabulary proposed in #7439
   (`EvidenceLine` → `DataItem` → `Document`, with direction separate from
   strength). `EvidenceDirectionEnum` copies `EvidenceItemSupportEnum`'s
   permissible values verbatim; a test enforces they do not drift. A quoted
   `DataItem` must be a verbatim substring of its cited reference's cache file —
   dismech's snippet discipline applies here as everywhere.
-- **Import bridge**: each record or profile declares `dismech_bindings` naming
-  the target entry and section, and `just phenodist-rebuild` renders it to
-  `references_cache/PHENODIST_<id>.md` so a disease entry cites `PHENODIST:<id>`
-  and quotes a row — same mechanism as `ORPHA:`/`ICEES:`. As with every cache
-  file, NEVER hand-write one.
+- **Citation goes one way only.** A profile set names no dismech entry.
+  `just phenodist-rebuild` renders each profile to
+  `references_cache/PHENODIST_<profile_id>.md` and the disease entry cites
+  `PHENODIST:<id>` and quotes a row — same mechanism and same direction as
+  `ORPHA:`/`ICEES:`/`CGGV:`. There is no reverse pointer, and a test keeps one
+  from coming back. As with every cache file, NEVER hand-write one.
 - Every file declares `provenance_tier` (`CURATED` / `TOOL_EXPORTED` /
   `ILLUSTRATIVE`); the renderer refuses to write an `ILLUSTRATIVE` file into
   `references_cache/`, so synthetic numbers cannot become citable.
-- `just validate-phenotype-distributions` (part of `just qc`) dispatches each
-  file to the right target class, runs an OAK term check, and lints what LinkML
-  cannot express.
+- `just validate-phenotype-distributions` (part of `just qc`) validates against
+  `ProfileSet`, runs an OAK term check, and lints what LinkML cannot express.
 
-Worked examples live in `examples/phenotype_distributions/`, one per shape, and
-they are **not the same kind of object**:
-`cystic_fibrosis_illustrative.yaml` is `ILLUSTRATIVE` — synthetic numbers, and
-the renderer *raises* rather than write them to the cache;
-`charmpheno_population_eds.yaml` is `TOOL_EXPORTED` — every number is real,
-transcribed from an exported model, but the reading of a component as a named
-clinical pattern is unreviewed curator judgement. Neither may be cited from a kb
-entry (a test enforces it). See
+The worked example is `examples/phenotype_distributions/charmpheno_population_eds.yaml`,
+`TOOL_EXPORTED` — every number is real, transcribed from an exported model, but
+the reading of a component as a named clinical pattern is unreviewed curator
+judgement, so it may not be cited from a kb entry (a test enforces it). See
 [`docs/phenotype-distributions.md`](docs/phenotype-distributions.md).
 
 ### Validation Stack
