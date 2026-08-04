@@ -349,13 +349,71 @@ def _hp_db_available() -> bool:
     return (Path.home() / ".data" / "oaklib" / "hp.db").exists()
 
 
+def test_term_check_reports_a_wrong_label_without_a_local_ontology(
+    profile_set_path: Path, monkeypatch
+) -> None:
+    """The regression guard for the round-1 CURIE, on a runner with no databases.
+
+    The version below needs `hp.db`, nothing in CI provisions it, and a pytest
+    skip is indistinguishable from a pass in the checks UI — so the one guard
+    against a recurrence of this PR's only red finding was green-by-skip on the
+    gate. That is exactly the failure the arithmetic guard was rewritten to
+    avoid, one layer up: silence reading as success.
+
+    Splitting it fixes that without a multi-hundred-megabyte download in every
+    CI run. Two separate claims were tangled together:
+
+    * *the code reports a label mismatch* — the part that can regress, pinned
+      here against a stub adapter, so it runs everywhere;
+    * *HP:0410017 really is "Otitis externa"* — an ontology fact, which needs
+      real OAK and is still gated below.
+
+    The clean and nonexistent cases are asserted too. A checker that flags
+    everything would satisfy the mismatch assertion on its own.
+    """
+    import oaklib
+
+    from dismech.phenotype_distribution import check_terms
+
+    labels = {
+        "HP:0410017": "Otitis externa",
+        "MONDO:0020066": "Ehlers-Danlos syndrome",
+    }
+
+    class _StubAdapter:
+        def label(self, curie: str) -> str | None:
+            return labels.get(curie)
+
+    monkeypatch.setattr(oaklib, "get_adapter", lambda spec: _StubAdapter())
+
+    def wrong_curie(data):
+        data["disease"]["disease_term"]["term_id"] = "HP:0410017"
+
+    issues = check_terms([_mutate(profile_set_path, wrong_curie)])
+    assert any("Otitis externa" in i.message for i in issues), (
+        "term check failed to flag a CURIE whose label is not its own"
+    )
+
+    def nonexistent(data):
+        data["disease"]["disease_term"]["term_id"] = "HP:9999999"
+
+    assert any(
+        "does not exist" in i.message
+        for i in check_terms([_mutate(profile_set_path, nonexistent)])
+    )
+
+    # And the unmutated file is clean, so the above is not flagging everything.
+    assert not check_terms(discover_collections(_example_paths()))
+
+
 @pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
 def test_term_check_catches_a_wrong_curie(profile_set_path: Path) -> None:
-    """The regression guard for the CURIE that slipped through review.
+    """The same guard against the real ontology, rather than a stub.
 
-    HP:0410017 is "Otitis externa". A wrong CURIE reached this PR because
-    nothing term-validated these files — `validate-terms-all` is hardcoded to
-    `kb/disorders` with `-t Disease`.
+    This one pins the *fact* — that HP:0410017 is "Otitis externa" and not the
+    disease label it was carrying — which no stub can establish. It needs
+    `hp.db`, so it skips where that is absent; the code path it shares with the
+    test above is covered there unconditionally.
 
     Aimed at the set-level `disease_term`, which is also the regression guard
     for the walk: lifting `disease` out of the profiles moved the one term
@@ -372,15 +430,19 @@ def test_term_check_catches_a_wrong_curie(profile_set_path: Path) -> None:
     assert any("Otitis externa" in i.message for i in issues)
 
 
-@pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
 def test_example_terms_are_all_valid() -> None:
-    """Errors only.
+    """Errors only, and ungated.
 
-    MONDO resolves through a network-backed adapter, so a lookup that could not
-    be performed is reported as a WARNING — deliberately, since it is not
-    evidence the term is wrong. Asserting on warnings here would make the suite
-    fail on a flaky connection, which is the same conflation the severity split
-    exists to avoid; `just qc` draws the line in the same place.
+    This was gated on `hp.db`, which it never needed: the example carries one
+    ontology term, the set-level `MONDO:0020066`, and MONDO resolves through
+    `ols:` over the network. The gate was inherited from the test beside it and
+    silently skipped a check that would have run.
+
+    Errors only, because a network-backed lookup that could not be performed is
+    reported as a WARNING — deliberately, since it is not evidence the term is
+    wrong. Asserting on warnings would make the suite fail on a flaky
+    connection, the same conflation the severity split exists to avoid, and
+    `just qc` draws the line in the same place.
     """
     from dismech.phenotype_distribution import check_terms
 
