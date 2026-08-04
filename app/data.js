@@ -25581,6 +25581,146 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Bannayan-Riley-Ruvalcaba Syndrome",
+    "disease_id": "MONDO:0007924",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant hereditary syndrome",
+      "Hereditary cancer syndrome",
+      "PTEN hamartoma tumor syndrome"
+    ],
+    "creation_date": "2026-08-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "10q23 deletion"
+    ],
+    "description": "Bannayan-Riley-Ruvalcaba syndrome (BRRS) is the congenital, pediatric-onset presentation within the PTEN hamartoma tumor syndrome (PHTS) spectrum, caused by heterozygous germline loss-of-function variants in the tumor suppressor PTEN. Loss of PTEN lipid-phosphatase activity removes the brake on phosphatidylinositol-3,4,5-trisphosphate signaling, driving constitutive PI3K/AKT/mTOR activation and disorganized overgrowth of native tissue. The clinical hallmarks are macrocephaly, hamartomatous intestinal polyposis, multiple lipomas, and pigmented macules of the glans penis, usually accompanied by developmental delay, hypotonia, and autism spectrum features. Because BRRS and Cowden syndrome are allelic and can co-occur within a single family carrying one PTEN variant, PTEN-positive BRRS is now managed with the same lifelong cancer surveillance as Cowden syndrome rather than as a benign childhood overgrowth syndrome.",
+    "pathophysiology": [
+      "Germline PTEN Loss of Function",
+      "PIP3 Accumulation and PI3K-AKT-mTOR Hyperactivation",
+      "Hamartomatous Tissue Overgrowth",
+      "PTEN Hamartoma of Soft Tissue Formation",
+      "Neural Progenitor Overgrowth and Brain Enlargement",
+      "Synaptic and Circuit Development Dysregulation",
+      "Lifelong Multiorgan Cancer Predisposition"
+    ],
+    "cell_types": [
+      "adipocyte",
+      "intestinal epithelial cell",
+      "endothelial cell",
+      "fibroblast",
+      "neural progenitor cell",
+      "neuron",
+      "thyroid follicular cell",
+      "epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000136",
+      "CL:0002563",
+      "CL:0000115",
+      "CL:0000057",
+      "CL:0011020",
+      "CL:0000540",
+      "CL:0002258",
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "PI3K/AKT signaling",
+      "mTOR signaling",
+      "cell proliferation",
+      "neurogenesis",
+      "neuron differentiation",
+      "negative regulation of apoptosis"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Hamartomatous polyposis",
+      "Lipoma",
+      "Penile freckling",
+      "Global developmental delay",
+      "Autism",
+      "Intellectual disability",
+      "Hypotonia",
+      "Hemangioma",
+      "Arteriovenous malformation",
+      "Hashimoto thyroiditis",
+      "Breast carcinoma",
+      "Thyroid carcinoma",
+      "Endometrial carcinoma",
+      "Renal cell carcinoma",
+      "Colon cancer",
+      "Melanoma"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Gastrointestinal",
+      "Dermatologic",
+      "Neurologic",
+      "Neurobehavioral",
+      "Cardiovascular",
+      "Endocrine",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0004390",
+      "HP:0012032",
+      "HP:0031447",
+      "HP:0001263",
+      "HP:0000717",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0001028",
+      "HP:0100026",
+      "HP:0000872",
+      "HP:0003002",
+      "HP:0002890",
+      "HP:0012114",
+      "HP:0005584",
+      "HP:0003003",
+      "HP:0002861"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PTEN",
+      "TTN"
+    ],
+    "treatments": [
+      "Lifelong Cancer Surveillance",
+      "Gastrointestinal Polyp Management",
+      "Symptomatic Management of Hamartomatous Lesions",
+      "Developmental and Behavioral Support",
+      "mTOR Inhibitor Therapy",
+      "Sirolimus for Vascular Anomalies",
+      "Genetic Counseling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bannayan-Riley-Ruvalcaba_Syndrome.yaml",
+    "page_url": "../pages/disorders/Bannayan-Riley-Ruvalcaba_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Baraitser-Winter Cerebrofrontofacial Syndrome",
     "disease_id": "MONDO:0017579",
     "category": "Mendelian",
@@ -112758,7 +112898,8 @@ window.searchData = [
       "Vision Correction"
     ],
     "environmental": [
-      "Physical Activity Restrictions"
+      "Vigorous Isometric and Competitive Sport Restriction",
+      "Moderate Dynamic Aerobic Activity"
     ],
     "biochemical": [
       "Fibrillin-1 Protein"
@@ -186823,17 +186964,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1827,
-  "total_subtypes": 2785,
-  "total_disorders_and_subtypes": 4612,
-  "total_unique_evidence_sources": 27495,
-  "total_unique_publications": 25736,
+  "total_disorder_pages": 1828,
+  "total_subtypes": 2786,
+  "total_disorders_and_subtypes": 4614,
+  "total_unique_evidence_sources": 27512,
+  "total_unique_publications": 25753,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 234,
-  "total_pathographs": 1822,
-  "total_unique_pathological_events": 9607,
+  "total_pathographs": 1823,
+  "total_unique_pathological_events": 9614,
   "total_modules": 120,
-  "total_research_reports": 2089,
+  "total_research_reports": 2090,
   "total_classifications": 10,
   "total_comorbidities": 19,
   "total_groupings": 56
