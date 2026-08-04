@@ -25581,6 +25581,146 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Bannayan-Riley-Ruvalcaba Syndrome",
+    "disease_id": "MONDO:0007924",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant hereditary syndrome",
+      "Hereditary cancer syndrome",
+      "PTEN hamartoma tumor syndrome"
+    ],
+    "creation_date": "2026-08-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "10q23 deletion"
+    ],
+    "description": "Bannayan-Riley-Ruvalcaba syndrome (BRRS) is the congenital, pediatric-onset presentation within the PTEN hamartoma tumor syndrome (PHTS) spectrum, caused by heterozygous germline loss-of-function variants in the tumor suppressor PTEN. Loss of PTEN lipid-phosphatase activity removes the brake on phosphatidylinositol-3,4,5-trisphosphate signaling, driving constitutive PI3K/AKT/mTOR activation and disorganized overgrowth of native tissue. The clinical hallmarks are macrocephaly, hamartomatous intestinal polyposis, multiple lipomas, and pigmented macules of the glans penis, usually accompanied by developmental delay, hypotonia, and autism spectrum features. Because BRRS and Cowden syndrome are allelic and can co-occur within a single family carrying one PTEN variant, PTEN-positive BRRS is now managed with the same lifelong cancer surveillance as Cowden syndrome rather than as a benign childhood overgrowth syndrome.",
+    "pathophysiology": [
+      "Germline PTEN Loss of Function",
+      "PIP3 Accumulation and PI3K-AKT-mTOR Hyperactivation",
+      "Hamartomatous Tissue Overgrowth",
+      "PTEN Hamartoma of Soft Tissue Formation",
+      "Neural Progenitor Overgrowth and Brain Enlargement",
+      "Synaptic and Circuit Development Dysregulation",
+      "Lifelong Multiorgan Cancer Predisposition"
+    ],
+    "cell_types": [
+      "adipocyte",
+      "intestinal epithelial cell",
+      "endothelial cell",
+      "fibroblast",
+      "neural progenitor cell",
+      "neuron",
+      "thyroid follicular cell",
+      "epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000136",
+      "CL:0002563",
+      "CL:0000115",
+      "CL:0000057",
+      "CL:0011020",
+      "CL:0000540",
+      "CL:0002258",
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "PI3K/AKT signaling",
+      "mTOR signaling",
+      "cell proliferation",
+      "neurogenesis",
+      "neuron differentiation",
+      "negative regulation of apoptosis"
+    ],
+    "phenotypes": [
+      "Macrocephaly",
+      "Hamartomatous polyposis",
+      "Lipoma",
+      "Penile freckling",
+      "Global developmental delay",
+      "Autism",
+      "Intellectual disability",
+      "Hypotonia",
+      "Hemangioma",
+      "Arteriovenous malformation",
+      "Hashimoto thyroiditis",
+      "Breast carcinoma",
+      "Thyroid carcinoma",
+      "Endometrial carcinoma",
+      "Renal cell carcinoma",
+      "Colon cancer",
+      "Melanoma"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Gastrointestinal",
+      "Dermatologic",
+      "Neurologic",
+      "Neurobehavioral",
+      "Cardiovascular",
+      "Endocrine",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000256",
+      "HP:0004390",
+      "HP:0012032",
+      "HP:0031447",
+      "HP:0001263",
+      "HP:0000717",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0001028",
+      "HP:0100026",
+      "HP:0000872",
+      "HP:0003002",
+      "HP:0002890",
+      "HP:0012114",
+      "HP:0005584",
+      "HP:0003003",
+      "HP:0002861"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PTEN",
+      "TTN"
+    ],
+    "treatments": [
+      "Lifelong Cancer Surveillance",
+      "Gastrointestinal Polyp Management",
+      "Symptomatic Management of Hamartomatous Lesions",
+      "Developmental and Behavioral Support",
+      "mTOR Inhibitor Therapy",
+      "Sirolimus for Vascular Anomalies",
+      "Genetic Counseling and Cascade Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bannayan-Riley-Ruvalcaba_Syndrome.yaml",
+    "page_url": "../pages/disorders/Bannayan-Riley-Ruvalcaba_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Baraitser-Winter Cerebrofrontofacial Syndrome",
     "disease_id": "MONDO:0017579",
     "category": "Mendelian",
@@ -44203,6 +44343,151 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Chorioamnionitis",
+    "disease_id": "MONDO:0000409",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infectious disease",
+      "Inflammatory disease",
+      "Disorder of extraembryonic membrane",
+      "Obstetric infection"
+    ],
+    "creation_date": "2026-08-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Clinical",
+      "Histologic Acute",
+      "Chronic"
+    ],
+    "description": "Chorioamnionitis is inflammation of the fetal membranes (chorion and amnion), in most cases provoked by ascending polymicrobial invasion of the amniotic cavity from the lower genital tract. It is simultaneously a clinical syndrome of the laboring patient, a histopathological lesion of the placenta, and a fetal exposure, and these three faces do not overlap neatly. Because the same neutrophilic lesion can be produced by microorganisms or, in the absence of demonstrable organisms, by endogenous danger signals, the entity is best modeled as a shared inflammatory final common pathway rather than as a single infection. It is a leading antecedent of preterm labor, preterm prelabor rupture of membranes, early-onset neonatal sepsis, and the fetal inflammatory response syndrome that links intrauterine inflammation to periventricular leukomalacia, cerebral palsy, and chronic lung disease of prematurity.\n",
+    "pathophysiology": [
+      "Vaginal Dysbiosis and Cervical Barrier Breach",
+      "Ascending Microbial Invasion of the Amniotic Cavity",
+      "Alarmin Release and Sterile Intra-amniotic Inflammation",
+      "Pattern Recognition Receptor Activation at the Maternal-Fetal Interface",
+      "NLRP3 Inflammasome Activation and Pyroptosis",
+      "Proinflammatory Cytokine and Chemokine Production",
+      "Neutrophil Chemotaxis into the Chorioamniotic Membranes",
+      "Maternal Inflammatory Response and Acute Chorioamnionitis",
+      "Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis",
+      "Prostaglandin Synthesis and Myometrial Activation",
+      "MMP-Mediated Chorioamniotic Matrix Degradation",
+      "Membrane Weakening and Preterm Prelabor Rupture of Membranes",
+      "Preterm Labor and Birth",
+      "Reduced Myometrial Contractility at Term",
+      "Fetal Inflammatory Response Syndrome",
+      "Microglial Activation and Preterm White Matter Injury",
+      "Fetal Pulmonary Inflammation and Arrested Alveolarization",
+      "Early-Onset Neonatal Sepsis",
+      "Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection"
+    ],
+    "cell_types": [
+      "chorionic trophoblast cell",
+      "decidual cell",
+      "neutrophil",
+      "microglial cell",
+      "CD8-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011101",
+      "CL:2000002",
+      "CL:0000775",
+      "CL:0000129",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "toll-like receptor signaling pathway",
+      "response to lipopolysaccharide",
+      "interleukin-1 beta production",
+      "cytokine production involved in inflammatory response",
+      "neutrophil chemotaxis",
+      "prostaglandin biosynthetic process",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Maternal Fever",
+      "Maternal Tachycardia",
+      "Maternal Leukocytosis",
+      "Premature Rupture of Membranes",
+      "Preterm Birth",
+      "Early-Onset Neonatal Sepsis",
+      "Periventricular Leukomalacia",
+      "Intraventricular Hemorrhage",
+      "Cerebral Palsy",
+      "Chronic Lung Disease of Prematurity",
+      "Postpartum Endometritis",
+      "Fetal Tachycardia",
+      "Malodorous Amniotic Fluid or Vaginal Discharge",
+      "Retinopathy of Prematurity",
+      "Sensorineural Hearing Loss"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory",
+      "Neonatal",
+      "Long-term",
+      "Maternal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001649",
+      "HP:0001974",
+      "HP:0001788",
+      "HP:0001622",
+      "HP:0040187",
+      "HP:0006970",
+      "HP:0030747",
+      "HP:0100021",
+      "HP:0006528",
+      "HP:0025636",
+      "HP:6000264",
+      "HP:0034269",
+      "HP:0500049",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Intrapartum Ampicillin and Gentamicin",
+      "Anaerobic Coverage for Cesarean Delivery",
+      "Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen",
+      "Antenatal Corticosteroids",
+      "Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis",
+      "Delivery"
+    ],
+    "environmental": [
+      "Obstetric Instrumentation and Prolonged Labor",
+      "Oral and Periodontal Infection"
+    ],
+    "biochemical": [
+      "Amniotic Fluid Interleukin-6",
+      "Amniotic Fluid Matrix Metalloproteinase-8",
+      "Fetal Plasma Interleukin-6"
+    ],
+    "source_file": "Chorioamnionitis.yaml",
+    "page_url": "../pages/disorders/Chorioamnionitis.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 19,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Choriocarcinoma",
@@ -63525,6 +63810,129 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Ectopic Pregnancy",
+    "disease_id": "MONDO:0000755",
+    "category": "Complex",
+    "parents": [
+      "Female reproductive system disorder"
+    ],
+    "creation_date": "2026-08-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Tubal",
+      "Interstitial",
+      "Ovarian",
+      "Abdominal",
+      "Caesarean scar"
+    ],
+    "description": "Ectopic pregnancy is the implantation and development of a conceptus outside the endometrial cavity of the uterus. Over 98% of extrauterine implantations occur in the fallopian tube, and it remains the leading cause of maternal death in the first trimester. Current evidence supports a two-hit aetiology rather than a single lesion: the embryo is retained in the tube because ciliary and smooth-muscle transport fails, and the tubal microenvironment is simultaneously shifted toward a receptive, implantation-permissive state. The lethality is anatomical. Human trophoblast is evolved for deeply invasive haemochorial placentation, and at an ectopic site it meets no decidual investment to restrain it, so it erodes through the tubal wall and into maternal vessels, producing haemoperitoneum and hypovolaemic shock. Chlamydia trachomatis infection and cigarette smoking are the best-characterised acquired risk factors, and both converge on the prokineticin receptor axis in tubal epithelium.\n",
+    "pathophysiology": [
+      "Chlamydia trachomatis Tubal Infection",
+      "Cigarette Smoke Exposure",
+      "Ciliated Epithelial Destruction",
+      "Endocannabinoid Tone Dysregulation",
+      "Impaired Embryo-Tubal Transport",
+      "Aberrant Tubal Receptivity",
+      "Embryo Retention in the Fallopian Tube",
+      "Tubal Implantation Without Decidual Investment",
+      "Unrestrained Trophoblast Invasion of the Tubal Wall",
+      "Tubal Rupture and Haemoperitoneum",
+      "Hypovolaemic Shock"
+    ],
+    "cell_types": [
+      "fallopian tube multiciliated epithelial cell",
+      "fallopian tube smooth muscle cell",
+      "fallopian tube secretory epithelial cell",
+      "extravillous trophoblast",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:4030007",
+      "CL:4052022",
+      "CL:4030006",
+      "CL:0008036",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "toll-like receptor 2 signaling pathway",
+      "inflammatory response",
+      "G protein-coupled receptor signaling pathway",
+      "cilium movement",
+      "smooth muscle contraction",
+      "embryo implantation",
+      "canonical NF-kappaB signal transduction",
+      "decidualization"
+    ],
+    "phenotypes": [
+      "Abdominal Pain",
+      "Pelvic Pain",
+      "Abnormal Vaginal Bleeding",
+      "Amenorrhoea",
+      "Haemoperitoneum",
+      "Hypovolaemic Shock",
+      "Hypotension",
+      "Anaemia",
+      "Subsequent Infertility",
+      "Psychological Distress"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Genitourinary",
+      "Cardiovascular",
+      "Hematologic",
+      "Neuropsychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0034267",
+      "HP:0034263",
+      "HP:0000141",
+      "HP:0011854",
+      "HP:0031274",
+      "HP:0002615",
+      "HP:0001903",
+      "HP:0008222",
+      "HP:0100851"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MUC1",
+      "CNR1"
+    ],
+    "treatments": [
+      "Methotrexate",
+      "Laparoscopic Salpingectomy",
+      "Salpingotomy",
+      "Expectant Management",
+      "Blood Transfusion",
+      "Gefitinib Adjuvant to Methotrexate"
+    ],
+    "environmental": [
+      "Chlamydia trachomatis infection",
+      "Cigarette smoking",
+      "Prior tubal damage from surgery or infection"
+    ],
+    "biochemical": [
+      "Serum beta-human chorionic gonadotropin"
+    ],
+    "source_file": "Ectopic_Pregnancy.yaml",
+    "page_url": "../pages/disorders/Ectopic_Pregnancy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Ehlers-Danlos Syndrome",
@@ -99230,6 +99638,118 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "KLHL24-Related Hypertrophic Cardiomyopathy",
+    "disease_id": "MONDO:0859372",
+    "category": "Mendelian",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 29 (CMH29) is an autosomal recessive, cardiac-restricted cardiomyopathy caused by biallelic loss-of-function variants in KLHL24, the gene encoding a BTB-BACK-Kelch substrate adaptor of the CUL3-RING E3 ubiquitin ligase. It was defined in 2019 in two unrelated consanguineous families, one Iraqi and one Iranian, in whom homozygous KLHL24 variants segregated with a cardiomyopathy that mimics sarcomeric hypertrophic cardiomyopathy clinically but is separable from it pathologically.\nThe mechanistic core of the disease is a failure of regulated intermediate filament turnover. KLHL24 presents substrates to CUL3 for polyubiquitination and proteasomal degradation; in striated muscle its principal known substrate is desmin, the muscle-specific intermediate filament and the cardiac counterpart of the keratin-14 that the same protein degrades in skin. When KLHL24 is inactivated, desmin is no longer cleared. Endomyocardial and skeletal muscle biopsies from the founding families showed accumulation of desmin intermediate filaments, and immunoblotting showed desmin markedly upregulated in both heart and skeletal muscle. Alongside the filaments, the intermyofibrillar space fills with glycogen, sarcoplasmic-reticulum-derived tubular structures, and discrete polyglucosan bodies - diastase-resistant, amylopectin-like polysaccharide inclusions that give the OMIM entity its name. No variant was found in any gene on the nine-gene polyglucosan-storage panel the authors screened, and they state explicitly that the origin of the polyglucosan remains unknown; it is presented as a diagnostic marker rather than as an explained step in the causal chain, and this entry does the same.\nClinically the disease presents in young adulthood with recurrent syncope, exertional dyspnoea and palpitations, with asymmetric septal hypertrophy, a small left ventricular cavity, systolic anterior motion of the mitral valve and left ventricular outflow tract obstruction on echocardiography. Its defining feature is arrhythmic rather than haemodynamic: of the 11 young affected adults in the founding report, 3 died suddenly and 1 required cardiac transplantation for heart failure. Skin is not involved, and skeletal muscle weakness was absent in every individual examined despite florid histological abnormality on muscle biopsy.\nKLHL24 is one of the clearest allelic-contrast genes in cardiology. The same gene, mutated at its translation initiation codon, produces the opposite molecular lesion - a stabilised N-terminally truncated protein that escapes autoubiquitination and hyperdegrades its own substrates - and the opposite clinical disease: autosomal dominant epidermolysis bullosa simplex 6 with skin fragility, scarring alopecia and dilated, not hypertrophic, cardiomyopathy. Too little KLHL24 activity gives desmin accumulation and a thick, stiff, small-cavity ventricle; too much gives desmin depletion and a thin, dilated one.",
+    "pathophysiology": [
+      "Biallelic Loss-of-Function KLHL24 Variants",
+      "Loss of CUL3-KLHL24 Substrate Adaptor Function",
+      "Failure of Desmin Intermediate Filament Turnover",
+      "Intermyofibrillar Glycogen and Polyglucosan Storage",
+      "Sarcoplasmic Reticulum-Derived Tubular Aggregation",
+      "Cardiomyocyte Hypertrophy and Concentric Left Ventricular Remodelling",
+      "Myocardial Fibrosis and Focal Macrophage Infiltration",
+      "Ventricular Electrical Instability and Malignant Arrhythmia",
+      "Progression to Systolic Failure and Transplantation",
+      "Skeletal Muscle Cogwheel Fibre Pathology"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "skeletal muscle fibre",
+      "cardiac fibroblast",
+      "CD68-positive macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000188",
+      "CL:0002548",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "substrate polyubiquitination by the CUL3-KLHL24 ligase",
+      "proteasomal degradation of KLHL24 substrates",
+      "intermediate filament cytoskeleton organization",
+      "glycogen metabolic process",
+      "cardiac muscle hypertrophy",
+      "cardiac conduction",
+      "cardiac muscle cell action potential",
+      "heart contraction"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Asymmetric septal hypertrophy",
+      "Left ventricular outflow tract obstruction",
+      "Systolic anterior motion of the mitral valve",
+      "Mitral regurgitation",
+      "Reduced left ventricular endsystolic diameter",
+      "Syncope",
+      "Palpitations",
+      "Dyspnea",
+      "Ventricular arrhythmia",
+      "Sudden cardiac death",
+      "Congestive heart failure",
+      "Cardiomyocyte hypertrophy",
+      "Increased myocardial glycogen content",
+      "Cardiac polyglucosan accumulation"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001670",
+      "HP:0032092",
+      "HP:0031656",
+      "HP:0001653",
+      "HP:0034386",
+      "HP:0001279",
+      "HP:0001962",
+      "HP:0002094",
+      "HP:0004308",
+      "HP:0001645",
+      "HP:0001635",
+      "HP:0031319",
+      "HP:0034532",
+      "HP:0034835"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KLHL24"
+    ],
+    "treatments": [
+      "Implantable cardioverter-defibrillator",
+      "Heart transplantation",
+      "Standard heart failure and hypertrophic cardiomyopathy pharmacotherapy",
+      "Genetic counselling and sibling cascade screening",
+      "No disease-modifying therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "KLHL24-Related_Hypertrophic_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/KLHL24-Related_Hypertrophic_Cardiomyopathy.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "KRAS G12C-Mutant Non-Small Cell Lung Cancer",
     "disease_id": "MONDO:0005061",
     "category": "",
@@ -112758,7 +113278,8 @@ window.searchData = [
       "Vision Correction"
     ],
     "environmental": [
-      "Physical Activity Restrictions"
+      "Vigorous Isometric and Competitive Sport Restriction",
+      "Moderate Dynamic Aerobic Activity"
     ],
     "biochemical": [
       "Fibrillin-1 Protein"
@@ -156147,6 +156668,127 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "SARS1-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0060577",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with microcephaly, ataxia, and seizures (NEDMAS) is the single MONDO entity for germline disease caused by variants in SARS1, the gene encoding the CYTOPLASMIC seryl-tRNA synthetase (SerRS). SerRS is a homodimeric class II aminoacyl-tRNA synthetase that charges serine onto tRNA-Ser in a two-step reaction - serine plus ATP to enzyme-bound serine-adenylate, then transfer of the seryl moiety to the tRNA - and it also serylates the selenocysteine-specific tRNA-Sec, so it stands at the entry point of both general cytoplasmic translation and selenoprotein synthesis. Every SARS1 allele whose structural position has been published in the clinical literature sits in or immediately adjacent to the catalytic core - though ClinVar additionally holds a likely-pathogenic in-frame insertion inside the C-terminal UNE-S appendage for which no publication could be found - and the functional consequence measured in patient material has consistently been the same: reduced enzyme abundance and/or reduced serylation activity. The disorder therefore belongs squarely to the recessive aminoacyl-tRNA-synthetase (ARS) deficiency family, whose proposed unifying mechanism is that residual aminoacylation is sufficient at baseline but insufficient to meet translational demand in the organs and life periods with the highest protein-synthesis rates. That single premise accounts for a phenotype that otherwise looks incoherent: microcephaly with cerebral and cerebellar atrophy, moderate intellectual disability, ataxia, seizures, muscle weakness and a thin body habitus in the originally described families; and, with a different allele, developmental delay with central deafness, cardiomyopathy and life-threatening metabolic decompensation triggered by fever. The MONDO label names only the first presentation, which materially understates the entity - the deafness and cardiomyopathy presentation is filed against the same MONDO/OMIM term, and a further individual with a de novo, dominant-negative allele presented with complex spastic paraplegia and no microcephaly at all. SerRS additionally has well-documented non-canonical nuclear activities (repression of VEGFA transcription via its UNE-S nuclear localisation signal, and telomere binding with POT1); whether these contribute to the human disease has never been tested in patient material, and this entry treats the loss-of-charging route as the supported mechanism and the moonlighting route as an explicit open question rather than smoothing the two together. The disorder is ultra-rare: the entire published clinical literature is a handful of families - the Turkish family of the deafness-cardiomyopathy report explicitly consanguineous, the others not described as such in their abstracts - and single cases.",
+    "pathophysiology": [
+      "Damaging SARS1 Alleles in the Catalytic Core",
+      "Reduced SerRS Protein Stability and Steady-State Abundance",
+      "Deficient Serylation of tRNA-Ser",
+      "Dominant-Negative Poisoning of the SerRS Homodimer",
+      "Insufficient Aminoacylation Capacity for Translational Demand",
+      "Impaired Neural Progenitor Proliferation and Brain Growth",
+      "Cerebellar and Cerebral Atrophy",
+      "Demand-Dependent Decompensation During Febrile Catabolic Stress",
+      "Cardiomyocyte Translational Insufficiency",
+      "Cellular Senescence with a Senescence-Associated Secretory Phenotype",
+      "Impaired Selenocysteine Incorporation",
+      "Loss of Non-Canonical Nuclear SerRS Function"
+    ],
+    "cell_types": [
+      "patient-derived dermal fibroblast",
+      "neuron",
+      "cerebellar Purkinje cell",
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000540",
+      "CL:0000121",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "seryl-tRNA aminoacylation",
+      "tRNA aminoacylation for protein translation",
+      "cytoplasmic translation",
+      "brain development",
+      "cellular senescence",
+      "selenocysteine incorporation",
+      "conversion of seryl-tRNA(Sec) to selenocysteinyl-tRNA(Sec)",
+      "negative regulation of vascular endothelial growth factor production",
+      "telomere maintenance"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Moderate intellectual disability",
+      "Global developmental delay",
+      "Ataxia",
+      "Seizures",
+      "Cerebral atrophy",
+      "Cerebellar atrophy",
+      "Muscle weakness",
+      "Hypotonia",
+      "Slender build",
+      "Delayed speech and language development",
+      "Aggressive behavior",
+      "Pes planus",
+      "Hearing impairment",
+      "Cardiomyopathy",
+      "Spastic paraplegia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculature",
+      "Growth",
+      "Skeletal",
+      "Otologic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0002342",
+      "HP:0001263",
+      "HP:0001251",
+      "HP:0002069",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0001324",
+      "HP:0001252",
+      "HP:0001533",
+      "HP:0000750",
+      "HP:0000718",
+      "HP:0001763",
+      "HP:0000365",
+      "HP:0001638",
+      "HP:0001258"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SARS1"
+    ],
+    "treatments": [
+      "L-serine supplementation",
+      "Emergency protocol for febrile illness"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SARS1-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/SARS1-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Short-Chain Acyl-CoA Dehydrogenase Deficiency",
     "disease_id": "MONDO:0008722",
     "category": "Mendelian",
@@ -157172,7 +157814,7 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
-    "name": "SHH_Holoprosencephaly_Spectrum",
+    "name": "SHH Holoprosencephaly Spectrum",
     "disease_id": "MONDO:0007733",
     "category": "Genetic",
     "parents": [
@@ -157180,7 +157822,7 @@ window.searchData = [
       "Neurodevelopmental Disorder"
     ],
     "creation_date": "2026-04-04T00:00:00Z",
-    "updated_date": "2026-04-21T03:28:11Z",
+    "updated_date": "2026-07-31T02:23:12Z",
     "subtypes": [
       "Alobar HPE",
       "Semilobar HPE",
@@ -157192,6 +157834,9 @@ window.searchData = [
       "Reduced SHH Signaling in Forebrain Patterning",
       "Impaired Forebrain Midline Separation",
       "Craniofacial Midline Deficiency",
+      "Hypothalamic Non-Separation",
+      "Hypothalamic Autonomic and Homeostatic Dysfunction",
+      "Central Diabetes Insipidus",
       "Neurological Impairment",
       "Pituitary Dysfunction",
       "Modifier-Dependent Variable Expressivity"
@@ -157208,24 +157853,40 @@ window.searchData = [
     ],
     "phenotypes": [
       "Holoprosencephaly",
+      "Alobar Holoprosencephaly",
+      "Semilobar Holoprosencephaly",
+      "Lobar Holoprosencephaly",
+      "Global Developmental Delay",
       "Intellectual Disability",
       "Seizures",
+      "Hydrocephalus",
+      "Feeding Difficulties",
       "Microcephaly",
       "Hypotelorism",
+      "Cyclopia",
+      "Proboscis",
       "Solitary Median Maxillary Central Incisor",
       "Orofacial Cleft",
+      "Pyriform Aperture Stenosis",
       "Microphthalmia",
       "Coloboma",
+      "Central Diabetes Insipidus",
+      "Central Hypothyroidism",
+      "Central Adrenal Insufficiency",
+      "Growth Hormone Deficiency",
       "Pituitary Dysfunction",
+      "Hypothalamic Autonomic and Homeostatic Dysfunction",
       "Choanal Atresia"
     ],
     "phenotype_categories": [
       "Neurological",
+      "Gastrointestinal",
       "Craniofacial",
       "Ophthalmologic",
       "Endocrine"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Endocrine",
       "Eye",
       "Head and Neck",
@@ -157234,32 +157895,62 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001360",
+      "HP:0006988",
+      "HP:0002507",
+      "HP:0006870",
+      "HP:0001263",
       "HP:0001249",
       "HP:0001250",
+      "HP:0000238",
+      "HP:0011968",
       "HP:0000252",
       "HP:0000601",
+      "HP:0009914",
+      "HP:0012806",
       "HP:0006315",
       "HP:0000202",
+      "HP:0025011",
       "HP:0000568",
       "HP:0000589",
-      "HP:0010627",
+      "HP:0000863",
+      "HP:0011787",
+      "HP:0011734",
+      "HP:0008240",
+      "HP:0000830",
+      "HP:0012332",
       "HP:0000453"
     ],
-    "frequencies": [],
-    "genes": [
-      "SHH loss-of-function variants"
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
     ],
-    "treatments": [],
-    "environmental": [],
+    "genes": [
+      "SHH loss-of-function variants",
+      "GAS1 modifier interaction",
+      "Oligogenic background variation"
+    ],
+    "treatments": [
+      "Multidisciplinary Supportive Care",
+      "Desmopressin for Central Diabetes Insipidus",
+      "Endocrine Hormone Replacement for Anterior Pituitary Deficiency",
+      "Enteral Feeding Support",
+      "Balloon Dilation and Neonatal Palatal Expander for CNPAS",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Maternal pregestational diabetes mellitus",
+      "Cumulative gene-environment insult"
+    ],
     "biochemical": [],
     "source_file": "SHH_Holoprosencephaly_Spectrum.yaml",
     "page_url": "../pages/disorders/SHH_Holoprosencephaly_Spectrum.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 6,
-    "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "num_phenotypes": 25,
+    "num_pathophysiology": 9,
+    "num_genes": 3,
+    "num_treatments": 6,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "SLC13A5 Citrate Transporter Disorder",
@@ -186823,17 +187514,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1827,
-  "total_subtypes": 2785,
-  "total_disorders_and_subtypes": 4612,
-  "total_unique_evidence_sources": 27495,
-  "total_unique_publications": 25736,
+  "total_disorder_pages": 1832,
+  "total_subtypes": 2794,
+  "total_disorders_and_subtypes": 4626,
+  "total_unique_evidence_sources": 27591,
+  "total_unique_publications": 25831,
   "total_unique_disease_categories": 43,
-  "total_unique_phenotype_categories": 234,
-  "total_pathographs": 1822,
-  "total_unique_pathological_events": 9607,
+  "total_unique_phenotype_categories": 237,
+  "total_pathographs": 1827,
+  "total_unique_pathological_events": 9669,
   "total_modules": 120,
-  "total_research_reports": 2089,
+  "total_research_reports": 2096,
   "total_classifications": 10,
   "total_comorbidities": 19,
   "total_groupings": 56
