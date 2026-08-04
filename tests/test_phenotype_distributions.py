@@ -427,6 +427,14 @@ def test_term_check_reports_a_wrong_label_without_a_local_ontology(
     )
 
     # And the unmutated file is clean, so the above is not flagging everything.
+    #
+    # This proves that and nothing more. Since the stub's labels are derived
+    # from the same files being checked, it cannot report a label mismatch here
+    # by construction — deriving the map bought self-maintenance at the cost of
+    # this line meaning anything about whether the example's terms are right.
+    # That coverage lives in `test_example_terms_are_all_valid`, which resolves
+    # them against real OLS and is deliberately ungated. The two are not
+    # redundant; do not delete that one on the strength of this.
     assert not check_terms(discover_collections(_example_paths()))
 
 
