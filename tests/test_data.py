@@ -37,6 +37,54 @@ HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
 )
 
+# Reference prefixes an evidence `reference:` may carry: literature/registry
+# sources the reference validator fetches and snippet-checks, plus the structured
+# database sources pre-cached under references_cache/ (see CLAUDE.md), plus the
+# dataset-accession prefixes listed as `skip_prefixes` in
+# conf/reference_validator_config.yaml. Compared case-insensitively -- the
+# validator normalizes prefix case itself, and the KB uses both `GEO:` and `geo:`.
+ALLOWED_REFERENCE_PREFIXES = (
+    "PMID:",
+    "DOI:",
+    "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
+    "clinicaltrials:",
+    "file:",
+    "url:",
+    "GEO:",
+    "ORPHA:",
+    "CGGV:",
+    "CGDS:",
+    "CIVIC_ASSERTION:",
+    "CIVIC_EID:",
+    "ICEES:",  # ICEES KG comorbidity pairs
+    "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
+    "metabolights:",  # dataset accession; skip_prefixes in the validator config
+)
+
+
+def _has_allowed_reference_prefix(reference):
+    """True if `reference` starts with one of ALLOWED_REFERENCE_PREFIXES."""
+    text = str(reference).lower()
+    return any(text.startswith(p.lower()) for p in ALLOWED_REFERENCE_PREFIXES)
+
+
+def _iter_evidence_lists(node, path=""):
+    """Yield every ``(dotted_path, evidence_list)`` pair anywhere in a document.
+
+    Evidence blocks are attached at many depths (top-level sections, nested
+    `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the
+    only reliable way to check them all is to walk the whole tree.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = f"{path}.{key}" if path else key
+            if key == "evidence" and isinstance(value, list):
+                yield child, value
+            yield from _iter_evidence_lists(value, child)
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _iter_evidence_lists(item, f"{path}[{index}]")
+
 
 def _disease_names():
     """Set of all Disease `name` values across kb/disorders/."""
@@ -148,70 +196,33 @@ def test_evidence_items_have_references(filepath):
     with open(filepath) as f:
         data = safe_load(f)
 
-    allowed_reference_prefixes = (
-        "PMID:",
-        "DOI:",
-        "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
-        "clinicaltrials:",
-        "file:",
-        "url:",
-        "GEO:",
-        "ORPHA:",
-        "CGGV:",
-        "CGDS:",
-        "CIVIC_ASSERTION:",
-        "CIVIC_EID:",
-    )
-    allowed_prefix_message = ", ".join(allowed_reference_prefixes)
+    allowed_prefix_message = ", ".join(ALLOWED_REFERENCE_PREFIXES)
 
     def check_evidence(evidence_list, path):
-        """Recursively check evidence items for references."""
-        if not evidence_list:
-            return []
+        """Check one ``evidence:`` list for missing/unprefixed references."""
         errors = []
         for i, item in enumerate(evidence_list):
-            if not item.get("reference"):
+            if not isinstance(item, dict):
+                continue
+            reference = item.get("reference")
+            if not reference:
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not any(
-                item["reference"].startswith(prefix)
-                for prefix in allowed_reference_prefixes
-            ):
+            elif not _has_allowed_reference_prefix(reference):
                 errors.append(
-                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {item['reference']}"
+                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {reference}"
                 )
         return errors
 
     all_errors = []
 
-    # Check evidence in pathophysiology
-    for i, patho in enumerate(data.get("pathophysiology", [])):
-        all_errors.extend(
-            check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence")
-        )
-
-    # Check evidence in phenotypes
-    for i, pheno in enumerate(data.get("phenotypes", [])):
-        all_errors.extend(
-            check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence")
-        )
-
-    # Check evidence in subtypes
-    for i, subtype in enumerate(data.get("has_subtypes", [])):
-        all_errors.extend(
-            check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence")
-        )
-
-    # Check evidence in prevalence
-    for i, prev in enumerate(data.get("prevalence", [])):
-        all_errors.extend(
-            check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence")
-        )
-
-    # Check evidence in progression
-    for i, prog in enumerate(data.get("progression", [])):
-        all_errors.extend(
-            check_evidence(prog.get("evidence", []), f"progression[{i}].evidence")
-        )
+    # Walk the whole document rather than a hand-listed set of sections. The
+    # earlier version checked only pathophysiology/phenotypes/has_subtypes/
+    # prevalence/progression, so evidence under clinical_trials, treatments,
+    # datasets, diagnosis, biochemical, histopathology (and nested slots such as
+    # pathophysiology[].downstream[]) was never prefix-checked -- which is how the
+    # unprefixed `NCT06087757` reference in dismech#7288 reached main.
+    for path, evidence_list in _iter_evidence_lists(data):
+        all_errors.extend(check_evidence(evidence_list, path))
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
 
