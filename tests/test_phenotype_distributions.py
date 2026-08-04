@@ -822,12 +822,12 @@ def test_the_sum_claim_is_judged_at_the_precision_it_was_written_to(
     so both directions are pinned here.
     """
 
-    def with_codes(total_pairs, text):
+    def with_codes(weights, text):
         def mutate(data):
             dist = data["profiles"][0]["code_distributions"][0]
             dist["weighted_codes"] = [
                 {"code": str(i), "code_label": f"c{i}", "code_weight": w}
-                for i, w in enumerate(total_pairs)
+                for i, w in enumerate(weights)
             ]
             dist["description"] = text
 
@@ -846,6 +846,67 @@ def test_the_sum_claim_is_judged_at_the_precision_it_was_written_to(
     assert lint_collections([with_codes([0.5, 0.22693], "sum to ~0.7")]).errors == []
     assert "they sum to 0.72693" in _error_messages(
         with_codes([0.5, 0.22693], "sum to ~0.6")
+    )
+
+
+def test_a_sum_claim_is_checked_with_or_without_the_tilde(
+    profile_set_path: Path,
+) -> None:
+    """The opt-in is the claim, not the punctuation.
+
+    The switch was `~` alone, so "the weights sum to 0.42" — a plain, natural
+    way to write it — bought silence. Silence from a guard is indistinguishable
+    from a pass, which makes that the worst possible failure mode for a check
+    whose whole job is to notice drift.
+
+    A decimal point is still required, and that is the other half of the same
+    decision: "do not sum to 1" and "rather than 1" are both live phrasings in
+    this repo's descriptions, and matching a bare integer would read a negation
+    as a claim. It also drops integer claims, which under the half-a-unit rule
+    would have carried a useless +/- 0.5 tolerance.
+    """
+
+    def described(text):
+        def mutate(data):
+            data["profiles"][0]["code_distributions"][0]["description"] = text
+
+        return _mutate(profile_set_path, mutate)
+
+    # No tilde, wrong number: caught.
+    assert "they sum to 0.72693" in _error_messages(
+        described("The weights sum to 0.42")
+    )
+    # No tilde, right number: silent.
+    assert lint_collections([described("The weights sum to 0.73")]).errors == []
+
+    # A bare integer is not a claim. The discriminating case is a heavily
+    # truncated distribution, because that is where a matched "1" would land
+    # outside the +/- 0.5 an integer claim implies and be reported as a
+    # misstatement — of a sentence that says the opposite. A mutant regex
+    # allowing bare integers passes every milder phrasing, so those prove
+    # nothing; this one is the test.
+    def truncated_to(total, text):
+        def mutate(data):
+            dist = data["profiles"][0]["code_distributions"][0]
+            dist["weighted_codes"] = [
+                {"code": "1", "code_label": "c", "code_weight": total}
+            ]
+            dist["description"] = text
+
+        return _mutate(profile_set_path, mutate)
+
+    assert (
+        lint_collections(
+            [truncated_to(0.4, "The top codes only, so the weights do not sum to 1")]
+        ).errors
+        == []
+    )
+    # And the same for the phrasing the live example uses.
+    assert (
+        lint_collections(
+            [truncated_to(0.4, "Top codes, so the weights sum to ~0.4 rather than 1")]
+        ).errors
+        == []
     )
 
 

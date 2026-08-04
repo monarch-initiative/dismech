@@ -425,12 +425,24 @@ def lint_profile(
         # A description that states its own sum must state it correctly. This
         # number has drifted twice by hand — a code was added and the sentence
         # was not — and unlike a prose keyword it is derivable from the same
-        # file, so the claim can simply be checked. Opt-in: a description
-        # without the phrase is untouched.
+        # file, so the claim can simply be checked.
+        #
+        # The switch is "sum to <number>", tilde optional. It was `~` only,
+        # which made the opt-in the tilde rather than the claim: writing "the
+        # weights sum to 0.73" bought silence, and silence is indistinguishable
+        # from a passing check.
+        #
+        # A decimal point is required, and that is the second half of the same
+        # decision. It keeps "do not sum to 1" and "rather than 1" — both live
+        # phrasings — from being read as claims, and it drops integer claims,
+        # which under the half-a-unit rule would have carried a useless +/- 0.5
+        # tolerance. A distribution asserting it sums to 1 is already covered by
+        # the truncation warning below.
+        #
         # `[\d.]+` would swallow a sentence-final period and hand `float()` a
         # string like "0.73.", turning a lint finding into a traceback out of a
         # `just qc` gate — a worse failure than the drift being guarded against.
-        claimed = re.search(r"sum to ~(\d+(?:\.\d+)?)", dist.get("description") or "")
+        claimed = re.search(r"sum to ~?(\d+\.\d+)", dist.get("description") or "")
         if claimed:
             text = claimed.group(1)
             # Judge the claim at the precision it was written to. A fixed
@@ -440,8 +452,10 @@ def lint_profile(
             # fixed number is far too strict for a one-decimal claim, where
             # "~0.7" against 0.7269 is right and would have been flagged.
             # Half a unit in the last written place is the rule that makes both
-            # cases come out correctly; the epsilon is for binary float noise,
-            # since 0.74 - 0.735 evaluates just above 0.005.
+            # cases come out correctly. The epsilon is load-bearing rather than
+            # defensive: 0.74 - 0.735 evaluates to 0.005000000000000004, so
+            # relaxing `>=` to `>` alone would still have rejected the halfway
+            # case.
             decimals = len(text.partition(".")[2])
             tolerance = 0.5 * 10**-decimals + 1e-9
             if abs(float(text) - total) > tolerance:
