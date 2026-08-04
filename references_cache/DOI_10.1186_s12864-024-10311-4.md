@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12864-024-10311-4
+reference_id: "DOI:10.1186/s12864-024-10311-4"
 title: Using Portuguese BRCA pathogenic variation as a model to study the impact of human admixture on human health
 authors:
 - Stephanie Andaluz

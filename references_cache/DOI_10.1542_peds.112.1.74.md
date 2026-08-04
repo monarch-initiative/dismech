@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1542/peds.112.1.74
+reference_id: "DOI:10.1542/peds.112.1.74"
 title: Prospective Diagnosis of 2-Methylbutyryl-CoA Dehydrogenase Deficiency in the Hmong Population by Newborn Screening Using Tandem Mass Spectrometry
 authors:
 - Dietrich Matern

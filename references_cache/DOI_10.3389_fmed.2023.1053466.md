@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1053466
+reference_id: "DOI:10.3389/fmed.2023.1053466"
 title: "Extracutaneous features and complications of the Ehlers-Danlos syndromes: A systematic review"
 authors:
 - Brent J. Doolan

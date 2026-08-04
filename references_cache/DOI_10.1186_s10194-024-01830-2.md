@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10194-024-01830-2
+reference_id: "DOI:10.1186/s10194-024-01830-2"
 title: VPAC1 and VPAC2 receptors mediate tactile hindpaw hypersensitivity and carotid artery dilatation induced by PACAP38 in a migraine relevant mouse model
 authors:
 - Song Guo

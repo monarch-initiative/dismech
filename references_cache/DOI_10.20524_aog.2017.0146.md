@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20524/aog.2017.0146
+reference_id: "DOI:10.20524/aog.2017.0146"
 title: "Stromal and immune cells in gut fibrosis: the myofibroblast and the scarface"
 authors:
 - Vassilis Valatas

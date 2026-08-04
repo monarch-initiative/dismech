@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/brainsci13070979
+reference_id: "DOI:10.3390/brainsci13070979"
 title: "Pathophysiology and Treatment of Lipid Abnormalities in Cerebrotendinous Xanthomatosis: An Integrative Review"
 authors:
 - Rodrigo Mariano Ribeiro

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/npr2.12365
+reference_id: "DOI:10.1002/npr2.12365"
 title: "Japanese Society of Anxiety and Related Disorders/Japanese Society of Neuropsychopharmacology: Clinical practice guideline for social anxiety disorder (2021)"
 authors:
 - Satoshi Asakura

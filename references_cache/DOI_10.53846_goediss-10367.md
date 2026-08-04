@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.53846/goediss-10367
+reference_id: "DOI:10.53846/goediss-10367"
 title: Mechanistic differences in mouse models of heart failure with preserved ejection fraction
 authors:
 - Surabhi Swarnkar

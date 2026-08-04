@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40120-024-00597-7
+reference_id: "DOI:10.1007/s40120-024-00597-7"
 title: Network Meta-analysis of Ravulizumab and Alternative Interventions for the Treatment of Neuromyelitis Optica Spectrum Disorder
 authors:
 - Stacey L. Clardy

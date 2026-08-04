@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12985-023-02169-x
+reference_id: "DOI:10.1186/s12985-023-02169-x"
 title: "Molecular epidemiology and clinical characteristics of enteroviruses associated HFMD in Chengdu, China, 2013–2022"
 authors:
 - Qiuxia Yang

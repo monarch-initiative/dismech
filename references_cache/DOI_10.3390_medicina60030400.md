@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/medicina60030400
+reference_id: "DOI:10.3390/medicina60030400"
 title: "Current Perspectives in Giant Cell Arteritis: Can We Better Connect Pathogenesis and Treatment?"
 authors:
 - Daniela Opriș-Belinski

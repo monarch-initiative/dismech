@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1265414
+reference_id: "DOI:10.3389/fimmu.2023.1265414"
 title: "Current knowledge of the immune reconstitution inflammatory syndrome in Whipple disease: a review"
 authors:
 - Xiangyi Song

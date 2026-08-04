@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/bloodadvances.2021006489
+reference_id: "DOI:10.1182/bloodadvances.2021006489"
 title: "Molecular profile of <i>FLT3</i>-mutated relapsed/refractory patients with AML in the phase 3 ADMIRAL study of gilteritinib"
 authors:
 - Catherine C. Smith

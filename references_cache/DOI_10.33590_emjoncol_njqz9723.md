@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.33590/emjoncol/njqz9723
+reference_id: "DOI:10.33590/emjoncol/njqz9723"
 title: "Second-Line Strategies to Overcome Resistance to Oestrogen Therapy in Patients with ER+/HER2- Metastatic Breast Cancer: A Year in Review"
 authors:
 - Samantha Santangelo

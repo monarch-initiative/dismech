@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40337-025-01187-0
+reference_id: "DOI:10.1186/s40337-025-01187-0"
 title: "Redefining diagnostic parameters: the role of overvaluation of shape and weight in binge-eating disorder: a systematic review"
 authors:
 - Bernou Melisse

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-24-3525
+reference_id: "DOI:10.1158/1078-0432.ccr-24-3525"
 title: Update on Surveillance in Von Hippel–Lindau Disease
 authors:
 - Surya P. Rednam

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2024.285255
+reference_id: "DOI:10.3324/haematol.2024.285255"
 title: Sequencing of cellular therapy and bispecific antibodies for the management of diffuse large B-cell lymphoma
 authors:
 - Megan Melody

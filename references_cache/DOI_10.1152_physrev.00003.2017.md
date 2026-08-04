@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/physrev.00003.2017
+reference_id: "DOI:10.1152/physrev.00003.2017"
 title: "Vascular Smooth Muscle Cells and Arterial Stiffening: Relevance in Development, Aging, and Disease"
 authors:
 - Patrick Lacolley

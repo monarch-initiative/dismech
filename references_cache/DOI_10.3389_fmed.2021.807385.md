@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2021.807385
+reference_id: "DOI:10.3389/fmed.2021.807385"
 title: Clinical and Inflammatory Characteristics of the Chinese APAC Cough Variant Asthma Cohort
 authors:
 - Kefang Lai

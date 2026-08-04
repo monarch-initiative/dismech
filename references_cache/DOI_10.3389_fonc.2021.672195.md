@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2021.672195
+reference_id: "DOI:10.3389/fonc.2021.672195"
 title: "Early Dissemination of Circulating Tumor Cells: Biological and Clinical Insights"
 authors:
 - Francesca Chemi

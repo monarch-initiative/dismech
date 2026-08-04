@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/antibiotics13060519
+reference_id: "DOI:10.3390/antibiotics13060519"
 title: Emergence of Rarely Reported Extensively Drug-Resistant Salmonella Enterica Serovar Paratyphi B among Patients in East China
 authors:
 - Jiefu Peng

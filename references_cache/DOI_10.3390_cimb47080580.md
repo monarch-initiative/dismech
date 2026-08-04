@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cimb47080580
+reference_id: "DOI:10.3390/cimb47080580"
 title: "From Amyloid to Synaptic Dysfunction: Biomarker-Driven Insights into Alzheimer’s Disease"
 authors:
 - Luisa Agnello

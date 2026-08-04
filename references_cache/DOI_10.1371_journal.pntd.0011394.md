@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011394
+reference_id: "DOI:10.1371/journal.pntd.0011394"
 title: "A human model of Buruli ulcer: The case for controlled human infection and considerations for selecting a Mycobacterium ulcerans challenge strain"
 authors:
 - Stephen Muhi

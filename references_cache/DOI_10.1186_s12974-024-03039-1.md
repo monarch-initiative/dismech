@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12974-024-03039-1
+reference_id: "DOI:10.1186/s12974-024-03039-1"
 title: Progranulin haploinsufficiency mediates cytoplasmic TDP-43 aggregation with lysosomal abnormalities in human microglia
 authors:
 - Wonjae Sung

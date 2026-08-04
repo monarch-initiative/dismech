@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1512942
+reference_id: "DOI:10.3389/fonc.2024.1512942"
 title: "Global, regional, and national burden of cutaneous malignant melanoma from 1990 to 2021 and prediction to 2045"
 authors:
 - Chengling Liu

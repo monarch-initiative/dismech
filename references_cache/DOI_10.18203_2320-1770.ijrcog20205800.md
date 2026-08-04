@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18203/2320-1770.ijrcog20205800
+reference_id: "DOI:10.18203/2320-1770.ijrcog20205800"
 title: "Benign papillary cystadenofibroma of fallopian tube presenting as posterior fornix cyst: case report"
 authors:
 - Gude Prajakta Narayanrao

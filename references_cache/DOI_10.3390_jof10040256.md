@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jof10040256
+reference_id: "DOI:10.3390/jof10040256"
 title: The Known and Unknown “Knowns” of Human Susceptibility to Coccidioidomycosis
 authors:
 - Amy P. Hsu

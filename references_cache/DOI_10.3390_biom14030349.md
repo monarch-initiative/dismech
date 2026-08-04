@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14030349
+reference_id: "DOI:10.3390/biom14030349"
 title: Intersections of Fibrodysplasia Ossificans Progressiva and Traumatic Heterotopic Ossification
 authors:
 - Conan Juan

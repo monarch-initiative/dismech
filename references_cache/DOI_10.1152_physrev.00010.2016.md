@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/physrev.00010.2016
+reference_id: "DOI:10.1152/physrev.00010.2016"
 title: Autoantibodies to Synaptic Receptors and Neuronal Cell Surface Proteins in Autoimmune Diseases of the Central Nervous System
 authors:
 - Josep Dalmau

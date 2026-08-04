@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2018-08-869008
+reference_id: "DOI:10.1182/blood-2018-08-869008"
 title: Molecular remission and response patterns in patients with mutant-IDH2 acute myeloid leukemia treated with enasidenib
 authors:
 - Eytan M. Stein

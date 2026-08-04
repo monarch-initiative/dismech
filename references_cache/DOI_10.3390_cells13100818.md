@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13100818
+reference_id: "DOI:10.3390/cells13100818"
 title: Protein Quality Control of NKCC2 in Bartter Syndrome and Blood Pressure Regulation
 authors:
 - Kamel Laghmani

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ophtha.2006.06.046
+reference_id: "DOI:10.1016/j.ophtha.2006.06.046"
 title: Prevalence and Associations of Enhanced Retinal Arteriolar Light Reflex
 authors:
 - Shweta Kaushik

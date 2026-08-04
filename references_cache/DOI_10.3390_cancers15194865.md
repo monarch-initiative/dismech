@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15194865
+reference_id: "DOI:10.3390/cancers15194865"
 title: "Molecular Basis and Natural History of Medullary Thyroid Cancer: It is (Almost) All in the RET"
 authors:
 - Nicolas Sahakian

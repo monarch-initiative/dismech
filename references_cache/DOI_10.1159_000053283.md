@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000053283
+reference_id: "DOI:10.1159/000053283"
 title: "Genetics of Peutz-Jeghers Syndrome, Carney Complex and Other Familial Lentiginoses"
 authors:
 - Constantine A. Stratakis

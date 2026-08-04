@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/frhs.2024.1279762
+reference_id: "DOI:10.3389/frhs.2024.1279762"
 title: "Cost-effectiveness of mass drug administration for control of scabies in Ethiopia: a decision-analytic model"
 authors:
 - Natalia Hounsome

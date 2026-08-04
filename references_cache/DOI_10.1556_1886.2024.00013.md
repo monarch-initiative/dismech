@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1556/1886.2024.00013
+reference_id: "DOI:10.1556/1886.2024.00013"
 title: "Insights into the epidemiology, pathogenesis, and differential diagnosis of schistosomiasis"
 authors:
 - Elena Ponzo

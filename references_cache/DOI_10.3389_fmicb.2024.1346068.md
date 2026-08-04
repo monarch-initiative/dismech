@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1346068
+reference_id: "DOI:10.3389/fmicb.2024.1346068"
 title: "Combinations of the azaquinazoline anti-Wolbachia agent, AWZ1066S, with benzimidazole anthelmintics synergise to mediate sub-seven-day sterilising and curative efficacies in experimental models of filariasis"
 authors:
 - Shrilakshmi Hegde

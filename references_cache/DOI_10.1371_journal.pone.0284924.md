@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0284924
+reference_id: "DOI:10.1371/journal.pone.0284924"
 title: The clinical features of familial focal epilepsy with variable foci and NPRL3 gene variant
 authors:
 - Yue Wang

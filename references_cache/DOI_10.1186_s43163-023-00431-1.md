@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43163-023-00431-1
+reference_id: "DOI:10.1186/s43163-023-00431-1"
 title: "Ludwig’s angina in a child: a case report and literature review"
 authors:
 - Othmane Benhoummad

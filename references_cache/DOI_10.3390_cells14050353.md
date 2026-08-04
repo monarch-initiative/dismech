@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells14050353
+reference_id: "DOI:10.3390/cells14050353"
 title: "Statins as an Adjunctive Antithrombotic Agent in Thrombotic Antiphospholipid Syndrome: Mechanisms and Clinical Implications"
 authors:
 - Tommaso Bucci

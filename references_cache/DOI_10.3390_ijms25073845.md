@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25073845
+reference_id: "DOI:10.3390/ijms25073845"
 title: "Huntington’s Disease: Complex Pathogenesis and Therapeutic Strategies"
 authors:
 - Huichun Tong

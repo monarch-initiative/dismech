@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17863/cam.108223
+reference_id: "DOI:10.17863/cam.108223"
 title: Functional validation of EIF2AK4 (GCN2) missense variants associated with pulmonary arterial hypertension.
 authors:
 - "Emanuelli, Giulia"

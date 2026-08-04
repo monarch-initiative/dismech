@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1413793
+reference_id: "DOI:10.3389/fonc.2024.1413793"
 title: "Merkel cell carcinoma: updates in tumor biology, emerging therapies, and preclinical models"
 authors:
 - Elisabeth A. Pedersen

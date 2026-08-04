@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/humu.24182
+reference_id: "DOI:10.1002/humu.24182"
 title: The phenotypic and genetic spectrum of patients with heterozygous mutations in cyclin M2 (CNNM2)
 authors:
 - Gijs A. C. Franken

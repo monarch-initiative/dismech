@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes17040424
+reference_id: "DOI:10.3390/genes17040424"
 title: Identification of Three Novel MAGED2 Variants Causing Antenatal Bartter Syndrome in Three Chinese Families
 authors:
 - Shufa Yang

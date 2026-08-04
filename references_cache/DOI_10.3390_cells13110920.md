@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13110920
+reference_id: "DOI:10.3390/cells13110920"
 title: "Towards a Cure for Diamond–Blackfan Anemia: Views on Gene Therapy"
 authors:
 - Matilde Vale

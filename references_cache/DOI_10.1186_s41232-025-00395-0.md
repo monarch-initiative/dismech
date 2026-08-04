@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s41232-025-00395-0
+reference_id: "DOI:10.1186/s41232-025-00395-0"
 title: Recent advances in immunological mechanisms and murine disease models of idiopathic inflammatory myopathies
 authors:
 - Akiko Nishidate

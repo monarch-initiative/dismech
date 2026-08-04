@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12688/f1000research.21981.1
+reference_id: "DOI:10.12688/f1000research.21981.1"
 title: Recent advances in the treatment of pancreatic cancer
 authors:
 - Marc T Roth

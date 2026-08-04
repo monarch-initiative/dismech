@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40246-019-0255-x
+reference_id: "DOI:10.1186/s40246-019-0255-x"
 title: Investigating diagnostic sequencing techniques for CADASIL diagnosis
 authors:
 - P. J. Dunn

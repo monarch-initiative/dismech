@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/toxins17020079
+reference_id: "DOI:10.3390/toxins17020079"
 title: "Fifty Years of Aflatoxin Research in Qidong, China: A Celebration of Team Science to Improve Public Health"
 authors:
 - Jian-Guo Chen

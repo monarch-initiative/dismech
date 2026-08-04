@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05554835
+reference_id: "clinicaltrials:NCT05554835"
 title: Global Mitochondrial Registry to Define Natural History and Outcome Measures to Achieve Definite Trial Readiness for Mitochondrial Disorders
 content_type: summary
 full_text_attempted: true

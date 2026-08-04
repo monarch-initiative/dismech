@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1496384
+reference_id: "DOI:10.3389/fneur.2024.1496384"
 title: "Changes in symptom pattern in Meniere's disease by duration: the need for comprehensive management"
 authors:
 - Ilmari Pyykkö

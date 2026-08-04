@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03055-7
+reference_id: "DOI:10.1186/s13023-024-03055-7"
 title: "Clinical and genetic characterization of 47 Chinese pediatric patients with Pitt–Hopkins syndrome: a retrospective study"
 authors:
 - Tingting Zhao

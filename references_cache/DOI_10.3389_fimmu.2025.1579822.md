@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1579822
+reference_id: "DOI:10.3389/fimmu.2025.1579822"
 title: "Emerging immunotherapies in osteosarcoma: from checkpoint blockade to cellular therapies"
 authors:
 - Zhiwei Han

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.880464
+reference_id: "DOI:10.3389/fgene.2022.880464"
 title: "HMG-CoA Lyase Deficiency: A Retrospective Study of 62 Saudi Patients"
 authors:
 - Majid Alfadhel

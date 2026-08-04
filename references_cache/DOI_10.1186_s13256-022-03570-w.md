@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13256-022-03570-w
+reference_id: "DOI:10.1186/s13256-022-03570-w"
 title: "Isolated posterior ST-elevation myocardial infarction: the necessity of routine 15-lead electrocardiography: a case series"
 authors:
 - Mochamad Yusuf Alsagaff

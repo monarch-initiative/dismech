@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE39582
+reference_id: "GEO:GSE39582"
 title: "Gene expression Classification of Colon Cancer defines six molecular subtypes with distinct clinical, molecular and survival characteristics [Expression]"
 content_type: summary
 full_text_attempted: true

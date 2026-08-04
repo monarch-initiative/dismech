@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12935-023-02877-y
+reference_id: "DOI:10.1186/s12935-023-02877-y"
 title: "A novel Menin-MLL1 inhibitor, DS-1594a, prevents the progression of acute leukemia with rearranged MLL1 or mutated NPM1"
 authors:
 - Masashi Numata

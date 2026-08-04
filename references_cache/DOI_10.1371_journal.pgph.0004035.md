@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgph.0004035
+reference_id: "DOI:10.1371/journal.pgph.0004035"
 title: "Contextual factors influencing schistosomiasis treatment and identification of delivery platforms for arpraziquantel in hard-to-reach areas and populations in Homa Bay County, Kenya"
 authors:
 - Phyllis Munyiva Isaiah

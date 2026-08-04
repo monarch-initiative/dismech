@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10974-024-09670-y
+reference_id: "DOI:10.1007/s10974-024-09670-y"
 title: Validation of a novel western blot assay to monitor patterns and levels of alpha dystroglycan in skeletal muscle of patients with limb girdle muscular dystrophies
 authors:
 - Thulashitha Rajasingham

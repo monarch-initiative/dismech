@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000499184
+reference_id: "DOI:10.1159/000499184"
 title: "&lt;b&gt;&lt;i&gt;Staphylococcus aureus&lt;/i&gt;&lt;/b&gt; and Host Immunity in Recurrent Furunculosis"
 authors:
 - Danuta Nowicka

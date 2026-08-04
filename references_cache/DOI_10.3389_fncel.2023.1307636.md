@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fncel.2023.1307636
+reference_id: "DOI:10.3389/fncel.2023.1307636"
 title: "Autophagy in spinal muscular atrophy: from pathogenic mechanisms to therapeutic approaches"
 authors:
 - Saman Rashid

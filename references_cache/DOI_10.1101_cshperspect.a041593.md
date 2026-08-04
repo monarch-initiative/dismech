@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/cshperspect.a041593
+reference_id: "DOI:10.1101/cshperspect.a041593"
 title: The Role of B Lymphocytes in Type 1 Diabetes
 authors:
 - Mia J. Smith

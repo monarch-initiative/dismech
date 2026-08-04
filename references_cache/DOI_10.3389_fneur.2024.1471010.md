@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1471010
+reference_id: "DOI:10.3389/fneur.2024.1471010"
 title: "Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of Meniere’s disease: a systematic review and meta-analysis"
 authors:
 - Xuanmei Wu

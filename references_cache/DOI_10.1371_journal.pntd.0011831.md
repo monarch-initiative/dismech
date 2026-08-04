@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011831
+reference_id: "DOI:10.1371/journal.pntd.0011831"
 title: "Low genetic diversity of Treponema pallidum ssp. pertenue (TPE) isolated from patients’ ulcers in Namatanai District of Papua New Guinea: Local human population is infected by three TPE genotypes"
 authors:
 - Monica Medappa

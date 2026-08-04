@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12985-025-02721-x
+reference_id: "DOI:10.1186/s12985-025-02721-x"
 title: Long-term persistence of serum IgM antibodies against chikungunya virus in patients with chronic arthralgia
 authors:
 - Leile Camila Jacob-Nascimento

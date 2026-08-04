@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1225832
+reference_id: "DOI:10.3389/fgene.2023.1225832"
 title: "HMG-boxes, ribosomopathies and neurodegenerative disease"
 authors:
 - Tom Moss

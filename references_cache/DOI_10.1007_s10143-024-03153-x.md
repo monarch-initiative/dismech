@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10143-024-03153-x
+reference_id: "DOI:10.1007/s10143-024-03153-x"
 title: "Application of microsurgical surgery in patients with proximal vertebral artery stenosis unsuited for endovascular treatment: a single-center retrospective study"
 authors:
 - Mingyuan Liu
@@ -50,7 +50,8 @@ Ischemic stroke is a prevalent neurological disorder charac-
 terized by high rates of disability and mortality, with pos -
 terior circulation ischemia accounting for approximately 
 20-30% of ischemic strokes. Proximal vertebral artery 
-  Mingxin Wang
+ 
+ Mingxin Wang
 sjwkwangmx@163.com
 1 Binzhou Medical University, Yantai, China
 2 Shengli Oilfield Central Hospital, Shandong, China

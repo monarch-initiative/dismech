@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1006668
+reference_id: "DOI:10.1371/journal.ppat.1006668"
 title: Merkel cell polyomavirus recruits MYCL to the EP400 complex to promote oncogenesis
 authors:
 - Jingwei Cheng

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25063179
+reference_id: "DOI:10.3390/ijms25063179"
 title: The Role of Gut Microbiota in Neuromyelitis Optica Spectrum Disorder
 authors:
 - Shi-Qi Yao

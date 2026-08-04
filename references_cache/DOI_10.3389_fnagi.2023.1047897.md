@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnagi.2023.1047897
+reference_id: "DOI:10.3389/fnagi.2023.1047897"
 title: Potential roles of the endoplasmic reticulum stress pathway in amyotrophic lateral sclerosis
 authors:
 - Yu-Mi Jeon

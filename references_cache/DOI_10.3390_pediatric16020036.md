@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pediatric16020036
+reference_id: "DOI:10.3390/pediatric16020036"
 title: "Understanding the Neuropsychological Implications of Klinefelter Syndrome in Pediatric Populations: Current Perspectives"
 authors:
 - Panagiota Tragantzopoulou

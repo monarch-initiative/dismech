@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.22468/cvia.2020.00129
+reference_id: "DOI:10.22468/cvia.2020.00129"
 title: "Arterial Tortuosity Syndrome: A Case Report and Literature Review"
 authors:
 - Parveen Kumar

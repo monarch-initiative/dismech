@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms262010140
+reference_id: "DOI:10.3390/ijms262010140"
 title: "How Genes Meet Diet in LCHAD Deficiency: Nutrigenomics of Fatty Acid Oxidation Disorder"
 authors:
 - Zdzislaw Kochan

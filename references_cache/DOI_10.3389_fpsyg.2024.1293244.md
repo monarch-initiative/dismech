@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyg.2024.1293244
+reference_id: "DOI:10.3389/fpsyg.2024.1293244"
 title: "Parent training for disruptive behavior symptoms in attention deficit hyperactivity disorder: a randomized clinical trial"
 authors:
 - Gabrielle Chequer de Castro Paiva

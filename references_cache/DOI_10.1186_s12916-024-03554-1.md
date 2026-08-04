@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12916-024-03554-1
+reference_id: "DOI:10.1186/s12916-024-03554-1"
 title: "Overall and cause-specific mortality among patients diagnosed with gastric precancerous lesions in Sweden between 1979 and 2014: an observational cohort study"
 authors:
 - Yawen Sun

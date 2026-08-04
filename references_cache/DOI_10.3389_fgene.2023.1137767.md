@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1137767
+reference_id: "DOI:10.3389/fgene.2023.1137767"
 title: "HIDEA syndrome: A new case report highlighting similarities with ROHHAD syndrome"
 authors:
 - J. Harvengt

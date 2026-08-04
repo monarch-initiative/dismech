@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31744/einstein_journal/2024rw0775
+reference_id: "DOI:10.31744/einstein_journal/2024rw0775"
 title: "Uncomplicated circulatory shock: a narrative review"
 authors:
 - Mauro Dirlando Conte de Oliveira

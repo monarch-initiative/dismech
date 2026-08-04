@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13231997
+reference_id: "DOI:10.3390/cells13231997"
 title: Molecular Mechanisms of Fibrosis in Cholestatic Liver Diseases and Regenerative Medicine-Based Therapies
 authors:
 - Wei-Lu Wang

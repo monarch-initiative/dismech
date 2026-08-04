@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41591-024-03269-z
+reference_id: "DOI:10.1038/s41591-024-03269-z"
 title: "Sacituzumab govitecan in HR+HER2− metastatic breast cancer: the randomized phase 3 EVER-132-002 trial"
 authors:
 - Binghe Xu

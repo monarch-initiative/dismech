@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25126487
+reference_id: "DOI:10.3390/ijms25126487"
 title: The Role of Copper Overload in Modulating Neuropsychiatric Symptoms
 authors:
 - Mirko Manchia

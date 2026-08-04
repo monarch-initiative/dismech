@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012030
+reference_id: "DOI:10.1371/journal.pntd.0012030"
 title: "Diagnosis of human brucellosis: Systematic review and meta-analysis"
 authors:
 - Mariana Lourenço Freire

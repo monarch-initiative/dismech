@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jitc-2021-004485
+reference_id: "DOI:10.1136/jitc-2021-004485"
 title: Detection of microsatellite instability-high (MSI-H) by liquid biopsy predicts robust and durable response to immunotherapy in patients with pancreatic cancer
 authors:
 - Sakti Chakrabarti

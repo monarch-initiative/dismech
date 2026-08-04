@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/nu17132160
+reference_id: "DOI:10.3390/nu17132160"
 title: "Advancements in Family-Based Treatment of Adolescent Anorexia Nervosa: A Review of Access Barriers and Telehealth Solutions"
 authors:
 - Ashlea Hambleton

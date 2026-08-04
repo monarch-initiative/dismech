@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40364-023-00525-1
+reference_id: "DOI:10.1186/s40364-023-00525-1"
 title: "Survival of patients with transformed follicular lymphoma in the United States: a multiple cohort study"
 authors:
 - John L. Vaughn

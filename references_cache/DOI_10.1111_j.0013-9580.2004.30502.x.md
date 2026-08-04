@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.0013-9580.2004.30502.x
+reference_id: "DOI:10.1111/j.0013-9580.2004.30502.x"
 title: "Familial Partial Epilepsy with Variable Foci: Clinical Features and Linkage to Chromosome 22q12"
 authors:
 - Samuel F. Berkovic

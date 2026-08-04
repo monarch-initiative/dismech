@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/mi.2024.137
+reference_id: "DOI:10.3892/mi.2024.137"
 title: Immune checkpoint inhibitors in metastatic melanoma therapy (Review)
 authors:
 - Vedant Shah

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-21-3872
+reference_id: "DOI:10.1158/1078-0432.ccr-21-3872"
 title: "Phase Ib/II Trial of Ribociclib in Combination with Binimetinib in Patients with <i>NRAS</i> -mutant Melanoma"
 authors:
 - Martin Schuler

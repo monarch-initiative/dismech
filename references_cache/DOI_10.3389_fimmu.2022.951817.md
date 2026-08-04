@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.951817
+reference_id: "DOI:10.3389/fimmu.2022.951817"
 title: PD-1/PD-L1 combined with LAG3 is associated with clinical activity of immune checkpoint inhibitors in metastatic primary pulmonary lymphoepithelioma-like carcinoma
 authors:
 - Yu-Min Zhong

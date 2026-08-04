@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2025.1573052
+reference_id: "DOI:10.3389/fneur.2025.1573052"
 title: "Mechanistic advances in factors influencing phenotypic variability in cerebral autosomal dominant arteriopathy with subcortical infarcts and leukoencephalopathy: a review"
 authors:
 - Ying Zhao

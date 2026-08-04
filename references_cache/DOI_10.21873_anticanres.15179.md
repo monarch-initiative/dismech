@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21873/anticanres.15179
+reference_id: "DOI:10.21873/anticanres.15179"
 title: "Desmoplastic Small Round-cell Tumor: Retrospective Review of Institutional Data and Literature Review"
 authors:
 - THEJUS JAYAKRISHNAN

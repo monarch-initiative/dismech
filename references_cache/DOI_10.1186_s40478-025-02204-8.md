@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-025-02204-8
+reference_id: "DOI:10.1186/s40478-025-02204-8"
 title: "Biallelic null RAB3GAP1 variants impair cortical development and autophagy in Warburg Micro syndrome: evidence from fetal brain tissue and patient fibroblasts"
 authors:
 - Emma Noël

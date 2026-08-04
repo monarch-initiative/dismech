@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-019-1120-7
+reference_id: "DOI:10.1186/s13023-019-1120-7"
 title: "Treatment of Satoyoshi syndrome: a systematic review"
 authors:
 - Julián Solís-García del Pozo

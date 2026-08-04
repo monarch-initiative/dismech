@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/gastroent15020022
+reference_id: "DOI:10.3390/gastroent15020022"
 title: The Pathogenesis of Pancreatitis and the Role of Autophagy
 authors:
 - Ioannis Tsomidis

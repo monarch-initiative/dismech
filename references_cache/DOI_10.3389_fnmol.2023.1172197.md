@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2023.1172197
+reference_id: "DOI:10.3389/fnmol.2023.1172197"
 title: "Common mechanisms underlying axonal transport deficits in neurodegenerative diseases: a mini review"
 authors:
 - Xiaoman Yang

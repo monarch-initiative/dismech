@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12071539
+reference_id: "DOI:10.3390/biomedicines12071539"
 title: "Plasma Neurofilament Light Chain: A Potential Biomarker for Neurological Dysfunction in Myalgic Encephalomyelitis/Chronic Fatigue Syndrome"
 authors:
 - Naiara Azcue

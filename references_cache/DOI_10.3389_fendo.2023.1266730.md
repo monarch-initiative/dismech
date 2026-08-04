@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1266730
+reference_id: "DOI:10.3389/fendo.2023.1266730"
 title: "Leydig cell metabolic disorder act as a new mechanism affecting for focal spermatogenesis in Klinefelter syndrome patients: a real world cross-sectional study base on the age"
 authors:
 - Huang Liu

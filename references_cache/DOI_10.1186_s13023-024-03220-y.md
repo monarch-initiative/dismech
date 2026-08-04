@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03220-y
+reference_id: "DOI:10.1186/s13023-024-03220-y"
 title: Deciphering potential causative factors for undiagnosed Waardenburg syndrome through multi-data integration
 authors:
 - Fengying Sun

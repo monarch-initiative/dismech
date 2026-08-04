@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.24976/discov.med.202335178.69
+reference_id: "DOI:10.24976/discov.med.202335178.69"
 title: Comparative Analysis of the Embryonal Brain Tumors Based on Their Molecular Features
 authors:
 - Valeriia Shcherbina

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12929-023-00953-z
+reference_id: "DOI:10.1186/s12929-023-00953-z"
 title: "Circulating tumour DNA alterations: emerging biomarker in head and neck squamous cell carcinoma"
 authors:
 - Xiaomin Huang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-19-3809
+reference_id: "DOI:10.1158/1078-0432.ccr-19-3809"
 title: "Improvements in Clinical Outcomes for <i>BRAFV600E</i>-Mutant Metastatic Colorectal Cancer"
 authors:
 - Van K. Morris

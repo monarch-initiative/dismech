@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/ajpgi.2001.281.2.g303
+reference_id: "DOI:10.1152/ajpgi.2001.281.2.g303"
 title: VIII. Pathological consequences of rotavirus infection and its enterotoxin
 authors:
 - Andrew P. Morris

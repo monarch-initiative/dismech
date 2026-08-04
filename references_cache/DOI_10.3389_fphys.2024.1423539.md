@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2024.1423539
+reference_id: "DOI:10.3389/fphys.2024.1423539"
 title: "Neural regulation of mesenchymal stem cells in craniofacial bone: development, homeostasis and repair"
 authors:
 - Huai-Jin Pi

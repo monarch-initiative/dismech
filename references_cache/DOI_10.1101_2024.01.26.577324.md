@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.01.26.577324
+reference_id: "DOI:10.1101/2024.01.26.577324"
 title: "Human vascular organoids with a mosaic <i>AKT1</i> mutation recapitulate Proteus syndrome"
 authors:
 - Siyu He

@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ncbi.nlm.nih.gov/books/NBK1398/
+reference_id: "url:https://www.ncbi.nlm.nih.gov/books/NBK1398/"
 title: Bloom Syndrome - GeneReviews® - NCBI Bookshelf
 content_type: url
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.1399-0004.2011.01728.x
+reference_id: "DOI:10.1111/j.1399-0004.2011.01728.x"
 title: "5‐Oxoprolinase deficiency: report of the first human <i>OPLAH</i> mutation"
 authors:
 - IA Almaghlouth

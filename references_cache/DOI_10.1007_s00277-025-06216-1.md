@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00277-025-06216-1
+reference_id: "DOI:10.1007/s00277-025-06216-1"
 title: A review on disease modifying pharmacologic therapies for sickle cell disease
 authors:
 - Himil Mahadevia
@@ -64,7 +64,8 @@ well-established to precipitate various serious complica -
 tions, including, but not limited to acute chest syndrome 
 (ACS) pulmonary hypertension (PH), diastolic heart failure, 
 stroke, chronic kidney disease etc. These manifestations 
-  Himil Mahadevia
+ 
+ Himil Mahadevia
 himil7777@gmail.com; himil.mahadevia@umkc.edu
 1 Department of Internal Medicine, University of Missouri-
 Kansas City, Kansas City, MO 64108, USA

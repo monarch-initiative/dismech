@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.55563/clinexprheumatol/ezzfbt
+reference_id: "DOI:10.55563/clinexprheumatol/ezzfbt"
 title: Mechanism of neutrophil extracellular traps in the pathogenesis of gout
 authors:
 - Tingting Chen

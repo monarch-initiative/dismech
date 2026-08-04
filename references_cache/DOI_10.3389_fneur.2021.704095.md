@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2021.704095
+reference_id: "DOI:10.3389/fneur.2021.704095"
 title: "Editorial: Third Window Syndrome"
 authors:
 - P. Ashley Wackym

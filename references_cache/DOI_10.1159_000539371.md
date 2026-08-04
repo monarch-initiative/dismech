@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000539371
+reference_id: "DOI:10.1159/000539371"
 title: EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD)
 journal: Obesity Facts
 year: '2024'

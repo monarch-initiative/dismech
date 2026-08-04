@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1071630
+reference_id: "DOI:10.3389/fendo.2023.1071630"
 title: Neutrophil autophagy induced by monosodium urate crystals facilitates neutrophil extracellular traps formation and inflammation remission in gouty arthritis
 authors:
 - Shanshan Huang

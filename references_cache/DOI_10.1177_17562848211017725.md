@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/17562848211017725
+reference_id: "DOI:10.1177/17562848211017725"
 title: "The contribution of bile acid metabolism to the pathogenesis of <i>Clostridioides difficile</i> infection"
 authors:
 - Benjamin H. Mullish

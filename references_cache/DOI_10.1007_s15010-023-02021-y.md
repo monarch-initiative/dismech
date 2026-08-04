@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s15010-023-02021-y
+reference_id: "DOI:10.1007/s15010-023-02021-y"
 title: "Efficacy and safety of antiparasitic therapy for neurocysticercosis in rural Tanzania: a prospective cohort study"
 authors:
 - D. Stelzle

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gutjnl-2021-326532
+reference_id: "DOI:10.1136/gutjnl-2021-326532"
 title: Phase II trial of weekly erlotinib dosing to reduce duodenal polyp burden associated with familial adenomatous polyposis
 authors:
 - N Jewel Samadder

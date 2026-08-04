@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12672-024-01444-9
+reference_id: "DOI:10.1007/s12672-024-01444-9"
 title: "Treatment-free remission after discontinuation of tyrosine kinase inhibitors in patients with chronic myeloid leukemia in the chronic phase: a systematic review and meta-analysis"
 authors:
 - Zhenxiang Zheng

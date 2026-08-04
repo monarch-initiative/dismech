@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gutjnl-2023-331835
+reference_id: "DOI:10.1136/gutjnl-2023-331835"
 title: "Prevalence of irritable bowel syndrome and functional dyspepsia after acute gastroenteritis: systematic review and meta-analysis"
 authors:
 - Serena Porcari

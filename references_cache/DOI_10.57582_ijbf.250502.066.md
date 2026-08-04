@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.57582/ijbf.250502.066
+reference_id: "DOI:10.57582/ijbf.250502.066"
 title: "Hemophilia: changes and new achievements in management and care"
 authors:
 - Silvia Linari

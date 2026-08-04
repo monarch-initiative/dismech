@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43044-024-00549-4
+reference_id: "DOI:10.1186/s43044-024-00549-4"
 title: "When the heart and hands tell a story: an intriguing case of Holt–Oram syndrome"
 authors:
 - Ilyas Atlas

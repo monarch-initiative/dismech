@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25168859
+reference_id: "DOI:10.3390/ijms25168859"
 title: "Emerging Therapeutic Approaches and Genetic Insights in Stargardt Disease: A Comprehensive Review"
 authors:
 - Laura Andreea Ghenciu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bjo-2022-323071
+reference_id: "DOI:10.1136/bjo-2022-323071"
 title: Stargardt macular dystrophy and therapeutic approaches
 authors:
 - Kaoru Fujinami

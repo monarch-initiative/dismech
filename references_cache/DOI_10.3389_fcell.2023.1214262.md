@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1214262
+reference_id: "DOI:10.3389/fcell.2023.1214262"
 title: Detection of various fusion genes by one-step RT-PCR and the association with clinicopathological features in 242 cases of soft tissue tumor
 authors:
 - Lingxie Song

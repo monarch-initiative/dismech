@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2021.705019
+reference_id: "DOI:10.3389/fgene.2021.705019"
 title: "Hologene 5: A Phase II/III Clinical Trial of Combined Cell and Gene Therapy of Junctional Epidermolysis Bullosa"
 authors:
 - Laura De Rosa

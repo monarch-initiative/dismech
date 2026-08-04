@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.63078
+reference_id: "DOI:10.7759/cureus.63078"
 title: "New Insights Into the Treatment of Hyperlipidemia: Pharmacological Updates and Emerging Treatments"
 authors:
 - Seema Abbasi

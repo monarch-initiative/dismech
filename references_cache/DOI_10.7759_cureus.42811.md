@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.42811
+reference_id: "DOI:10.7759/cureus.42811"
 title: "A Case of Delayed Diagnosis of Idiopathic Infantile Hypercalcemia Due to CYP24A1 Mutation: A 10-Year Journey"
 authors:
 - Zahid Khan

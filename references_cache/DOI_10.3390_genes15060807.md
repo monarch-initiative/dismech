@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes15060807
+reference_id: "DOI:10.3390/genes15060807"
 title: "Beyond CAG Repeats: The Multifaceted Role of Genetics in Huntington Disease"
 authors:
 - Marta Pengo

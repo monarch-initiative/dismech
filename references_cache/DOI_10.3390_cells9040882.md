@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells9040882
+reference_id: "DOI:10.3390/cells9040882"
 title: "Large Animal Models of Inherited Retinal Degenerations: A Review"
 authors:
 - Paige A. Winkler

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pmed.1004453
+reference_id: "DOI:10.1371/journal.pmed.1004453"
 title: "Safety of single-dose bedaquiline combined with rifampicin for leprosy post-exposure prophylaxis: A Phase 2 randomized non-inferiority trial in the Comoros Islands"
 authors:
 - Bouke Catherine de Jong

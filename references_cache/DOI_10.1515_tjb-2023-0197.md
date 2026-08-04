@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1515/tjb-2023-0197
+reference_id: "DOI:10.1515/tjb-2023-0197"
 title: Determination of molecular pathways and gene ontology of genes associated with Raynaud’s phenomenon
 authors:
 - Gözde Öztan

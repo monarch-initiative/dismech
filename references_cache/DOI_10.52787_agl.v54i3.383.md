@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.52787/agl.v54i3.383
+reference_id: "DOI:10.52787/agl.v54i3.383"
 title: "Sprue colágeno, gastritis colágena y una asociación infrecuente con enfermedad inflamatoria intestinal. Reporte de un caso"
 authors:
 - María Laura Moreno

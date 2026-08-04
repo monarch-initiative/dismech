@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells14151161
+reference_id: "DOI:10.3390/cells14151161"
 title: "Parkinson’s Disease: Bridging Gaps, Building Biomarkers, and Reimagining Clinical Translation"
 authors:
 - Masaru Tanaka

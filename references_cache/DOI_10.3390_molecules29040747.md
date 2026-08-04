@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/molecules29040747
+reference_id: "DOI:10.3390/molecules29040747"
 title: "Neuropsychiatric Systemic Lupus Erythematosus: Molecules Involved in Its Imunopathogenesis, Clinical Features, and Treatment"
 authors:
 - Angel A. Justiz-Vaillant

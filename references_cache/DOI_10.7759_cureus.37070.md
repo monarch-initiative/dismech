@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.37070
+reference_id: "DOI:10.7759/cureus.37070"
 title: Single-Electrode Deep Brain Stimulation of Bilateral Posterolateral Globus Pallidus Internus in Patients With Medically Resistant Lesch-Nyhan Syndrome
 authors:
 - Eliza Baird-Daniel

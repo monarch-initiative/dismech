@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000320235
+reference_id: "DOI:10.1159/000320235"
 title: Mild Clinical Phenotype of Kindler Syndrome Associated with Late Diagnosis and Skin Cancer
 authors:
 - C. Has

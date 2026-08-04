@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10020-023-00774-8
+reference_id: "DOI:10.1186/s10020-023-00774-8"
 title: A new physiological medium uncovers biochemical and cellular alterations in Lesch-Nyhan disease fibroblasts
 authors:
 - Paula Escudero-Ferruz

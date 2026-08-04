@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12887-024-05304-x
+reference_id: "DOI:10.1186/s12887-024-05304-x"
 title: Case series of kidney transplantation in two pediatric recipients with rare genetic diseases and intellectual disability
 authors:
 - Marina Mata

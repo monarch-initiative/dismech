@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.53846/goediss-7825
+reference_id: "DOI:10.53846/goediss-7825"
 title: "Identification of molecular-genetic causes for osteogenesis imperfecta, interdigital hyperplasia and ribosomopathies in cattle"
 authors:
 - Xuying Zhang

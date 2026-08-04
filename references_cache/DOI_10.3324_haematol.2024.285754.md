@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2024.285754
+reference_id: "DOI:10.3324/haematol.2024.285754"
 title: "Pirtobrutinib monotherapy in Bruton tyrosine kinase inhibitor-intolerant patients with B-cell malignancies: results of the phase I/II BRUIN trial"
 authors:
 - Nirav N. Shah

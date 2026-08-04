@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/a-2300-7002
+reference_id: "DOI:10.1055/a-2300-7002"
 title: "Proteus Syndrome: Case Report and Updated Literature Review"
 authors:
 - Maria K Klimeczek-Chrapusta

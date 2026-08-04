@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.2301252120
+reference_id: "DOI:10.1073/pnas.2301252120"
 title: "Intestinal bile acids provide a surmountable barrier against <i>C. difficile</i> TcdB-induced disease pathogenesis"
 authors:
 - Simoun Icho

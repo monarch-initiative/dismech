@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1209577
+reference_id: "DOI:10.3389/fendo.2023.1209577"
 title: "Risk of thyroid neoplasms in patients with 22q11.2 deletion and DiGeorge-like syndromes: an insight for follow-up"
 authors:
 - Walter Maria Sarli

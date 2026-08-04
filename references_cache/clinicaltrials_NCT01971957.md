@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01971957
+reference_id: "clinicaltrials:NCT01971957"
 title: "Sjogren-Larsson Syndrome: A Longitudinal Study of Natural History, Clinical Variation and Evaluation of Biochemical Markers"
 content_type: summary
 full_text_attempted: true

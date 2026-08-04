@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1423107
+reference_id: "DOI:10.3389/fimmu.2024.1423107"
 title: Scientific issues with rodent models of neuromyelitis optic spectrum disorders
 authors:
 - Yusen Huang

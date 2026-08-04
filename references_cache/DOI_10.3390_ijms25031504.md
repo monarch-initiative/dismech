@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25031504
+reference_id: "DOI:10.3390/ijms25031504"
 title: "Mitochondrial Dysfunction, Oxidative Stress, and Inter-Organ Miscommunications in T2D Progression"
 authors:
 - Rajakrishnan Veluthakal

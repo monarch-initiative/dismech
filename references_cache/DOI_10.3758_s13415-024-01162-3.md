@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3758/s13415-024-01162-3
+reference_id: "DOI:10.3758/s13415-024-01162-3"
 title: Understanding the heterogeneity of anxiety using a translational neuroscience approach
 authors:
 - Carly M. Drzewiecki

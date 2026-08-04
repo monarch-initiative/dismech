@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05687474
+reference_id: "clinicaltrials:NCT05687474"
 title: "Universal Genomic Newborn Screening in the Wallonia-Brussels Federation: Baby Detect"
 content_type: summary
 full_text_attempted: true

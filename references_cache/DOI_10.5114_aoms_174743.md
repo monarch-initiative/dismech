@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5114/aoms/174743
+reference_id: "DOI:10.5114/aoms/174743"
 title: "2023: The year in cardiovascular disease - the year of new and prospective lipid lowering therapies. Can we render dyslipidemia a rare disease by 2024?"
 authors:
 - Maciej Banach

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-025-03889-9
+reference_id: "DOI:10.1186/s13023-025-03889-9"
 title: "Cholic acid as a treatment for cerebrotendinous xanthomatosis: a comprehensive review of safety and efficacy"
 authors:
 - Gary Pasternack

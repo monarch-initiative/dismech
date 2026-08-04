@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.24875/bmhim.22000043
+reference_id: "DOI:10.24875/bmhim.22000043"
 title: Acute lichenoid and varioliform pityriasis in a pediatric patient
 authors:
 - Eduardo Marín-Hernández

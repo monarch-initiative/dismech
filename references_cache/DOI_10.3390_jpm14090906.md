@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jpm14090906
+reference_id: "DOI:10.3390/jpm14090906"
 title: Comprehensive Approach for the Genetic Diagnosis of Patients with Waardenburg Syndrome
 authors:
 - Paula Inés Buonfiglio

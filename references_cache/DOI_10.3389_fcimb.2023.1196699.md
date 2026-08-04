@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcimb.2023.1196699
+reference_id: "DOI:10.3389/fcimb.2023.1196699"
 title: The prospective outcome of the monkeypox outbreak in 2022 and characterization of monkeypox disease immunobiology
 authors:
 - Muhammad Suhaib Qudus

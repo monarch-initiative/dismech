@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25084296
+reference_id: "DOI:10.3390/ijms25084296"
 title: "Autoimmune Hemolytic Anemias: Classifications, Pathophysiology, Diagnoses and Management"
 authors:
 - Melika Loriamini

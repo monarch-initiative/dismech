@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11686-024-00828-9
+reference_id: "DOI:10.1007/s11686-024-00828-9"
 title: Development of New PCR Protocols to Detect Genetic Diversity in the Metronidazole Metabolism Genes in Susceptible and Refractory Clinical Samples of Giardia duodenalis
 authors:
 - Ali Asghari

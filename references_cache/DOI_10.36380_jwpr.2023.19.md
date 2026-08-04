@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.36380/jwpr.2023.19
+reference_id: "DOI:10.36380/jwpr.2023.19"
 title: "Campylobacteriosis in Poultry: A Review"
 authors:
 - Sabry A. S. Sadek

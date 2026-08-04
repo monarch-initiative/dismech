@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jbm.s382090
+reference_id: "DOI:10.2147/jbm.s382090"
 title: "Chronic Myeloid Leukemia, from Pathophysiology to Treatment-Free Remission: A Narrative Literature Review"
 authors:
 - Ikhwan Rinaldi

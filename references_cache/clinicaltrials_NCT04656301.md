@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04656301
+reference_id: "clinicaltrials:NCT04656301"
 title: Safety and Efficacy of Psilocybin for Body Dysmorphic Disorder
 content_type: summary
 full_text_attempted: true

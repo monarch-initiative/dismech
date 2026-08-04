@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcimb.2018.00166
+reference_id: "DOI:10.3389/fcimb.2018.00166"
 title: Recent Advances in Replication and Infection of Human Parvovirus B19
 authors:
 - Safder S. Ganaie

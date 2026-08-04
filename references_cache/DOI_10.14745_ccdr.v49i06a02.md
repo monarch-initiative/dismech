@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14745/ccdr.v49i06a02
+reference_id: "DOI:10.14745/ccdr.v49i06a02"
 title: Acute severe hepatitis of unknown origin in children in Canada
 authors:
 - Jennifer Macri

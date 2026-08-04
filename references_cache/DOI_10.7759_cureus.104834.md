@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.104834
+reference_id: "DOI:10.7759/cureus.104834"
 title: "Imported Cutaneous Larva Migrans in an Adolescent Traveler: A Case Report From Chile"
 authors:
 - Diego Guarda

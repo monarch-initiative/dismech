@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12982-024-00247-1
+reference_id: "DOI:10.1186/s12982-024-00247-1"
 title: Classical and innovative drugs for the treatment of Leishmania infections
 authors:
 - Wanessa J. S. Mota

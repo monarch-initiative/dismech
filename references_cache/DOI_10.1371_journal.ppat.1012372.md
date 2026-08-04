@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012372
+reference_id: "DOI:10.1371/journal.ppat.1012372"
 title: Varicella Zoster Virus disrupts MAIT cell polyfunctional effector responses
 authors:
 - Shivam. K. Purohit

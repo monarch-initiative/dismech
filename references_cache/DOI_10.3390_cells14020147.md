@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells14020147
+reference_id: "DOI:10.3390/cells14020147"
 title: Modelling Peroxisomal Disorders in Zebrafish
 authors:
 - Chenxing S. Jiang

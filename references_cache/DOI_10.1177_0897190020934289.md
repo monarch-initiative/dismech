@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0897190020934289
+reference_id: "DOI:10.1177/0897190020934289"
 title: "Management of Cannabinoid Hyperemesis Syndrome: Focus on Capsaicin"
 authors:
 - Janice L. Stumpf

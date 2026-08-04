@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci125538
+reference_id: "DOI:10.1172/jci125538"
 title: Ankyrin-B dysfunction predisposes to arrhythmogenic cardiomyopathy and is amenable to therapy
 authors:
 - Jason D. Roberts

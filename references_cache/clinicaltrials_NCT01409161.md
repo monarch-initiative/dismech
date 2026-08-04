@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01409161
+reference_id: "clinicaltrials:NCT01409161"
 title: "Phase II Study of Treatment of Acute Promyelocytic Leukemia (APL) With ATRA, Arsenic Trioxide and Gemtuzumab Ozogamicin (GO)"
 content_type: summary
 full_text_attempted: true

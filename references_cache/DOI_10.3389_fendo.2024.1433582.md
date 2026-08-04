@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1433582
+reference_id: "DOI:10.3389/fendo.2024.1433582"
 title: "Pheochromocytoma: an updated scoping review from clinical presentation to management and treatment"
 authors:
 - J. S. Saavedra T.

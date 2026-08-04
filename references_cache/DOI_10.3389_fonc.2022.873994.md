@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2022.873994
+reference_id: "DOI:10.3389/fonc.2022.873994"
 title: "Lung Cancer Stem Cell Markers as Therapeutic Targets: An Update on Signaling Pathways and Therapies"
 authors:
 - Yue Zheng

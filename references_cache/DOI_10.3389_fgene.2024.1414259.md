@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1414259
+reference_id: "DOI:10.3389/fgene.2024.1414259"
 title: A novel variation in DEPDC5 causing familial focal epilepsy with variable foci
 authors:
 - Yanchi Wang

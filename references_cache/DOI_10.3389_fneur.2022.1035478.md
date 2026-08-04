@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2022.1035478
+reference_id: "DOI:10.3389/fneur.2022.1035478"
 title: New model of superior semicircular canal dehiscence with reversible diagnostic findings characteristic of patients with the disorder
 authors:
 - P. Ashley Wackym

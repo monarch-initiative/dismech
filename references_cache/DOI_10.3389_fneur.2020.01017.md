@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2020.01017
+reference_id: "DOI:10.3389/fneur.2020.01017"
 title: "Progressive Encephalomyelitis With Rigidity and Myoclonus With Thymoma: A Case Report and Literature Review"
 authors:
 - Yana Su

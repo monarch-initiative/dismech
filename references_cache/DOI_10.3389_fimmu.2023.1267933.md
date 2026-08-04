@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1267933
+reference_id: "DOI:10.3389/fimmu.2023.1267933"
 title: "The genetic and clinical characteristics and effects of Canakinumab on cryopyrin-associated periodic syndrome: a large pediatric cohort study from China"
 authors:
 - Zhou Shu

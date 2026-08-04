@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1354759
+reference_id: "DOI:10.3389/fendo.2024.1354759"
 title: "Diagnosis and management of non-CAH 46,XX disorders/differences in sex development"
 authors:
 - Zehra Yavas Abalı

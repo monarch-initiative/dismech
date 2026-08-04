@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/bloodadvances.2023012354
+reference_id: "DOI:10.1182/bloodadvances.2023012354"
 title: Mechanisms of resistance to bispecific T-cell engagers in multiple myeloma and their clinical implications
 authors:
 - Eric Letouzé

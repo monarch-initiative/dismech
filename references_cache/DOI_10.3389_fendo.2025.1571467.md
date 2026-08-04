@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2025.1571467
+reference_id: "DOI:10.3389/fendo.2025.1571467"
 title: "Retrospective analysis of children with 46,XX testicular/ovotesticular DSD: a 10-year single-center experience"
 authors:
 - Yan Gong

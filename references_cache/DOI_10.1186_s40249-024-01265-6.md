@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40249-024-01265-6
+reference_id: "DOI:10.1186/s40249-024-01265-6"
 title: "Global, regional and national disease burden of food-borne trematodiases: projections to 2030 based on the Global Burden of Disease Study 2021"
 authors:
 - Lu Liu

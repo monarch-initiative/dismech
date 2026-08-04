@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.cdc.gov/babesiosis/hcp/clinical-care/index.html
+reference_id: "url:https://www.cdc.gov/babesiosis/hcp/clinical-care/index.html"
 title: "Clinical Care of Babesiosis | Babesiosis | CDC"
 content_type: url
 ---

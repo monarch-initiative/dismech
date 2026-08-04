@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1590/s1678-9946202466066
+reference_id: "DOI:10.1590/s1678-9946202466066"
 title: "Zika virus infection and acute transverse myelitis: a comprehensive systematic review"
 authors:
 - Bianca Aparecida Colognese

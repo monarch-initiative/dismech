@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15133420
+reference_id: "DOI:10.3390/cancers15133420"
 title: Overview of the Genetic Causes of Hereditary Breast and Ovarian Cancer Syndrome in a Large French Patient Cohort
 authors:
 - Ahmed Bouras

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-023-01690-y
+reference_id: "DOI:10.1186/s40478-023-01690-y"
 title: "CDKN2A/B deletions are strongly associated with meningioma progression: a meta-analysis of individual patient data"
 authors:
 - Johannes Wach

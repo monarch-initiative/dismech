@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2021.699568
+reference_id: "DOI:10.3389/fped.2021.699568"
 title: "CNNM2-Related Disorders: Phenotype and Its Severity Were Associated With the Mode of Inheritance"
 authors:
 - Han Zhang

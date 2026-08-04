@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2023.1303873
+reference_id: "DOI:10.3389/fitd.2023.1303873"
 title: "Single nucleotide polymorphisms in the β-tubulin gene family of Ascaris lumbricoides and their potential role in benzimidazole resistance: a systematic review"
 authors:
 - Teniel Ramkhelawan

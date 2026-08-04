@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.esmoop.2025.104496
+reference_id: "DOI:10.1016/j.esmoop.2025.104496"
 title: How we treat patients with metastatic uveal melanoma
 authors:
 - E.F. Saldanha

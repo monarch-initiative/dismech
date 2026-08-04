@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12903-024-04723-7
+reference_id: "DOI:10.1186/s12903-024-04723-7"
 title: "A case of Melkersson-Rosenthal syndrome with temporomandibular joint osteoarthritis: multidisciplinary treatment and autoimmune etiological hypothesis"
 authors:
 - Antong Wu

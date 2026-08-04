@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms242317021
+reference_id: "DOI:10.3390/ijms242317021"
 title: "Hereditary Spherocytosis: Can Next-Generation Sequencing of the Five Most Frequently Affected Genes Replace Time-Consuming Functional Investigations?"
 authors:
 - Friederike Häuser

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26041644
+reference_id: "DOI:10.3390/ijms26041644"
 title: Mitochondrial HMG-CoA Synthase Deficiency in Vietnamese Patients
 authors:
 - Khanh Ngoc Nguyen

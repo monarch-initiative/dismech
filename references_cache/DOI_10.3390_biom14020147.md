@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14020147
+reference_id: "DOI:10.3390/biom14020147"
 title: The HIF-1α and mTOR Pathways Amplify Heterotopic Ossification
 authors:
 - Haitao Wang

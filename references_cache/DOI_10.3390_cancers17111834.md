@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17111834
+reference_id: "DOI:10.3390/cancers17111834"
 title: Current Advances in the Diagnosis and Treatment of Major Myeloproliferative Neoplasms
 authors:
 - Le Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2024.1440674
+reference_id: "DOI:10.3389/fcvm.2024.1440674"
 title: A dedicated preventive protocol sustainably avoids spinal cord ischemia after endovascular aortic repair
 authors:
 - Lina Rosvall

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4046/trd.2024.0092
+reference_id: "DOI:10.4046/trd.2024.0092"
 title: Update in Association between Lung Cancer and Air Pollution
 authors:
 - Jiye Yoo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v17081069
+reference_id: "DOI:10.3390/v17081069"
 title: "Hepatitis C Virus: Epidemiological Challenges and Global Strategies for Elimination"
 authors:
 - Daniela Toma

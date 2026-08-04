@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011867
+reference_id: "DOI:10.1371/journal.pntd.0011867"
 title: Amoxicillin/clavulanate in combination with rifampicin/clarithromycin is bactericidal against Mycobacterium ulcerans
 authors:
 - Emma Sáez-López

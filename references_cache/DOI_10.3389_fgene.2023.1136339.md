@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1136339
+reference_id: "DOI:10.3389/fgene.2023.1136339"
 title: Non-oral manifestations in adults with a clinical and molecularly confirmed diagnosis of periodontal Ehlers-Danlos syndrome
 authors:
 - C. Angwin

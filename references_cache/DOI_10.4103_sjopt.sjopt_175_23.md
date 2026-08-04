@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4103/sjopt.sjopt_175_23
+reference_id: "DOI:10.4103/sjopt.sjopt_175_23"
 title: "Gene therapy in bestrophinopathies: Insights from preclinical studies in preparation for clinical trials"
 authors:
 - Alessia Amato

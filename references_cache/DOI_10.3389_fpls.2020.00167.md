@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpls.2020.00167
+reference_id: "DOI:10.3389/fpls.2020.00167"
 title: Phosphoglucomutase Is Not the Target for Galactose Toxicity in Plants
 authors:
 - Martina Althammer

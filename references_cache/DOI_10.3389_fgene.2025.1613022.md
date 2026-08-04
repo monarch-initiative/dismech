@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2025.1613022
+reference_id: "DOI:10.3389/fgene.2025.1613022"
 title: "Case Report: Hereditary neuropathy with liability to pressure palsy (HNPP): the role of genetic investigation in diagnostic assessment"
 authors:
 - Salvatore Savasta

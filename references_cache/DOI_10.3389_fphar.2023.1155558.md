@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2023.1155558
+reference_id: "DOI:10.3389/fphar.2023.1155558"
 title: Targeting the formation of estrogens for treatment of hormone dependent diseases–current status
 authors:
 - Tea Lanišnik Rižner

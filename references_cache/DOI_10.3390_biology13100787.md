@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biology13100787
+reference_id: "DOI:10.3390/biology13100787"
 title: "Codes between Poles: Linking Transcriptomic Insights into the Neurobiology of Bipolar Disorder"
 authors:
 - Jon Patrick T. Garcia

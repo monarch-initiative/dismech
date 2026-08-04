@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers18030531
+reference_id: "DOI:10.3390/cancers18030531"
 title: "FGFR2-Rearranged Biliary Tract Cancer: Biology, Resistance Mechanisms, and Emerging Therapeutic Strategies"
 authors:
 - Xin Xin

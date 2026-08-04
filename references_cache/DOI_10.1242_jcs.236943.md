@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1242/jcs.236943
+reference_id: "DOI:10.1242/jcs.236943"
 title: Recent insights into peroxisome biogenesis and associated diseases
 authors:
 - Yukio Fujiki

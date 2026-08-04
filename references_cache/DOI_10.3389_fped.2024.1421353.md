@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2024.1421353
+reference_id: "DOI:10.3389/fped.2024.1421353"
 title: "A narrative review on the role of cytokines in the pathogenesis and treatment of familial Mediterranean fever: an emphasis on pediatric cases"
 authors:
 - Ahlam Chaaban

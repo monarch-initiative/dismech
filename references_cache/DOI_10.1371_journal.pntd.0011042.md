@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011042
+reference_id: "DOI:10.1371/journal.pntd.0011042"
 title: "The epidemiology of human Taenia solium infections: A systematic review of the distribution in Eastern and Southern Africa"
 authors:
 - Gideon Zulu

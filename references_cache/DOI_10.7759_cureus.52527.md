@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.52527
+reference_id: "DOI:10.7759/cureus.52527"
 title: "Evaluating Kaposi Sarcoma in Kidney Transplant Patients: A Systematic Review and Meta-Analysis"
 authors:
 - Sakditad Saowapa

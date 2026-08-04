@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12775/qs.2024.19.53773
+reference_id: "DOI:10.12775/qs.2024.19.53773"
 title: "Advances in Understanding and Managing Refeeding Syndrome: A Comprehensive Review"
 authors:
 - Agata Mazur

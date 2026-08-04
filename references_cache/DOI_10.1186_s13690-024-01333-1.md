@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13690-024-01333-1
+reference_id: "DOI:10.1186/s13690-024-01333-1"
 title: "Laryngeal cancer incidence trends in the United States over 2000–2020: a population-based analysis"
 authors:
 - Seyed Ehsan Mousavi

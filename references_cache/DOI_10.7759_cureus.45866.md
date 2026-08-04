@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.45866
+reference_id: "DOI:10.7759/cureus.45866"
 title: Neuroretinitis as a Complication of Cat Scratch Disease
 authors:
 - Jaycob Avaylon

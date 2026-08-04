@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/tacg.s438957
+reference_id: "DOI:10.2147/tacg.s438957"
 title: A New Inherited Syndrome Causing Sudden Cardiac Death with Distinct ST-Segment Depression and Ankyrin-2-Mutation
 authors:
 - Hubertus von Korn

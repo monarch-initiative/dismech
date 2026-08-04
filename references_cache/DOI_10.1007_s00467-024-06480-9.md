@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00467-024-06480-9
+reference_id: "DOI:10.1007/s00467-024-06480-9"
 title: Shiga toxin-producing Escherichia coli infection as a precipitating factor for atypical hemolytic-uremic syndrome
 authors:
 - Gabriele Mortari

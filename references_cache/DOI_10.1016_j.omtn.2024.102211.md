@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.omtn.2024.102211
+reference_id: "DOI:10.1016/j.omtn.2024.102211"
 title: Adeno-associated virus-based gene therapy delivering combinations of two growth-associated genes to MPS IVA mice
 authors:
 - Estera Rintz

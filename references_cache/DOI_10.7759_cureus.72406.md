@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.72406
+reference_id: "DOI:10.7759/cureus.72406"
 title: "Bartter Syndrome With Recurrent Hypokalemic Periodic Paralysis: A Case Report"
 authors:
 - Arki Das

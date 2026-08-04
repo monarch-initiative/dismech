@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-025-06900-1
+reference_id: "DOI:10.1186/s13071-025-06900-1"
 title: Design and evaluation of a novel direct hemagglutination test based on a recombinant protein for diagnosis of cystic echinococcosis
 authors:
 - Abolfazl Masoumi Koushk Mehdi

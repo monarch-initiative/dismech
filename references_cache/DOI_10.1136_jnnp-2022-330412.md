@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jnnp-2022-330412
+reference_id: "DOI:10.1136/jnnp-2022-330412"
 title: "Serum neurofilament light chain levels at attack predict post-attack disability worsening and are mitigated by inebilizumab: analysis of four potential biomarkers in neuromyelitis optica spectrum disorder"
 authors:
 - Orhan Aktas

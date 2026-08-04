@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1303115
+reference_id: "DOI:10.3389/fimmu.2024.1303115"
 title: "The potential of IFN-λ, IL-32γ, IL-6, and IL-22 as safeguards against human viruses: a systematic review and a meta-analysis"
 authors:
 - Areej A. Sattar

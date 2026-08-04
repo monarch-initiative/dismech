@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1123065
+reference_id: "DOI:10.3389/fcell.2023.1123065"
 title: "The interaction between osteosarcoma and other cells in the bone microenvironment: From mechanism to clinical applications"
 authors:
 - Jin Zeng

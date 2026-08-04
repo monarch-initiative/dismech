@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/ves-150549
+reference_id: "DOI:10.3233/ves-150549"
 title: "Diagnostic criteria for Menière's disease"
 authors:
 - Jose A. Lopez-Escamez

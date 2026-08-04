@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/hemato4010003
+reference_id: "DOI:10.3390/hemato4010003"
 title: "Classification of B-Cell Lymphomas and Immunodeficiency-Related Lymphoproliferations: What’s New?"
 authors:
 - Amy Chadburn

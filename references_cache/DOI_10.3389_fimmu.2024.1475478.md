@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1475478
+reference_id: "DOI:10.3389/fimmu.2024.1475478"
 title: "Case report: target antigen and subclass switch in a patient with autoimmune nodopathy"
 authors:
 - Luise Appeltshauser

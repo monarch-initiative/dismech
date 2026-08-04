@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0883073809355822
+reference_id: "DOI:10.1177/0883073809355822"
 title: "Spinal Cord Infarction Due to Fibrocartilaginous Embolization: The Role of Diffusion Weighted Imaging and Short-Tau Inversion Recovery Sequences"
 authors:
 - Renzo Manara

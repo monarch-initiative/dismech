@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012449
+reference_id: "DOI:10.1371/journal.pntd.0012449"
 title: "Clinical presentation of human leptospirosis in febrile patients: Urabá, Colombia"
 authors:
 - Pablo Uribe-Restrepo

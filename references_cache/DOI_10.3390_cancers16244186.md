@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16244186
+reference_id: "DOI:10.3390/cancers16244186"
 title: New Screening Methods in Melanoma
 authors:
 - Aleksandra Czerw

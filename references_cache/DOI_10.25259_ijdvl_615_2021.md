@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25259/ijdvl_615_2021
+reference_id: "DOI:10.25259/ijdvl_615_2021"
 title: "An overview of mycetoma and its diagnostic dilemma: Time to move on to advanced techniques"
 authors:
 - Uneza Husain

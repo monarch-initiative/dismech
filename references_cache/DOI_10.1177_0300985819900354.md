@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0300985819900354
+reference_id: "DOI:10.1177/0300985819900354"
 title: "Spontaneous <i>KRT5</i> Gene Mutation in Rhesus Macaques ( <i>Macaca mulatta</i> ): A Novel Nonhuman Primate Model of Epidermolysis Bullosa Simplex"
 authors:
 - Amanda L. Johnson

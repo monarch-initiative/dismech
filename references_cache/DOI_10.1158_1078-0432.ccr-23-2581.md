@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-2581
+reference_id: "DOI:10.1158/1078-0432.ccr-23-2581"
 title: "<i>RAS/RAF</i> Comutation and <i>ERBB2</i> Copy Number Modulates HER2 Heterogeneity and Responsiveness to HER2-directed Therapy in Colorectal Cancer"
 authors:
 - Harshabad Singh

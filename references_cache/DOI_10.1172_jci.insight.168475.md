@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.168475
+reference_id: "DOI:10.1172/jci.insight.168475"
 title: Argininosuccinate lyase deficiency causes blood-brain barrier disruption via nitric oxide–mediated dysregulation of claudin expression
 authors:
 - Jordan Kho

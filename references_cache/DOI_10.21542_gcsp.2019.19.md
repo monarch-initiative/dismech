@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21542/gcsp.2019.19
+reference_id: "DOI:10.21542/gcsp.2019.19"
 title: "Drug- and toxin-induced pulmonary arterial hypertension: Current state of the literature"
 authors:
 - Ramon L Ramirez III

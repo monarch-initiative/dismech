@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1373/clinchem.2004.043265
+reference_id: "DOI:10.1373/clinchem.2004.043265"
 title: "2-Ethylhydracrylic Aciduria in Short/Branched-Chain Acyl-CoA Dehydrogenase Deficiency: Application to Diagnosis and Implications for the R-Pathway of Isoleucine Oxidation"
 authors:
 - Stanley H Korman

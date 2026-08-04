@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1500231
+reference_id: "DOI:10.3389/fimmu.2024.1500231"
 title: Cytokine profiling reveals HLA-linked Th2 and Th17 driven immune activation in pemphigus vulgaris patients and genetically susceptible healthy controls
 authors:
 - Rebekah R. Schwartz

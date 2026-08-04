@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01682083
+reference_id: "clinicaltrials:NCT01682083"
 title: "COMBI-AD: A Phase III Randomized Double Blind Study of Dabrafenib (GSK2118436) in COMBInation With Trametinib (GSK1120212) Versus Two Placebos in the ADjuvant Treatment of High-risk BRAF V600 Mutation-positive Melanoma After Surgical Resection"
 content_type: summary
 full_text_attempted: true

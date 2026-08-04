@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1090737
+reference_id: "DOI:10.3389/fmed.2023.1090737"
 title: "Objective response to immune checkpoint inhibitor therapy in NRAS-mutant melanoma: A systematic review and meta-analysis"
 authors:
 - Zachary J. Jaeger

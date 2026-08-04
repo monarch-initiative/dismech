@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00261-022-03724-w
+reference_id: "DOI:10.1007/s00261-022-03724-w"
 title: "Adenocarcinoma of the uterine cervix, gastric-type (GAS): a review of the literature focused on pathology and multimodality imaging"
 authors:
 - Clara M. Kerwin

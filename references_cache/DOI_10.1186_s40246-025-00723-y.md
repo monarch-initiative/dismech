@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40246-025-00723-y
+reference_id: "DOI:10.1186/s40246-025-00723-y"
 title: Sengers syndrome caused by biallelic TIMM29 variants and RNAi silencing in Drosophila orthologue recapitulates the human phenotype
 authors:
 - Adel Shalata

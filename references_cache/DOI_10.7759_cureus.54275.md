@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.54275
+reference_id: "DOI:10.7759/cureus.54275"
 title: "Navigating the Cytokine Storm: A Comprehensive Review of Chemokines and Cytokines in Sepsis"
 authors:
 - Harshitha Reddy

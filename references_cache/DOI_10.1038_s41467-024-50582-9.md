@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-50582-9
+reference_id: "DOI:10.1038/s41467-024-50582-9"
 title: Modelling onchocerciasis-associated epilepsy and the impact of ivermectin treatment on its prevalence and incidence
 authors:
 - Jacob N. Stapley

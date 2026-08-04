@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12874-023-02080-7
+reference_id: "DOI:10.1186/s12874-023-02080-7"
 title: Study methodology and insights from the palovarotene clinical development program in fibrodysplasia ossificans progressiva
 authors:
 - Robert J. Pignolo

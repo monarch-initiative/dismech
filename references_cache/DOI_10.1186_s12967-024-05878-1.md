@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05878-1
+reference_id: "DOI:10.1186/s12967-024-05878-1"
 title: Esophageal microbial dysbiosis impairs mucosal barrier integrity via toll-like receptor 2 pathway in patients with gastroesophageal reflux symptoms
 authors:
 - Songfeng Chen

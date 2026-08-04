@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/children10101701
+reference_id: "DOI:10.3390/children10101701"
 title: Phenotype of Idiopathic Infantile Hypercalcemia Associated with the Heterozygous Pathogenic Variant of SLC34A1 and CYP24A1
 authors:
 - Teofana Otilia Bizerea-Moga

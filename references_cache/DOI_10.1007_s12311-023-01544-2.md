@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12311-023-01544-2
+reference_id: "DOI:10.1007/s12311-023-01544-2"
 title: Classic “PCH” Genes are a Rare Cause of Radiologic Pontocerebellar Hypoplasia
 authors:
 - Rohaya Binti Mohamad Zakaria

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2024.1413248
+reference_id: "DOI:10.3389/fcell.2024.1413248"
 title: Epigenetics in rare neurological diseases
 authors:
 - Chris-Tiann Roberts

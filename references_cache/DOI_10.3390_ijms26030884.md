@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26030884
+reference_id: "DOI:10.3390/ijms26030884"
 title: "A Window into New Insights on Progression Independent of Relapse Activity in Multiple Sclerosis: Role of Therapies and Current Perspective"
 authors:
 - Tommaso Guerra

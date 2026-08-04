@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1146/annurev-pathmechdis-031621-024600
+reference_id: "DOI:10.1146/annurev-pathmechdis-031621-024600"
 title: Tumor Microenvironment in Pancreatic Cancer Pathogenesis and Therapeutic Resistance
 authors:
 - Mara H. Sherman

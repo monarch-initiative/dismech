@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1530/eje-18-0256
+reference_id: "DOI:10.1530/eje-18-0256"
 title: "GENETICS IN ENDOCRINOLOGY: Approaches to molecular genetic diagnosis in the management of differences/disorders of sex development (DSD): position paper of EU COST Action BM 1303 ‘DSDnet’"
 authors:
 - L Audí

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v16121899
+reference_id: "DOI:10.3390/v16121899"
 title: "Chronic Hepatitis C Infection Treated with Direct-Acting Antiviral Agents and Occurrence/Recurrence of Hepatocellular Carcinoma: Does It Still Matter?"
 authors:
 - Carlo Smirne

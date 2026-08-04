@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12987-024-00541-9
+reference_id: "DOI:10.1186/s12987-024-00541-9"
 title: A human pluripotent stem cell-derived in vitro model of the blood–brain barrier in cerebral malaria
 authors:
 - Adnan Gopinadhan

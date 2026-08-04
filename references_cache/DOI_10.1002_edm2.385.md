@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/edm2.385
+reference_id: "DOI:10.1002/edm2.385"
 title: "Medium‐chain Acyl‐COA dehydrogenase deficiency: Pathogenesis, diagnosis, and treatment"
 authors:
 - Emily Mason

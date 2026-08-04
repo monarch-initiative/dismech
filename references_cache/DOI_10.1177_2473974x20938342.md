@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/2473974x20938342
+reference_id: "DOI:10.1177/2473974x20938342"
 title: The Long‐term Efficacy of Botulinum Toxin Injection to Treat Retrograde Cricopharyngeus Dysfunction
 authors:
 - Rebecca C. Hoesli

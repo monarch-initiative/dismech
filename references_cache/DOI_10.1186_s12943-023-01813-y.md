@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-023-01813-y
+reference_id: "DOI:10.1186/s12943-023-01813-y"
 title: Molecular and metabolic regulation of immunosuppression in metastatic pancreatic ductal adenocarcinoma
 authors:
 - Shailendra K. Gautam

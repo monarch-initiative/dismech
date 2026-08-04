@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bjh.19635
+reference_id: "DOI:10.1111/bjh.19635"
 title: Guidelines on the investigation and management of antiphospholipid syndrome
 authors:
 - Deepa J. Arachchillage

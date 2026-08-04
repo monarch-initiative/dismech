@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1542/peds.2023-063064
+reference_id: "DOI:10.1542/peds.2023-063064"
 title: Primary Ciliary Dyskinesia
 authors:
 - Wallace B. Wee

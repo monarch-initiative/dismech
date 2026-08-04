@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-17-0595
+reference_id: "DOI:10.1158/1078-0432.ccr-17-0595"
 title: Cancer Surveillance in Gorlin Syndrome and Rhabdoid Tumor Predisposition Syndrome
 authors:
 - William D. Foulkes

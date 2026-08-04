@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12072558
+reference_id: "DOI:10.3390/jcm12072558"
 title: "Irritable Bowel Syndrome and the Gut Microbiome: A Comprehensive Review"
 authors:
 - Sofia D. Shaikh

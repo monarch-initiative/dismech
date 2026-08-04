@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://api.orphadata.com/rd-natural_history/orphacodes/127
+reference_id: "url:https://api.orphadata.com/rd-natural_history/orphacodes/127"
 title: "https://api.orphadata.com/rd-natural_history/orphacodes/127"
 content_type: url
 ---

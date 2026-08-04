@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12913-023-10285-1
+reference_id: "DOI:10.1186/s12913-023-10285-1"
 title: "Tailored implementation of the FICUS multicomponent family support intervention in adult intensive care units: findings from a mixed methods contextual analysis"
 authors:
 - Lotte Verweij

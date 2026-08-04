@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06458933
+reference_id: "clinicaltrials:NCT06458933"
 title: "A Randomized Controlled Trial Testing Sage: A Couple Intervention for Borderline Personality Disorder"
 content_type: summary
 full_text_attempted: true

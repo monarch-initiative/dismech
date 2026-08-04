@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.1004189
+reference_id: "DOI:10.5772/intechopen.1004189"
 title: Biomarkers as a Therapeutic Approach in Colorectal Carcinoma
 authors:
 - Rustam Effendi-YS

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15585/mmwr.mm7246a1
+reference_id: "DOI:10.15585/mmwr.mm7246a1"
 title: "Trends in the Prevalence of Chronic Obstructive Pulmonary Disease Among Adults Aged ≥18 Years — United States, 2011–2021"
 authors:
 - Yong Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://api.monarchinitiative.org/v3/api/association?subject=MONDO%3A0033558
+reference_id: "url:https://api.monarchinitiative.org/v3/api/association?subject=MONDO%3A0033558"
 title: "https://api.monarchinitiative.org/v3/api/association?subject=MONDO%3A0033558"
 content_type: url
 ---

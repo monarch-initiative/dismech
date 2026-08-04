@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/curroncol30100661
+reference_id: "DOI:10.3390/curroncol30100661"
 title: "Sustained Suppression of Gorlin Syndrome-Associated Basal Cell Carcinomas with Vismodegib or Sonidegib: A Case Series"
 authors:
 - Raquel Wescott

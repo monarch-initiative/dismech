@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-025-03952-5
+reference_id: "DOI:10.1186/s13023-025-03952-5"
 title: "X-linked hypophosphatemia and tumor-induced osteomalacia: a narrative review and expert opinion on the diagnostic and therapeutic challenges in the era of burosumab"
 authors:
 - Maria Luisa Brandi

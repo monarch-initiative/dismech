@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-024-03778-9
+reference_id: "DOI:10.1007/s00428-024-03778-9"
 title: "Multicenter evaluation of an automated, multiplex, RNA-based molecular assay for detection of ALK, ROS1, RET fusions and MET exon 14 skipping in NSCLC"
 authors:
 - Linea Melchior

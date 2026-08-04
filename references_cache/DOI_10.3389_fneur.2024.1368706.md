@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1368706
+reference_id: "DOI:10.3389/fneur.2024.1368706"
 title: "Guillain-Barré syndrome after surgery: a literature review"
 authors:
 - Xiaowen Li

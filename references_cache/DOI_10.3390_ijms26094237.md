@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26094237
+reference_id: "DOI:10.3390/ijms26094237"
 title: A Novel Homozygous 9385 bp Deletion in the FERMT1 (KIND1) Gene in a Malaysian Family with Kindler Epidermolysis bullosa and a Review of Large Deletions
 authors:
 - Alfred Klausegger

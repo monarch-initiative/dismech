@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/opth.s379853
+reference_id: "DOI:10.2147/opth.s379853"
 title: "Ophthalmological Manifestations of Axenfeld-Rieger Syndrome: Current Perspectives"
 authors:
 - Kristi Michels

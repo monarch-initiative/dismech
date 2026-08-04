@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25115775
+reference_id: "DOI:10.3390/ijms25115775"
 title: "Ex Vivo Analysis of Cell Differentiation, Oxidative Stress, Inflammation, and DNA Damage on Cutaneous Field Cancerization"
 authors:
 - Lara Camillo

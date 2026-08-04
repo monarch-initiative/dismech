@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1573905
+reference_id: "DOI:10.3389/fimmu.2025.1573905"
 title: "Interventions in cytokine signaling: novel horizons for psoriasis treatment"
 authors:
 - Lisha Li

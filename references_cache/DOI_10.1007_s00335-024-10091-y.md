@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00335-024-10091-y
+reference_id: "DOI:10.1007/s00335-024-10091-y"
 title: "Canine models of inherited retinal diseases: from neglect to well-recognized translational value"
 authors:
 - Valérie L. Dufour
@@ -71,9 +71,11 @@ that over 100 different dog breeds were affected with PRA.
 Because of advances in cell biology and physiology in the 
 1970’s to 1980’s, our lab became a leader in identifying dif-
 ferent retinal disease models and establishing the structural, 
-  Valérie L. Dufour
+ 
+ Valérie L. Dufour
 vdufour@upenn.edu
-  Gustavo D. Aguirre
+ 
+ Gustavo D. Aguirre
 gda@upenn.edu
 1 Division of Experimental Retinal Therapies, Department of 
 Clinical Sciences, School of Veterinary Medicine, University 

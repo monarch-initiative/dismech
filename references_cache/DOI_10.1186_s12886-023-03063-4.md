@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12886-023-03063-4
+reference_id: "DOI:10.1186/s12886-023-03063-4"
 title: "Cat-scratch disease manifesting as uveitis and binocular fundus nodular lesions: a case report"
 authors:
 - Hao Hong

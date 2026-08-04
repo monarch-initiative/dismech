@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40249-025-01315-7
+reference_id: "DOI:10.1186/s40249-025-01315-7"
 title: One Health integrated strategies for sustainable control of Opisthorchis viverrini infections in rural endemic areas of Thailand
 authors:
 - Suksanti Prakobwong

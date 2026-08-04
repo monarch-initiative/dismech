@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2478/bjmg-2019-0001
+reference_id: "DOI:10.2478/bjmg-2019-0001"
 title: "Achondrogenesis type 2 in a newborn with a novel mutation on the <i>COL2A1</i> gene"
 authors:
 - P Dogan

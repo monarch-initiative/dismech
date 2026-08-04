@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13216364
+reference_id: "DOI:10.3390/jcm13216364"
 title: Imaging in Large Vessel Vasculitis—A Narrative Review
 authors:
 - Ioana Popescu

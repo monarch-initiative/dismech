@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpubh.2023.1329529
+reference_id: "DOI:10.3389/fpubh.2023.1329529"
 title: "Global, national, and regional burden of acute myeloid leukemia among 60–89 years-old individuals: insights from a study covering the period 1990 to 2019"
 authors:
 - Pengyin Chen

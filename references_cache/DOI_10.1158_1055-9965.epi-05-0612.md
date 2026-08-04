@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1055-9965.epi-05-0612
+reference_id: "DOI:10.1158/1055-9965.epi-05-0612"
 title: Quantitative Analysis of Plasma TP53 249Ser-Mutated DNA by Electrospray Ionization Mass Spectrometry
 authors:
 - Matilde E. Lleonart

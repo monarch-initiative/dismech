@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1289/ehp.1103539
+reference_id: "DOI:10.1289/ehp.1103539"
 title: "Seasonal Variation in <i>TP53 R249S</i> -Mutated Serum DNA with Aflatoxin Exposure and Hepatitis B Virus Infection"
 authors:
 - Stéphanie Villar

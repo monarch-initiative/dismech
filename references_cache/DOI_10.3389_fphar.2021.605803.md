@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2021.605803
+reference_id: "DOI:10.3389/fphar.2021.605803"
 title: "Cinical, Metabolic, and Genetic Analysis and Follow-Up of Eight Patients With HIBCH Mutations Presenting With Leigh/Leigh-Like Syndrome"
 authors:
 - Junling Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jitc-2023-008724
+reference_id: "DOI:10.1136/jitc-2023-008724"
 title: Clinical outcomes and safety of immune checkpoint inhibitors in patients with solid tumors and paraneoplastic syndromes
 authors:
 - Amin H Nassar

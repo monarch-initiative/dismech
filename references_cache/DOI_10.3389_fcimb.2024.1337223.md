@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcimb.2024.1337223
+reference_id: "DOI:10.3389/fcimb.2024.1337223"
 title: "The significance of gut microbiota in the etiology of autoimmune hepatitis: a narrative review"
 authors:
 - Chen Sun

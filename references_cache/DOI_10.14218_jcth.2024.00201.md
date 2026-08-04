@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14218/jcth.2024.00201
+reference_id: "DOI:10.14218/jcth.2024.00201"
 title: Liver Characterization of a Cohort of Alpha-1 Antitrypsin Deficiency Patients with and without Lung Disease
 authors:
 - Naweed Mohammad

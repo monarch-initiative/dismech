@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1681/asn.2022050627
+reference_id: "DOI:10.1681/asn.2022050627"
 title: Long-Read Sequencing Identifies Novel Pathogenic Intronic Variants in Gitelman Syndrome
 authors:
 - Daan H.H.M. Viering

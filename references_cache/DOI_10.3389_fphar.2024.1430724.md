@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1430724
+reference_id: "DOI:10.3389/fphar.2024.1430724"
 title: "Comparative effectiveness of treatments for recurrent Clostridioides difficile infection: a network meta-analysis of randomized controlled trials"
 authors:
 - Hong Duo

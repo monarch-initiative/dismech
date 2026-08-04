@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/mmr.2023.12946
+reference_id: "DOI:10.3892/mmr.2023.12946"
 title: "Genetic and phenotypic continuum of HOXA genes: A case with double HOXA9/HOXA13 mutations"
 authors:
 - Hager Jaouadi

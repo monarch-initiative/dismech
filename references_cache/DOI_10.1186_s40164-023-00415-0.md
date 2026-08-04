@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40164-023-00415-0
+reference_id: "DOI:10.1186/s40164-023-00415-0"
 title: "A new dosing regimen of ropeginterferon alfa-2b is highly effective and tolerable: findings from a phase 2 study in Chinese patients with polycythemia vera"
 authors:
 - Jie Jin

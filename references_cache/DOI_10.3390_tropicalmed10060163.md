@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed10060163
+reference_id: "DOI:10.3390/tropicalmed10060163"
 title: "Cutaneous Larva Migrans Refractory to Therapy with Ivermectin: Case Report and Review of Implicated Zoonotic Pathogens, Epidemiology, Anthelmintic Drug Resistance and Therapy"
 authors:
 - Bart J. Currie

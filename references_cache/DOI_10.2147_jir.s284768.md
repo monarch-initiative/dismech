@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jir.s284768
+reference_id: "DOI:10.2147/jir.s284768"
 title: "ANCA Associated Vasculitis Subtypes: Recent Insights and Future Perspectives"
 authors:
 - Keziah Austin

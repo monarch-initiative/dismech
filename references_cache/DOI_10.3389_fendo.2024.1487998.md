@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1487998
+reference_id: "DOI:10.3389/fendo.2024.1487998"
 title: "Effects of probiotic supplementation on bone health in postmenopausal women: a systematic review and meta-analysis"
 authors:
 - Fang Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/molecules29143385
+reference_id: "DOI:10.3390/molecules29143385"
 title: The TRPA1 Ion Channel Mediates Oxidative Stress-Related Migraine Pathogenesis
 authors:
 - Michal Fila

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/aci.0000000000000947
+reference_id: "DOI:10.1097/aci.0000000000000947"
 title: Monogenic forms of common variable immunodeficiency and implications on target therapeutic approaches
 authors:
 - Giulio Tessarin

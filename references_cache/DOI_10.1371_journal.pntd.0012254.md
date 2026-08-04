@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012254
+reference_id: "DOI:10.1371/journal.pntd.0012254"
 title: "Clinical outcomes of chikungunya: A systematic literature review and meta-analysis"
 authors:
 - Kris Rama

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcimb.2025.1626614
+reference_id: "DOI:10.3389/fcimb.2025.1626614"
 title: "Fucoidan as a therapeutic agent for ulcerative colitis: mechanisms of action and modulation of the gut microbiota"
 authors:
 - Yating Zhang

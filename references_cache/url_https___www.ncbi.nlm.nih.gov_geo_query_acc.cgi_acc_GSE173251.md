@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE173251
+reference_id: "url:https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE173251"
 title: GEO Accession viewer
 content_type: url
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2024.1490506
+reference_id: "DOI:10.3389/fmed.2024.1490506"
 title: "Prevalence and predictors of small intestinal bacterial overgrowth in inflammatory bowel disease: a meta-analysis"
 authors:
 - Xin Feng

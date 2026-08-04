@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12041538
+reference_id: "DOI:10.3390/jcm12041538"
 title: "The Role of Tight Junctions in Atopic Dermatitis: A Systematic Review"
 authors:
 - Spyridoula Katsarou

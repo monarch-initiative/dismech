@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2025.1645188
+reference_id: "DOI:10.3389/fphar.2025.1645188"
 title: "DPYD-guided fluoropyrimidine dose adjustment in colorectal cancer DPYD carriers: start slower to finish stronger"
 authors:
 - Rocío Rosas-Alonso

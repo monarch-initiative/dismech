@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40246-024-00603-x
+reference_id: "DOI:10.1186/s40246-024-00603-x"
 title: "Altered skin microbiome, inflammation, and JAK/STAT signaling in Southeast Asian ichthyosis patients"
 authors:
 - Minh Ho

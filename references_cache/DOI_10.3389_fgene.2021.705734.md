@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2021.705734
+reference_id: "DOI:10.3389/fgene.2021.705734"
 title: "Case Report: CNNM2 Mutations Cause Damaged Brain Development and Intractable Epilepsy in a Patient Without Hypomagnesemia"
 authors:
 - Xiucui Li

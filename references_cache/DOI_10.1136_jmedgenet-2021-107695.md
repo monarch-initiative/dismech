@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmedgenet-2021-107695
+reference_id: "DOI:10.1136/jmedgenet-2021-107695"
 title: "Loeys-Dietz and Shprintzen-Goldberg syndromes: analysis of TGF-β-opathies with craniofacial manifestations using an innovative multimodality method"
 authors:
 - Konstantinia Almpani

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2020.00078
+reference_id: "DOI:10.3389/fnmol.2020.00078"
 title: Dysregulation of RNA-Binding Proteins in Amyotrophic Lateral Sclerosis
 authors:
 - Yuan Chao Xue

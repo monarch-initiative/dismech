@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jbmr.2761
+reference_id: "DOI:10.1002/jbmr.2761"
 title: "A New Subtype of Multiple Synostoses Syndrome Is Caused by a Mutation in <i>GDF6</i> That Decreases Its Sensitivity to Noggin and Enhances Its Potency as a BMP Signal"
 authors:
 - Jian Wang

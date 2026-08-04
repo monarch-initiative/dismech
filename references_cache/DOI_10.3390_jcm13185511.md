@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13185511
+reference_id: "DOI:10.3390/jcm13185511"
 title: "Escalating Threat of Drug-Resistant Human Scabies: Current Insights and Future Directions"
 authors:
 - Thierry Simonart

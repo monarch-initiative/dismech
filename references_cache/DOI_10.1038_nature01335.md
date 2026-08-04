@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/nature01335
+reference_id: "DOI:10.1038/nature01335"
 title: Ankyrin-B mutation causes type 4 long-QT cardiac arrhythmia and sudden cardiac death
 authors:
 - Peter J. Mohler

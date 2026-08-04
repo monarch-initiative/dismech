@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37897/rjp.2021.3.4
+reference_id: "DOI:10.37897/rjp.2021.3.4"
 title: "A rare but treatable inborn error of metabolism: Arginine glycine amidinotransferase (AGAT) deficiency"
 authors:
 - Sebastian Romeo Pintilie

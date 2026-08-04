@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5152/tjg.2024.23366
+reference_id: "DOI:10.5152/tjg.2024.23366"
 title: The Relationship Between DNA Mismatch Repair Status and Clinicopathologic Characteristics in Colon Cancer
 authors:
 - Mehmet Doğan

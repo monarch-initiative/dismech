@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2024.1445193
+reference_id: "DOI:10.3389/fcvm.2024.1445193"
 title: "Trends and patterns in pulmonary arterial hypertension-associated hospital admissions among methamphetamine users: a decade-long study"
 authors:
 - Amanda Husein

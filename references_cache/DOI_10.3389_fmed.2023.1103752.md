@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1103752
+reference_id: "DOI:10.3389/fmed.2023.1103752"
 title: 18-Fluorodeoxyglucose positron emission tomography/computed tomography for large vessel vasculitis in clinical practice
 authors:
 - Kladoum Nassarmadji

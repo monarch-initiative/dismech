@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2174/1573403x18666220317093131
+reference_id: "DOI:10.2174/1573403x18666220317093131"
 title: "Vertebral Artery Interventions: A Comprehensive Updated Review"
 authors:
 - Tamunoinemi Bob-Manuel

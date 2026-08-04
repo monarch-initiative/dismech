@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1637626
+reference_id: "DOI:10.3389/fimmu.2025.1637626"
 title: Emerging frontiers in epigenetic-targeted therapeutics for pediatric neuroblastoma
 authors:
 - Xiaokang Wang

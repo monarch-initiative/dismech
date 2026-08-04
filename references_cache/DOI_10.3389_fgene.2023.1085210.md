@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1085210
+reference_id: "DOI:10.3389/fgene.2023.1085210"
 title: Novel variants and phenotypic heterogeneity in a cohort of 11 Chinese children with Wiedemann-Steiner syndrome
 authors:
 - Yunting Lin

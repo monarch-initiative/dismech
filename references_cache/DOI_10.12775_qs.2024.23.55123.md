@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12775/qs.2024.23.55123
+reference_id: "DOI:10.12775/qs.2024.23.55123"
 title: "What Sets Uveal Melanoma Apart, and How Can We Address It? A Comprehensive Review of Pathophysiology, Diagnosis and Treatment"
 authors:
 - Karina Lissak

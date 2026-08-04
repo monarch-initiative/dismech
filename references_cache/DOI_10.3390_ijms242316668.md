@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms242316668
+reference_id: "DOI:10.3390/ijms242316668"
 title: "Polyarteritis Nodosa: Old Disease, New Etiologies"
 authors:
 - Louis Wolff

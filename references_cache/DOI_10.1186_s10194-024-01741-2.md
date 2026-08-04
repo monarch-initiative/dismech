@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10194-024-01741-2
+reference_id: "DOI:10.1186/s10194-024-01741-2"
 title: The glymphatic system in migraine and other headaches
 authors:
 - Maria Grazia Vittorini

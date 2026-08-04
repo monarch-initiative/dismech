@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13110918
+reference_id: "DOI:10.3390/cells13110918"
 title: Therapeutic Relevance of Inducing Autophagy in β-Thalassemia
 authors:
 - Roberto Gambari

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12933-024-02154-w
+reference_id: "DOI:10.1186/s12933-024-02154-w"
 title: "The effectiveness of sodium-glucose co-transporter 2 inhibitors on cardiorenal outcomes: an updated systematic review and meta-analysis"
 authors:
 - Muhammad Usman Ali

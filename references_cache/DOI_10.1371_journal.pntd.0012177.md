@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012177
+reference_id: "DOI:10.1371/journal.pntd.0012177"
 title: Noma finally recognised as a neglected tropical disease
 authors:
 - Stuart Ainsworth

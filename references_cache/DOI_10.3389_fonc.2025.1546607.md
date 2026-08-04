@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1546607
+reference_id: "DOI:10.3389/fonc.2025.1546607"
 title: Clinicopathological analysis of 13 patients with embryonal rhabdomyosarcoma of the female reproductive system in the Chinese population
 authors:
 - Liping Bai

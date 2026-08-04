@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.23.01075
+reference_id: "DOI:10.1200/jco.23.01075"
 title: Long-Term Results of the Dasatinib-Blinatumomab Protocol for Adult Philadelphia-Positive ALL
 authors:
 - Robin Foà

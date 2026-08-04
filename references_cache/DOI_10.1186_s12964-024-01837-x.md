@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12964-024-01837-x
+reference_id: "DOI:10.1186/s12964-024-01837-x"
 title: "Molecular genetics, therapeutics and RET inhibitor resistance for medullary thyroid carcinoma and future perspectives"
 authors:
 - Ying Zhang

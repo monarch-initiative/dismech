@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/tlcr.2019.10.22
+reference_id: "DOI:10.21037/tlcr.2019.10.22"
 title: Targeting BRAF mutations in non-small cell lung cancer
 authors:
 - Connor Gerard O’Leary

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-025-61214-1
+reference_id: "DOI:10.1038/s41467-025-61214-1"
 title: Spatial and single cell mapping of castleman disease reveals key stromal cell types and cytokine pathways
 authors:
 - David Smith

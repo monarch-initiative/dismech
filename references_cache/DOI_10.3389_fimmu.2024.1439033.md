@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1439033
+reference_id: "DOI:10.3389/fimmu.2024.1439033"
 title: "Potential therapeutic option for EGFR-mutant small cell lung cancer transformation: a case report and literature review"
 authors:
 - Xiaoxuan Li

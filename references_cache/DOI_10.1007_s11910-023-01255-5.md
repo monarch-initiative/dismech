@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11910-023-01255-5
+reference_id: "DOI:10.1007/s11910-023-01255-5"
 title: "Hashimoto’s Encephalopathy: Case Series and Literature Review"
 authors:
 - Jasodhara Chaudhuri

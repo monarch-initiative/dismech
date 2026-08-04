@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1126/sciimmunol.abi6887
+reference_id: "DOI:10.1126/sciimmunol.abi6887"
 title: IL-31–dependent neurogenic inflammation restrains cutaneous type 2 immune response in allergic dermatitis
 authors:
 - Marlys S. Fassett

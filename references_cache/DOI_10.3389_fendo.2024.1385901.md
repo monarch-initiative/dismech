@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1385901
+reference_id: "DOI:10.3389/fendo.2024.1385901"
 title: "Testicular differentiation in 46,XX DSD: an overview of genetic causes"
 authors:
 - Maria Tereza Martins Ferrari

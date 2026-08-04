@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1184895
+reference_id: "DOI:10.3389/fendo.2023.1184895"
 title: "Patterns of de novo metastasis and survival outcomes by age in breast cancer patients: a SEER population-based study"
 authors:
 - Qian Xiao

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/children11111342
+reference_id: "DOI:10.3390/children11111342"
 title: "Refractory Chylothorax and Ventricular Hypertrophy Treated with Trametinib in a Patient with Noonan Syndrome: 18-Month Follow-Up"
 authors:
 - Antonia Pascarella

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0298332
+reference_id: "DOI:10.1371/journal.pone.0298332"
 title: "Efficacy and safety of prazequantel for the treatment of Schistosoma mansoni infection across different transmission settings in Amhara Regional State, northwest Ethiopia"
 authors:
 - Getaneh Alemu

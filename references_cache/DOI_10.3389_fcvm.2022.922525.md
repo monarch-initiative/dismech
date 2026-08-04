@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2022.922525
+reference_id: "DOI:10.3389/fcvm.2022.922525"
 title: "Short-coupled variant of torsade de pointes: A systematic review of case reports and case series"
 authors:
 - Guangqiang Wang

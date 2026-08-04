@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-47322-4
+reference_id: "DOI:10.1038/s41467-024-47322-4"
 title: Structural basis for antiepileptic drugs and botulinum neurotoxin recognition of SV2A
 authors:
 - Atsushi Yamagata

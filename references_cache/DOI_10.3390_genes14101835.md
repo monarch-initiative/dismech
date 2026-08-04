@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14101835
+reference_id: "DOI:10.3390/genes14101835"
 title: Independent COL17A1 Variants in Cats with Junctional Epidermolysis Bullosa
 authors:
 - Sarah Kiener

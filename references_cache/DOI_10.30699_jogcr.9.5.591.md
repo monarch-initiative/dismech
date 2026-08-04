@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.30699/jogcr.9.5.591
+reference_id: "DOI:10.30699/jogcr.9.5.591"
 title: "Dysgerminoma in a Patient with 46, XY Karyotype and Pure Gonadal Dysgenesis (Swyer Syndrome): A Case Report and Literature Review"
 authors:
 - Mahsa Akbari Oryani

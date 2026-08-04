@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1355455
+reference_id: "DOI:10.3389/fimmu.2024.1355455"
 title: "Macrophages in acne vulgaris: mediating phagocytosis, inflammation, scar formation, and therapeutic implications"
 authors:
 - Yibo Feng

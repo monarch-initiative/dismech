@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12071457
+reference_id: "DOI:10.3390/biomedicines12071457"
 title: "The Re-Emergence of Mpox: Old Illness, Modern Challenges"
 authors:
 - Mohammad Ali Zinnah

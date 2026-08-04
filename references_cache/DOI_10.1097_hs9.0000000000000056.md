@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/hs9.0000000000000056
+reference_id: "DOI:10.1097/hs9.0000000000000056"
 title: Ruxolitinib for the Treatment of Essential Thrombocythemia
 authors:
 - Arief Gunawan

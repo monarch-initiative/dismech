@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines13061424
+reference_id: "DOI:10.3390/biomedicines13061424"
 title: "Pathogenesis and Therapeutic Perspectives of Tubular Injury in Diabetic Kidney Disease: An Update"
 authors:
 - Jiamian Geng

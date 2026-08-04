@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1358511
+reference_id: "DOI:10.3389/fimmu.2024.1358511"
 title: "The viral etiology of EBV-associated gastric cancers contributes to their unique pathology, clinical outcomes, treatment responses and immune landscape"
 authors:
 - Mikhail Y. Salnikov

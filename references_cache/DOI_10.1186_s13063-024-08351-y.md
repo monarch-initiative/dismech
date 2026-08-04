@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13063-024-08351-y
+reference_id: "DOI:10.1186/s13063-024-08351-y"
 title: "Multicomponent family support intervention in intensive care units: statistical analysis plan for the cluster-randomized controlled FICUS trial"
 authors:
 - Stefanie von Felten

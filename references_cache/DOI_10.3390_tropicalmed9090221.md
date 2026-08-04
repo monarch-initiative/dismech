@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed9090221
+reference_id: "DOI:10.3390/tropicalmed9090221"
 title: Schistosomiasis in the Military—A Narrative Review
 authors:
 - Diana Isabela Costescu Strachinaru

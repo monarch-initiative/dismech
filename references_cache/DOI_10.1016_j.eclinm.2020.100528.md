@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.eclinm.2020.100528
+reference_id: "DOI:10.1016/j.eclinm.2020.100528"
 title: 22q11.2 microdeletion and increased risk for type 2 diabetes
 authors:
 - Lily Van

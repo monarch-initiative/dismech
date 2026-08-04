@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.51891/rease.v10i10.15915
+reference_id: "DOI:10.51891/rease.v10i10.15915"
 title: "GIARDÍASE: DIAGNÓSTICO, TRATAMENTO E ABORDAGENS MULTIDISCIPLINARES"
 authors:
 - Marcelo Fagundes Amorim

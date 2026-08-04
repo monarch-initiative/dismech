@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE36701
+reference_id: "GEO:GSE36701"
 title: Gene expression analysis of rectal mucosa in chronic irritable bowel syndrome (IBS) compared to healthy volunteers (HV)
 content_type: summary
 full_text_attempted: true

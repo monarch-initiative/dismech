@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1229112
+reference_id: "DOI:10.3389/fneur.2023.1229112"
 title: FcRN receptor antagonists in the management of myasthenia gravis
 authors:
 - Vinaya Bhandari

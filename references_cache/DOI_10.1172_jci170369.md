@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci170369
+reference_id: "DOI:10.1172/jci170369"
 title: The IFITM5 mutation in osteogenesis imperfecta type V is associated with an ERK/SOX9-dependent osteoprogenitor differentiation defect
 authors:
 - Ronit Marom

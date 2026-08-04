@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31138/mjr.270324.tis
+reference_id: "DOI:10.31138/mjr.270324.tis"
 title: "Type I Interferons in Systemic Autoimmune Rheumatic Diseases: Pathogenesis, Clinical Features and Treatment Options"
 authors:
 - Konstantinos Drougkas

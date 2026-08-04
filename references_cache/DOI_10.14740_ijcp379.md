@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14740/ijcp379
+reference_id: "DOI:10.14740/ijcp379"
 title: "Lane-Hamilton Syndrome With Respiratory Failure: A Case Report"
 authors:
 - Aparna Chakravarty

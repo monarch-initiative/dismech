@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-17027-9
+reference_id: "DOI:10.1038/s41598-025-17027-9"
 title: Novel COL4A3–COL4A5 variants and digenic inheritance in pediatric Alport syndrome from Southwestern China
 authors:
 - Ji-Yu Chen

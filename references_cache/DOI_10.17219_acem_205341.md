@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17219/acem/205341
+reference_id: "DOI:10.17219/acem/205341"
 title: "Hypophosphatasia in children: From low alkaline phosphatase activity to diagnosis, genetic testing, and treatment options. A narrative review"
 authors:
 - Patryk Lipiński

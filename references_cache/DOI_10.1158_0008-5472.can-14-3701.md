@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/0008-5472.can-14-3701
+reference_id: "DOI:10.1158/0008-5472.can-14-3701"
 title: TP53 Silencing Bypasses Growth Arrest of BRAFV600E-Induced Lung Tumor Cells in a Two-Switch Model of Lung Tumorigenesis
 authors:
 - Anny Shai

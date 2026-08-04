@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16050901
+reference_id: "DOI:10.3390/cancers16050901"
 title: "Hepatocellular Carcinoma: Old and Emerging Therapeutic Targets"
 authors:
 - Greta Pessino

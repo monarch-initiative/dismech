@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1146/annurev-immunol-082323-031642
+reference_id: "DOI:10.1146/annurev-immunol-082323-031642"
 title: The Integrated Pulmonary Immune Response to Pneumonia
 authors:
 - Katrina E. Traber

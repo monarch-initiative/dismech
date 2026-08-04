@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/2050640620934911
+reference_id: "DOI:10.1177/2050640620934911"
 title: European Guideline on IgG4‐related digestive disease – UEG and SGF evidence‐based recommendations
 authors:
 - J‐Matthias Löhr

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0042-1749362
+reference_id: "DOI:10.1055/s-0042-1749362"
 title: "Inborn Errors of Ketogenesis: Novel Variants, Clinical Presentation, and Follow-Up in a Series of Four Patients"
 authors:
 - Haseena Sait

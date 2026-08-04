@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13030785
+reference_id: "DOI:10.3390/jcm13030785"
 title: A Risk of Gonadoblastoma in Familial Swyer Syndrome—A Case Report and Literature Review
 authors:
 - Ewa Rudnicka

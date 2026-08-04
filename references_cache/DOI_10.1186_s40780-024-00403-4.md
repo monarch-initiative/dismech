@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40780-024-00403-4
+reference_id: "DOI:10.1186/s40780-024-00403-4"
 title: Pharmacist intervention and identification of adverse events related to treatment efficacy in cancer chemotherapy to improve clinical outcomes
 authors:
 - Hironori Fujii

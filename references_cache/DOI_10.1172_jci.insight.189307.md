@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.189307
+reference_id: "DOI:10.1172/jci.insight.189307"
 title: "TYRA-300, an FGFR3-selective inhibitor, promotes bone growth in two FGFR3-driven models of chondrodysplasia"
 authors:
 - Jacqueline H. Starrett

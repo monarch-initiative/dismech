@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/microorganisms12081708
+reference_id: "DOI:10.3390/microorganisms12081708"
 title: Parvovirus B19 in Rheumatic Diseases
 authors:
 - Rosaria Arvia

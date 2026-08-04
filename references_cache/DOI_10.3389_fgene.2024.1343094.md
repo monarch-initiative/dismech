@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1343094
+reference_id: "DOI:10.3389/fgene.2024.1343094"
 title: Identification of new variants in patients with mucopolysaccharidosis in consanguineous Iranian families
 authors:
 - Rezvan Zabihi

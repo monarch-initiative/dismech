@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41388-023-02611-y
+reference_id: "DOI:10.1038/s41388-023-02611-y"
 title: Transgenic IDH2R172K and IDH2R140Q zebrafish models recapitulated features of human acute myeloid leukemia
 authors:
 - Dandan Wang

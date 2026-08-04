@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/ftox.2024.1465728
+reference_id: "DOI:10.3389/ftox.2024.1465728"
 title: "Cannabinoid hyperemesis syndrome: genetic susceptibility to toxic exposure"
 authors:
 - Ethan B. Russo

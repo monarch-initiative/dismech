@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2025.1506201
+reference_id: "DOI:10.3389/fmed.2025.1506201"
 title: "Acute transverse myelitis caused by Paragonimus infection: a case report and review of the literature"
 authors:
 - Zhiguo Wen

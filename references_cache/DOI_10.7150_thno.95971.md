@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7150/thno.95971
+reference_id: "DOI:10.7150/thno.95971"
 title: Single cell analyses reveal the PD-1 blockade response-related immune features in hepatocellular carcinoma
 authors:
 - Yao Li

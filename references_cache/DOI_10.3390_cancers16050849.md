@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16050849
+reference_id: "DOI:10.3390/cancers16050849"
 title: "Lynch Syndrome: From Multidisciplinary Management to Precision Prevention"
 authors:
 - Arianna Dal Buono

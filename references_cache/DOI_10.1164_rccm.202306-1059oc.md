@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1164/rccm.202306-1059oc
+reference_id: "DOI:10.1164/rccm.202306-1059oc"
 title: Airway “Resistotypes” and Clinical Outcomes in Bronchiectasis
 authors:
 - Micheál Mac Aogáin

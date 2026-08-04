@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/circgenetics.116.001537
+reference_id: "DOI:10.1161/circgenetics.116.001537"
 title: "Novel Variant in the <i>ANK2</i> Membrane-Binding Domain Is Associated With Ankyrin-B Syndrome and Structural Heart Disease in a First Nations Population With a High Rate of Long QT Syndrome"
 authors:
 - Leigh Anne Swayne

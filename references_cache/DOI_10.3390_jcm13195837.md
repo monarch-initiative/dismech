@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13195837
+reference_id: "DOI:10.3390/jcm13195837"
 title: "Malignant Pleural Mesothelioma: A Comprehensive Review"
 authors:
 - Molly Jain

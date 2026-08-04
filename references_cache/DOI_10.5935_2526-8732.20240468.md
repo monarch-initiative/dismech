@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5935/2526-8732.20240468
+reference_id: "DOI:10.5935/2526-8732.20240468"
 title: "Gastrointestinal stromal tumors: advances in molecular characterization and therapeutic implications"
 authors:
 - Nildevande Firmino Lima

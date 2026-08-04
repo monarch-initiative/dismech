@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/WNL.0000000000003414
+reference_id: "DOI:10.1212/WNL.0000000000003414"
 title: NMDA receptor encephalitis and other antibody-mediated disorders of the synapse
 authors:
 - Josep Dalmau

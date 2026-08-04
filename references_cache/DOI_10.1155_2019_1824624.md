@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1155/2019/1824624
+reference_id: "DOI:10.1155/2019/1824624"
 title: "The Role of Toll-Like Receptors in Skin Host Defense, Psoriasis, and Atopic Dermatitis"
 authors:
 - Lixiang Sun

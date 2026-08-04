@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1503/cjs.003624
+reference_id: "DOI:10.1503/cjs.003624"
 title: Complications of cerebrospinal fluid drainage in thoracoabdominal aortic procedures
 authors:
 - Halli Krzyzaniak

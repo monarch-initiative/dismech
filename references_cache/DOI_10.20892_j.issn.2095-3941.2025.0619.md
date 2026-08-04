@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20892/j.issn.2095-3941.2025.0619
+reference_id: "DOI:10.20892/j.issn.2095-3941.2025.0619"
 title: "Global epidemiology of ovarian cancer: patterns, trends, and risk factors"
 authors:
 - Ruyuan Li

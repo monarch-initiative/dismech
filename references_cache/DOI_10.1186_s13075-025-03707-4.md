@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13075-025-03707-4
+reference_id: "DOI:10.1186/s13075-025-03707-4"
 title: Transcriptome analysis unveils Th1 cell cycle signature as a distinctive feature of mixed connective tissue disease
 authors:
 - Yuichi Suwa

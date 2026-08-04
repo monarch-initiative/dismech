@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13287-025-04464-6
+reference_id: "DOI:10.1186/s13287-025-04464-6"
 title: Uncovering cell type-specific phenotypes using a novel human in vitro model of transthyretin amyloid cardiomyopathy
 authors:
 - Jiabin Qin

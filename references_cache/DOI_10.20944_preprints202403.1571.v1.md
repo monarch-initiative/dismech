@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20944/preprints202403.1571.v1
+reference_id: "DOI:10.20944/preprints202403.1571.v1"
 title: Small Intestinal Bacterial Overgrowth (SIBO) and Twelve Groups of Diseases Related- Current State of Knowledge
 authors:
 - Paulina Roszkowska

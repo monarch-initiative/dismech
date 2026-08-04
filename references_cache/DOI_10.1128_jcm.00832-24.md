@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/jcm.00832-24
+reference_id: "DOI:10.1128/jcm.00832-24"
 title: Comparison of a dual antibody and antigen HCV immunoassay to standard of care algorithmic testing
 authors:
 - Tina I. Bui

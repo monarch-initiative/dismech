@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41388-023-02889-y
+reference_id: "DOI:10.1038/s41388-023-02889-y"
 title: Dual targeting of MAPK and PI3K pathways unlocks redifferentiation of Braf-mutated thyroid cancer organoids
 authors:
 - Hélène Lasolle

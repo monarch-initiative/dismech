@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.36469/001c.37739
+reference_id: "DOI:10.36469/001c.37739"
 title: Economic Outcomes and Incidence of Postsurgical Hypotension With Liposomal Bupivacaine vs Epidural Analgesia in Abdominal Surgeries
 authors:
 - Margaret Holtz

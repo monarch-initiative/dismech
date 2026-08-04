@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13090733
+reference_id: "DOI:10.3390/cells13090733"
 title: Crosstalk between DNA Damage Repair and Metabolic Regulation in Hematopoietic Stem Cells
 authors:
 - Jian Xu

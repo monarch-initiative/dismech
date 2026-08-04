@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13080627
+reference_id: "DOI:10.3390/pathogens13080627"
 title: "Prevalence, Infection Intensity, and Risk Factors for Soil-transmitted Helminth Infections among School Children in Northwestern Tanzania"
 authors:
 - Nyanda C. Justine

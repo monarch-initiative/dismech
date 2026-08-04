@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26083515
+reference_id: "DOI:10.3390/ijms26083515"
 title: "Update on the Clinical and Molecular Characterization of Noonan Syndrome and Other RASopathies: A Retrospective Study and Systematic Review"
 authors:
 - Giuseppe Reynolds

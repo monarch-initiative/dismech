@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bjophthalmol-2019-313984
+reference_id: "DOI:10.1136/bjophthalmol-2019-313984"
 title: "Naevus of Ota: clinical characteristics and proposal for a new ocular classification and grading system"
 authors:
 - Vicktoria Vishnevskia-Dai

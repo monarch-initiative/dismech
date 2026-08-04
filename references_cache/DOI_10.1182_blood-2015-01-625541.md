@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2015-01-625541
+reference_id: "DOI:10.1182/blood-2015-01-625541"
 title: Hematopoietic stem cell transplantation for infantile osteopetrosis
 authors:
 - Paul J. Orchard

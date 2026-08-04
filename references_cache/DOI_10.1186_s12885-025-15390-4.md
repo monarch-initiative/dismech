@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-025-15390-4
+reference_id: "DOI:10.1186/s12885-025-15390-4"
 title: "Management and survival outcomes of desmoplastic small round cell tumor: a retrospective cohort study from a tertiary cancer center"
 authors:
 - Senthamizhan Sundaramoorthy

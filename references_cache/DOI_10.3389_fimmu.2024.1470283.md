@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1470283
+reference_id: "DOI:10.3389/fimmu.2024.1470283"
 title: Systematic low-grade chronic inflammation and intrinsic mechanisms in polycystic ovary syndrome
 authors:
 - Hongxia Deng

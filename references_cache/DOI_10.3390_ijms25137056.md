@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25137056
+reference_id: "DOI:10.3390/ijms25137056"
 title: "Therapeutic Approaches for Non-Melanoma Skin Cancer: Standard of Care and Emerging Modalities"
 authors:
 - Stefano Sol

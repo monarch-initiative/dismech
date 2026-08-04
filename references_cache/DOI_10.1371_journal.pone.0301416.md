@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0301416
+reference_id: "DOI:10.1371/journal.pone.0301416"
 title: Serum proteomic profiling of patients with compensated advanced chronic liver disease with and without clinically significant portal hypertension
 authors:
 - Frane Pastrovic

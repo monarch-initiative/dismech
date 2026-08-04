@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/17588359231177015
+reference_id: "DOI:10.1177/17588359231177015"
 title: "Precision oncology with selective RET inhibitor selpercatinib in <i>RET</i>-rearranged cancers"
 authors:
 - Mohamed A. Gouda

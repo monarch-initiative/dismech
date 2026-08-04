@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43161-024-00258-8
+reference_id: "DOI:10.1186/s43161-024-00258-8"
 title: "Autoimmune mechanisms in Guillain-Barré syndrome subtypes: a systematic review"
 authors:
 - O. I. Oshomoji

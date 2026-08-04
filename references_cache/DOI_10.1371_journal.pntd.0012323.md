@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012323
+reference_id: "DOI:10.1371/journal.pntd.0012323"
 title: "American Cutaneous Leishmaniasis: Imported cases in Berlin 2000–2023"
 authors:
 - Andreas K. Lindner

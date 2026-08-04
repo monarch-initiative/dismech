@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1458967
+reference_id: "DOI:10.3389/fimmu.2024.1458967"
 title: Varicella-zoster virus recapitulates its immune evasive behaviour in matured hiPSC-derived neurospheroids
 authors:
 - Jonas Govaerts

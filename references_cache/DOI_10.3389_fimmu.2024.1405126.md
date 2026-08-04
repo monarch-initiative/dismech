@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1405126
+reference_id: "DOI:10.3389/fimmu.2024.1405126"
 title: Advances in cellular and molecular pathways of salivary gland damage in Sjögren’s syndrome
 authors:
 - Wenxia Qi

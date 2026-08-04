@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12964-024-01545-6
+reference_id: "DOI:10.1186/s12964-024-01545-6"
 title: "Multiregion WES of metastatic pancreatic neuroendocrine tumors revealed heterogeneity in genomic alterations, immune microenvironment and evolutionary patterns"
 authors:
 - Yu Jiang

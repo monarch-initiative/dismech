@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/ms9.0000000000001512
+reference_id: "DOI:10.1097/ms9.0000000000001512"
 title: "Cutaneous larva migrans in a child: a case report and review of literature"
 authors:
 - Amrita Shrestha

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/tacg.s372241
+reference_id: "DOI:10.2147/tacg.s372241"
 title: Updated Perspectives on the Diagnosis and Management of Familial Adenomatous Polyposis
 authors:
 - Filippos Kyriakidis

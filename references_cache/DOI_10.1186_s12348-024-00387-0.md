@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12348-024-00387-0
+reference_id: "DOI:10.1186/s12348-024-00387-0"
 title: "Application of metagenomic next-generation sequencing in the diagnosis of Bartonella neuroretinitis: a case report and literature review"
 authors:
 - Pengcheng Li

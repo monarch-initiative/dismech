@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13229-021-00460-8
+reference_id: "DOI:10.1186/s13229-021-00460-8"
 title: Abnormal sleep physiology in children with 15q11.2-13.1 duplication (Dup15q) syndrome
 authors:
 - Vidya Saravanapandian

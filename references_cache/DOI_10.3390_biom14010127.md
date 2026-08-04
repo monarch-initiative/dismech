@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14010127
+reference_id: "DOI:10.3390/biom14010127"
 title: "Progress to Clarify How NOTCH3 Mutations Lead to CADASIL, a Hereditary Cerebral Small Vessel Disease"
 authors:
 - Ikuko Mizuta

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00428-023-03516-7
+reference_id: "DOI:10.1007/s00428-023-03516-7"
 title: Prevalence of IRF4 rearrangement in large B-cell lymphomas of the Waldeyer’s ring in adults
 authors:
 - Sebastian Streich

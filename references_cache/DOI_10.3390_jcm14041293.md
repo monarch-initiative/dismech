@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm14041293
+reference_id: "DOI:10.3390/jcm14041293"
 title: "Spinal Cord Infarction: Clinical and Neuroradiological Clues of a Rare Stroke Subtype"
 authors:
 - Marialuisa Zedde

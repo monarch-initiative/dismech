@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12102385
+reference_id: "DOI:10.3390/biomedicines12102385"
 title: "Pheochromocytoma–Paraganglioma Syndrome: A Multiform Disease with Different Genotype and Phenotype Features"
 authors:
 - Mara Giacché

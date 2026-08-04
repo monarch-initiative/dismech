@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12957-024-03449-8
+reference_id: "DOI:10.1186/s12957-024-03449-8"
 title: "Efficacy and toxicity of KRASG12C inhibitors in advanced solid tumors: a meta-analysis"
 authors:
 - Shoutao Dang

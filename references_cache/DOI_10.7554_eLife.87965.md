@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/eLife.87965
+reference_id: "DOI:10.7554/eLife.87965"
 title: Inhibitory CCK+ basket synapse defects in mouse models of dystroglycanopathy
 authors:
 - Jennifer N Jahncke

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07269665
+reference_id: "clinicaltrials:NCT07269665"
 title: "A First-In-Human, Open Label, Dose Escalation Trial to Evaluate the Safety, Tolerability and Pharmacodynamics of a Single Dose of AXV-101 in Patients With Bardet-Biedl Syndrome 1 (BBS1) Bi-Allelic Mutations and Retinal Degeneration"
 content_type: summary
 full_text_attempted: true

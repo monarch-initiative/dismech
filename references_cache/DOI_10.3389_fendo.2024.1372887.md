@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1372887
+reference_id: "DOI:10.3389/fendo.2024.1372887"
 title: "Long-term outcomes in non-CAH 46,XX DSD"
 authors:
 - Virginie Grouthier

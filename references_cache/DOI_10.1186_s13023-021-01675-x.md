@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-021-01675-x
+reference_id: "DOI:10.1186/s13023-021-01675-x"
 title: "Impact of long-term elosulfase alfa treatment on clinical and patient-reported outcomes in patients with mucopolysaccharidosis type IVA: results from a Managed Access Agreement in England"
 authors:
 - Maureen Cleary

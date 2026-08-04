@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/19160216251330629
+reference_id: "DOI:10.1177/19160216251330629"
 title: "Pooled Analysis of 2 Randomized Clinical Trials to Evaluate the Efficacy and Safety of Clotrimazole 1% Otic Solution for the Treatment of Otomycosis in Adults"
 authors:
 - Ansley J.F.

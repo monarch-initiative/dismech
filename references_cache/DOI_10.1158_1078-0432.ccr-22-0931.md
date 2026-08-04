@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-22-0931
+reference_id: "DOI:10.1158/1078-0432.ccr-22-0931"
 title: "Detection of <i>BRCA1</i> , <i>BRCA2</i> , and <i>ATM</i> Alterations in Matched Tumor Tissue and Circulating Tumor DNA in Patients with Prostate Cancer Screened in PROfound"
 authors:
 - Kim N. Chi

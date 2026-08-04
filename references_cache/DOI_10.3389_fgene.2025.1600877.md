@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2025.1600877
+reference_id: "DOI:10.3389/fgene.2025.1600877"
 title: Two novel variants in CNNM2 disrupts magnesium efflux leading to neurodevelopmental disorders
 authors:
 - Huijuan Li

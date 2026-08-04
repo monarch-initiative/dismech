@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15252/embr.202154160
+reference_id: "DOI:10.15252/embr.202154160"
 title: Myosin VI regulates ciliogenesis by promoting the turnover of the centrosomal/satellite protein OFD1
 authors:
 - Elisa Magistrati

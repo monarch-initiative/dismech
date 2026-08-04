@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.jncc.2024.06.004
+reference_id: "DOI:10.1016/j.jncc.2024.06.004"
 title: "Immunological features of EGFR-mutant non-small cell lung cancer and clinical practice: a narrative review"
 authors:
 - Yi Dong

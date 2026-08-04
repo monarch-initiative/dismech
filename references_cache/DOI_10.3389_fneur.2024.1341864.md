@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1341864
+reference_id: "DOI:10.3389/fneur.2024.1341864"
 title: Autosomal recessive primary microcephaly type 2 associated with a novel WDR62 splicing variant that disrupts the expression of the functional transcript
 authors:
 - Haizhu Chen

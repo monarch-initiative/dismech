@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000540522
+reference_id: "DOI:10.1159/000540522"
 title: "Liddle Syndrome with a SCNN1A Mutation: A Case Report and Literature Review"
 authors:
 - Jiajia Tian

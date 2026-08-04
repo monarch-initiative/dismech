@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1210/jendso/bvae038
+reference_id: "DOI:10.1210/jendso/bvae038"
 title: Patient Sex and Origin Influence Distribution of Driver Genes and Clinical Presentation of Paraganglioma
 authors:
 - Susan Richter

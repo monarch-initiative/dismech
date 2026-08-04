@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bjophthalmol-2020-318483
+reference_id: "DOI:10.1136/bjophthalmol-2020-318483"
 title: "Leber congenital amaurosis/early-onset severe retinal dystrophy: current management and clinical trials"
 authors:
 - Malena Daich Varela

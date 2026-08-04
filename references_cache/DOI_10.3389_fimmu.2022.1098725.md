@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.1098725
+reference_id: "DOI:10.3389/fimmu.2022.1098725"
 title: "Role of inflammation, immunity, and oxidative stress in hypertension: New insights and potential therapeutic targets"
 authors:
 - Zenglei Zhang

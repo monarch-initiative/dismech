@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2024-110173
+reference_id: "DOI:10.1136/jmg-2024-110173"
 title: "Tumour spectrum in <i>AKT1</i>-related Proteus syndrome: a systematic review of clinical reports and series"
 authors:
 - Olivia M Rostagni

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24044148
+reference_id: "DOI:10.3390/ijms24044148"
 title: Epigenetic Regulation of Driver Genes in Testicular Tumorigenesis
 authors:
 - Finn E. von Eyben

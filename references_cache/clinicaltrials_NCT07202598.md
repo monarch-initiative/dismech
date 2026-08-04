@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07202598
+reference_id: "clinicaltrials:NCT07202598"
 title: A Phase 2 Randomized Stepped Wedge Study of Emapalumab in APECED Enteritis
 content_type: summary
 full_text_attempted: true

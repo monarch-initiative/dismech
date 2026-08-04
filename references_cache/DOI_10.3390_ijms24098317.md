@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24098317
+reference_id: "DOI:10.3390/ijms24098317"
 title: "Chromosome 22q11.2 Deletion Syndrome: A Comprehensive Review of Molecular Genetics in the Context of Multidisciplinary Clinical Approach"
 authors:
 - Aleksandra Szczawińska-Popłonyk

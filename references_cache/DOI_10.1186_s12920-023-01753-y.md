@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-023-01753-y
+reference_id: "DOI:10.1186/s12920-023-01753-y"
 title: Clinical features and genetic analysis of a case series of skeletal ciliopathies in a prenatal setting
 authors:
 - Ying Peng

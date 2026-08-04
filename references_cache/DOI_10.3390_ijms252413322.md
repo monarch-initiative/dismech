@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252413322
+reference_id: "DOI:10.3390/ijms252413322"
 title: "Endothelial Dysfunction: Molecular Mechanisms and Therapeutic Strategies in Kawasaki Disease"
 authors:
 - Lucia Paolini

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s44318-024-00164-8
+reference_id: "DOI:10.1038/s44318-024-00164-8"
 title: The tyrosine phosphatases LAR and PTPRδ act as receptors of the nidogen-tetanus toxin complex
 authors:
 - Sunaina Surana

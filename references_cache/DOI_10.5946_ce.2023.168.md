@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5946/ce.2023.168
+reference_id: "DOI:10.5946/ce.2023.168"
 title: Systematic review of self-assembling peptides as topical agents for treatment and prevention of gastrointestinal bleeding
 authors:
 - Andrei Voiosu

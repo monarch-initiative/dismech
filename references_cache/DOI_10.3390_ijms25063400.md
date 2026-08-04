@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25063400
+reference_id: "DOI:10.3390/ijms25063400"
 title: "Impact of α-Globin Gene Expression and α-Globin Modifiers on the Phenotype of β-Thalassemia and Other Hemoglobinopathies: Implications for Patient Management"
 authors:
 - Joanne Traeger-Synodinos

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/hematology.2022000340
+reference_id: "DOI:10.1182/hematology.2022000340"
 title: New approaches to tackle cytopenic myelofibrosis
 authors:
 - Samuel B. Reynolds

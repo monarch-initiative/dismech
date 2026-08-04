@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12348-023-00333-6
+reference_id: "DOI:10.1186/s12348-023-00333-6"
 title: "Immunosuppressive therapy for Vogt-Koyanagi-Harada disease: a retrospective study and review of literature"
 authors:
 - Najiha Rahman

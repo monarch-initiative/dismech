@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12061331
+reference_id: "DOI:10.3390/biomedicines12061331"
 title: Recent Insights into Cellular and Molecular Mechanisms of Defective Angiogenesis in Systemic Sclerosis
 authors:
 - Eloisa Romano

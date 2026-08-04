@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3322/caac.70028
+reference_id: "DOI:10.3322/caac.70028"
 title: "Prostate cancer statistics, 2025"
 authors:
 - Tyler B. Kratzer

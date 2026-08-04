@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-025-03896-w
+reference_id: "DOI:10.1186/s13023-025-03896-w"
 title: "Comprehensive review on Fanconi anemia: insights into DNA interstrand cross-links, repair pathways, and associated tumors"
 authors:
 - Chenyan Fang

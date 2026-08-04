@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3346/jkms.2024.39.e293
+reference_id: "DOI:10.3346/jkms.2024.39.e293"
 title: "Sites of Metastasis and Survival in Metastatic Renal Cell Carcinoma: Results From the Korean Renal Cancer Study Group Database"
 authors:
 - Chan Ho Lee

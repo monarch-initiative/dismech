@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-025-14786-6
+reference_id: "DOI:10.1186/s12885-025-14786-6"
 title: Epidemiology and outcomes associated with brain metastases among patients with metastatic breast cancer – a cohort study in US electronic health record data
 authors:
 - Della Varghese

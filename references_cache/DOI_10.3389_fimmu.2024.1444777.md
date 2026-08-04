@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1444777
+reference_id: "DOI:10.3389/fimmu.2024.1444777"
 title: "Humanized CXCL12 antibody delays onset and modulates immune response in alopecia areata mice: insights from single-cell RNA sequencing"
 authors:
 - Seungchan An

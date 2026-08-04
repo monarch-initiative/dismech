@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25136910
+reference_id: "DOI:10.3390/ijms25136910"
 title: Histone Deacetylases in Retinoblastoma
 authors:
 - Malwina Lisek

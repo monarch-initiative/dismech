@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/medicina60040562
+reference_id: "DOI:10.3390/medicina60040562"
 title: "Behçet’s Disease, Pathogenesis, Clinical Features, and Treatment Approaches: A Comprehensive Review"
 authors:
 - Salvatore Lavalle

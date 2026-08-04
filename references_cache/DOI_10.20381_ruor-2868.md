@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20381/ruor-2868
+reference_id: "DOI:10.20381/ruor-2868"
 title: "The Genetic Heterogeneity of Brachydactyly Type A1: Identifying the Molecular Pathways"
 authors:
 - "Racacho, Lemuel Jean"

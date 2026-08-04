@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012230
+reference_id: "DOI:10.1371/journal.pntd.0012230"
 title: Giardia lamblia risk factors and burden in children with acute gastroenteritis in a Nicaraguan birth cohort
 authors:
 - Lester Gutiérrez

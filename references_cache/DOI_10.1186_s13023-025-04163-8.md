@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-025-04163-8
+reference_id: "DOI:10.1186/s13023-025-04163-8"
 title: Identification of a novel ACADSB variant for the presymptomatic diagnosis of 2-Methylbutyryl-CoA dehydrogenase deficiency through newborn screening in Iran
 authors:
 - Maryam Nasri

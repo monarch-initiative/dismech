@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0307580
+reference_id: "DOI:10.1371/journal.pone.0307580"
 title: "Effects of KRAS, STK11, KEAP1, and TP53 mutations on the clinical outcomes of immune checkpoint inhibitors among patients with lung adenocarcinoma"
 authors:
 - Yao Liang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1411972
+reference_id: "DOI:10.3389/fonc.2024.1411972"
 title: Momelotinib – a promising advancement in the management of myelofibrosis in adults with anemia
 authors:
 - Muhammad Furqan

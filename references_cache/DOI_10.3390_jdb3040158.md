@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jdb3040158
+reference_id: "DOI:10.3390/jdb3040158"
 title: Col11a1 Regulates Bone Microarchitecture during Embryonic Development
 authors:
 - Anthony Hafez

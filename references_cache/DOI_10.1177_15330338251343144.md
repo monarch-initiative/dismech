@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/15330338251343144
+reference_id: "DOI:10.1177/15330338251343144"
 title: "Percutaneous Locoregional Therapies for the Treatment of Liver Metastases from Uveal Melanoma: A Systematic Review"
 authors:
 - "Corrado Ini'"

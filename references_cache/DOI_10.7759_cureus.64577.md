@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.64577
+reference_id: "DOI:10.7759/cureus.64577"
 title: "Anterior Spinal Artery Syndrome in a Patient With Multilevel Cervical Disc Disease: A Case Report"
 authors:
 - Faisal Althobaiti

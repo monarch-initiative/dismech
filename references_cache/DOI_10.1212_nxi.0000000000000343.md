@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000000343
+reference_id: "DOI:10.1212/nxi.0000000000000343"
 title: Disruption of the leptomeningeal blood barrier in neuromyelitis optica spectrum disorder
 authors:
 - Nasrin Asgari

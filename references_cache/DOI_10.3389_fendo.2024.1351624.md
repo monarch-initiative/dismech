@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1351624
+reference_id: "DOI:10.3389/fendo.2024.1351624"
 title: "Well-differentiated G1 and G2 pancreatic neuroendocrine tumors: a meta-analysis of published expanded DNA sequencing data"
 authors:
 - Kirstine Øster Andersen

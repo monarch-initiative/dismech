@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1413860
+reference_id: "DOI:10.3389/fimmu.2024.1413860"
 title: Pathogenic roles of follicular helper T cells in IgG4-related disease and implications for potential therapy
 authors:
 - Jingyi Xu

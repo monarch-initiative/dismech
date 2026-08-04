@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1331217
+reference_id: "DOI:10.3389/fimmu.2024.1331217"
 title: "IL-23 past, present, and future: a roadmap to advancing IL-23 science and therapy"
 authors:
 - James G. Krueger

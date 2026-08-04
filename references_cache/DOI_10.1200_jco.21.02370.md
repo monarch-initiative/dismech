@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.21.02370
+reference_id: "DOI:10.1200/jco.21.02370"
 title: "Three-Year Follow-Up of KTE-X19 in Patients With Relapsed/Refractory Mantle Cell Lymphoma, Including High-Risk Subgroups, in the ZUMA-2 Study"
 authors:
 - Michael Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2024.1369120
+reference_id: "DOI:10.3389/fphys.2024.1369120"
 title: "Impact of intravascular hemolysis on functional and molecular alterations in the urinary bladder: implications for an overactive bladder in sickle cell disease"
 authors:
 - Tammyris Helena Rebecchi e Silveira

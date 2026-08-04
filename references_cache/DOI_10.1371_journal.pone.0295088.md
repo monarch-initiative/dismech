@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0295088
+reference_id: "DOI:10.1371/journal.pone.0295088"
 title: "Prevalence of yaws and syphilis in the Ashanti region of Ghana and occurrence of H. ducreyi, herpes simplex virus 1 and herpes simplex virus 2 in skin lesions associated with treponematoses"
 authors:
 - Yaw Agyekum Boaitey

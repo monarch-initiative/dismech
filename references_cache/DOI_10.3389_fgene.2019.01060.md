@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2019.01060
+reference_id: "DOI:10.3389/fgene.2019.01060"
 title: Novel Compound Heterozygous Mutations in TTI2 Cause Syndromic Intellectual Disability in a Chinese Family
 authors:
 - Rongrong Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/761112s018lbl.pdf
+reference_id: "url:https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/761112s018lbl.pdf"
 title: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/761112s018lbl.pdf"
 content_type: full_text_pdf
 full_text_url: "https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/761112s018lbl.pdf"

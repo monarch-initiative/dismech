@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/antibiotics12030557
+reference_id: "DOI:10.3390/antibiotics12030557"
 title: Clinical Impact of Staphylococcus aureus Skin and Soft Tissue Infections
 authors:
 - Matthew S. Linz

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1207891
+reference_id: "DOI:10.3389/fmed.2023.1207891"
 title: Prenatal phenotypes and pregnancy outcomes of fetuses with recurrent 1q21.1 microdeletions and microduplications
 authors:
 - Fagui Yue

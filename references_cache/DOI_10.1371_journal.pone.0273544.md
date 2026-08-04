@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0273544
+reference_id: "DOI:10.1371/journal.pone.0273544"
 title: Impact of number and type of identified antigen on transplant-free survival in hypersensitivity pneumonitis
 authors:
 - Margaret Kypreos

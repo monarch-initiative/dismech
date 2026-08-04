@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-023-05861-7
+reference_id: "DOI:10.1186/s13071-023-05861-7"
 title: "The Pampa del Indio project: sustainable vector control and long-term declines in the prevalence and abundance of Triatoma infestans infected with Trypanosoma cruzi in the Argentine Chaco"
 authors:
 - Ricardo Esteban Gürtler

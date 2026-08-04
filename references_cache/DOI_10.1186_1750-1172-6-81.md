@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1172-6-81
+reference_id: "DOI:10.1186/1750-1172-6-81"
 title: Laryngo-tracheo-oesophageal clefts
 authors:
 - Nicolas Leboulanger

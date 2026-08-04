@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-76296-y
+reference_id: "DOI:10.1038/s41598-024-76296-y"
 title: "Efficacy and safety of dual blockade of HER2 and PD-1 in patients with HER2-positive gastric cancer: a retrospective, multicentre study"
 authors:
 - Shuyi Cen

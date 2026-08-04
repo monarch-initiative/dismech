@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.978879
+reference_id: "DOI:10.3389/fped.2023.978879"
 title: A novel compound heterozygous mutation of the CLCN7 gene is associated with autosomal recessive osteopetrosis
 authors:
 - Xia Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpubh.2023.1146263
+reference_id: "DOI:10.3389/fpubh.2023.1146263"
 title: "National analysis of urinary cadmium concentration and kidney stone: Evidence from NHANES (2011–2020)"
 authors:
 - Zhenyang Ye

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17010046
+reference_id: "DOI:10.3390/cancers17010046"
 title: "Regorafenib Treatment for Recurrent Glioblastoma Beyond Bevacizumab-Based Therapy: A Large, Multicenter, Real-Life Study"
 authors:
 - Salih Tünbekici

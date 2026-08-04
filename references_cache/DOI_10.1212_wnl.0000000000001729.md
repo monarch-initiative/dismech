@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/wnl.0000000000001729
+reference_id: "DOI:10.1212/wnl.0000000000001729"
 title: International consensus diagnostic criteria for neuromyelitis optica spectrum disorders
 authors:
 - Dean M. Wingerchuk

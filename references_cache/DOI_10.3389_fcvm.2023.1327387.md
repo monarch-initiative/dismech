@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2023.1327387
+reference_id: "DOI:10.3389/fcvm.2023.1327387"
 title: The autonomic nervous system in atrial fibrillation—pathophysiology and non-invasive assessment
 authors:
 - Bert Vandenberk

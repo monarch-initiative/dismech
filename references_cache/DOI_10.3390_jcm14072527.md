@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm14072527
+reference_id: "DOI:10.3390/jcm14072527"
 title: "Atypical Hemolytic Uremic Syndrome: A Review of Complement Dysregulation, Genetic Susceptibility and Multiorgan Involvement"
 authors:
 - Razvan-George Bogdan

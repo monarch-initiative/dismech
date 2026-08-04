@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0038-1667004
+reference_id: "DOI:10.1055/s-0038-1667004"
 title: Encephalocraniocutaneous Lipomatosis (Haberland Syndrome or Fishman Syndrome)
 authors:
 - Maria Garozzo

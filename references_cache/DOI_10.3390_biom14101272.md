@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14101272
+reference_id: "DOI:10.3390/biom14101272"
 title: History and Perspective of LAMP-2 Deficiency (Danon Disease)
 authors:
 - Kazuma Sugie

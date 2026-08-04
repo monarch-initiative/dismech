@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/hematology.2023000467
+reference_id: "DOI:10.1182/hematology.2023000467"
 title: "Pyruvate kinase activators: targeting red cell metabolism in sickle cell disease"
 authors:
 - Julia Z. Xu

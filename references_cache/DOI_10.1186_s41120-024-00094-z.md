@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s41120-024-00094-z
+reference_id: "DOI:10.1186/s41120-024-00094-z"
 title: Recent progress of small-molecule of RET inhibitors against Non-small cell lung cancer
 authors:
 - Jiayi Shen

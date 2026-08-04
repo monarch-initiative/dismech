@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40348-020-00101-9
+reference_id: "DOI:10.1186/s40348-020-00101-9"
 title: Osteogenesis imperfecta—pathophysiology and therapeutic options
 authors:
 - Julia Etich

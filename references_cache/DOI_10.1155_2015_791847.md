@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1155/2015/791847
+reference_id: "DOI:10.1155/2015/791847"
 title: Trachoma and Ocular Chlamydial Infection in  the Era of Genomics
 authors:
 - Tamsyn Derrick

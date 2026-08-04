@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.56866
+reference_id: "DOI:10.7759/cureus.56866"
 title: "Nemaline Myopathy in a Hypotonic Neonate: Diagnostic Approach for Early Detection and Management"
 authors:
 - Annie Vu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.54905/disssi.v29i156.e26ms3504
+reference_id: "DOI:10.54905/disssi.v29i156.e26ms3504"
 title: "Empty Nose Syndrome: A review of pathogenic mechanisms, diagnostic strategies, and patient-centered treatments"
 authors:
 - Zuzanna Kudas

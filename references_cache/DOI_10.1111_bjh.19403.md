@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bjh.19403
+reference_id: "DOI:10.1111/bjh.19403"
 title: "Essential thrombocythaemia: A contemporary approach with new drugs on the horizon"
 authors:
 - Francisca Ferrer‐Marín

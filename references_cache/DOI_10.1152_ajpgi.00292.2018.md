@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/ajpgi.00292.2018
+reference_id: "DOI:10.1152/ajpgi.00292.2018"
 title: Effects of esophageal acidification on esophageal reflexes controlling the upper esophageal sphincter
 authors:
 - Ivan M. Lang

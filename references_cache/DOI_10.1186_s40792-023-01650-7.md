@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40792-023-01650-7
+reference_id: "DOI:10.1186/s40792-023-01650-7"
 title: "Gastric tumor mimicking bronchial tissue associated with a laryngotracheoesophageal cleft: a case report"
 authors:
 - Erika Nakatani

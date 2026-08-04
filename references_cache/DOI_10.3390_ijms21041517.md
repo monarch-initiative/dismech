@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms21041517
+reference_id: "DOI:10.3390/ijms21041517"
 title: "Mucopolysaccharidosis IVA: Diagnosis, Treatment, and Management"
 authors:
 - Kazuki Sawamoto

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/trd-160005
+reference_id: "DOI:10.3233/trd-160005"
 title: Lysosomal storage diseases
 authors:
 - Carlos R. Ferreira

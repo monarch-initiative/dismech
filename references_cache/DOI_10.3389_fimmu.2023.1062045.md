@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1062045
+reference_id: "DOI:10.3389/fimmu.2023.1062045"
 title: A review of TSHR- and IGF-1R-related pathogenesis and treatment of Graves’ orbitopathy
 authors:
 - Xuejiao Cui

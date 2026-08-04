@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4254/wjh.v16.i5.716
+reference_id: "DOI:10.4254/wjh.v16.i5.716"
 title: "Genetic screening of liver cancer: State of the art"
 authors:
 - Milena Peruhova

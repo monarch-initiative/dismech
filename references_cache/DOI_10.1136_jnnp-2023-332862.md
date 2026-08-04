@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jnnp-2023-332862
+reference_id: "DOI:10.1136/jnnp-2023-332862"
 title: Clinicoradiological and neuropathological evaluation of primary progressive aphasia
 authors:
 - Dror Shir

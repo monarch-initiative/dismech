@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1096770
+reference_id: "DOI:10.3389/fped.2023.1096770"
 title: "Case report: Gene mutations and clinical characteristics of four patients with osteopetrosis"
 authors:
 - Yu Chen

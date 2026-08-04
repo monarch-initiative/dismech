@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/kidneydial4020006
+reference_id: "DOI:10.3390/kidneydial4020006"
 title: "Acute Kidney Injury Associated with Severe Leptospirosis: Fatal Re-Emerging Disease in Latin America"
 authors:
 - Elber Osorio-Rodríguez

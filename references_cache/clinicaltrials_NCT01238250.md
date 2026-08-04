@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01238250
+reference_id: "clinicaltrials:NCT01238250"
 title: "Online Study of People Who Have Genetic Changes and Features of Autism: Simons Searchlight"
 content_type: summary
 full_text_attempted: true

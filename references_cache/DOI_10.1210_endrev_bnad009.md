@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1210/endrev/bnad009
+reference_id: "DOI:10.1210/endrev/bnad009"
 title: Molecular and Clinical Spectrum of Primary Hyperparathyroidism
 authors:
 - Smita Jha

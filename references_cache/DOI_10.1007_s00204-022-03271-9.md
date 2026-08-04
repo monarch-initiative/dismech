@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00204-022-03271-9
+reference_id: "DOI:10.1007/s00204-022-03271-9"
 title: "Toxicology and pharmacology of botulinum and tetanus neurotoxins: an update"
 authors:
 - Marco Pirazzini

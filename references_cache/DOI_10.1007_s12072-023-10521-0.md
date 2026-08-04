@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12072-023-10521-0
+reference_id: "DOI:10.1007/s12072-023-10521-0"
 title: "Hepatobiliary long-term consequences of COVID-19: dramatically increased rate of secondary sclerosing cholangitis in critically ill COVID-19 patients"
 authors:
 - Silke Leonhardt

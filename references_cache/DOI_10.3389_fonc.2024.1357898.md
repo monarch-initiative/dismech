@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1357898
+reference_id: "DOI:10.3389/fonc.2024.1357898"
 title: Resistance to KRAS inhibition in advanced non-small cell lung cancer
 authors:
 - Katherina Bernadette Sreter

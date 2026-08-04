@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1515748
+reference_id: "DOI:10.3389/fimmu.2025.1515748"
 title: "Non-small cell lung cancer and the tumor microenvironment: making headway from targeted therapies to advanced immunotherapy"
 authors:
 - Anna De Lucia

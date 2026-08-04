@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12931-017-0691-x
+reference_id: "DOI:10.1186/s12931-017-0691-x"
 title: Neutrophil elastase in bronchiectasis
 authors:
 - Andrea Gramegna

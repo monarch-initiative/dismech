@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE17536
+reference_id: "GEO:GSE17536"
 title: Metastasis Gene Expression Profile Predicts Recurrence and Death in Colon Cancer Patients (Moffitt Samples)
 content_type: summary
 full_text_attempted: true

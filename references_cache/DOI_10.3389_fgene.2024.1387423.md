@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1387423
+reference_id: "DOI:10.3389/fgene.2024.1387423"
 title: "206,977 newborn screening results reveal the ethnic differences in the spectrum of inborn errors of metabolism in Huaihua, China"
 authors:
 - Gang Xiao

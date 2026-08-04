@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0307240
+reference_id: "DOI:10.1371/journal.pone.0307240"
 title: "Assessment of knowledge and practices regarding taeniasis and cysticercosis in Pak Chong, Nakhon Ratchasima, Thailand: A cross-sectional study"
 authors:
 - Wuttipong Phumrattanaprapin

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43556-024-00216-9
+reference_id: "DOI:10.1186/s43556-024-00216-9"
 title: "Y-27632 targeting ROCK1&amp;2 modulates cell growth, fibrosis and epithelial-mesenchymal transition in hyperplastic prostate by inhibiting β-catenin pathway"
 authors:
 - Shidong Shan

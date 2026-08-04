@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/edd.2024.00049
+reference_id: "DOI:10.37349/edd.2024.00049"
 title: Key points for the management of hepatitis C in the era of pan-genotypic direct-acting antiviral therapy
 authors:
 - Hao Xiong

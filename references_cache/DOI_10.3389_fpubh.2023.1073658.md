@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpubh.2023.1073658
+reference_id: "DOI:10.3389/fpubh.2023.1073658"
 title: "Toxicomethylomics revisited: A state-of-the-science review about DNA methylation modifications in blood cells from workers exposed to toxic agents"
 authors:
 - Octavio Jiménez-Garza

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1011428
+reference_id: "DOI:10.1371/journal.pgen.1011428"
 title: "Loss of PHF6 causes spontaneous seizures, enlarged brain ventricles and altered transcription in the cortex of a mouse model of the Börjeson–Forssman–Lehmann intellectual disability syndrome"
 authors:
 - Helen M. McRae

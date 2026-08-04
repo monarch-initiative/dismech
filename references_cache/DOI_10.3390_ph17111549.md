@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph17111549
+reference_id: "DOI:10.3390/ph17111549"
 title: A Comprehensive Review and Update on Cannabis Hyperemesis Syndrome
 authors:
 - Priyadarshini Loganathan

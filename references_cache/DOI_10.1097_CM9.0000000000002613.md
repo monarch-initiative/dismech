@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/CM9.0000000000002613
+reference_id: "DOI:10.1097/CM9.0000000000002613"
 title: "Clinical characteristics of hypersensitivity pneumonitis: non-fibrotic and fibrotic subtypes"
 authors:
 - Xueying Chen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.984083
+reference_id: "DOI:10.3389/fimmu.2022.984083"
 title: HLA and Non-HLA gene polymorphisms in autoimmune hepatitis patients of North Indian adults
 authors:
 - Nishtha Ahuja

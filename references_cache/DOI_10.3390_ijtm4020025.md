@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijtm4020025
+reference_id: "DOI:10.3390/ijtm4020025"
 title: "The Role of Serum IgG Precipitins against Six Typical Organic Antigens Involved in Hypersensitivity Pneumonitis: A 10-Year Retrospective Study of a Referral Interstitial Lung Disease Centre"
 authors:
 - Jari Intra

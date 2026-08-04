@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom13040691
+reference_id: "DOI:10.3390/biom13040691"
 title: Nuclear Receptor Gene Variants Underlying Disorders/Differences of Sex Development through Abnormal Testicular Development
 authors:
 - Atsushi Hattori

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneph.2023.1346769
+reference_id: "DOI:10.3389/fneph.2023.1346769"
 title: "The role of BAFF and APRIL in IgA nephropathy: pathogenic mechanisms and targeted therapies"
 authors:
 - Chee Kay Cheung

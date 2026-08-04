@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02051062
+reference_id: "clinicaltrials:NCT02051062"
 title: "Pharmacokinetics of Botulism Antitoxin Heptavalent (A, B, C, D, E, F, G) - (Equine) (BAT®) in Pediatric Patients With a Confirmed or Suspected Exposure to Botulinum Neurotoxin"
 content_type: summary
 full_text_attempted: true

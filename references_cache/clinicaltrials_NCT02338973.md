@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02338973
+reference_id: "clinicaltrials:NCT02338973"
 title: Pilot Phase I/II Study of the Evaluation of Interferon Gamma-1b Administered Topically for Macular Edema/Intraretinal Schisis Cysts in Rod-Cone Dystrophy (RCD) and Enhanced S-Cone Syndrome (ESCS)
 content_type: summary
 full_text_attempted: true

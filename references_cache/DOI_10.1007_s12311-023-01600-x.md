@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12311-023-01600-x
+reference_id: "DOI:10.1007/s12311-023-01600-x"
 title: Epidemiology of Spinocerebellar Ataxias in Europe
 authors:
 - Filippo De Mattei

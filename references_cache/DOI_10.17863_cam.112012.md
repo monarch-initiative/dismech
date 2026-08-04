@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17863/cam.112012
+reference_id: "DOI:10.17863/cam.112012"
 title: Exploring neurodegeneration in Ataxia-Telangiectasia
 authors:
 - "Tiet, May Yung"

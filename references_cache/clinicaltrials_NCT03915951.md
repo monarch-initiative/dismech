@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03915951
+reference_id: "clinicaltrials:NCT03915951"
 title: "A Phase 2, Open-label Study of Encorafenib + Binimetinib in Patients With BRAFV600-mutant Non-small Cell Lung Cancer"
 content_type: summary
 full_text_attempted: true

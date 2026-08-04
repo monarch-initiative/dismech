@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000530585
+reference_id: "DOI:10.1159/000530585"
 title: "A Case of Okur-Chung Neurodevelopmental Syndrome with a Novel, de novo Variant on the &lt;i&gt;CSNK2A1&lt;/i&gt; Gene in a Turkish Patient"
 authors:
 - Drenushe Zhuri

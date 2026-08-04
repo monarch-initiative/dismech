@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood.2023023152
+reference_id: "DOI:10.1182/blood.2023023152"
 title: How I treat adult Ph+ ALL
 authors:
 - Sabina Chiaretti

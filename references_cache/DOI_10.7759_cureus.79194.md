@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.79194
+reference_id: "DOI:10.7759/cureus.79194"
 title: "Neuroimaging of Koolen-De Vries Syndrome: A Rare Genetic Disorder"
 authors:
 - Karis Houser

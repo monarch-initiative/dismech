@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1167/iovs.13-12447
+reference_id: "DOI:10.1167/iovs.13-12447"
 title: Dexamethasone Induces Cross-Linked Actin Networks in Trabecular Meshwork Cells Through Noncanonical Wnt Signaling
 authors:
 - Yong Yuan

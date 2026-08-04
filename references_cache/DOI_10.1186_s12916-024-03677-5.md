@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12916-024-03677-5
+reference_id: "DOI:10.1186/s12916-024-03677-5"
 title: "Ultra-processed food consumption and renal cell carcinoma incidence and mortality: results from a large prospective cohort"
 authors:
 - Ya-Dong Li

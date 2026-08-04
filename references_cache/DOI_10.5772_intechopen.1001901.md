@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.1001901
+reference_id: "DOI:10.5772/intechopen.1001901"
 title: "Exploring the Interplay between Arsenic and Cutaneous Physiology, Pathology, and Regeneration"
 authors:
 - Mangalathettu Binumon Thankachan

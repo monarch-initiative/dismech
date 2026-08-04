@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17010008
+reference_id: "DOI:10.3390/cancers17010008"
 title: "BRCA and Beyond: Impact on Therapeutic Choices Across Cancer"
 authors:
 - Joshua Zhi Chien Tan

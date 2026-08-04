@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1436923
+reference_id: "DOI:10.3389/fimmu.2024.1436923"
 title: Contemporary review of IgA nephropathy
 authors:
 - Edward J. Filippone

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13195-024-01469-w
+reference_id: "DOI:10.1186/s13195-024-01469-w"
 title: Combining plasma Aβ and p-tau217 improves detection of brain amyloid in non-demented elderly
 authors:
 - Yoshiki Niimi

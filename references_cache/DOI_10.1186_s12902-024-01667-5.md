@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12902-024-01667-5
+reference_id: "DOI:10.1186/s12902-024-01667-5"
 title: Association between COVID-19 and the incidence of type 1 diabetes in Portugal – a registry study
 authors:
 - Morten Bjerregaard-Andersen

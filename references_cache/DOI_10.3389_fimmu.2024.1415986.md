@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1415986
+reference_id: "DOI:10.3389/fimmu.2024.1415986"
 title: "Variation in worldwide incidence of Guillain-Barré syndrome: a population-based study in urban China and existing global evidence"
 authors:
 - Lu Xu

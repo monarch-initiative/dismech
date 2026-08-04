@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-02720-7
+reference_id: "DOI:10.1186/s13023-023-02720-7"
 title: "Hepatic fibrosis: a manifestation of the liver disease evolution in patients with Ataxia-telangiectasia"
 authors:
 - Talita Lemos Neves Barreto

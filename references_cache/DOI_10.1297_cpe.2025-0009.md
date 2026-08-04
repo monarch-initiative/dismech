@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1297/cpe.2025-0009
+reference_id: "DOI:10.1297/cpe.2025-0009"
 title: "Osteogenesis imperfecta: pathogenesis, classification, and          treatment"
 authors:
 - Kosei Hasegawa

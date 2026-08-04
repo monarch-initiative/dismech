@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13051331
+reference_id: "DOI:10.3390/jcm13051331"
 title: Advances in Therapeutic Strategies for the Management of Clostridioides difficile Infection
 authors:
 - Antonio Vitiello

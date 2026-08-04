@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.07.03.24309466
+reference_id: "DOI:10.1101/2024.07.03.24309466"
 title: "Genome-wide association study of major anxiety disorders in 122,341 European-ancestry cases identifies 58 loci and highlights GABAergic signaling"
 authors:
 - Nora I. Strom

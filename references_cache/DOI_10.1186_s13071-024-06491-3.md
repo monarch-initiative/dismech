@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-024-06491-3
+reference_id: "DOI:10.1186/s13071-024-06491-3"
 title: "Neurobartonelloses: emerging from obscurity!"
 authors:
 - Janice C. Bush

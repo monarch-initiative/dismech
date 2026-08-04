@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18632/oncotarget.28360
+reference_id: "DOI:10.18632/oncotarget.28360"
 title: "WNT-pathway medulloblastoma: what constitutes low-risk and how low can one go?"
 authors:
 - Shakthivel Mani

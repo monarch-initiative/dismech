@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/molecules30030748
+reference_id: "DOI:10.3390/molecules30030748"
 title: "Vitamin C: A Comprehensive Review of Its Role in Health, Disease Prevention, and Therapeutic Potential"
 authors:
 - Adina Alberts

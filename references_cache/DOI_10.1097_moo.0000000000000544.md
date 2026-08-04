@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/moo.0000000000000544
+reference_id: "DOI:10.1097/moo.0000000000000544"
 title: "Update on empty nose syndrome: disease mechanisms, diagnostic tools, and treatment strategies"
 authors:
 - Amarbir S. Gill

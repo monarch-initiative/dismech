@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.58624/svoapd.2023.02.050
+reference_id: "DOI:10.58624/svoapd.2023.02.050"
 title: A Novel Variant of ASL Gene Mutation in a Lebanese Neonate with Severe Argininosuccinic Aciduria Phenotype
 authors:
 - HAMOUCHE Naji

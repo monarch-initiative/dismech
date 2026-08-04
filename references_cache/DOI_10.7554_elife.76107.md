@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/elife.76107
+reference_id: "DOI:10.7554/elife.76107"
 title: Structural basis of dynamic P5CS filaments
 authors:
 - Jiale Zhong

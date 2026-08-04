@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2022.1022457
+reference_id: "DOI:10.3389/fcell.2022.1022457"
 title: Lung epithelium development and airway regeneration
 authors:
 - Evelien Eenjes

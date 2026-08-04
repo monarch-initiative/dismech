@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12775/qs.2024.36.56729
+reference_id: "DOI:10.12775/qs.2024.36.56729"
 title: "Small Intestinal Bacterial Overgrowth Syndrome: New Clinical Insights for Multimorbid and High-Risk Patients"
 authors:
 - Krzysztof Nowakowski

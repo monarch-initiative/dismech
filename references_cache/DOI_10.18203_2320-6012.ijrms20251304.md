@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18203/2320-6012.ijrms20251304
+reference_id: "DOI:10.18203/2320-6012.ijrms20251304"
 title: A retrospective drug utilization study in chemotherapy-induced nausea and vomiting
 authors:
 - Ashwini A. Aher

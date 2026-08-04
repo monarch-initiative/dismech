@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1010796
+reference_id: "DOI:10.1371/journal.pgen.1010796"
 title: IFT74 variants cause skeletal ciliopathy and motile cilia defects in mice and humans
 authors:
 - Zeineb Bakey

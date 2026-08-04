@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.64898/2026.01.10.26343854
+reference_id: "DOI:10.64898/2026.01.10.26343854"
 title: "Protective and Susceptibility Clusters of Environmental Factors, Gene Expression, Antibody Responses, and Cytokines in Pediatric Atopic Dermatitis: Insights from Multi-Modal Data Integration"
 authors:
 - Damir Zhakparov

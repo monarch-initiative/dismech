@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/2574-1209.2023.139
+reference_id: "DOI:10.20517/2574-1209.2023.139"
 title: "Results of a multidisciplinary spinal cord ischemia prevention protocol in elective repair of Crawford's extent I-III thoracoabdominal aneurysm by fenestrated and branched endografts"
 authors:
 - Gemmi Sufali

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06660329
+reference_id: "clinicaltrials:NCT06660329"
 title: "Efficacy and Safety of Tofacitinib in Patients with Refractory Blau Syndrome: a Prospective Cohort Study"
 content_type: summary
 full_text_attempted: true

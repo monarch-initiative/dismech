@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph17121724
+reference_id: "DOI:10.3390/ph17121724"
 title: "Pharmacotherapy of Liver Fibrosis and Hepatitis: Recent Advances"
 authors:
 - Liangtao Zhao

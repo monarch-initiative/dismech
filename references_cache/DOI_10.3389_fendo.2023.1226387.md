@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1226387
+reference_id: "DOI:10.3389/fendo.2023.1226387"
 title: "Diagnostic challenges and management advances in cytochrome P450 oxidoreductase deficiency, a rare form of congenital adrenal hyperplasia, with 46, XX karyotype"
 authors:
 - Chunqing Wang

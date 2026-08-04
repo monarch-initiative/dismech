@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07345988
+reference_id: "clinicaltrials:NCT07345988"
 title: "Human Babesiosis in Metropolitan France: a Retrospective and Multicenter Descriptive Analysis."
 content_type: summary
 full_text_attempted: true

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom13081262
+reference_id: "DOI:10.3390/biom13081262"
 title: Oxidative Stress in Healthy and Pathological Red Blood Cells
 authors:
 - Florencia Orrico

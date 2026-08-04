@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1530/ec-18-0484
+reference_id: "DOI:10.1530/ec-18-0484"
 title: Liddle syndrome misdiagnosed as primary aldosteronism resulting from a novel frameshift mutation of SCNN1B
 authors:
 - Peng Fan

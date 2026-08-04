@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/braincomms/fcaa233
+reference_id: "DOI:10.1093/braincomms/fcaa233"
 title: "Brain dysfunction and thyroid antibodies: autoimmune diagnosis and misdiagnosis"
 authors:
 - Cristina Valencia-Sanchez

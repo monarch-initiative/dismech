@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v15081663
+reference_id: "DOI:10.3390/v15081663"
 title: The Spectrum of Neurological Manifestations of Varicella–Zoster Virus Reactivation
 authors:
 - Peter G. E. Kennedy

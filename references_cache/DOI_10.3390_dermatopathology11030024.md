@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/dermatopathology11030024
+reference_id: "DOI:10.3390/dermatopathology11030024"
 title: Interleukin-36 Is Highly Expressed in Skin Biopsies from Two Patients with Netherton Syndrome
 authors:
 - Johannes Pawlowski

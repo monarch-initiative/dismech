@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2196/40472
+reference_id: "DOI:10.2196/40472"
 title: "Efficacy of Web-Based, Guided Self-help Cognitive Behavioral Therapy–Enhanced for Binge Eating Disorder: Randomized Controlled Trial"
 authors:
 - Bernou Melisse

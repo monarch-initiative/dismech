@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1460285
+reference_id: "DOI:10.3389/fphar.2024.1460285"
 title: "Efficacy and safety of PARP inhibitor maintenance therapy for ovarian cancer: a meta-analysis and trial sequential analysis of randomized controlled trials"
 authors:
 - Guojuan Sun

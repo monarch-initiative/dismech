@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26115417
+reference_id: "DOI:10.3390/ijms26115417"
 title: "Molecular Basis of Anxiety: A Comprehensive Review of 2014–2024 Clinical and Preclinical Studies"
 authors:
 - Ermis Merkouris

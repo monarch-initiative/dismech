@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-024-09125-2
+reference_id: "DOI:10.1186/s12879-024-09125-2"
 title: "The PEP++ study protocol: a cluster-randomised controlled trial on the effectiveness of an enhanced regimen of post-exposure prophylaxis for close contacts of persons affected by leprosy to prevent disease transmission"
 authors:
 - Duane C. Hinders

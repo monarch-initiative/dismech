@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1245/s10434-024-15500-9
+reference_id: "DOI:10.1245/s10434-024-15500-9"
 title: "Defining the Genomic Landscape of Diffuse Sclerosing Papillary Thyroid Carcinoma: Prognostic Implications of RET Fusions"
 authors:
 - Daniel W. Scholfield

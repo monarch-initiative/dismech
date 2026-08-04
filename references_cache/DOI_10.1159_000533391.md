@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000533391
+reference_id: "DOI:10.1159/000533391"
 title: Primary Prevention and Early Detection of Hereditary Breast Cancer
 authors:
 - Dorothee Speiser

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2022.877772
+reference_id: "DOI:10.3389/fneur.2022.877772"
 title: Molecular Mechanisms of Neuroinflammation in ME/CFS and Long COVID to Sustain Disease and Promote Relapses
 authors:
 - Warren Tate

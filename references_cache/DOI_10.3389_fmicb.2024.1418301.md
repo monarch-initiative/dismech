@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1418301
+reference_id: "DOI:10.3389/fmicb.2024.1418301"
 title: Understanding the relationship between HCV infection and progression of kidney disease
 authors:
 - Meiqi Zhang

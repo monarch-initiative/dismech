@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13550-025-01296-6
+reference_id: "DOI:10.1186/s13550-025-01296-6"
 title: Neuropathological correlations of 18F-florzolotau PET in a case with Pick’s disease
 authors:
 - Hisaomi Suzuki

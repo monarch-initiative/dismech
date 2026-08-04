@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.86937
+reference_id: "DOI:10.7759/cureus.86937"
 title: "Skin Barrier Dysfunction in Chronic Dermatoses: From Pathophysiology to Emerging Therapeutic Strategies"
 authors:
 - Irisdey Espinoza Urzua

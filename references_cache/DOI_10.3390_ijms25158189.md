@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25158189
+reference_id: "DOI:10.3390/ijms25158189"
 title: Rare Germline Variants in the Adenomatous Polyposis Coli Gene Associated with Dental and Osseous Anomalies
 authors:
 - Gergely Büki

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/brain/awad340
+reference_id: "DOI:10.1093/brain/awad340"
 title: Sustained OMA1-mediated integrated stress response is beneficial for spastic ataxia type 5
 authors:
 - Camilla Aurora Franchino

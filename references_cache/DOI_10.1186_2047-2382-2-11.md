@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/2047-2382-2-11
+reference_id: "DOI:10.1186/2047-2382-2-11"
 title: "Are interventions to reduce the impact of arsenic contamination of groundwater on human health in developing countries effective? A systematic review"
 authors:
 - Tracey Jones-Hughes

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1402539
+reference_id: "DOI:10.3389/fimmu.2024.1402539"
 title: "Immune response to viscerotropic Leishmania: a comprehensive review"
 authors:
 - Lorenzo Lodi

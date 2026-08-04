@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fsurg.2023.997338
+reference_id: "DOI:10.3389/fsurg.2023.997338"
 title: "Leiomyoma of the fallopian tube found during laparoscopic myomectomy: A case report and review of the literature"
 authors:
 - Bing Cheng

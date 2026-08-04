@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/000992280003900201
+reference_id: "DOI:10.1177/000992280003900201"
 title: Etiologic Factors of Acute Aortic Dissection in Children and Younrg Adults
 authors:
 - Charles R. Fikar

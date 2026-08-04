@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gut.2005.087262
+reference_id: "DOI:10.1136/gut.2005.087262"
 title: "Clinical presentation, diagnosis and long-term outcome of Wilson’s disease: a cohort study"
 authors:
 - U Merle

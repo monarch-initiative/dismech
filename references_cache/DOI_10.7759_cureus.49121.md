@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.49121
+reference_id: "DOI:10.7759/cureus.49121"
 title: "Familial Hypercholesterolemia: A Literature Review of the Pathophysiology and Current and Novel Treatments"
 authors:
 - Yasha N Suryawanshi

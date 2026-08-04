@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15586/jkcvhl.v11i4.324
+reference_id: "DOI:10.15586/jkcvhl.v11i4.324"
 title: "Is the TriNetX Database a Good Tool for Investigation of Real-World Management of Von Hippel–Lindau?"
 authors:
 - Aaron R. Hochberg

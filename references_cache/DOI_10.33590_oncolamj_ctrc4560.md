@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.33590/oncolamj/ctrc4560
+reference_id: "DOI:10.33590/oncolamj/ctrc4560"
 title: "Updates in Advanced Hormone Receptor-Positive Breast Cancer: From Circulating Tumor DNA-Guided Therapy to Precision Medicine"
 authors:
 - Christos Evangelou

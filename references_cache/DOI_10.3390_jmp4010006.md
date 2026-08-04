@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jmp4010006
+reference_id: "DOI:10.3390/jmp4010006"
 title: "MET Exon 14 Variants in Non-Small Cell Lung Carcinoma: Prevalence, Clinicopathologic and Molecular Features"
 authors:
 - Lisi Yuan

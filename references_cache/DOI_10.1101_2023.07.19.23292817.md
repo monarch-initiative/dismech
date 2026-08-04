@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2023.07.19.23292817
+reference_id: "DOI:10.1101/2023.07.19.23292817"
 title: Genetic and phenotype analyses of primary lateral sclerosis datasets from international cohorts
 authors:
 - Munishikha Kalia

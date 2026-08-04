@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12977-024-00641-2
+reference_id: "DOI:10.1186/s12977-024-00641-2"
 title: Inhibition of caspase pathways limits CD4+ T cell loss and restores host anti-retroviral function in HIV-1 infected humanized mice with augmented lymphoid tissue
 authors:
 - Alex J. Holloway

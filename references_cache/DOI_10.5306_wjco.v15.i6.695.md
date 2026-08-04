@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5306/wjco.v15.i6.695
+reference_id: "DOI:10.5306/wjco.v15.i6.695"
 title: "Gallbladder cancer: Progress in the Indian subcontinent"
 authors:
 - Ashok Kumar

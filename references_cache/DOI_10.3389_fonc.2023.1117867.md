@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1117867
+reference_id: "DOI:10.3389/fonc.2023.1117867"
 title: Molecular mechanisms of osteosarcoma metastasis and possible treatment opportunities
 authors:
 - Xinhui Du

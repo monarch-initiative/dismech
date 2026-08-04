@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2024-110031
+reference_id: "DOI:10.1136/jmg-2024-110031"
 title: Expanding the genetic and clinical spectrum of Tatton-Brown-Rahman syndrome in a series of 24 French patients
 authors:
 - Hortense Thomas

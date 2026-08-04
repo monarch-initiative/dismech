@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/strokeaha.115.009215
+reference_id: "DOI:10.1161/strokeaha.115.009215"
 title: Hemodynamic Features of Symptomatic Vertebrobasilar Disease
 authors:
 - Sepideh Amin-Hanjani

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cimb45100490
+reference_id: "DOI:10.3390/cimb45100490"
 title: "Biomarkers in Systemic Sclerosis: An Overview"
 authors:
 - Giuseppe Di Maggio

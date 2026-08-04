@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.61678
+reference_id: "DOI:10.7759/cureus.61678"
 title: "Neuropsychiatric Systemic Lupus Erythematosus: A Systematic Review"
 authors:
 - Tyler E Rice-Canetto

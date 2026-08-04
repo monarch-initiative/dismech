@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/23969873231190431
+reference_id: "DOI:10.1177/23969873231190431"
 title: European Stroke Organisation (ESO) guidelines on Primary Angiitis of the Central Nervous System (PACNS)
 authors:
 - Rosario Pascarella

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2478/acph-2024-0005
+reference_id: "DOI:10.2478/acph-2024-0005"
 title: A comprehensive overview of selective and novel fibroblast growth factor receptor inhibitors as a potential anticancer modality
 authors:
 - Nem Kumar Jain

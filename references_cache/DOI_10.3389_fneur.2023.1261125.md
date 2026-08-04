@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1261125
+reference_id: "DOI:10.3389/fneur.2023.1261125"
 title: "Proteomic investigations of adult polyglucosan body disease: insights into the pathobiology of a neurodegenerative disorder"
 authors:
 - Joseph R. Abraham

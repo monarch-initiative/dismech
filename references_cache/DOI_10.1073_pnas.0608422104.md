@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0608422104
+reference_id: "DOI:10.1073/pnas.0608422104"
 title: Shear-induced unfolding triggers adhesion of von Willebrand factor fibers
 authors:
 - S. W. Schneider

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012407
+reference_id: "DOI:10.1371/journal.pntd.0012407"
 title: "Prevention of congenital chagas disease by trypanocide treatment in women of reproductive age: A meta-analysis of observational studies"
 authors:
 - Francisco Cezar Aquino de Moraes

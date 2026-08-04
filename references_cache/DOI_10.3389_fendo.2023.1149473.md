@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1149473
+reference_id: "DOI:10.3389/fendo.2023.1149473"
 title: "Genes in loci genetically associated with polycystic ovary syndrome are dynamically expressed in human fetal gonadal, metabolic and brain tissues"
 authors:
 - Rafiatu Azumah

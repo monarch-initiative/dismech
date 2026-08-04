@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcimb.2022.1106596
+reference_id: "DOI:10.3389/fcimb.2022.1106596"
 title: Streptococcus pneumoniae meningitis and the CNS barriers
 authors:
 - Eliza Gil

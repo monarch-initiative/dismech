@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02224781
+reference_id: "clinicaltrials:NCT02224781"
 title: "DREAMseq (Doublet, Randomized Evaluation in Advanced Melanoma Sequencing) a Phase III Trial"
 content_type: summary
 full_text_attempted: true

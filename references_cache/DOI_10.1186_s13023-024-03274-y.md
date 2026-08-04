@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03274-y
+reference_id: "DOI:10.1186/s13023-024-03274-y"
 title: "Short and long-term acceptability and efficacy of extended-release cornstarch in the hepatic glycogen storage diseases: results from the Glyde study"
 authors:
 - DA Weinstein

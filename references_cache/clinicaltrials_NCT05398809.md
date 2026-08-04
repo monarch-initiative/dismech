@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05398809
+reference_id: "clinicaltrials:NCT05398809"
 title: A Phase 2 Open-Label Study to Evaluate the Efficacy and Safety of Ruxolitinib on Hair Regrowth in Patients With Autoimmune Polyendocrinopathy Candidiasis Ectodermal Dystrophy (APECED)-Associated Alopecia Areata
 content_type: summary
 full_text_attempted: true

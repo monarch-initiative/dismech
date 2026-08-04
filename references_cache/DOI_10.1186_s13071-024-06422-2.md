@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-024-06422-2
+reference_id: "DOI:10.1186/s13071-024-06422-2"
 title: "Soil-transmitted helminth (STH) infections in the Wolaita zone in Southern Ethiopia: mid-stage evaluation of the Geshiyaro project and progress towards the interruption of transmission"
 authors:
 - Birhan Mengistu

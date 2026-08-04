@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12890-024-03371-5
+reference_id: "DOI:10.1186/s12890-024-03371-5"
 title: Evolution of treatment strategies for solid tumors with RET rearrangement in China and real-world treatment status of Non-small Cell Lung Cancer (NSCLC)
 authors:
 - An Wang

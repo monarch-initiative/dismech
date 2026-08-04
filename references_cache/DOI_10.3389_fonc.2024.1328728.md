@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1328728
+reference_id: "DOI:10.3389/fonc.2024.1328728"
 title: Mechanisms of resistance to KRASG12C inhibitors in KRASG12C-mutated non-small cell lung cancer
 authors:
 - Ali Chour

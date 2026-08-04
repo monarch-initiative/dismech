@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ajhg.2009.06.007
+reference_id: "DOI:10.1016/j.ajhg.2009.06.007"
 title: Multiple Synostoses Syndrome Is Due to a Missense Mutation in Exon 2 of FGF9 Gene
 authors:
 - Xiao-lin Wu

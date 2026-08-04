@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26199421
+reference_id: "DOI:10.3390/ijms26199421"
 title: Gene Therapy Strategies for the Treatment of Bestrophinopathies
 authors:
 - Silja B. Haldrup

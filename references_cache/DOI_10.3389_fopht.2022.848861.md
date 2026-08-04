@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fopht.2022.848861
+reference_id: "DOI:10.3389/fopht.2022.848861"
 title: "Giant Cell Arteritis: Updates and Controversies"
 authors:
 - Erin Yu

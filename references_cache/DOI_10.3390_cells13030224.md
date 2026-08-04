@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13030224
+reference_id: "DOI:10.3390/cells13030224"
 title: "Campylobacter jejuni Surface-Bound Protease HtrA, but Not the Secreted Protease nor Protease in Shed Membrane Vesicles, Disrupts Epithelial Cell-to-Cell Junctions"
 authors:
 - Irshad Sharafutdinov

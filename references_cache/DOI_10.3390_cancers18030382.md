@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers18030382
+reference_id: "DOI:10.3390/cancers18030382"
 title: "Drug Therapy for Melanoma: Current Updates and Future Prospects"
 authors:
 - Hiroshi Kato

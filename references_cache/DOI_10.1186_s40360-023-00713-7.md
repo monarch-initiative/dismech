@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40360-023-00713-7
+reference_id: "DOI:10.1186/s40360-023-00713-7"
 title: "Efficacy of pharmacotherapies for bulimia nervosa: a systematic review and meta-analysis"
 authors:
 - Sijie Yu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2022.1005655
+reference_id: "DOI:10.3389/fneur.2022.1005655"
 title: "Case report: A case of novel treatment for retrograde cricopharyngeal dysfunction"
 authors:
 - Mengshu Xie

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13206056
+reference_id: "DOI:10.3390/jcm13206056"
 title: "Endothelin Inhibitors in Chronic Kidney Disease: New Treatment Prospects"
 authors:
 - Agata Rakotoarison

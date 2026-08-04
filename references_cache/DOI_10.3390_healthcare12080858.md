@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/healthcare12080858
+reference_id: "DOI:10.3390/healthcare12080858"
 title: "Anesthetic Considerations for Patients with Hereditary Neuropathy with Liability to Pressure Palsies: A Narrative Review"
 authors:
 - Krzysztof Laudanski

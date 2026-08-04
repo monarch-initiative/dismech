@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2019.01310
+reference_id: "DOI:10.3389/fnins.2019.01310"
 title: "ALS Genetics, Mechanisms, and Therapeutics: Where Are We Now?"
 authors:
 - Rita Mejzini

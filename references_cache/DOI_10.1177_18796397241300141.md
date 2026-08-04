@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/18796397241300141
+reference_id: "DOI:10.1177/18796397241300141"
 title: "Comparative analysis of neurofilament light chain in Huntington's disease like 2 and Huntington's disease"
 authors:
 - David G Anderson

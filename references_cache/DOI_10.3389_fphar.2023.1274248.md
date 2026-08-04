@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2023.1274248
+reference_id: "DOI:10.3389/fphar.2023.1274248"
 title: "Advances in the treatment of autosomal recessive congenital ichthyosis, a look towards the repositioning of drugs"
 authors:
 - Sheila I. Peña-Corona

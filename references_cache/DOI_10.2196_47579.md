@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2196/47579
+reference_id: "DOI:10.2196/47579"
 title: "Cause of Death in Patients with Oropharyngeal Carcinoma by Human Papillomavirus Status: Comparative Data Analysis"
 authors:
 - Dong-Dong Zhang

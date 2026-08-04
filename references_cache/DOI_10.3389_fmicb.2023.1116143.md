@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2023.1116143
+reference_id: "DOI:10.3389/fmicb.2023.1116143"
 title: The role of Epstein–Barr virus in nasopharyngeal carcinoma
 authors:
 - Zhi Yi Su

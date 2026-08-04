@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12887-024-04871-3
+reference_id: "DOI:10.1186/s12887-024-04871-3"
 title: "Lead encephalopathy presenting as status epilepticus: a case report"
 authors:
 - Iqra J. Kamal

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15051498
+reference_id: "DOI:10.3390/cancers15051498"
 title: Molecular Mechanisms of Gastrointestinal Stromal Tumors and Their Impact on Systemic Therapy Decision
 authors:
 - Mojca Unk

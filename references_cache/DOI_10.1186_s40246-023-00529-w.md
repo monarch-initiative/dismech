@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40246-023-00529-w
+reference_id: "DOI:10.1186/s40246-023-00529-w"
 title: "Genetics in ophthalmology: molecular blueprints of retinoblastoma"
 authors:
 - Leon Marković

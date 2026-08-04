@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/ajco.13836
+reference_id: "DOI:10.1111/ajco.13836"
 title: Molecular basis and targeted therapies for radioiodine refractory thyroid cancer
 authors:
 - Qiuxiao Yu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14030357
+reference_id: "DOI:10.3390/biom14030357"
 title: Immunologic Aspects in Fibrodysplasia Ossificans Progressiva
 authors:
 - Anastasia Diolintzi

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jnis-2022-018732
+reference_id: "DOI:10.1136/jnis-2022-018732"
 title: "Asymptomatic carotid artery stenosis: a summary of current state of evidence for revascularization and emerging high-risk features"
 authors:
 - Hyun Woo Kim

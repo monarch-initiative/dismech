@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012818
+reference_id: "DOI:10.1371/journal.pntd.0012818"
 title: Estimated incidence and clinical presentation of Noma in Northern Nigeria (1999–2024)
 authors:
 - Ramat Oyebunmi Braimah

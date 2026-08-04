@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12883-024-03901-y
+reference_id: "DOI:10.1186/s12883-024-03901-y"
 title: Clinical analysis of Marchiafava-Bignami disease
 authors:
 - Cong Liu

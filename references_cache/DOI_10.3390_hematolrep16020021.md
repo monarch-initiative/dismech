@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/hematolrep16020021
+reference_id: "DOI:10.3390/hematolrep16020021"
 title: "Pathophysiology, Clinical Manifestations and Diagnosis of Immune Thrombocytopenia: Contextualization from a Historical Perspective"
 authors:
 - Daniel Martínez-Carballeira

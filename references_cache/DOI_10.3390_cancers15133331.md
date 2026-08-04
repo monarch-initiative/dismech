@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15133331
+reference_id: "DOI:10.3390/cancers15133331"
 title: "Association of Myelofibrosis Phenotypes with Clinical Manifestations, Molecular Profiles, and Treatments"
 authors:
 - Helen T. Chifotides

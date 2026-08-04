@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1010974
+reference_id: "DOI:10.1371/journal.pgen.1010974"
 title: Adenylosuccinate lyase deficiency affects neurobehavior via perturbations to tyramine signaling in Caenorhabditis elegans
 authors:
 - Corinna A. Moro

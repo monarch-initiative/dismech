@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15252/embj.201696257
+reference_id: "DOI:10.15252/embj.201696257"
 title: Reorganization of inter‐chromosomal interactions in the 2q37‐deletion syndrome
 authors:
 - Philipp G Maass

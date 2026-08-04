@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1165/rcmb.2023-0176ps
+reference_id: "DOI:10.1165/rcmb.2023-0176ps"
 title: Extracellular Matrix as a Driver of Chronic Lung Diseases
 authors:
 - Janette K. Burgess

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s11689-024-09556-7
+reference_id: "DOI:10.1186/s11689-024-09556-7"
 title: Sleep EEG signatures in mouse models of 15q11.2-13.1 duplication (Dup15q) syndrome
 authors:
 - Vidya Saravanapandian

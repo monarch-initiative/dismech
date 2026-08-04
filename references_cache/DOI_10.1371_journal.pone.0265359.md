@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0265359
+reference_id: "DOI:10.1371/journal.pone.0265359"
 title: Whole-exome sequencing in a Japanese multiplex family identifies new susceptibility genes for intracranial aneurysms
 authors:
 - Tatsuya Maegawa

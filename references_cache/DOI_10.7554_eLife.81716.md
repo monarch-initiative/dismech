@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/eLife.81716
+reference_id: "DOI:10.7554/eLife.81716"
 title: Microcephaly-associated protein WDR62 shuttles from the Golgi apparatus to the spindle poles in human neural progenitors
 authors:
 - "Claudia Dell'Amico"

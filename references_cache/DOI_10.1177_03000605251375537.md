@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/03000605251375537
+reference_id: "DOI:10.1177/03000605251375537"
 title: "Mitochondrial 3-hydroxy-3-methylglutaryl-coenzyme A synthase 2 deficiency with severe hyperglycemia in a child: A rare case report"
 authors:
 - Chang Dong

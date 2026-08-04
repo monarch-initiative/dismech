@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci67217
+reference_id: "DOI:10.1172/jci67217"
 title: Biochemical correlates of neuropsychiatric illness in maple syrup urine disease
 authors:
 - Emilie R. Muelly

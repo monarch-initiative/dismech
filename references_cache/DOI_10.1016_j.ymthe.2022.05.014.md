@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymthe.2022.05.014
+reference_id: "DOI:10.1016/j.ymthe.2022.05.014"
 title: Gene-based therapeutics for rare genetic neurodevelopmental psychiatric disorders
 authors:
 - Beverly L. Davidson

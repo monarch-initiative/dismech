@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1381250
+reference_id: "DOI:10.3389/fonc.2024.1381250"
 title: "The risk of endocrine immune-related adverse events induced by PD-1 inhibitors in cancer patients: a systematic review and meta-analysis"
 authors:
 - Pengfei Zhao

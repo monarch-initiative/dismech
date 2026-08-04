@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2021.702425
+reference_id: "DOI:10.3389/fimmu.2021.702425"
 title: Urine Proteomics Differentiate Primary Thrombotic Antiphospholipid Syndrome From Obstetric Antiphospholipid Syndrome
 authors:
 - Zhuochao Zhou

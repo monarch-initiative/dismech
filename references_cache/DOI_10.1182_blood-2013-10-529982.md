@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2013-10-529982
+reference_id: "DOI:10.1182/blood-2013-10-529982"
 title: Heme-induced neutrophil extracellular traps contribute to the pathogenesis of sickle cell disease
 authors:
 - Grace Chen

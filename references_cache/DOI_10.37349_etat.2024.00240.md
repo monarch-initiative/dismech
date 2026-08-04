@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/etat.2024.00240
+reference_id: "DOI:10.37349/etat.2024.00240"
 title: Landscape of targeted therapies for advanced urothelial carcinoma
 authors:
 - Shihao Shang

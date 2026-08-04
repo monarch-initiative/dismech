@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2021.737314
+reference_id: "DOI:10.3389/fcell.2021.737314"
 title: "Exosomes as Efficient Nanocarriers in Osteosarcoma: Biological Functions and Potential Clinical Applications"
 authors:
 - Lingkai Yang

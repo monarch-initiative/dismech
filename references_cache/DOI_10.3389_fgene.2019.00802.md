@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2019.00802
+reference_id: "DOI:10.3389/fgene.2019.00802"
 title: "Biochemical, Clinical, and Genetic Characteristics of Short/Branched Chain Acyl-CoA Dehydrogenase Deficiency in Chinese Patients by Newborn Screening"
 authors:
 - Yiming Lin

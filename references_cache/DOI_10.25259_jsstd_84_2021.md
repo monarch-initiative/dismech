@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25259/jsstd_84_2021
+reference_id: "DOI:10.25259/jsstd_84_2021"
 title: "Patterns of infant dermatoses: An observational study from the dermatology outpatient clinic of a tertiary referral center"
 authors:
 - Jully Mudang

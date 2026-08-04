@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12964-025-02143-w
+reference_id: "DOI:10.1186/s12964-025-02143-w"
 title: "NEK8, a NIMA-family protein kinase at the core of the ciliary INV complex"
 authors:
 - Joan Roig

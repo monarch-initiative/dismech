@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom15081083
+reference_id: "DOI:10.3390/biom15081083"
 title: "Metallothionein and Other Factors Influencing Cadmium-Induced Kidney Dysfunction: Review and Commentary"
 authors:
 - Gunnar F. Nordberg

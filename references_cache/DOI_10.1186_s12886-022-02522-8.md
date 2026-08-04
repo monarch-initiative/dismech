@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12886-022-02522-8
+reference_id: "DOI:10.1186/s12886-022-02522-8"
 title: Long-term clinical prognosis of 335 infant single-gene positive FEVR cases
 authors:
 - Chunli Chen

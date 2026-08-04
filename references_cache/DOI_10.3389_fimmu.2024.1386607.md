@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1386607
+reference_id: "DOI:10.3389/fimmu.2024.1386607"
 title: "Myalgic Encephalomyelitis/Chronic Fatigue Syndrome: the biology of a neglected disease"
 authors:
 - Hayley E. Arron

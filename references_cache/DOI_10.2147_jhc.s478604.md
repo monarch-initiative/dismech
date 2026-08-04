@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jhc.s478604
+reference_id: "DOI:10.2147/jhc.s478604"
 title: "Efficacy of Atezolizumab Plus Bevacizumab Combined with Transarterial Chemoembolization for Unresectable Hepatocellular Carcinoma: A Real-World Study"
 authors:
 - Xiao Shen

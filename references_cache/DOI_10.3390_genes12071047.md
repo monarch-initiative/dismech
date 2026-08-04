@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes12071047
+reference_id: "DOI:10.3390/genes12071047"
 title: "Cardiac Defects and Genetic Syndromes: Old Uncertainties and New Insights"
 authors:
 - Giulio Calcagni

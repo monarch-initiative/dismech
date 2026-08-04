@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms241713158
+reference_id: "DOI:10.3390/ijms241713158"
 title: Glutaryl-CoA Dehydrogenase Misfolding in Glutaric Acidemia Type 1
 authors:
 - Madalena Barroso

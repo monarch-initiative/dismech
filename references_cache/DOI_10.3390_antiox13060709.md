@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/antiox13060709
+reference_id: "DOI:10.3390/antiox13060709"
 title: "The Underlying Neurobiological Mechanisms of Psychosis: Focus on Neurotransmission Dysregulation, Neuroinflammation, Oxidative Stress, and Mitochondrial Dysfunction"
 authors:
 - Neha S. Rawani

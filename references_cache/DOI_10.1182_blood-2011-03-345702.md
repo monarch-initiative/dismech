@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2011-03-345702
+reference_id: "DOI:10.1182/blood-2011-03-345702"
 title: How I treat adult T-cell leukemia/lymphoma
 authors:
 - Ali Bazarbachi

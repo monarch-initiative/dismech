@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm9123859
+reference_id: "DOI:10.3390/jcm9123859"
 title: "New Insights in Autoimmune Hemolytic Anemia: From Pathogenesis to Therapy"
 authors:
 - Wilma Barcellini

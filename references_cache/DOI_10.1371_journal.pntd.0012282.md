@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012282
+reference_id: "DOI:10.1371/journal.pntd.0012282"
 title: "Schistosomiasis diagnosis: Challenges and opportunities for elimination"
 authors:
 - Ombeni Ally

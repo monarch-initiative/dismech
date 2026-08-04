@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14302/issn.2372-6601.jhor-24-5108
+reference_id: "DOI:10.14302/issn.2372-6601.jhor-24-5108"
 title: "Understanding Inherited Bleeding Disorders: Genetic Mutations in Blood Coagulation Factors and Regulatory Proteins"
 authors:
 - Ansam Zakaria Baniamer

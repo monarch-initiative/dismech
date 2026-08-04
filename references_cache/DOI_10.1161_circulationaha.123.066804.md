@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/circulationaha.123.066804
+reference_id: "DOI:10.1161/circulationaha.123.066804"
 title: "A Genomic Link From Heart Failure to Atrial Fibrillation Risk: FOG2 Modulates a TBX5/GATA4-Dependent Atrial Gene Regulatory Network"
 authors:
 - Michael T. Broman

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.24.00447
+reference_id: "DOI:10.1200/jco.24.00447"
 title: "15-Gene Expression Profile and <i>PRAME</i> as Integrated Prognostic Test for Uveal Melanoma: First Report of Collaborative Ocular Oncology Group Study No. 2 (COOG2.1)"
 authors:
 - J. William Harbour

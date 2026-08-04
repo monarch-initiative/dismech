@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/life13041066
+reference_id: "DOI:10.3390/life13041066"
 title: Afamelanotide Is Associated with Dose-Dependent Protective Effect from Liver Damage Related to Erythropoietic Protoporphyria
 authors:
 - Anna-Elisabeth Minder

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0314140
+reference_id: "DOI:10.1371/journal.pone.0314140"
 title: "Assessment of scabies and its associated factors in Hawassa Zuria District, Southern Ethiopia: A cross-sectional study"
 authors:
 - Philmon Dejen

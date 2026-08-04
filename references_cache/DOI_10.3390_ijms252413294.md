@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252413294
+reference_id: "DOI:10.3390/ijms252413294"
 title: Systemic and Cardiac Microvascular Dysfunction in Hypertension
 authors:
 - Alessandro Durante

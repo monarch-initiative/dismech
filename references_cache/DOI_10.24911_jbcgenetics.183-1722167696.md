@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.24911/jbcgenetics.183-1722167696
+reference_id: "DOI:10.24911/jbcgenetics.183-1722167696"
 title: "Characterization of 3-Hydroxyisobutyryl-Coa Hydrolase (HIBCH) Deficiency in Bahrain: A Retrospective Cohort Study"
 authors:
 - Emtithal Al jishi

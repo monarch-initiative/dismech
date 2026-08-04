@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24065478
+reference_id: "DOI:10.3390/ijms24065478"
 title: "Molecular Pathology, Oxidative Stress, and Biomarkers in Obstructive Sleep Apnea"
 authors:
 - Piero Giuseppe Meliante

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2023.1325284
+reference_id: "DOI:10.3389/fmolb.2023.1325284"
 title: "From adhesion complex to signaling hub: the dual role of dystroglycan"
 authors:
 - Francesca Sciandra

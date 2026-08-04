@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25020886
+reference_id: "DOI:10.3390/ijms25020886"
 title: Human Fallopian Tube-Derived Organoids with TP53 and RAD51D Mutations Recapitulate an Early Stage High-Grade Serous Ovarian Cancer Phenotype In Vitro
 authors:
 - Yilin Dai

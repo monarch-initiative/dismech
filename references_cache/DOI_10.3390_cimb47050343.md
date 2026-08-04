@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cimb47050343
+reference_id: "DOI:10.3390/cimb47050343"
 title: "Key Roles of Brown, Subcutaneous, and Visceral Adipose Tissues in Obesity and Insulin Resistance"
 authors:
 - Maria-Zinaida Dobre

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1192/bja.2024.27
+reference_id: "DOI:10.1192/bja.2024.27"
 title: "Assessment and diagnosis of post-traumatic stress disorders (PTSDs) for medico-legal and other clinical purposes: DSM-5-TR PTSD, ICD-11 PTSD and ICD-11 complex PTSD"
 authors:
 - Andy P. Siddaway

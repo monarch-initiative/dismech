@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252011246
+reference_id: "DOI:10.3390/ijms252011246"
 title: Erythropoiesis and Gene Expression Analysis in Erythroid Progenitor Cells Derived from Patients with Hemoglobin H/Constant Spring Disease
 authors:
 - Narawich Wongkhammul

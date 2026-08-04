@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci183776
+reference_id: "DOI:10.1172/jci183776"
 title: Clonal analysis of SepSecS-specific B and T cells in autoimmune hepatitis
 authors:
 - Michael Kramer

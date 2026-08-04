@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3171/2024.1.JNS221977
+reference_id: "DOI:10.3171/2024.1.JNS221977"
 title: "Management of moyamoya disease: a review of current and future therapeutic strategies"
 authors:
 - Ari D. Kappel

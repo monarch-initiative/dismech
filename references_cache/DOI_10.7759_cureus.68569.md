@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.68569
+reference_id: "DOI:10.7759/cureus.68569"
 title: "Shared Pathophysiology of Inflammatory Bowel Disease and Psoriasis: Unraveling the Connection"
 authors:
 - Walter Jauregui

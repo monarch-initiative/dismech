@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26146592
+reference_id: "DOI:10.3390/ijms26146592"
 title: "Gene Therapies in Dermatological Diseases: A Breakthrough in Treatment"
 authors:
 - Wiktoria Lisińska

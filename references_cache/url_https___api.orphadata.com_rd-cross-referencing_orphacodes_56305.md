@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://api.orphadata.com/rd-cross-referencing/orphacodes/56305
+reference_id: "url:https://api.orphadata.com/rd-cross-referencing/orphacodes/56305"
 title: "https://api.orphadata.com/rd-cross-referencing/orphacodes/56305"
 content_type: url
 ---

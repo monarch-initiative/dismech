@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2019.238261
+reference_id: "DOI:10.3324/haematol.2019.238261"
 title: Expanded circulating hematopoietic stem/progenitor cells as novel cell source for the treatment of TCIRG1 osteopetrosis
 authors:
 - Valentina Capo

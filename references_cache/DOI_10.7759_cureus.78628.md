@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.78628
+reference_id: "DOI:10.7759/cureus.78628"
 title: "Non-Hodgkin Lymphoma Manifesting as Bilateral Tonsillar Hypertrophy: A Case Report"
 authors:
 - Hashim S Almishhadany

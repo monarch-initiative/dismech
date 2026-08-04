@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16020428
+reference_id: "DOI:10.3390/cancers16020428"
 title: The Immune Landscape and Immunotherapeutic Strategies in Platinum-Refractory Testicular Germ Cell Tumors
 authors:
 - Konstantinos Evmorfopoulos

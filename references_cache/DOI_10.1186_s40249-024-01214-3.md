@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40249-024-01214-3
+reference_id: "DOI:10.1186/s40249-024-01214-3"
 title: "Efficacy of ivermectin and albendazole combination in suppressing transmission of lymphatic filariasis following mass administration in Tanzania: a prospective cohort study"
 authors:
 - Adam M. Fimbo

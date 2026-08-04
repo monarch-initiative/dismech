@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.22.01693
+reference_id: "DOI:10.1200/jco.22.01693"
 title: "ANCHOR CRC: Results From a Single-Arm, Phase II Study of Encorafenib Plus Binimetinib and Cetuximab in Previously Untreated <i>BRAF</i><sup>V600E</sup>-Mutant Metastatic Colorectal Cancer"
 authors:
 - Eric Van Cutsem

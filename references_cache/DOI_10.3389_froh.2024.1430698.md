@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/froh.2024.1430698
+reference_id: "DOI:10.3389/froh.2024.1430698"
 title: "Unusual oral manifestation of Kindler syndrome: a case report and review of literature"
 authors:
 - Rahul Bhandary

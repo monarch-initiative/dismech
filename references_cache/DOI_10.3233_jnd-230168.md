@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/jnd-230168
+reference_id: "DOI:10.3233/jnd-230168"
 title: "Contribution of Complement, Microangiopathy and Inflammation in Idiopathic Inflammatory Myopathies"
 authors:
 - Masaya Honda

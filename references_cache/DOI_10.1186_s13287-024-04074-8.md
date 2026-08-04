@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13287-024-04074-8
+reference_id: "DOI:10.1186/s13287-024-04074-8"
 title: An hiPSC-CM approach for electrophysiological phenotyping of a patient-specific case of short-coupled TdP
 authors:
 - Willem B. van Ham

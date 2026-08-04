@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-40956-w
+reference_id: "DOI:10.1038/s41467-023-40956-w"
 title: A transcriptional response to replication stress selectively expands a subset of Brca2-mutant mammary epithelial cells
 authors:
 - Maryam Ghaderi Najafabadi

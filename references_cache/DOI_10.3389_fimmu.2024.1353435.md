@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1353435
+reference_id: "DOI:10.3389/fimmu.2024.1353435"
 title: "PD-1 inhibitor combined with paclitaxel and cisplatin in the treatment of recurrent and metastatic hypopharyngeal/laryngeal squamous cell carcinoma: efficacy and survival outcomes"
 authors:
 - Qi Fang

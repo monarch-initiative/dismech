@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12887-024-05123-0
+reference_id: "DOI:10.1186/s12887-024-05123-0"
 title: Homozygous splice-site variant in ENPP1 underlies generalized arterial calcification of infancy
 authors:
 - Hafiza Noor Ul Ayan

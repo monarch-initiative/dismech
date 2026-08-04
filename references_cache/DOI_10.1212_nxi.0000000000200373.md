@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000200373
+reference_id: "DOI:10.1212/nxi.0000000000200373"
 title: "Immunogenetic Studies in Patients With GAD-Positive Stiff-Person Syndrome Reveal Novel Lymphocytic Genes and <i>KLK10</i> -Gene Variants"
 authors:
 - Popianna Tsiortou

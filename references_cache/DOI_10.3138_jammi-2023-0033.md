@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3138/jammi-2023-0033
+reference_id: "DOI:10.3138/jammi-2023-0033"
 title: "Extracorporeal life support for severe leptospirosis: Case series and narrative review"
 authors:
 - Lazar Milovanovic

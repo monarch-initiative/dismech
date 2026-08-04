@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13256-024-04724-8
+reference_id: "DOI:10.1186/s13256-024-04724-8"
 title: "Familial adenomatous polyposis: a case report"
 authors:
 - Endeshaw Asaye Kindie

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25179495
+reference_id: "DOI:10.3390/ijms25179495"
 title: "Pathological Mechanisms Involved in Epidermolysis Bullosa Simplex: Current Knowledge and Therapeutic Perspectives"
 authors:
 - Mbarka Bchetnia

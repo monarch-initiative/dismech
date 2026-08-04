@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12887-024-05266-0
+reference_id: "DOI:10.1186/s12887-024-05266-0"
 title: "Maple syrup urine disease diagnosed in a resource-limited setting in an infant in Nepal: a case report"
 authors:
 - Sujata Baidya

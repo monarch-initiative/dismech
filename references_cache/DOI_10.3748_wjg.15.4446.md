@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3748/wjg.15.4446
+reference_id: "DOI:10.3748/wjg.15.4446"
 title: Free perforation of the small intestine in collagenous sprue
 authors:
 - Hugh J Freeman

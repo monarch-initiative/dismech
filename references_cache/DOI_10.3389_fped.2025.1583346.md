@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2025.1583346
+reference_id: "DOI:10.3389/fped.2025.1583346"
 title: "Case Report: A case of Poirier–Bienvenu neurodevelopmental syndrome manifesting primarily as eyelid myoclonia"
 authors:
 - Yuanyuan He

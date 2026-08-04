@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013684
+reference_id: "DOI:10.1371/journal.pntd.0013684"
 title: "Risk factors for Buruli ulcer disease in Ghana: A matched case-control study in four selected endemic districts of Eastern and Oti Regions"
 authors:
 - Mawuli Gohoho

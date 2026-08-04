@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes13091571
+reference_id: "DOI:10.3390/genes13091571"
 title: "Hearing Loss in Stickler Syndrome: An Update"
 authors:
 - Frederic R. E. Acke

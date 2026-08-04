@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/pore.2023.1611138
+reference_id: "DOI:10.3389/pore.2023.1611138"
 title: RET rearrangements are relevant to histopathologic subtypes and clinicopathological features in Thai papillary thyroid carcinoma patients
 authors:
 - Thitima Khonrak

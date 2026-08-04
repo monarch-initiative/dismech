@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25020758
+reference_id: "DOI:10.3390/ijms25020758"
 title: Pathophysiology of Atrial Fibrillation and Approach to Therapy in Subjects Less than 60 Years Old
 authors:
 - Antonio Curcio

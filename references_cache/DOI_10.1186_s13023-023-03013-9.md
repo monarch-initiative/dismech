@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-03013-9
+reference_id: "DOI:10.1186/s13023-023-03013-9"
 title: Quantification of Proteus syndrome-associated lung disease
 authors:
 - Christopher A. Ours

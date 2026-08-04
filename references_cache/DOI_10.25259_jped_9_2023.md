@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25259/jped_9_2023
+reference_id: "DOI:10.25259/jped_9_2023"
 title: A rare case of β-ketothiolase deficiency presenting as mimicker of diabetic ketoacidosis
 authors:
 - Bijoy Patra

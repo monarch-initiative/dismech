@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE67472
+reference_id: "GEO:GSE67472"
 title: Airway epithelial gene expression in asthma versus healthy controls
 content_type: summary
 full_text_attempted: true

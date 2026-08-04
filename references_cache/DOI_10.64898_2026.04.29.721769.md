@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.64898/2026.04.29.721769
+reference_id: "DOI:10.64898/2026.04.29.721769"
 title: Resolving human neuronal herpesvirus reactivation via petabase-scale association studies
 authors:
 - Jacob C. Gutierrez

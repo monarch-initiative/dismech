@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/archdischild-2024-327133
+reference_id: "DOI:10.1136/archdischild-2024-327133"
 title: "Retinopathy of prematurity in Germany over 13 years: incidences, treatment preferences and effects of national guideline changes"
 authors:
 - Tim U Krohne

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2024.1467760
+reference_id: "DOI:10.3389/fped.2024.1467760"
 title: "Hotspots and status of Fetal Alpha-Thalassemia from 2009 to 2023: a bibliometric analysis"
 authors:
 - Qiuying Li

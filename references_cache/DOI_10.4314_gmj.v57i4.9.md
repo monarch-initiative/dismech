@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4314/gmj.v57i4.9
+reference_id: "DOI:10.4314/gmj.v57i4.9"
 title: Scimitar syndrome in a four-month-old infant
 authors:
 - Frank Owusu-Sekyere

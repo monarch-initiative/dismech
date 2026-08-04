@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3238/arztebl.m2024.0147
+reference_id: "DOI:10.3238/arztebl.m2024.0147"
 title: The treatment of metastatic renal cell carcinoma
 authors:
 - Philipp Ivanyi

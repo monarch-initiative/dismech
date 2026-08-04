@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/cmr.00033-16
+reference_id: "DOI:10.1128/cmr.00033-16"
 title: "Clinical Manifestations, Treatment, and Diagnosis of Tropheryma whipplei Infections"
 authors:
 - Ruben A. V. Dolmans

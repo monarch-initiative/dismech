@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25115652
+reference_id: "DOI:10.3390/ijms25115652"
 title: Deciphering the Complex Immunopathogenesis of Alopecia Areata
 authors:
 - Ingrid Šutić Udović

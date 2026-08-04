@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13000-019-0825-1
+reference_id: "DOI:10.1186/s13000-019-0825-1"
 title: Desmoplastic small round cell tumor of the parotid gland-report of a rare case and a review of the literature
 authors:
 - Kanako C. Hatanaka

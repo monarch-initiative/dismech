@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/antiox13081023
+reference_id: "DOI:10.3390/antiox13081023"
 title: A Multi-Target Pharmacological Correction of a Lipoyltransferase LIPT1 Gene Mutation in Patient-Derived Cellular Models
 authors:
 - David Gómez-Fernández

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16112086
+reference_id: "DOI:10.3390/cancers16112086"
 title: "Therapeutic Targets in Advanced Penile Cancer: From Bench to Bedside"
 authors:
 - Lance C. Pagliaro

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/eLife.82811
+reference_id: "DOI:10.7554/eLife.82811"
 title: N-terminal domain on dystroglycan enables LARGE1 to extend matriglycan on α-dystroglycan and prevents muscular dystrophy
 authors:
 - Hidehiko Okuma

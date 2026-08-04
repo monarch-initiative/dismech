@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1356068
+reference_id: "DOI:10.3389/fgene.2024.1356068"
 title: Screening for thalassemia carriers among the Han population of childbearing age in Southwestern of China
 authors:
 - Yepei Du

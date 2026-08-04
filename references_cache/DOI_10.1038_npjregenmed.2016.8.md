@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/npjregenmed.2016.8
+reference_id: "DOI:10.1038/npjregenmed.2016.8"
 title: "An acellular biologic scaffold treatment for volumetric muscle loss: results of a 13-patient cohort study"
 authors:
 - Jenna Dziki

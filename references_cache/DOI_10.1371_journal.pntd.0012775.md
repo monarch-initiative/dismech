@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012775
+reference_id: "DOI:10.1371/journal.pntd.0012775"
 title: "The disability-adjusted life years (DALYs), prevalence and incidence of scabies, 1990–2021: A systematic analysis from the Global Burden of Disease Study 2021"
 authors:
 - Jiajia Li

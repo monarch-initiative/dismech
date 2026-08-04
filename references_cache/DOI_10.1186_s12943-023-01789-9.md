@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-023-01789-9
+reference_id: "DOI:10.1186/s12943-023-01789-9"
 title: CXCR2 expression during melanoma tumorigenesis controls transcriptional programs that facilitate tumor growth
 authors:
 - J. Yang

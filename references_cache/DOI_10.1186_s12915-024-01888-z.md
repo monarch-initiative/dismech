@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12915-024-01888-z
+reference_id: "DOI:10.1186/s12915-024-01888-z"
 title: Dysregulation of innate immune signaling in animal models of spinal muscular atrophy
 authors:
 - Eric L. Garcia

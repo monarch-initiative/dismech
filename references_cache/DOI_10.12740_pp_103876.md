@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12740/pp/103876
+reference_id: "DOI:10.12740/pp/103876"
 title: ICD-11 vs. ICD-10 – a review of updates and novelties introduced in the latest version of the WHO International Classification of Diseases
 authors:
 - Piotr Krawczyk

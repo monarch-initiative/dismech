@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12905-023-02407-y
+reference_id: "DOI:10.1186/s12905-023-02407-y"
 title: "Disordered hypothalamus-pituitary-ovary axis in heterotopic extraovarian sex cord-stromal proliferation: a case report of fallopian tube serous adenofibroma"
 authors:
 - Isabel Hsu

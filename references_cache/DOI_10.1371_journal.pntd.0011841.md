@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011841
+reference_id: "DOI:10.1371/journal.pntd.0011841"
 title: "Epidemiological observations and management challenges in extrapedal mycetoma: A three-decade review of 420 cases"
 authors:
 - Abubakr Abdalla Mohammed Alhaj

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25060/residpediatr-2024.v14n3-1101
+reference_id: "DOI:10.25060/residpediatr-2024.v14n3-1101"
 title: "Refeeding syndrome in the severe malnourished: the nutricional challenges"
 authors:
 - Maria Machado

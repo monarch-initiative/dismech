@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2023.1250893
+reference_id: "DOI:10.3389/fphar.2023.1250893"
 title: "Natural compounds: Wnt pathway inhibitors with therapeutic potential in lung cancer"
 authors:
 - Xuetong Shen

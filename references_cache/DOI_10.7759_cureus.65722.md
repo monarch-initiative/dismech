@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.65722
+reference_id: "DOI:10.7759/cureus.65722"
 title: "Glutaric Aciduria Presenting With an Acute Encephalitic Crisis: A Case Report"
 authors:
 - Manojkumar G Patil

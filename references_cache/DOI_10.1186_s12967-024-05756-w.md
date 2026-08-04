@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05756-w
+reference_id: "DOI:10.1186/s12967-024-05756-w"
 title: "Human in vitro models for Fabry disease: new paths for unravelling disease mechanisms and therapies"
 authors:
 - Carla Borisch

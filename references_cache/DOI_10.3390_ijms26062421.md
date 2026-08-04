@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26062421
+reference_id: "DOI:10.3390/ijms26062421"
 title: "The Role of CXCL4 in Systemic Sclerosis: DAMP, Auto-Antigen and Biomarker"
 authors:
 - Silvia Porreca

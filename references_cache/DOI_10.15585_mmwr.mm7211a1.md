@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15585/mmwr.mm7211a1
+reference_id: "DOI:10.15585/mmwr.mm7211a1"
 title: "Trends in Reported Babesiosis Cases — United States, 2011–2019"
 authors:
 - Megan Swanson

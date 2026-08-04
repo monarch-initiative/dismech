@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2016-10-746933
+reference_id: "DOI:10.1182/blood-2016-10-746933"
 title: "International, evidence-based consensus diagnostic criteria for HHV-8–negative/idiopathic multicentric Castleman disease"
 authors:
 - David C. Fajgenbaum

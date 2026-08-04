@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32074/1591-951x-823
+reference_id: "DOI:10.32074/1591-951x-823"
 title: Adult type diffuse gliomas in the new 2021 WHO Classification
 authors:
 - Manila Antonelli

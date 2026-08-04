@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci169241
+reference_id: "DOI:10.1172/jci169241"
 title: FGFR inhibition augments anti–PD-1 efficacy in murine FGFR3-mutant bladder cancer by abrogating immunosuppression
 authors:
 - Atsushi Okato

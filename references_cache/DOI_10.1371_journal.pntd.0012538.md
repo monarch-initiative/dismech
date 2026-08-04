@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012538
+reference_id: "DOI:10.1371/journal.pntd.0012538"
 title: Performance characteristics of STANDARD Q Filariasis Antigen test (QFAT) to detect filarial antigens of Wuchereria bancrofti in the field
 authors:
 - Raja Jeyapal Dinesh

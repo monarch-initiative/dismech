@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07221292
+reference_id: "clinicaltrials:NCT07221292"
 title: "Effects of N-Acetyl-L-Leucine on CACNA1A Disorders: A Phase III, Randomized, Placebo-controlled, Double-blind, Crossover Study"
 content_type: summary
 full_text_attempted: true

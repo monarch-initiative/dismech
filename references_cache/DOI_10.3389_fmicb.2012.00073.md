@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2012.00073
+reference_id: "DOI:10.3389/fmicb.2012.00073"
 title: "Clinical Manifestations of Kaposi Sarcoma Herpesvirus Lytic Activation: Multicentric Castleman Disease (KSHV–MCD) and the KSHV Inflammatory Cytokine Syndrome"
 authors:
 - Mark N. Polizzotto

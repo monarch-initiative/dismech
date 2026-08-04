@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-023-08290-0
+reference_id: "DOI:10.1186/s12879-023-08290-0"
 title: "Protocol, rationale and design of BE-PEOPLE (Bedaquiline enhanced exposure prophylaxis for LEprosy in the Comoros): a cluster randomized trial on effectiveness of rifampicin and bedaquiline as post-exposure prophylaxis of leprosy contacts"
 authors:
 - Assoumani Younoussa

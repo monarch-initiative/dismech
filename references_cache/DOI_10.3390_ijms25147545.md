@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25147545
+reference_id: "DOI:10.3390/ijms25147545"
 title: "The Role of Glia in Wilson’s Disease: Clinical, Neuroimaging, Neuropathological and Molecular Perspectives"
 authors:
 - Grażyna Gromadzka

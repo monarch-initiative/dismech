@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/bctt.s516542
+reference_id: "DOI:10.2147/bctt.s516542"
 title: "Diagnosis, Prognosis, and Treatment of Triple-Negative Breast Cancer: A Review"
 authors:
 - Huan Jie

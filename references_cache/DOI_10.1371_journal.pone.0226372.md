@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0226372
+reference_id: "DOI:10.1371/journal.pone.0226372"
 title: Analysis of gut microbiota of obese individuals with type 2 diabetes and healthy individuals
 authors:
 - Aftab Ahmad

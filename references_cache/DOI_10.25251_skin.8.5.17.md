@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25251/skin.8.5.17
+reference_id: "DOI:10.25251/skin.8.5.17"
 title: "Cutaneous Collagenous Vasculopathy in a Young Adult: A Case Report"
 authors:
 - Claudia S. Roldan Rivera

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10147-024-02632-x
+reference_id: "DOI:10.1007/s10147-024-02632-x"
 title: "First-line pembrolizumab with or without chemotherapy for recurrent or metastatic head and neck squamous cell carcinoma: 5-year follow-up of the Japanese population of KEYNOTE‑048"
 authors:
 - Nobuhiko Oridate

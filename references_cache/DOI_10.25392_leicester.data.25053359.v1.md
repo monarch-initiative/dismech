@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25392/leicester.data.25053359.v1
+reference_id: "DOI:10.25392/leicester.data.25053359.v1"
 title: Exploring the protective effects of resveratrol and interactions with dietary fat in a mouse model of BRAFV600E driven colorectal cancer
 authors:
 - "Theofanous, Despoina"

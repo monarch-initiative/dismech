@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/17474930221107500
+reference_id: "DOI:10.1177/17474930221107500"
 title: "Treatment of posterior circulation stroke: Acute management and secondary prevention"
 authors:
 - Hugh S Markus

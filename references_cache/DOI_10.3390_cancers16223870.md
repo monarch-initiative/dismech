@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16223870
+reference_id: "DOI:10.3390/cancers16223870"
 title: "Precision Medicine for Metastatic Colorectal Cancer: Where Do We Stand?"
 authors:
 - Patrick W. Underwood

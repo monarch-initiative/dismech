@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31083/j.rcm2503093
+reference_id: "DOI:10.31083/j.rcm2503093"
 title: "Hypertensive Heart Disease: Mechanisms, Diagnosis and Treatment"
 authors:
 - Xuewei Huang

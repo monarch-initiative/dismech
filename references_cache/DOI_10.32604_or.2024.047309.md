@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32604/or.2024.047309
+reference_id: "DOI:10.32604/or.2024.047309"
 title: "Genomic profiling of colorectal cancer in large-scale Chinese patients: amplification and somatic mutations in ERBB2"
 authors:
 - YUZHI LIU

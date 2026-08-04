@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25179412
+reference_id: "DOI:10.3390/ijms25179412"
 title: "Expression of MicroRNAs in Adults with Celiac Disease: A Narrative Review"
 authors:
 - Francielen Furieri Rigo

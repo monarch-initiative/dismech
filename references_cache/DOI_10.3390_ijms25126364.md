@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25126364
+reference_id: "DOI:10.3390/ijms25126364"
 title: "Hypertriglyceridemia: Molecular and Genetic Landscapes"
 authors:
 - Pietro Scicchitano

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-024-01762-7
+reference_id: "DOI:10.1186/s40478-024-01762-7"
 title: "Pediatric-type high-grade gliomas with PDGFRA amplification in adult patients with Li-Fraumeni syndrome: clinical and molecular characterization of three cases"
 authors:
 - Yuji Kibe

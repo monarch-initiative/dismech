@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2025-110624
+reference_id: "DOI:10.1136/jmg-2025-110624"
 title: "Congenital heart disease in 22q11.2 deletion syndrome: a meta-analysis and systematic review of the literature"
 authors:
 - Carina Sauter

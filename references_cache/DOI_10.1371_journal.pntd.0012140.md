@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012140
+reference_id: "DOI:10.1371/journal.pntd.0012140"
 title: The Vicious Worm education tool improves the knowledge of community health workers on Taenia solium cysticercosis in Rwanda
 authors:
 - Esther Uwibambe

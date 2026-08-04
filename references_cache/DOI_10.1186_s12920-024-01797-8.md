@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-024-01797-8
+reference_id: "DOI:10.1186/s12920-024-01797-8"
 title: Identification of a novel intronic mutation of MAGED2 gene in a Chinese family with antenatal Bartter syndrome
 authors:
 - Xu Yan

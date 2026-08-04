@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12916-023-02851-5
+reference_id: "DOI:10.1186/s12916-023-02851-5"
 title: "Dose–response relationship between device-measured physical activity and incident type 2 diabetes: findings from the UK Biobank prospective cohort study"
 authors:
 - Jirapitcha Boonpor

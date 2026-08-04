@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16112018
+reference_id: "DOI:10.3390/cancers16112018"
 title: "HER2-Altered Non-Small Cell Lung Cancer: A Journey from Current Approaches to Emerging Strategies"
 authors:
 - Giorgia Ferrari

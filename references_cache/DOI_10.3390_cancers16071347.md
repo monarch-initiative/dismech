@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16071347
+reference_id: "DOI:10.3390/cancers16071347"
 title: Targeted DNA Sequencing of Cutaneous Melanoma Identifies Prognostic and Predictive Alterations
 authors:
 - Alexandra M. Haugh

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1111146
+reference_id: "DOI:10.3389/fonc.2023.1111146"
 title: "The association of cemiplimab plus sonidegib for synchronous cutaneous squamous cell carcinoma and basal cell carcinoma of the head and neck: Two case reports"
 authors:
 - Elena Colombo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1416177
+reference_id: "DOI:10.3389/fimmu.2024.1416177"
 title: "An update on leprosy immunopathogenesis: systematic review"
 authors:
 - Marcos Jessé Abrahão Silva

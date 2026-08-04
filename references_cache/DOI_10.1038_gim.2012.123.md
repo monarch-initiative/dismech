@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/gim.2012.123
+reference_id: "DOI:10.1038/gim.2012.123"
 title: Congenital short bowel syndrome as the presenting symptom in male patients with FLNA mutations
 authors:
 - Christine S. van der Werf

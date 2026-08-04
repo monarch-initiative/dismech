@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2024.1442488
+reference_id: "DOI:10.3389/fcell.2024.1442488"
 title: "Desmoplastic small round cell tumor: from genomics to targets, potential paths to future therapeutics"
 authors:
 - Justin W. Magrath

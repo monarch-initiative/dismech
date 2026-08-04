@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-023-11112-w
+reference_id: "DOI:10.1186/s12885-023-11112-w"
 title: "Efficacy and safety of atezolizumab plus bevacizumab treatment for advanced hepatocellular carcinoma in the real world: a single-arm meta-analysis"
 authors:
 - Xiaoqiang Gao

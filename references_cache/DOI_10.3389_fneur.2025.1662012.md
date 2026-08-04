@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2025.1662012
+reference_id: "DOI:10.3389/fneur.2025.1662012"
 title: "CADASIL or NOTCH3 mutaion spectrum diseases? Interpretation of NOTCH3 mutations and clinical heterogeneity in CADASIL"
 authors:
 - Yuehui Wang

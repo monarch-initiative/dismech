@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13040319
+reference_id: "DOI:10.3390/cells13040319"
 title: "Hereditary Ataxias: From Bench to Clinic, Where Do We Stand?"
 authors:
 - Federica Pilotto

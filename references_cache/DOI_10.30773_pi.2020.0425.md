@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.30773/pi.2020.0425
+reference_id: "DOI:10.30773/pi.2020.0425"
 title: Functional Impairment in Patients with Panic Disorder
 authors:
 - Hyun-Ju Kim

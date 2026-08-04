@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood.2023021579
+reference_id: "DOI:10.1182/blood.2023021579"
 title: "Molecular MRD is strongly prognostic in patients with <i>NPM1</i>-mutated AML receiving venetoclax-based nonintensive therapy"
 authors:
 - Jad Othman

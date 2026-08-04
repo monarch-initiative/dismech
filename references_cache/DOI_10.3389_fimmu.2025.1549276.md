@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1549276
+reference_id: "DOI:10.3389/fimmu.2025.1549276"
 title: Research progress of HIF-1a on immunotherapy outcomes in immune vascular microenvironment
 authors:
 - Shaoyan Shi

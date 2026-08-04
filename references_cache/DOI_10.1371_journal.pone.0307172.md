@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0307172
+reference_id: "DOI:10.1371/journal.pone.0307172"
 title: "CagA toxin and risk of Helicobacter pylori-infected gastric phenotype: A meta-analysis of observational studies"
 authors:
 - Cho Naing

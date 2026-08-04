@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1151695
+reference_id: "DOI:10.3389/fimmu.2023.1151695"
 title: Type I interferon score is associated with the severity and poor prognosis in anti-MDA5 antibody-positive dermatomyositis patients
 authors:
 - Jinjing Qian

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1667851
+reference_id: "DOI:10.3389/fimmu.2025.1667851"
 title: Essential roles of CTCF binding sites at TAD boundaries in modulating chromatin interactions and transcriptional regulation at the Ifng locus
 authors:
 - Kazuya Muto

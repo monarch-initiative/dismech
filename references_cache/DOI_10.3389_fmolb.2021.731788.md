@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2021.731788
+reference_id: "DOI:10.3389/fmolb.2021.731788"
 title: "EMT Mechanism, Lung Cancer Metastasis, and microRNA"
 authors:
 - Shihori Tanabe

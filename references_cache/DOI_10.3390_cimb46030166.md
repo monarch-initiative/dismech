@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cimb46030166
+reference_id: "DOI:10.3390/cimb46030166"
 title: Clinical-Genomic Analysis of 1261 Patients with Ehlers–Danlos Syndrome Outlines an Articulo-Autonomic Gene Network (Entome)
 authors:
 - Golder N. Wilson

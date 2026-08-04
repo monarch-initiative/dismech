@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/circep.123.012022
+reference_id: "DOI:10.1161/circep.123.012022"
 title: "<i>HRAS</i> -Mutant Cardiomyocyte Model of Multifocal Atrial Tachycardia"
 authors:
 - Nelson A. Rodríguez

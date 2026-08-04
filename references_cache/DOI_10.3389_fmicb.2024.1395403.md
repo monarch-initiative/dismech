@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1395403
+reference_id: "DOI:10.3389/fmicb.2024.1395403"
 title: "The immunopathogenesis of Helicobacter pylori-induced gastric cancer: a narrative review"
 authors:
 - Maryam Shirani

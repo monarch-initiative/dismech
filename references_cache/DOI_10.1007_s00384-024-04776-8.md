@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00384-024-04776-8
+reference_id: "DOI:10.1007/s00384-024-04776-8"
 title: "Genomic mosaicism in colorectal cancer and polyposis syndromes: a systematic review and meta-analysis"
 authors:
 - Francisco Cezar Aquino de Moraes

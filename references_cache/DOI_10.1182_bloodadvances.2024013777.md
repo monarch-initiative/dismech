@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/bloodadvances.2024013777
+reference_id: "DOI:10.1182/bloodadvances.2024013777"
 title: Risk of bleeding in patients with essential thrombocythemia and extreme thrombocytosis
 authors:
 - Rathnam K. Venkat

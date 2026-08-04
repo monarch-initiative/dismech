@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/uog.3461
+reference_id: "DOI:10.1002/uog.3461"
 title: "P02.29: Achondrogenesis type II‐hypochondrogenesis: a case report"
 authors:
 - A. Carmo

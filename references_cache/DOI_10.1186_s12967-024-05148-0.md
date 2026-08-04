@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05148-0
+reference_id: "DOI:10.1186/s12967-024-05148-0"
 title: "Association of circulating biomarkers with illness severity measures differentiates myalgic encephalomyelitis/chronic fatigue syndrome and post-COVID-19 condition: a prospective pilot cohort study"
 authors:
 - Joan Carles Domingo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.110727
+reference_id: "DOI:10.5772/intechopen.110727"
 title: Epidemiology of Taeniosis/Cysticercosis in Humans and Animals
 authors:
 - Jasmin Omeragić

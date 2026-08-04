@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.59854/dhrrh.2024.2.3.125
+reference_id: "DOI:10.59854/dhrrh.2024.2.3.125"
 title: "Diagnosis and Management of Essential Thrombocythemia: A Comprehensive Review"
 authors:
 - Sandra LAZAR

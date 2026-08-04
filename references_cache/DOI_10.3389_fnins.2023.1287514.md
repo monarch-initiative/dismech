@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2023.1287514
+reference_id: "DOI:10.3389/fnins.2023.1287514"
 title: "Case report: A patient with Delayed Sleep-Wake Phase Disorder and Optic Nerve Hypoplasia treated with tasimelteon: a case study"
 authors:
 - Sandra P. Smieszek

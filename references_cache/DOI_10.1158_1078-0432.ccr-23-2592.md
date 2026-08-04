@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-2592
+reference_id: "DOI:10.1158/1078-0432.ccr-23-2592"
 title: "Belzutifan for von Hippel–Lindau Disease: Pancreatic Lesion Population of the Phase 2 LITESPARK-004 Study"
 authors:
 - Tobias Else

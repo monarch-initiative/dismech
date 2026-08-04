@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diagnostics15111323
+reference_id: "DOI:10.3390/diagnostics15111323"
 title: "Molecular Insights into Pleural Mesothelioma: Unveiling Pathogenic Mechanisms and Therapeutic Opportunities"
 authors:
 - Teodora Zahiu

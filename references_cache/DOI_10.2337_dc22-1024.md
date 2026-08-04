@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2337/dc22-1024
+reference_id: "DOI:10.2337/dc22-1024"
 title: "Combination of Multiple Low-Risk Lifestyle Behaviors and Incident Type 2 Diabetes: A Systematic Review and Dose-Response Meta-analysis of Prospective Cohort Studies"
 authors:
 - Tauseef A. Khan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-21-3577
+reference_id: "DOI:10.1158/1078-0432.ccr-21-3577"
 title: "Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and <i>BRCA1, BRCA2</i> , or <i>ATM</i> Alterations Identified by Testing Circulating Tumor DNA"
 authors:
 - Nobuaki Matsubara

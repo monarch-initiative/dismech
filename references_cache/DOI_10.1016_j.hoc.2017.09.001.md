@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.hoc.2017.09.001
+reference_id: "DOI:10.1016/j.hoc.2017.09.001"
 title: Epidemiology of Castleman Disease
 authors:
 - David Simpson

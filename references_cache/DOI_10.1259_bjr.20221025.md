@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1259/bjr.20221025
+reference_id: "DOI:10.1259/bjr.20221025"
 title: Prenatal diagnosis of bone dysplasias
 authors:
 - Gen Nishimura

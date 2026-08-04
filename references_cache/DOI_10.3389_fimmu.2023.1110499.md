@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1110499
+reference_id: "DOI:10.3389/fimmu.2023.1110499"
 title: Inflammation and autoimmune myasthenia gravis
 authors:
 - Ruksana Huda

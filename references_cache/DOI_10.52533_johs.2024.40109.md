@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.52533/johs.2024.40109
+reference_id: "DOI:10.52533/johs.2024.40109"
 title: "Etiology, Pathophysiology, Diagnosis and Management of Kawasaki Disease"
 authors:
 - Abdulghani Alzamzami

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2024.1285414
+reference_id: "DOI:10.3389/fped.2024.1285414"
 title: "Morquio B disease: a case report"
 authors:
 - Tara Gholamian

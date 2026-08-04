@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1007589
+reference_id: "DOI:10.1371/journal.pgen.1007589"
 title: Somatic inactivating PTPRJ mutations and dysregulated pathways identified in canine malignant melanoma by integrated comparative genomic analysis
 authors:
 - William P. D. Hendricks

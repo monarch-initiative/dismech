@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13020147
+reference_id: "DOI:10.3390/pathogens13020147"
 title: Epidemiological Data and Antimicrobial Resistance of Campylobacter spp. in Portugal from 13 Years of Surveillance
 authors:
 - Andreia Duarte

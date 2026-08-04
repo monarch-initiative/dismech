@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02278-w
+reference_id: "DOI:10.1186/s13023-022-02278-w"
 title: "A brief history of MECP2 duplication syndrome: 20-years of clinical understanding"
 authors:
 - Daniel Ta

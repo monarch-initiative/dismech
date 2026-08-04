@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3332/ecancer.2023.1539
+reference_id: "DOI:10.3332/ecancer.2023.1539"
 title: "Outcome and prognostic variables in childhood rhabdomyosarcoma (RMS) with emphasis on impact of FOXO1 Fusions in non-metastatic RMS: Experience from a tertiary cancer centre in India"
 authors:
 - Subramaniam Ramanathan

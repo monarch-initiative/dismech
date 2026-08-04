@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5152/eurjrheum.2023.21115
+reference_id: "DOI:10.5152/eurjrheum.2023.21115"
 title: "Camurati–Engelmann Disease: A Case-Based Review About an Ultrarare Bone Dysplasia"
 authors:
 - Philipp Klemm

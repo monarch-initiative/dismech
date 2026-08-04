@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25259/crcr_92_2024
+reference_id: "DOI:10.25259/crcr_92_2024"
 title: Magnetic resonance spectroscopy as a diagnostic tool in cerebral creatine deficiency syndrome 3
 authors:
 - Ankita Garg

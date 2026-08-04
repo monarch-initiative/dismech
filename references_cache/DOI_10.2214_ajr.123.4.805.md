@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2214/ajr.123.4.805
+reference_id: "DOI:10.2214/ajr.123.4.805"
 title: THE KNIEST SYNDROME
 authors:
 - RALPH S. LACHMAN

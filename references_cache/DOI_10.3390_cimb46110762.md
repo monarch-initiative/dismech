@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cimb46110762
+reference_id: "DOI:10.3390/cimb46110762"
 title: An Actual Insight into the Pathogenic Pathways of Ankylosing Spondylitis
 authors:
 - Emilia-Daniela Păsăran

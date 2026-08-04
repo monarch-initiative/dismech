@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-014-0113-9
+reference_id: "DOI:10.1186/s13023-014-0113-9"
 title: Large homozygous RAB3GAP1 gene microdeletion causes Warburg Micro Syndrome 1
 authors:
 - Sylvie Picker-Minh

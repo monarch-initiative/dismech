@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18535/cmhrj.v4i2.325
+reference_id: "DOI:10.18535/cmhrj.v4i2.325"
 title: "Prevalence of Thalassemia in Nigeria: Pathophysiology and Clinical Manifestations"
 authors:
 - Audu Isaiah

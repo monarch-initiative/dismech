@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16071416
+reference_id: "DOI:10.3390/cancers16071416"
 title: Real-World Electronic Medical Records Data Identify Risk Factors for Myelofibrosis and Can Be Used to Validate Established Prognostic Scores
 authors:
 - Max Kappenstein

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41579-024-01010-8
+reference_id: "DOI:10.1038/s41579-024-01010-8"
 title: "Immune targeting of HIV-1 reservoir cells: a path to elimination strategies and cure"
 authors:
 - Marie Armani-Tourret

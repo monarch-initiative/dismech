@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/hemato5020013
+reference_id: "DOI:10.3390/hemato5020013"
 title: B- and T-/NK-Cell Lymphomas in the 2022 International Consensus Classification of Mature Lymphoid Neoplasms and Comparison with the WHO Fifth Edition
 authors:
 - Elaine S. Jaffe

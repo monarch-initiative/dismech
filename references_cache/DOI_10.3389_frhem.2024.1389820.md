@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/frhem.2024.1389820
+reference_id: "DOI:10.3389/frhem.2024.1389820"
 title: "Congenital dyserythropoietic anemia type II and ineffective erythropoiesis: challenges in diagnosis and management"
 authors:
 - Imo J. Akpan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4055/cios.2017.9.1.109
+reference_id: "DOI:10.4055/cios.2017.9.1.109"
 title: Orthopedic Manifestations of Type I Camurati-Engelmann Disease
 authors:
 - Alisher J. Yuldashev

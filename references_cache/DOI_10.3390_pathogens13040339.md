@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13040339
+reference_id: "DOI:10.3390/pathogens13040339"
 title: "Chronic Hepatitis C Virus Infection, Extrahepatic Disease and the Impact of New Direct-Acting Antivirals"
 authors:
 - Nahum Méndez-Sánchez

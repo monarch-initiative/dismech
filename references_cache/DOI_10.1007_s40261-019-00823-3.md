@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40261-019-00823-3
+reference_id: "DOI:10.1007/s40261-019-00823-3"
 title: "Dabrafenib Plus Trametinib for BRAF V600E-Mutant Non-small Cell Lung Cancer: A Patient Case Report"
 authors:
 - Janet Pan

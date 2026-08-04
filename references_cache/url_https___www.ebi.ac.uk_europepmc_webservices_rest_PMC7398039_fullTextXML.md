@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7398039/fullTextXML
+reference_id: "url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC7398039/fullTextXML"
 title: Abstract
 content_type: url
 ---

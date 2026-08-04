@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13181580
+reference_id: "DOI:10.3390/cells13181580"
 title: Current Landscape and Evolving Therapies for Primary Biliary Cholangitis
 authors:
 - Stefano Fiorucci

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/lymphatics1020010
+reference_id: "DOI:10.3390/lymphatics1020010"
 title: "Translocation Tales: Unraveling the MYC Deregulation in Burkitt Lymphoma for Innovative Therapeutic Strategies"
 authors:
 - Amol Tandon

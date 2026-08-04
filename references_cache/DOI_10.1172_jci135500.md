@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci135500
+reference_id: "DOI:10.1172/jci135500"
 title: Human CRY1 variants associate with attention deficit/hyperactivity disorder
 authors:
 - O. Emre Onat

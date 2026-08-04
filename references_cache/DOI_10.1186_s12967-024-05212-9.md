@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05212-9
+reference_id: "DOI:10.1186/s12967-024-05212-9"
 title: Integrating spatial transcriptomics and single-cell RNA-sequencing reveals the alterations in epithelial cells during nodular formation in benign prostatic hyperplasia
 authors:
 - Xiawei Fei

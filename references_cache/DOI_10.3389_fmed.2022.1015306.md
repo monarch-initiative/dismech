@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2022.1015306
+reference_id: "DOI:10.3389/fmed.2022.1015306"
 title: Comparisons of serum non-transferrin-bound iron levels and fetal cardiac function between fetuses affected with hemoglobin Bart’s disease and normal fetuses
 authors:
 - Phudit Jatavan

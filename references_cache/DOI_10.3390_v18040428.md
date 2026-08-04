@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v18040428
+reference_id: "DOI:10.3390/v18040428"
 title: Pathogenesis of Chronic Arthritis Due to Chikungunya Virus and Advances in Vaccine Development
 authors:
 - Meng Ma

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s41065-025-00375-x
+reference_id: "DOI:10.1186/s41065-025-00375-x"
 title: A novel compound heterozygous mutation in the DYNC2H1 gene in a Chinese family with Jeune syndrome
 authors:
 - Sujie Xiong

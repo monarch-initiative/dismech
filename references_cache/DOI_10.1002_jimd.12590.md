@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jimd.12590
+reference_id: "DOI:10.1002/jimd.12590"
 title: "<scp><i>ATP7A</i></scp>‐related copper transport disorders: A systematic review and definition of the clinical subtypes"
 authors:
 - S. De Feyter

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15746/sms.18.009
+reference_id: "DOI:10.15746/sms.18.009"
 title: "Clinical Manifestations, Gene Analysis of Patients with 3-Methylcrotonyl-CoA Carboxylase Deficiency"
 authors:
 - HanByul Lee

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-024-02062-3
+reference_id: "DOI:10.1186/s12943-024-02062-3"
 title: "Single-cell tumor heterogeneity landscape of hepatocellular carcinoma: unraveling the pro-metastatic subtype and its interaction loop with fibroblasts"
 authors:
 - De-Zhen Guo

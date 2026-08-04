@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17213505
+reference_id: "DOI:10.3390/cancers17213505"
 title: "Trastuzumab–Deruxtecan for the Treatment of Metastatic Breast Cancer Patients: Data from Real World Studies"
 authors:
 - Erica Quaquarini

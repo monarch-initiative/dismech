@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes12050744
+reference_id: "DOI:10.3390/genes12050744"
 title: "Whole-Exome Sequencing, Proteome Landscape, and Immune Cell Migration Patterns in a Clinical Context of Menkes Disease"
 authors:
 - Margarita L. Martinez-Fierro

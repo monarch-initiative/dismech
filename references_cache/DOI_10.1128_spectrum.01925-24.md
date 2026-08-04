@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/spectrum.01925-24
+reference_id: "DOI:10.1128/spectrum.01925-24"
 title: "Differential vasoproliferative traits of <i>Bartonella henselae</i> strains associated with autotransporter BafA variants"
 authors:
 - Yuka Kondo

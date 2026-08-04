@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/ol.2025.15121
+reference_id: "DOI:10.3892/ol.2025.15121"
 title: "EGFR mutations in non‑small cell lung cancer: Classification, characteristics and resistance to third‑generation EGFR‑tyrosine kinase inhibitors (Review)"
 authors:
 - Zhe Tian

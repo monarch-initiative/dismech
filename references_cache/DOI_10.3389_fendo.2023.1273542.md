@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1273542
+reference_id: "DOI:10.3389/fendo.2023.1273542"
 title: "Androgen excess: a hallmark of polycystic ovary syndrome"
 authors:
 - Kexin Wang

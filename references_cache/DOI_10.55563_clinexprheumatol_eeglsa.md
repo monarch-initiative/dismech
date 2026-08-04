@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.55563/clinexprheumatol/eeglsa
+reference_id: "DOI:10.55563/clinexprheumatol/eeglsa"
 title: "Brepocitinib, a potent and selective TYK2/JAK1 inhibitor: scientific and clinical rationale for dermatomyositis"
 authors:
 - Julie J. Paik

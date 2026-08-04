@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31646/gbio.292
+reference_id: "DOI:10.31646/gbio.292"
 title: Botulism outbreak in Russia connected to readymade salads
 authors:
 - Damian Alexander Honeyman

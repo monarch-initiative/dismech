@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers12113321
+reference_id: "DOI:10.3390/cancers12113321"
 title: Optimal Clinical Management and the Molecular Biology of Angiosarcomas
 authors:
 - Tom Wei-Wu Chen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood.2019004099
+reference_id: "DOI:10.1182/blood.2019004099"
 title: The treatment of Burkitt lymphoma in adults
 authors:
 - Jennifer Crombie

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17193211
+reference_id: "DOI:10.3390/cancers17193211"
 title: "Cutaneous Squamous Cell Carcinoma in Epidermolysis Bullosa: A Review of Pathogenesis, Diagnosis and Management"
 authors:
 - Abarajithan Chandrasekaran

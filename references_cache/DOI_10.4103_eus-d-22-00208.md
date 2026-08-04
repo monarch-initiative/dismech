@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4103/eus-d-22-00208
+reference_id: "DOI:10.4103/eus-d-22-00208"
 title: Secondary sclerosing cholangitis and IgG4-sclerosing cholangitis – A review of cholangiographic and ultrasound imaging
 authors:
 - Kathleen Möller

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s42494-025-00201-x
+reference_id: "DOI:10.1186/s42494-025-00201-x"
 title: The diagnosis and treatment of disorders of nucleic acid/nucleotide metabolism associated with epilepsy
 authors:
 - Yuqing Shi

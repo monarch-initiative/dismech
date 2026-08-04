@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41439-022-00218-5
+reference_id: "DOI:10.1038/s41439-022-00218-5"
 title: Novel missense COL2A1 variant in a fetus with achondrogenesis type II
 authors:
 - Yukari Kobayashi

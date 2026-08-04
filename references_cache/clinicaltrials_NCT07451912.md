@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07451912
+reference_id: "clinicaltrials:NCT07451912"
 title: Prospective Multicenter Clinical Study of Venetoclax Combined With Hypomethylating Agents and Subcutaneous Cytarabine in Induction Therapy for CEBPA-Mutated Acute Myeloid Leukemia
 content_type: summary
 full_text_attempted: true

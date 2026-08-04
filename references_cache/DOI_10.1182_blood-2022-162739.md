@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2022-162739
+reference_id: "DOI:10.1182/blood-2022-162739"
 title: "Quantum-First Trial: <i>FLT3</i>-ITD-Specific MRD Clearance Is Associated with Improved Overall Survival"
 authors:
 - Mark J. Levis

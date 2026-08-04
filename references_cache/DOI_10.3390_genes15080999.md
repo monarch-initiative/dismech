@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes15080999
+reference_id: "DOI:10.3390/genes15080999"
 title: "Recent Progress in Gene-Targeting Therapies for Spinal Muscular Atrophy: Promises and Challenges"
 authors:
 - Umme Sabrina Haque

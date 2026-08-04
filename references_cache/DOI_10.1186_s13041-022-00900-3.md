@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13041-022-00900-3
+reference_id: "DOI:10.1186/s13041-022-00900-3"
 title: "Loss of Drosophila Coq8 results in impaired survival, locomotor deficits and photoreceptor degeneration"
 authors:
 - Angelia J. Hura

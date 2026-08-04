@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2021.766354
+reference_id: "DOI:10.3389/fgene.2021.766354"
 title: A Novel Loss-of-Function Mutation in the NPRL3 Gene Identified in Chinese Familial Focal Epilepsy with Variable Foci
 authors:
 - Youzhi Li

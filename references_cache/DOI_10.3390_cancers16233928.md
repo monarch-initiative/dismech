@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16233928
+reference_id: "DOI:10.3390/cancers16233928"
 title: "Prognostic and Predictive Determinants of Colorectal Cancer: A Comprehensive Review"
 authors:
 - Horia T. Cotan

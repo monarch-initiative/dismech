@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/1971400917693638
+reference_id: "DOI:10.1177/1971400917693638"
 title: "Encephalocraniocutaneous lipomatosis: A case report with review of literature"
 authors:
 - Shaista Siddiqui

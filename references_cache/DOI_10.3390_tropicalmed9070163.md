@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed9070163
+reference_id: "DOI:10.3390/tropicalmed9070163"
 title: "The Diagnostic Challenge of Cystic Echinococcosis in Humans: First Assessment of Underreporting Rates in Mongolia"
 authors:
 - Bolor Bold

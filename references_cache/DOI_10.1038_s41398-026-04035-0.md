@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-026-04035-0
+reference_id: "DOI:10.1038/s41398-026-04035-0"
 title: "Advancing translational research in binge-eating: Integrating insights from clinical practice into animal models"
 authors:
 - Rachel Dufour

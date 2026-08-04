@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s41983-024-00893-x
+reference_id: "DOI:10.1186/s41983-024-00893-x"
 title: "Vertebral artery dissection from etiopathogenesis to management therapy: a narrative review with neuroimaging’s case illustration"
 authors:
 - Muhammad Yunus Amran

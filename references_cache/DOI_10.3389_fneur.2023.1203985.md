@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1203985
+reference_id: "DOI:10.3389/fneur.2023.1203985"
 title: "Lifelong cerebrovascular disease burden among CADASIL patients: analysis from a global health research network"
 authors:
 - Alan P. Pan

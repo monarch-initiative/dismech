@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1575464
+reference_id: "DOI:10.3389/fimmu.2025.1575464"
 title: A pathophysiological and mechanistic review of chronic inflammatory demyelinating polyradiculoneuropathy therapy
 authors:
 - Marta Caballero-Ávila

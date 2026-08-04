@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02039947
+reference_id: "clinicaltrials:NCT02039947"
 title: "BRF117277: A Phase II, Open-Label, Multicentre Study of Dabrafenib Plus Trametinib in Subjects With BRAF Mutation-Positive Melanoma That Has Metastasized to the Brain"
 content_type: summary
 full_text_attempted: true

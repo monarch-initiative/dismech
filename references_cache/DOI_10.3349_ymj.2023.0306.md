@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3349/ymj.2023.0306
+reference_id: "DOI:10.3349/ymj.2023.0306"
 title: Recent Update on Acute Kidney Injury-to-Chronic Kidney Disease Transition
 authors:
 - Eun Sil Koh

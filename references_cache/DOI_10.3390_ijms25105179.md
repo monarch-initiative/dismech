@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25105179
+reference_id: "DOI:10.3390/ijms25105179"
 title: Genetic Variants in KCTD1 Are Associated with Isolated Dental Anomalies
 authors:
 - Cholaporn Ruangchan

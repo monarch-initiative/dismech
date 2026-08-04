@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/NXG.0000000000000094
+reference_id: "DOI:10.1212/NXG.0000000000000094"
 title: "<i>MME</i> mutation in dominant spinocerebellar ataxia with neuropathy (SCA43)"
 authors:
 - Chantal Depondt

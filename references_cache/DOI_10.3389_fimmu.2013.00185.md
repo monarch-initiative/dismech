@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2013.00185
+reference_id: "DOI:10.3389/fimmu.2013.00185"
 title: Multi-Faceted Functions of Secretory IgA at Mucosal Surfaces
 authors:
 - Blaise Corthésy

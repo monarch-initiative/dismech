@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.75468
+reference_id: "DOI:10.7759/cureus.75468"
 title: "An Atypical Case of Marchiafava-Bignami Disease in a Young Chronic Alcoholic: Challenges in Diagnosis and Prognosis"
 authors:
 - Devika Menrai

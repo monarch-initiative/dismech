@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1530/eje-21-0713
+reference_id: "DOI:10.1530/eje-21-0713"
 title: "Hypercalcemia due to CYP24A1 mutations: a systematic descriptive review"
 authors:
 - Daniele Cappellani

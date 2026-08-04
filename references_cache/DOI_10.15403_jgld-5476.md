@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15403/jgld-5476
+reference_id: "DOI:10.15403/jgld-5476"
 title: "Endoscopic Characterization and Outcome of COVID-19 Patients with Secondary Sclerosing Cholangitis: A Case Series of a Tertiary Center"
 authors:
 - Pia Hofstetter

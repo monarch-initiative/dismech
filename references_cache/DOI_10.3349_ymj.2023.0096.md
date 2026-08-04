@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3349/ymj.2023.0096
+reference_id: "DOI:10.3349/ymj.2023.0096"
 title: Monitoring the Outcomes of Systemic Chemotherapy Including Immune Checkpoint Inhibitor for HER2-Positive Metastatic Gastric Cancer by Liquid Biopsy
 authors:
 - Seung-Hyun Jung

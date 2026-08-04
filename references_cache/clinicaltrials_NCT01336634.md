@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01336634
+reference_id: "clinicaltrials:NCT01336634"
 title: A Phase II Study of the BRAF Inhibitor Dabrafenib as a Single Agent and in Combination With the MEK Inhibitor Trametinib in Subjects With BRAF V600E Mutation Positive Metastatic (Stage IV) Non-small Cell Lung Cancer
 content_type: summary
 full_text_attempted: true

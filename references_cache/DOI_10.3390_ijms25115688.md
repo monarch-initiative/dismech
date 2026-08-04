@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25115688
+reference_id: "DOI:10.3390/ijms25115688"
 title: Recent Progress in Innate Immune Responses to Enterovirus A71 and Viral Evasion Strategies
 authors:
 - Jialong Wei

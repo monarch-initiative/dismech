@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cge.13375
+reference_id: "DOI:10.1111/cge.13375"
 title: "Atrioventricular canal defect and genetic syndromes: The unifying role of sonic hedgehog"
 authors:
 - M.C. Digilio

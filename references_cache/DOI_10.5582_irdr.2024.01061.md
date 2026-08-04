@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5582/irdr.2024.01061
+reference_id: "DOI:10.5582/irdr.2024.01061"
 title: "Classification and epidemiologic analysis of 86 diseases in &lt;i&gt;China's Second List of Rare Diseases &lt;/i&gt;"
 authors:
 - Junfeng Li

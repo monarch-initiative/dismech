@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12866-025-04127-9
+reference_id: "DOI:10.1186/s12866-025-04127-9"
 title: Validation of stool and blood analysis compared to Inv A and ttr based direct blood qPCR assay as diagnostic tools for typhoid fever
 authors:
 - Shymaa A. Elaskary

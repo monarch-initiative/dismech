@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1399363
+reference_id: "DOI:10.3389/fphar.2024.1399363"
 title: "Adenosine A2A receptor as a potential regulator of Mycobacterium leprae survival mechanisms: new insights into leprosy neural damage"
 authors:
 - Plinio Marcos Freire dos Santos

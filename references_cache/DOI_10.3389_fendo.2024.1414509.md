@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1414509
+reference_id: "DOI:10.3389/fendo.2024.1414509"
 title: "Meta-analysis and systematic review: burosumab as a promising treatment for children with X-linked hypophosphatemia"
 authors:
 - Kangning Wang

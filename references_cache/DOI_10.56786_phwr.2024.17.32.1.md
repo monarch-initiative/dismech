@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.56786/phwr.2024.17.32.1
+reference_id: "DOI:10.56786/phwr.2024.17.32.1"
 title: 2023년 세계 말라리아 보고서(2022년 세계 말라리아 동향)
 authors:
 - 현일 신

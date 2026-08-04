@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/jjco/hyaf015
+reference_id: "DOI:10.1093/jjco/hyaf015"
 title: "Current management of neurotrophic receptor tyrosine kinase fusion-positive sarcoma: an updated review"
 authors:
 - Yuta Kubota

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5195/ijms.2020.637
+reference_id: "DOI:10.5195/ijms.2020.637"
 title: "Glucose-6-phosphate Dehydrogenase Deficiency: A Review"
 authors:
 - Nidhruv Ravikumar

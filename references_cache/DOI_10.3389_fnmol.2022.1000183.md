@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2022.1000183
+reference_id: "DOI:10.3389/fnmol.2022.1000183"
 title: "Synaptic dysfunction in ALS and FTD: anatomical and molecular changes provide insights into mechanisms of disease"
 authors:
 - Pauline A. Gelon

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25126661
+reference_id: "DOI:10.3390/ijms25126661"
 title: "Hypertension and Heart Failure: From Pathophysiology to Treatment"
 authors:
 - Giovanna Gallo

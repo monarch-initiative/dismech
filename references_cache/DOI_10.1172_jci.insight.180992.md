@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.180992
+reference_id: "DOI:10.1172/jci.insight.180992"
 title: Characterization of SMA type II skeletal muscle from treated patients shows OXPHOS deficiency and denervation
 authors:
 - Fiorella Carla Grandi

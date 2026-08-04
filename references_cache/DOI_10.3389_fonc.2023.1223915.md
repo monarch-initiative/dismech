@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1223915
+reference_id: "DOI:10.3389/fonc.2023.1223915"
 title: Organoids and metastatic orthotopic mouse model for mismatch repair-deficient colorectal cancer
 authors:
 - Yurong Song

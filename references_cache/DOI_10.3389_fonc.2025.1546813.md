@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1546813
+reference_id: "DOI:10.3389/fonc.2025.1546813"
 title: "The biology of chronic myeloid leukemia: an overview of the new insights and biomarkers"
 authors:
 - Anna Sicuranza

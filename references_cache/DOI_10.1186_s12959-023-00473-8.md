@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12959-023-00473-8
+reference_id: "DOI:10.1186/s12959-023-00473-8"
 title: "Deep vein thrombosis in a patient with Cronkhite-Canada syndrome: a complex case report"
 authors:
 - Xiao-Kai Feng

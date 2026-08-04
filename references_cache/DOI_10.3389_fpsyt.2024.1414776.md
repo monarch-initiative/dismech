@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyt.2024.1414776
+reference_id: "DOI:10.3389/fpsyt.2024.1414776"
 title: "The genetic association between bipolar disorder and dementia: a qualitative review"
 authors:
 - Hirofumi Hirakawa

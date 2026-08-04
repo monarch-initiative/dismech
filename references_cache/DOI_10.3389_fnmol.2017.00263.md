@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2017.00263
+reference_id: "DOI:10.3389/fnmol.2017.00263"
 title: "Autophagy Dysregulation in ALS: When Protein Aggregates Get Out of Hand"
 authors:
 - Nandini Ramesh

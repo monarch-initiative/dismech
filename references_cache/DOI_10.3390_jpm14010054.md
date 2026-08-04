@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jpm14010054
+reference_id: "DOI:10.3390/jpm14010054"
 title: Clinical and Molecular Characterization of a Patient with Generalized Arterial Calcification of Infancy Caused by Rare ABCC6 Mutation
 authors:
 - Ruen Yao

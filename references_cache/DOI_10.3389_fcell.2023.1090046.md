@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1090046
+reference_id: "DOI:10.3389/fcell.2023.1090046"
 title: "Histone lysine methyltransferase-related neurodevelopmental disorders: current knowledge and saRNA future therapies"
 authors:
 - Charlotte Roth

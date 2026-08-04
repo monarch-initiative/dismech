@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1187584
+reference_id: "DOI:10.3389/fimmu.2023.1187584"
 title: "Clinical experience and safety of Janus kinase inhibitors in giant cell arteritis: a retrospective case series from Sweden"
 authors:
 - Per Eriksson

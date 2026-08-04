@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1667282
+reference_id: "DOI:10.3389/fonc.2025.1667282"
 title: "Evaluating the efficacy and safety of tebentafusp in the treatment of metastatic uveal melanoma: a 2025 update systematic review and meta-analysis"
 authors:
 - Yanlin Wang

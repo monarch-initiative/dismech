@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-024-01739-6
+reference_id: "DOI:10.1186/s40478-024-01739-6"
 title: Clinical implications of DNA methylation-based integrated classification of histologically defined grade 2 meningiomas
 authors:
 - Felix Ehret

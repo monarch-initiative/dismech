@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.66134
+reference_id: "DOI:10.7759/cureus.66134"
 title: Three-Month History of Lymphadenopathy Caused by Bartonella henselae in a 13-Year-Old Following a Dog Scratch
 authors:
 - Martin Nguyen

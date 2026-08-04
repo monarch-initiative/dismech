@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.51984/jopas.v23i2.3122
+reference_id: "DOI:10.51984/jopas.v23i2.3122"
 title: Prevalence and Etiology of Otomycosis in West Libya
 authors:
 - Ali Elarabi

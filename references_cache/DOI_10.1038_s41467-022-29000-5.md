@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-022-29000-5
+reference_id: "DOI:10.1038/s41467-022-29000-5"
 title: Targeting myeloid derived suppressor cells reverts immune suppression and sensitizes BRAF-mutant papillary thyroid cancer to MAPK inhibitors
 authors:
 - Peitao Zhang

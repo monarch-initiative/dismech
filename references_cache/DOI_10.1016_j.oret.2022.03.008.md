@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.oret.2022.03.008
+reference_id: "DOI:10.1016/j.oret.2022.03.008"
 title: The Natural History of Leber Congenital Amaurosis and Cone–Rod Dystrophy Associated with Variants in the GUCY2D Gene
 authors:
 - Leo C. Hahn

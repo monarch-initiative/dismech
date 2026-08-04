@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1409138
+reference_id: "DOI:10.3389/fneur.2024.1409138"
 title: "Case report: Cerebrotendinous xanthomatosis treatment follow-up"
 authors:
 - Karolina Ejsmont-Sowała

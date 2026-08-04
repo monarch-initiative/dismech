@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE32563
+reference_id: "GEO:GSE32563"
 title: Differential Gene Expression in Angelman syndrome deletion vs. int dup(15) Human Lymphocytes
 content_type: summary
 full_text_attempted: true

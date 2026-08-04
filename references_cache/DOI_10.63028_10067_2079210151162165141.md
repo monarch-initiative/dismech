@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.63028/10067/2079210151162165141
+reference_id: "DOI:10.63028/10067/2079210151162165141"
 title: "From silence to surge : illuminating the stealthy threat of aneurysms and dissections with the aid of cell models and insights into the genetic architecture"
 authors:
 - Melanie H.A.M. Perik

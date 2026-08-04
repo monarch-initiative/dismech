@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.40391
+reference_id: "DOI:10.7759/cureus.40391"
 title: Incomplete Anterior Spinal Artery Syndrome Responsive to Intrathecal Baclofen
 authors:
 - Andrew Waack

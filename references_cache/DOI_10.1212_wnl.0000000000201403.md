@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/wnl.0000000000201403
+reference_id: "DOI:10.1212/wnl.0000000000201403"
 title: Association of Regional Cortical Network Atrophy With Progression to Dementia in Patients With Primary Progressive Aphasia
 authors:
 - Yuta Katsumi

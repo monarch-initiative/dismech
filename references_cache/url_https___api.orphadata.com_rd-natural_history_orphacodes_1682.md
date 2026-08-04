@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://api.orphadata.com/rd-natural_history/orphacodes/1682
+reference_id: "url:https://api.orphadata.com/rd-natural_history/orphacodes/1682"
 title: "https://api.orphadata.com/rd-natural_history/orphacodes/1682"
 content_type: url
 ---

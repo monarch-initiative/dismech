@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-017-0577-5
+reference_id: "DOI:10.1186/s13023-017-0577-5"
 title: Fifteen-year follow-up of Italian families affected by arginine glycine amidinotransferase deficiency
 authors:
 - Roberta Battini

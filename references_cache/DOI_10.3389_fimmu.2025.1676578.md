@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1676578
+reference_id: "DOI:10.3389/fimmu.2025.1676578"
 title: "A proteomic map of thromboinflammatory signatures in antiphospholipid syndrome: results from antiphospholipid syndrome alliance for clinical trials and international networking (APS ACTION) registry"
 authors:
 - Alexander Pine

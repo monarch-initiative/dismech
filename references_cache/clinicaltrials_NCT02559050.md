@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02559050
+reference_id: "clinicaltrials:NCT02559050"
 title: Nasal Reconstruction Using a Customized 3D-printed Nasal Stent for Congenital Arhinia
 content_type: summary
 full_text_attempted: true

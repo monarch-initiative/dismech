@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11883-023-01080-8
+reference_id: "DOI:10.1007/s11883-023-01080-8"
 title: "APOC-III: a Gatekeeper in Controlling Triglyceride Metabolism"
 authors:
 - Antonina Giammanco

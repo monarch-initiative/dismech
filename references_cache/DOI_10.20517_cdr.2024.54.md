@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/cdr.2024.54
+reference_id: "DOI:10.20517/cdr.2024.54"
 title: Exploring resistance to immune checkpoint inhibitors and targeted therapies in melanoma
 authors:
 - Anum Jalil

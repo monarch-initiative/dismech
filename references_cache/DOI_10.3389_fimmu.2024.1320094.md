@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1320094
+reference_id: "DOI:10.3389/fimmu.2024.1320094"
 title: Differentiated pattern of complement system activation between MOG-IgG-associated disease and AQP4-IgG-positive neuromyelitis optica spectrum disorder
 authors:
 - Eun Bin Cho

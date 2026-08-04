@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.29262/ram.v72i4.1462
+reference_id: "DOI:10.29262/ram.v72i4.1462"
 title: "&lt;b&gt;Domestic hypersensitivity pneumonitis caused by inadvertent exposure to feathers &lt;/b&gt;"
 authors:
 - Katherine Pose

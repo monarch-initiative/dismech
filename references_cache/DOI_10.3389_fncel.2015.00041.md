@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fncel.2015.00041
+reference_id: "DOI:10.3389/fncel.2015.00041"
 title: "Oxidative stress and mitochondrial damage: importance in non-SOD1 ALS"
 authors:
 - Maria Teresa CarrÃ¬

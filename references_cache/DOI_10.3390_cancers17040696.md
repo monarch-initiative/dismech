@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17040696
+reference_id: "DOI:10.3390/cancers17040696"
 title: Updates on the Biological Heterogeneity of Mantle Cell Lymphoma
 authors:
 - Andrew Ip

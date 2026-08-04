@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26073067
+reference_id: "DOI:10.3390/ijms26073067"
 title: "Analysis of FBN1, TGFβ2, TGFβR1 and TGFβR2 mRNA as Key Molecular Mechanisms in the Damage of Aortic Aneurysm and Dissection in Marfan Syndrome"
 authors:
 - María Elena Soto

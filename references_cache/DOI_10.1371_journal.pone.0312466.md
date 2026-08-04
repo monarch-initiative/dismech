@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0312466
+reference_id: "DOI:10.1371/journal.pone.0312466"
 title: "Role of Toll-like receptor 2 during infection of Leptospira spp: A systematic review"
 authors:
 - Chamila Kappagoda

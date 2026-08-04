@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/life15020298
+reference_id: "DOI:10.3390/life15020298"
 title: "Candidate Genetic Modifiers in Alport Syndrome: A Case Series"
 authors:
 - Ștefan Nicolaie Lujinschi

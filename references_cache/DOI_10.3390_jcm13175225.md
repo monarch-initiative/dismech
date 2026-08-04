@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13175225
+reference_id: "DOI:10.3390/jcm13175225"
 title: "Vitiligo: From Pathogenesis to Treatment"
 authors:
 - Reinhart Speeckaert

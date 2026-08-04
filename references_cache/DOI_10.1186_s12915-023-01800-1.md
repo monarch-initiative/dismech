@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12915-023-01800-1
+reference_id: "DOI:10.1186/s12915-023-01800-1"
 title: "Deciphering the roles of subcellular distribution and interactions involving the MEF2 binding region, the ankyrin repeat binding motif and the catalytic site of HDAC4 in Drosophila neuronal morphogenesis"
 authors:
 - Wei Jun Tan

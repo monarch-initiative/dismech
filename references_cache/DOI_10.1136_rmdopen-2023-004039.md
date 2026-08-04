@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/rmdopen-2023-004039
+reference_id: "DOI:10.1136/rmdopen-2023-004039"
 title: "The HLA region in ANCA-associated vasculitis: characterisation of genetic associations in a Scandinavian patient population"
 authors:
 - Christian Lundtoft

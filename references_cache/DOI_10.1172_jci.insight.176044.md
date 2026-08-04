@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.176044
+reference_id: "DOI:10.1172/jci.insight.176044"
 title: Increasing Sufu gene dosage reveals its unorthodoxical role in promoting polydactyly and medulloblastoma tumorigenesis
 authors:
 - Boang Han

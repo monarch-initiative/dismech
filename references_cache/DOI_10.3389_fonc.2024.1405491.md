@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1405491
+reference_id: "DOI:10.3389/fonc.2024.1405491"
 title: "Advancements and challenges in triple-negative breast cancer: a comprehensive review of therapeutic and diagnostic strategies"
 authors:
 - Nating Xiong

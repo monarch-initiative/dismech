@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15585/mmwr.mm6931e3
+reference_id: "DOI:10.15585/mmwr.mm6931e3"
 title: "<i>Vital Signs:</i> Clinical Characteristics of Patients with Confirmed Acute Flaccid Myelitis, United States, 2018"
 authors:
 - Sarah Kidd

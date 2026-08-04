@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4274/jcrpe.galenos.2023.2023-12-11
+reference_id: "DOI:10.4274/jcrpe.galenos.2023.2023-12-11"
 title: "Seminoma in 46, XY Gonadal Dysgenesis: Rare Presentation and Review of the Literature"
 authors:
 - Maamoun Adra

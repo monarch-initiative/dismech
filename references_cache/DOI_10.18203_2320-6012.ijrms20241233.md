@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18203/2320-6012.ijrms20241233
+reference_id: "DOI:10.18203/2320-6012.ijrms20241233"
 title: "Diabetes mellitus and odontogenic infections: a life threatening combination in Ludwig's angina"
 authors:
 - Anjana Kumari

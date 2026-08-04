@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms242216099
+reference_id: "DOI:10.3390/ijms242216099"
 title: "Current Medical Therapy and Revascularization in Peripheral Artery Disease of the Lower Limbs: Impacts on Subclinical Chronic Inflammation"
 authors:
 - Andrea Leonardo Cecchini

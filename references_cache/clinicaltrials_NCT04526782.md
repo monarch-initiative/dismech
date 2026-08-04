@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04526782
+reference_id: "clinicaltrials:NCT04526782"
 title: A Phase II Study of the BRAF Inhibitor Encorafenib in Combination With the MEK Inhibitor Binimetinib in Patients With BRAFV600E-mutant Metastatic Non-small Cell Lung Cancer
 content_type: summary
 full_text_attempted: true

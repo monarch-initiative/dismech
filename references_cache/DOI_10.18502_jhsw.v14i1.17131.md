@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18502/jhsw.v14i1.17131
+reference_id: "DOI:10.18502/jhsw.v14i1.17131"
 title: "Investigating the Relationship Between Exposure to Cadmium and Lung Cancer Risk: A Systematic Review and Meta-analysis"
 authors:
 - Parisa Farahmandian

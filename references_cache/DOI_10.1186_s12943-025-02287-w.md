@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-025-02287-w
+reference_id: "DOI:10.1186/s12943-025-02287-w"
 title: Single-cell and spatial transcriptomic analyses revealing tumor microenvironment remodeling after neoadjuvant chemoimmunotherapy in non-small cell lung cancer
 authors:
 - Xiaolu Cui

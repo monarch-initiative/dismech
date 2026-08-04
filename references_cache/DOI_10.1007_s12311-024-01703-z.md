@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12311-024-01703-z
+reference_id: "DOI:10.1007/s12311-024-01703-z"
 title: "An Update on the Adult-Onset Hereditary Cerebellar Ataxias: Novel Genetic Causes and New Diagnostic Approaches"
 authors:
 - Laura Ivete Rudaks

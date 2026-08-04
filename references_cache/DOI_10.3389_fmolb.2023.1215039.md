@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2023.1215039
+reference_id: "DOI:10.3389/fmolb.2023.1215039"
 title: "Metabolic fingerprinting of systemic sclerosis: a systematic review"
 authors:
 - Victoria Morales-González

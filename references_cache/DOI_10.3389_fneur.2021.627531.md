@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2021.627531
+reference_id: "DOI:10.3389/fneur.2021.627531"
 title: Novel Compound Missense and Intronic Splicing Mutation in ALDH18A1 Causes Autosomal Recessive Spastic Paraplegia
 authors:
 - Yi-Jun Chen

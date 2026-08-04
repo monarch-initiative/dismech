@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2022.836964
+reference_id: "DOI:10.3389/fcvm.2022.836964"
 title: "Left Bundle Branch Area Pacing in a Giant Atrium With Atrial Standstill: A Case Report and Literature Review"
 authors:
 - Jing Zheng

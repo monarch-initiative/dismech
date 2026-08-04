@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1468488
+reference_id: "DOI:10.3389/fonc.2024.1468488"
 title: "Global, regional, and national trends in gastric cancer burden: 1990-2021 and projections to 2040"
 authors:
 - Tao Zhang

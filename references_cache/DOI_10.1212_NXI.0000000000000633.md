@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/NXI.0000000000000633
+reference_id: "DOI:10.1212/NXI.0000000000000633"
 title: Anti-NMDAR encephalitis
 authors:
 - Xiaolu Xu

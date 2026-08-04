@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12944-024-02297-5
+reference_id: "DOI:10.1186/s12944-024-02297-5"
 title: Efficacy and safety of olezarsen in lowering apolipoprotein C-III and triglycerides in healthy Japanese Americans
 authors:
 - Ewa Karwatowska-Prokopczuk

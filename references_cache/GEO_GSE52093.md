@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE52093
+reference_id: "GEO:GSE52093"
 title: Genome-wide analysis of gene expression of ascending aorta from patients with acute Stanford type A aortic dissection
 content_type: summary
 full_text_attempted: true

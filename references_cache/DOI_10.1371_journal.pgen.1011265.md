@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1011265
+reference_id: "DOI:10.1371/journal.pgen.1011265"
 title: "Different germline variants in the XPA gene are associated with severe, intermediate, or mild neurodegeneration in xeroderma pigmentosum patients"
 authors:
 - Jeffrey P. Sagun

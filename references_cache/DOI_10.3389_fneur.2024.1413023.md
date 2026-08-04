@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1413023
+reference_id: "DOI:10.3389/fneur.2024.1413023"
 title: "Unveiling the hidden connection: the blood-brain barrier’s role in epilepsy"
 authors:
 - Jinkun Han

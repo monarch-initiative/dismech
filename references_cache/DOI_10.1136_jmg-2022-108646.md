@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2022-108646
+reference_id: "DOI:10.1136/jmg-2022-108646"
 title: "Axenfeld-Rieger syndrome: more than meets the eye"
 authors:
 - Linda M. Reis

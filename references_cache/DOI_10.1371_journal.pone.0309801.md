@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0309801
+reference_id: "DOI:10.1371/journal.pone.0309801"
 title: Pleiotropic effects of a recessive Col1a2 mutation occurring in a mouse model of severe osteogenesis imperfecta
 authors:
 - Michelangelo Corcelli

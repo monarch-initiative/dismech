@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxg.0000000000000670
+reference_id: "DOI:10.1212/nxg.0000000000000670"
 title: "Expanding Clinical Spectrum of <i>C9ORF72</i> -Related Disorders and Promising Therapeutic Strategies"
 authors:
 - Sarah Breevoort

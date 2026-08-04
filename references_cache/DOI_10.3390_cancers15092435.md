@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15092435
+reference_id: "DOI:10.3390/cancers15092435"
 title: "Frequency of Germline and Somatic BRCA1 and BRCA2 Mutations in Prostate Cancer: An Updated Systematic Review and Meta-Analysis"
 authors:
 - Anna Amela Valsecchi

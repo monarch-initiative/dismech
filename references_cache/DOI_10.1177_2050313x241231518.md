@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/2050313x241231518
+reference_id: "DOI:10.1177/2050313x241231518"
 title: "Battling a rarity: A case of kindler syndrome from a developing country"
 authors:
 - Alina Ahmed

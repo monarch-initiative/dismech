@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cup.14192
+reference_id: "DOI:10.1111/cup.14192"
 title: "Cutaneous collagenous vasculopathy: A report of three cases"
 authors:
 - Marc E. Grossman

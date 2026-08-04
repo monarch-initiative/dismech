@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5409/wjcp.v14.i3.103415
+reference_id: "DOI:10.5409/wjcp.v14.i3.103415"
 title: "Hepatic glycogen storage disease: Deciphering the genotype-phenotype conundrum"
 authors:
 - Arghya Samanta

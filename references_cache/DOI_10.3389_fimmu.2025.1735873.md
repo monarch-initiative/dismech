@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1735873
+reference_id: "DOI:10.3389/fimmu.2025.1735873"
 title: "The metabolism-immune axis in colorectal cancer: remodeling the tumor microenvironment through metabolite signaling"
 authors:
 - Shaofan Hu

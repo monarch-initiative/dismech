@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03303716
+reference_id: "clinicaltrials:NCT03303716"
 title: Natural History Study for the ASXL-Related Disorders and Chromatinopathies
 content_type: summary
 full_text_attempted: true

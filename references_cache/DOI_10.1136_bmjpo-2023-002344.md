@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bmjpo-2023-002344
+reference_id: "DOI:10.1136/bmjpo-2023-002344"
 title: "Clinical presentation, diagnosis and management of multisystem inflammatory syndrome in children (MIS-C): a systematic review"
 authors:
 - Qalab Abbas

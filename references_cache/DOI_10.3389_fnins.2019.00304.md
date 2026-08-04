@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2019.00304
+reference_id: "DOI:10.3389/fnins.2019.00304"
 title: Toward a Glutamate Hypothesis of Frontotemporal Dementia
 authors:
 - Alberto Benussi

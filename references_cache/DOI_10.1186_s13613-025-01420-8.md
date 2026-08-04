@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13613-025-01420-8
+reference_id: "DOI:10.1186/s13613-025-01420-8"
 title: "Psychological symptoms, quality of life and dyadic relations in family members of intensive care survivors: a multicentre, prospective longitudinal cohort study"
 authors:
 - Sumeet Rai

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0306043
+reference_id: "DOI:10.1371/journal.pone.0306043"
 title: METTL16 participates in haemoglobin H disease through m6A modification
 authors:
 - Yuping Liao

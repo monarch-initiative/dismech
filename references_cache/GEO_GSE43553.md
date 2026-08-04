@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE43553
+reference_id: "GEO:GSE43553"
 title: Microarray-based gene expression profiling in patients with cryopyrin-associated periodic syndromes defines a disease-related signature and IL-1-responsive transcripts.
 content_type: summary
 full_text_attempted: true

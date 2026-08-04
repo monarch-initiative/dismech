@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2021.645381
+reference_id: "DOI:10.3389/fcell.2021.645381"
 title: miR-26a Reverses Multidrug Resistance in Osteosarcoma by Targeting MCL1
 authors:
 - Ming Li

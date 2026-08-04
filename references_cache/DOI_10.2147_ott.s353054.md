@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/ott.s353054
+reference_id: "DOI:10.2147/ott.s353054"
 title: Hereditary Gynecologic Cancer Syndromes – A Narrative Review
 authors:
 - Stoyan Kostov

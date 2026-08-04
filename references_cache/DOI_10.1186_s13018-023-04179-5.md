@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13018-023-04179-5
+reference_id: "DOI:10.1186/s13018-023-04179-5"
 title: "The association of osteoprotegerin and RANKL with osteoporosis: a systematic review with meta-analysis"
 authors:
 - Guanghao Chi

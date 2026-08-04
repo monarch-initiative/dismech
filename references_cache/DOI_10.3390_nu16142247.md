@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/nu16142247
+reference_id: "DOI:10.3390/nu16142247"
 title: Nutrition in Gilbert’s Syndrome—A Systematic Review of Clinical Trials According to the PRISMA Statement
 authors:
 - Zuzanna Goluch

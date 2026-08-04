@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1210/jendso/bvaa041
+reference_id: "DOI:10.1210/jendso/bvaa041"
 title: "Endocrinological Features of Hartsfield Syndrome in an Adult Patient With a Novel Mutation of <i>FGFR1</i>"
 authors:
 - Sachiko Kobayashi

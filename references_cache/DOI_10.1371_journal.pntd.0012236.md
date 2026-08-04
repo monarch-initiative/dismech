@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012236
+reference_id: "DOI:10.1371/journal.pntd.0012236"
 title: Ongoing transmission of lymphatic filariasis in Samoa 4.5 years after one round of triple-drug mass drug administration
 authors:
 - Helen J. Mayfield

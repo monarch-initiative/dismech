@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1460320
+reference_id: "DOI:10.3389/fendo.2024.1460320"
 title: Prevention and management of hypertensive crises in children with pheochromocytoma and paraganglioma
 authors:
 - Chiara Bima

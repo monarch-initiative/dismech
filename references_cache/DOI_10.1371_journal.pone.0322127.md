@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0322127
+reference_id: "DOI:10.1371/journal.pone.0322127"
 title: IL-18 production is required for the generation of a Th1 response during experimental chromoblastomycosis
 authors:
 - Lucas Golçalves Ferreira

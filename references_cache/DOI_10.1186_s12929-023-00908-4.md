@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12929-023-00908-4
+reference_id: "DOI:10.1186/s12929-023-00908-4"
 title: Current status of hand-foot-and-mouth disease
 authors:
 - Peiyu Zhu

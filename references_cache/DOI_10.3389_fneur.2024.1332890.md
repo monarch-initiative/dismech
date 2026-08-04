@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1332890
+reference_id: "DOI:10.3389/fneur.2024.1332890"
 title: Immediate and sustained terminal complement inhibition with ravulizumab in patients with anti-aquaporin-4 antibody-positive neuromyelitis optica spectrum disorder
 authors:
 - Stephan Ortiz

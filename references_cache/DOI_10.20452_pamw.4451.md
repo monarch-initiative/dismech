@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20452/pamw.4451
+reference_id: "DOI:10.20452/pamw.4451"
 title: "Clinical classification of rare cardiac arrhythmogenic and conduction disorders, and rare arrhythmias"
 authors:
 - Piotr Podolec

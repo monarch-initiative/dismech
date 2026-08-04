@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2023.1126173
+reference_id: "DOI:10.3389/fitd.2023.1126173"
 title: "Filariasis research – from basic research to drug development and novel diagnostics, over a decade of research at the Institute for Medical Microbiology, Immunology and Parasitology, Bonn, Germany"
 authors:
 - Indulekha Karunakaran

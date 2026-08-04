@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0883073820975230
+reference_id: "DOI:10.1177/0883073820975230"
 title: "Acute Flaccid Myelitis: A Multidisciplinary Protocol to Optimize Diagnosis and Evaluation"
 authors:
 - Marissa Vawter-Lee

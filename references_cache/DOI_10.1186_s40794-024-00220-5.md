@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40794-024-00220-5
+reference_id: "DOI:10.1186/s40794-024-00220-5"
 title: Tetanus– a case report highlighting the challenges in diagnosis and treatment
 authors:
 - Menno Boer

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.49268
+reference_id: "DOI:10.7759/cureus.49268"
 title: A Case Report on Senear-Usher Syndrome
 authors:
 - Shivani D Jangid

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/microorganisms12010132
+reference_id: "DOI:10.3390/microorganisms12010132"
 title: "Campylobacteriosis in Finland: Passive Surveillance in 2004–2021 and a Pilot Case-Control Study with Whole-Genome Sequencing in Summer 2022"
 authors:
 - Kristiina Suominen

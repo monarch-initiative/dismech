@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/2767-9764.crc-24-0102
+reference_id: "DOI:10.1158/2767-9764.crc-24-0102"
 title: "Clinical Efficacy of the HIV Protease Inhibitor Indinavir in Combination with Chemotherapy for Advanced Classic Kaposi Sarcoma Treatment: A Single-Arm, Phase II Trial in the Elderly"
 authors:
 - Cecilia Sgadari

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16162854
+reference_id: "DOI:10.3390/cancers16162854"
 title: Resistance to Anti-HER2 Therapies in Gastrointestinal Malignancies
 authors:
 - Christiana Mo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1239725
+reference_id: "DOI:10.3389/fneur.2023.1239725"
 title: The mutational profile in a South African cohort with inherited neuropathies and spastic paraplegia
 authors:
 - Amokelani C. Mahungu

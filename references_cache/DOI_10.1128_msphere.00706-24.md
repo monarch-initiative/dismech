@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/msphere.00706-24
+reference_id: "DOI:10.1128/msphere.00706-24"
 title: "Metagenomic, metabolomic, and lipidomic shifts associated with fecal microbiota transplantation for recurrent <i>Clostridioides difficile</i> infection"
 authors:
 - Arthur S. McMillan

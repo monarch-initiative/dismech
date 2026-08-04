@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4103/ajns.AJNS_327_20
+reference_id: "DOI:10.4103/ajns.AJNS_327_20"
 title: "Recurrent meningeal melanocytoma of cervical spine: A rare case"
 authors:
 - Mihir Vaidya

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/13993003.01325-2024
+reference_id: "DOI:10.1183/13993003.01325-2024"
 title: Treatment algorithm for pulmonary arterial hypertension
 authors:
 - Kelly M. Chin

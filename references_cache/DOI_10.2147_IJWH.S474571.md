@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/IJWH.S474571
+reference_id: "DOI:10.2147/IJWH.S474571"
 title: The Future of Cervical Cancer Screening
 authors:
 - Amelia Goldstein

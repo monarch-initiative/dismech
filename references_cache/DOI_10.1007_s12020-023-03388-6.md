@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12020-023-03388-6
+reference_id: "DOI:10.1007/s12020-023-03388-6"
 title: "Add-on radioiodine during long-term BRAF/MEK inhibition in patients with RAI-refractory thyroid cancers: a reasonable option?"
 authors:
 - Filipe Miguel Montes de Jesus

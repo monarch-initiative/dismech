@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2021.763950
+reference_id: "DOI:10.3389/fphar.2021.763950"
 title: Screening of a Focused Ubiquitin-Proteasome Pathway Inhibitor Library Identifies Small Molecules as Novel Modulators of Botulinum Neurotoxin Type A Toxicity
 authors:
 - Edanur Sen

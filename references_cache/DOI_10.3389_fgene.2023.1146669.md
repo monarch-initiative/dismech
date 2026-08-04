@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1146669
+reference_id: "DOI:10.3389/fgene.2023.1146669"
 title: Positive cfDNA screening results for 22q11.2 deletion syndrome—Clinical and laboratory considerations
 authors:
 - Erica Soster

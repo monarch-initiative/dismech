@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14070877
+reference_id: "DOI:10.3390/biom14070877"
 title: The Role and Function of TRPM8 in the Digestive System
 authors:
 - Zunan Wu

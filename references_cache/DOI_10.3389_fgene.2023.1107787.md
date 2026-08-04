@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1107787
+reference_id: "DOI:10.3389/fgene.2023.1107787"
 title: Tenascin-X as a causal gene for classical-like Ehlers-Danlos syndrome
 authors:
 - Emiko Okuda-Ashitaka

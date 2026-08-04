@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE7869
+reference_id: "GEO:GSE7869"
 title: Expression data from renal cysts of autosomal dominant polycystic kidney disease (ADPKD) patients
 content_type: summary
 full_text_attempted: true

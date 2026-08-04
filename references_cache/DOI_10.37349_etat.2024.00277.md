@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/etat.2024.00277
+reference_id: "DOI:10.37349/etat.2024.00277"
 title: Addressing the unmet need in NSCLC progression with advances in second-line therapeutics
 authors:
 - Kinsley Wang

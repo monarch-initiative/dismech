@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fsurg.2023.1327545
+reference_id: "DOI:10.3389/fsurg.2023.1327545"
 title: "Meckel's diverticulum: analysis of 27 cases in an adult population"
 authors:
 - Juan David Hernández

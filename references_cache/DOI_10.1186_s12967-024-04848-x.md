@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-04848-x
+reference_id: "DOI:10.1186/s12967-024-04848-x"
 title: Metabolic heterogeneity in clear cell renal cell carcinoma revealed by single-cell RNA sequencing and spatial transcriptomics
 authors:
 - Guanwen Yang

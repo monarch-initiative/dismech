@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1086/302961
+reference_id: "DOI:10.1086/302961"
 title: Novel HOXA13 Mutations and the Phenotypic Spectrum of Hand-Foot-Genital Syndrome
 authors:
 - Frances R. Goodman

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/children11091046
+reference_id: "DOI:10.3390/children11091046"
 title: "Advances in Juvenile Dermatomyositis: Pathophysiology, Diagnosis, Treatment and Interstitial Lung Diseases—A Narrative Review"
 authors:
 - Ichiro Kobayashi

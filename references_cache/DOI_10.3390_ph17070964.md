@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph17070964
+reference_id: "DOI:10.3390/ph17070964"
 title: "Insights into Immune Exhaustion in Chronic Hepatitis B: A Review of Checkpoint Receptor Expression"
 authors:
 - João Panão Costa

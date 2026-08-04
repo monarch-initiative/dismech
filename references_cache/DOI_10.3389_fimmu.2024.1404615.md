@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1404615
+reference_id: "DOI:10.3389/fimmu.2024.1404615"
 title: Inflammation mechanism and research progress of COPD
 authors:
 - Jiao Xu

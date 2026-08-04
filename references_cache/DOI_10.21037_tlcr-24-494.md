@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/tlcr-24-494
+reference_id: "DOI:10.21037/tlcr-24-494"
 title: "Efficacy, safety, and quality of life of dabrafenib plus trametinib treatment in Chinese patients with BRAFV600E mutation-positive metastatic non-small cell lung cancer"
 authors:
 - Yun Fan

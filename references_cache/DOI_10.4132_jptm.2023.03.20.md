@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4132/jptm.2023.03.20
+reference_id: "DOI:10.4132/jptm.2023.03.20"
 title: "What’s new in bone and soft tissue pathology 2023: guidelines for molecular testing"
 authors:
 - Farres Obeidin

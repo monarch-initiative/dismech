@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fddsv.2023.1249966
+reference_id: "DOI:10.3389/fddsv.2023.1249966"
 title: Future treatments for the arteriopathy of ectopic calcification disorders
 authors:
 - Benjamin M. Davies

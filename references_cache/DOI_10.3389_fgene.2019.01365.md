@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2019.01365
+reference_id: "DOI:10.3389/fgene.2019.01365"
 title: The Genetics and Epigenetics of 22q11.2 Deletion Syndrome
 authors:
 - Qiumei Du

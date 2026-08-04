@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1323171
+reference_id: "DOI:10.3389/fimmu.2024.1323171"
 title: FCGR2/3 polymorphisms are associated with susceptibility to Kawasaki disease but do not predict intravenous immunoglobulin resistance and coronary artery aneurysms
 authors:
 - Paula Uittenbogaard

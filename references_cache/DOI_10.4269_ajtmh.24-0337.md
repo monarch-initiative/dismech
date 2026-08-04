@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4269/ajtmh.24-0337
+reference_id: "DOI:10.4269/ajtmh.24-0337"
 title: "Efficacy and Safety of Adding 6 Weeks of Doxycycline to the Essential Package of Care to Treat Filarial Lymphedema: A Double-Blind, Randomized, Controlled Trial in Southern India"
 authors:
 - Suma Krishnasastry

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14789/ejmj.jmj24-0036-r
+reference_id: "DOI:10.14789/ejmj.jmj24-0036-r"
 title: Mechanisms of Itch in Atopic Dermatitis
 authors:
 - YAYOI KAMATA

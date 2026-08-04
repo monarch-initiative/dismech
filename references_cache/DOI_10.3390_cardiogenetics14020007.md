@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cardiogenetics14020007
+reference_id: "DOI:10.3390/cardiogenetics14020007"
 title: A Single Nucleotide Variant in Ankyrin-2 Influencing Ventricular Tachycardia in COVID-19 Associated Myocarditis
 authors:
 - Erin Haase

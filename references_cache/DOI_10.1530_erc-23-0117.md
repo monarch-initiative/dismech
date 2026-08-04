@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1530/erc-23-0117
+reference_id: "DOI:10.1530/erc-23-0117"
 title: "RET fusion genes in pediatric and adult thyroid carcinomas: cohort characteristics and prognosis"
 authors:
 - Barbora Bulanova Pekova

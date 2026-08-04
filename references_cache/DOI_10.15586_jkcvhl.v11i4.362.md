@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15586/jkcvhl.v11i4.362
+reference_id: "DOI:10.15586/jkcvhl.v11i4.362"
 title: "Surveillance in Children and Adolescents with von Hippel-Lindau (VHL)-Related Pheochromocytomas and Paragangliomas: A Survey of MET and Freiburg-VHL Registries in Germany"
 authors:
 - Fruzsina Kotsis

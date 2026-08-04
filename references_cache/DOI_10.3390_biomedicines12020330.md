@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12020330
+reference_id: "DOI:10.3390/biomedicines12020330"
 title: Detection of PTCH1 Copy-Number Variants in Mosaic Basal Cell Nevus Syndrome
 authors:
 - Guido M. J. M. Roemen

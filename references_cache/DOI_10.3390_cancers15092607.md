@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15092607
+reference_id: "DOI:10.3390/cancers15092607"
 title: "BRAF V600-Mutated Metastatic Melanoma and Targeted Therapy Resistance: An Update of the Current Knowledge"
 authors:
 - Laetitia Florent

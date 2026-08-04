@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/antiox13050568
+reference_id: "DOI:10.3390/antiox13050568"
 title: Antioxidants and Mechanistic Insights for Managing Dry Age-Related Macular Degeneration
 authors:
 - Deepak Basyal

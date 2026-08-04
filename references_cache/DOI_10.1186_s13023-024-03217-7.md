@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03217-7
+reference_id: "DOI:10.1186/s13023-024-03217-7"
 title: Comprehensive analysis of 2097 patients with dystrophinopathy based on a database from 2011 to 2021
 authors:
 - Lei Zhao

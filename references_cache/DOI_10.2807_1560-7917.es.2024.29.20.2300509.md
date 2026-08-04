@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2807/1560-7917.es.2024.29.20.2300509
+reference_id: "DOI:10.2807/1560-7917.es.2024.29.20.2300509"
 title: "Autochthonous and imported giardiasis cases: An analysis of two decades of national surveillance data, Germany, 2002 to 2021"
 authors:
 - Franziska Hommes

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jpm14050535
+reference_id: "DOI:10.3390/jpm14050535"
 title: "Review: A Contemporary, Multifaced Insight into Psoriasis Pathogenesis"
 authors:
 - Rucsandra Cristina Dascălu

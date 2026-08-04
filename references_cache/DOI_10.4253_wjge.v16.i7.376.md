@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4253/wjge.v16.i7.376
+reference_id: "DOI:10.4253/wjge.v16.i7.376"
 title: Advancements in endoscopic hemostasis for non-variceal upper gastrointestinal bleeding
 authors:
 - Xue Jing Li

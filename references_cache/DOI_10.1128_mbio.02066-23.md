@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/mbio.02066-23
+reference_id: "DOI:10.1128/mbio.02066-23"
 title: Phosphoprotein phosphatase activity positively regulates oligomeric pyrin to trigger inflammasome assembly in phagocytes
 authors:
 - Haleema S. Malik

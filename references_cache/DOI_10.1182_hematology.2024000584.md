@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/hematology.2024000584
+reference_id: "DOI:10.1182/hematology.2024000584"
 title: IgG4-related disease for the hematologist
 authors:
 - Luke Y. C. Chen

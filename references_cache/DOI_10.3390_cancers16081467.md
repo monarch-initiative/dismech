@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16081467
+reference_id: "DOI:10.3390/cancers16081467"
 title: "Imaging of Peritoneal Metastases in Ovarian Cancer Using MDCT, MRI, and FDG PET/CT: A Systematic Review and Meta-Analysis"
 authors:
 - Athina C. Tsili

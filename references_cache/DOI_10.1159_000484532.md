@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000484532
+reference_id: "DOI:10.1159/000484532"
 title: A Clinical Review of Generalized Overgrowth Syndromes in the Era of Massively Parallel Sequencing
 authors:
 - Benjamin Kamien

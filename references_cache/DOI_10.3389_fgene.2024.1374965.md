@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1374965
+reference_id: "DOI:10.3389/fgene.2024.1374965"
 title: "Acute intermittent porphyria: a disease with low penetrance and high heterogeneity"
 authors:
 - Jia-Jia Lei

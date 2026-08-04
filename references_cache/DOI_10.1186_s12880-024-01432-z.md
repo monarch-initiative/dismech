@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12880-024-01432-z
+reference_id: "DOI:10.1186/s12880-024-01432-z"
 title: Neuroimaging studies of resting-state functional magnetic resonance imaging in eating disorders
 authors:
 - Xiong Chen

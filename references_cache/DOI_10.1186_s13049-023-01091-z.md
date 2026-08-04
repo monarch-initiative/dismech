@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13049-023-01091-z
+reference_id: "DOI:10.1186/s13049-023-01091-z"
 title: "Predictors of post-intubation hypotension in trauma patients following prehospital emergency anaesthesia: a multi-centre observational study"
 authors:
 - James Price

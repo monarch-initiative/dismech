@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14806/ej.24.0.921
+reference_id: "DOI:10.14806/ej.24.0.921"
 title: "NOTCH3 and CADASIL syndrome: a genetic and structural overview"
 authors:
 - Eleni Papakonstantinou

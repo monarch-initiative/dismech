@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2021.639387
+reference_id: "DOI:10.3389/fonc.2021.639387"
 title: IDH1/IDH2 Inhibition in Acute Myeloid Leukemia
 authors:
 - Claudio Cerchione

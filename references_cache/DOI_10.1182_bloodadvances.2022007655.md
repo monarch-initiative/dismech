@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/bloodadvances.2022007655
+reference_id: "DOI:10.1182/bloodadvances.2022007655"
 title: "Elevated CDKN1A (P21) mediates β-thalassemia erythroid apoptosis, but its loss does not improve β-thalassemic erythropoiesis"
 authors:
 - Raymond Liang

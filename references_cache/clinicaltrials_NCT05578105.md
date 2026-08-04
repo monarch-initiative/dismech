@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05578105
+reference_id: "clinicaltrials:NCT05578105"
 title: Prevalence and Genetic Alternation of Autoimmune Polyglandular Syndrome Type II in Taiwan
 content_type: summary
 full_text_attempted: true

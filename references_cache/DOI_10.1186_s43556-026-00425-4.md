@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43556-026-00425-4
+reference_id: "DOI:10.1186/s43556-026-00425-4"
 title: "BRAF inhibitor resistance in melanoma: from resistance mechanisms to therapeutic innovations"
 authors:
 - Yan Shang

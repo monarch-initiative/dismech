@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03135-8
+reference_id: "DOI:10.1186/s13023-024-03135-8"
 title: Biallelic and monoallelic pathogenic variants in CYP24A1 and SLC34A1 genes cause idiopathic infantile hypercalcemia
 authors:
 - Qiao Wang

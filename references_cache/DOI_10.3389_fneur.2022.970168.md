@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2022.970168
+reference_id: "DOI:10.3389/fneur.2022.970168"
 title: "Epidemiology, clinical presentation, treatment, and outcome of neurosarcoidosis: A mono-centric retrospective study and literature review"
 authors:
 - Pauline Sambon

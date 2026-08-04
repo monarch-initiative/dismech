@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3310/nihropenres.13332.1
+reference_id: "DOI:10.3310/nihropenres.13332.1"
 title: "Buruli-RifDACC: Evaluation of the efficacy and cost-effectiveness of high-dose versus standard-dose rifampicin on outcomes in Mycobacterium ulcerans disease, a protocol for a randomised controlled trial in Ghana"
 authors:
 - Yaw Ampem Amoako

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40164-024-00551-1
+reference_id: "DOI:10.1186/s40164-024-00551-1"
 title: Current and future therapies for follicular lymphoma
 authors:
 - Pier Luigi Zinzani

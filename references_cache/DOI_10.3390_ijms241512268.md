@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms241512268
+reference_id: "DOI:10.3390/ijms241512268"
 title: "Migraine Treatment: Towards New Pharmacological Targets"
 authors:
 - Marcello Silvestro

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/20503121231221941
+reference_id: "DOI:10.1177/20503121231221941"
 title: "Hereditary spastic paraplegia: Novel insights into the pathogenesis and management"
 authors:
 - Wireko Andrew Awuah

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/toxins15110643
+reference_id: "DOI:10.3390/toxins15110643"
 title: A Colonic Organoid Model Challenged with the Large Toxins of Clostridioides difficile TcdA and TcdB Exhibit Deregulated Tight Junction Proteins
 authors:
 - Martina Schneemann

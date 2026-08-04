@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000200109
+reference_id: "DOI:10.1212/nxi.0000000000200109"
 title: Therapies in Stiff-Person Syndrome
 authors:
 - Marinos C. Dalakas

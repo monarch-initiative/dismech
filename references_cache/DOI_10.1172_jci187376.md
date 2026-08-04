@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci187376
+reference_id: "DOI:10.1172/jci187376"
 title: Safety and efficacy of pharmacological inhibition of ketohexokinase in hereditary fructose intolerance
 authors:
 - Evi J.C. Koene

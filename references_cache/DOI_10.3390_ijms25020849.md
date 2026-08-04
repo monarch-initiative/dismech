@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25020849
+reference_id: "DOI:10.3390/ijms25020849"
 title: Molecular Targeting of the Fibroblast Growth Factor Receptor Pathway across Various Cancers
 authors:
 - Khine S. Shan

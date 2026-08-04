@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci178296
+reference_id: "DOI:10.1172/jci178296"
 title: "Complement regulation in the eye: implications for age-related macular degeneration"
 authors:
 - Georgia A. Wilke

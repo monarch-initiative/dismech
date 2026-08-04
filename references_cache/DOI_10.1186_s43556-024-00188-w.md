@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43556-024-00188-w
+reference_id: "DOI:10.1186/s43556-024-00188-w"
 title: "Multiple myeloma: signaling pathways and targeted therapy"
 authors:
 - Qizhong Lu

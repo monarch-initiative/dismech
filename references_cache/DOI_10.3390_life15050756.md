@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/life15050756
+reference_id: "DOI:10.3390/life15050756"
 title: Current Understanding of the Pathogenesis of ANCA-Associated Vasculitis and Novel Treatment Options Targeting Complement Activation
 authors:
 - Konstantinos Drouzas

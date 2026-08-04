@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/tlcr-24-662
+reference_id: "DOI:10.21037/tlcr-24-662"
 title: "Fuel for thought: targeting metabolism in lung cancer"
 authors:
 - Jaime L. Schneider

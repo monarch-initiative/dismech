@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13110961
+reference_id: "DOI:10.3390/cells13110961"
 title: "First-Line Treatments and Management of Metastatic Renal Cell Carcinoma Patients: An Italian Interdisciplinary Uro-Oncologic Group Algorithm"
 authors:
 - Francesco Bloise

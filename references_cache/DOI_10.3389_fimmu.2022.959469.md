@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.959469
+reference_id: "DOI:10.3389/fimmu.2022.959469"
 title: The causal relationship between neuromyelitis optica spectrum disorder and other autoimmune diseases
 authors:
 - Xiaofei Wang

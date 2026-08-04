@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci175447
+reference_id: "DOI:10.1172/jci175447"
 title: Modulation of NOX2 causes obesity-mediated atrial fibrillation
 authors:
 - Arvind Sridhar

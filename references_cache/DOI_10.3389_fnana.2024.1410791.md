@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnana.2024.1410791
+reference_id: "DOI:10.3389/fnana.2024.1410791"
 title: Regional and cellular organization of the autism-associated protein UBE3A/E6AP and its antisense transcript in the brain of the developing rhesus monkey
 authors:
 - Chavely Gonzalez Ramirez

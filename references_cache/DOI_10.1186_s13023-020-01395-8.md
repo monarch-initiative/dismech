@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-020-01395-8
+reference_id: "DOI:10.1186/s13023-020-01395-8"
 title: "Gastrointestinal manifestations in Satoyoshi syndrome: a systematic review"
 authors:
 - Julián Solís-García del Pozo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1305325
+reference_id: "DOI:10.3389/fimmu.2023.1305325"
 title: Host-directed therapy against mycobacterium tuberculosis infections with diabetes mellitus
 authors:
 - Li Zhao

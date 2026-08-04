@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24043995
+reference_id: "DOI:10.3390/ijms24043995"
 title: Managing the Dual Nature of Iron to Preserve Health
 authors:
 - Laura Silvestri

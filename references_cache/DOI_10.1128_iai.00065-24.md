@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/iai.00065-24
+reference_id: "DOI:10.1128/iai.00065-24"
 title: "Mucosal vaccination in a murine gnotobiotic model of <i>Giardia lamblia</i> infection"
 authors:
 - Sozaburo Ihara

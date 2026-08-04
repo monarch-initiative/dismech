@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-11926-2
+reference_id: "DOI:10.1186/s12885-024-11926-2"
 title: "Efficacy and safety of temozolomide-based regimens in advanced pancreatic neuroendocrine tumors: a systematic review and meta-analysis"
 authors:
 - Erfan Taherifard

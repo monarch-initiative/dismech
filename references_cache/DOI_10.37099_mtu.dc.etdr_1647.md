@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37099/mtu.dc.etdr/1647
+reference_id: "DOI:10.37099/mtu.dc.etdr/1647"
 title: "Collagen V Promotes Fibroblast Contractility, And Adhesion Formation, And Stability"
 authors:
 - Shaina P. Royer-Weeden

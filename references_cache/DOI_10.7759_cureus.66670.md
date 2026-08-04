@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.66670
+reference_id: "DOI:10.7759/cureus.66670"
 title: "Tracking Lymphatic Drainage Pathways Through Inner Ear Channels: A Systematic Review"
 authors:
 - Surraj Susai

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/vetsci11110555
+reference_id: "DOI:10.3390/vetsci11110555"
 title: Mechanistic Insights into Influenza A Virus-Induced Cell Death and Emerging Treatment Strategies
 authors:
 - Yuling Sun

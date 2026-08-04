@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000540815
+reference_id: "DOI:10.1159/000540815"
 title: "Innate Immune Response to MPOX Infection: Mechanisms and Immune Escape"
 authors:
 - Reza Parnian

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40164-023-00470-7
+reference_id: "DOI:10.1186/s40164-023-00470-7"
 title: Molecular profiling of biliary tract cancers reveals distinct genomic landscapes between circulating and tissue tumor DNA
 authors:
 - Clémence Astier

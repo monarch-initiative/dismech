@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05468320
+reference_id: "clinicaltrials:NCT05468320"
 title: "An Open-label, Single-arm, Multicenter Study to Evaluate the Efficacy and Safety of Caplacizumab and Immunosuppressive Therapy Without Firstline Therapeutic Plasma Exchange in Adults With Immune-mediated Thrombotic Thrombocytopenic Purpura"
 content_type: summary
 full_text_attempted: true

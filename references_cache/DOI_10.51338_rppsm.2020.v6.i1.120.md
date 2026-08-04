@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.51338/rppsm.2020.v6.i1.120
+reference_id: "DOI:10.51338/rppsm.2020.v6.i1.120"
 title: "Marchiafava‑Bignami Disease: The Importance of Early Diagnosis and Treatment by a Multidisciplinary Team"
 authors:
 - Ana Luzia Melo

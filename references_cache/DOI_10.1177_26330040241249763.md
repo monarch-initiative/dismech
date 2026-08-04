@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/26330040241249763
+reference_id: "DOI:10.1177/26330040241249763"
 title: "Patient organization perspective: a research roadmap for Okur-Chung Neurodevelopmental Syndrome"
 authors:
 - Gabrielle V. Rushing

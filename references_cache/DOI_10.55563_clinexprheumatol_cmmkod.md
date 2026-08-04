@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.55563/clinexprheumatol/cmmkod
+reference_id: "DOI:10.55563/clinexprheumatol/cmmkod"
 title: "Role of TLR7 in the pathogenesis of primary Sjögren's syndrome"
 authors:
 - Yue Song

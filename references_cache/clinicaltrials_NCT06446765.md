@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06446765
+reference_id: "clinicaltrials:NCT06446765"
 title: Mindfulness-based Neurofeedback to Augment Dialectical Behavior Therapy (DBT) for Adults With Borderline Personality Disorder (Aim 1)
 content_type: summary
 full_text_attempted: true

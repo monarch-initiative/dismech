@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms22168638
+reference_id: "DOI:10.3390/ijms22168638"
 title: Treatment of Neuromyelitis Optica Spectrum Disorders
 authors:
 - Koon-Ho Chan

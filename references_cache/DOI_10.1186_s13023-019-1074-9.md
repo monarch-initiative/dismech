@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-019-1074-9
+reference_id: "DOI:10.1186/s13023-019-1074-9"
 title: "Recommendations for the management of MPS IVA: systematic evidence- and consensus-based guidance"
 authors:
 - Mehmet Umut Akyol

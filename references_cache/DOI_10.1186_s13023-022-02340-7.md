@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02340-7
+reference_id: "DOI:10.1186/s13023-022-02340-7"
 title: Clinical and genetic spectrums of 413 North African families with inherited retinal dystrophies and optic neuropathies
 authors:
 - Aymane Bouzidi

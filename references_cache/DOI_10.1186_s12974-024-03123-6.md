@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12974-024-03123-6
+reference_id: "DOI:10.1186/s12974-024-03123-6"
 title: "Decoding Behcet’s Uveitis: an In-depth review of pathogenesis and therapeutic advances"
 authors:
 - Yuxuan Guan

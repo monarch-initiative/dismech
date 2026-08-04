@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05865119
+reference_id: "clinicaltrials:NCT05865119"
 title: OPTImal Treatment of Sinus VENOSUS Defect - Efficacy and Safety of Transcatheter Correction Compared to Surgical Treatment in Patients With Sinus Venosus Defect
 content_type: summary
 full_text_attempted: true

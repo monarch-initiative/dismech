@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/1756286420985323
+reference_id: "DOI:10.1177/1756286420985323"
 title: "Paraneoplastic neurological syndromes: clinical presentations and management"
 authors:
 - Michelle F. Devine

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1275957
+reference_id: "DOI:10.3389/fimmu.2023.1275957"
 title: "Histological transformation into SCLC: An important resistance mechanism of NSCLC upon immunotherapy"
 authors:
 - Jiao Zeng

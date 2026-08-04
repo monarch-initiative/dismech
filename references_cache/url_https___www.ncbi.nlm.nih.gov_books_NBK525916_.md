@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ncbi.nlm.nih.gov/books/NBK525916/
+reference_id: "url:https://www.ncbi.nlm.nih.gov/books/NBK525916/"
 title: Asparagine Synthetase Deficiency - GeneReviews® - NCBI Bookshelf
 content_type: url
 ---

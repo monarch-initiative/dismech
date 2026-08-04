@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2139/ssrn.3977450
+reference_id: "DOI:10.2139/ssrn.3977450"
 title: "Ivosidenib in IDH1-Mutated Cholangiocarcinoma: Clinical Evaluation and Future Directions"
 authors:
 - Daniele Lavacchi

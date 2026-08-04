@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.841126
+reference_id: "DOI:10.3389/fimmu.2022.841126"
 title: Autoantibodies Against Proteins Previously Associated With Autoimmunity in Adult and Pediatric Patients With COVID-19 and Children With MIS-C
 authors:
 - Peter D. Burbelo

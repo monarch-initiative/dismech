@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/metabo12100955
+reference_id: "DOI:10.3390/metabo12100955"
 title: COQ8A-Ataxia as a Manifestation of Primary Coenzyme Q Deficiency
 authors:
 - Justyna Paprocka

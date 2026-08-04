@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/JCI83553
+reference_id: "DOI:10.1172/JCI83553"
 title: A mutation in the nucleoporin-107 gene causes XX gonadal dysgenesis
 authors:
 - Ariella Weinberg-Shukron

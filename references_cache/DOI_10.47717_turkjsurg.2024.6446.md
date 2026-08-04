@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.47717/turkjsurg.2024.6446
+reference_id: "DOI:10.47717/turkjsurg.2024.6446"
 title: "The clinical presentation of Meckel’s diverticulum: Eight years experience"
 authors:
 - Lutfi Jarboa

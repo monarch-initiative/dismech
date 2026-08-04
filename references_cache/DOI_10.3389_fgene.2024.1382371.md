@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1382371
+reference_id: "DOI:10.3389/fgene.2024.1382371"
 title: "Molecular mechanisms of human overgrowth and use of omics in its diagnostics: chances and challenges"
 authors:
 - Dirk Prawitt

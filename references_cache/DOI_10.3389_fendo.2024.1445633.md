@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1445633
+reference_id: "DOI:10.3389/fendo.2024.1445633"
 title: Challenges in molecular diagnosis of multiple endocrine neoplasia
 authors:
 - Pauline Romanet

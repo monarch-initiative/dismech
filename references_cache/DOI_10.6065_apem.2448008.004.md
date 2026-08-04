@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.6065/apem.2448008.004
+reference_id: "DOI:10.6065/apem.2448008.004"
 title: "Clinical and genetic features of childhood-onset congenital combined pituitary hormone deficiency: a retrospective, single-center cohort study"
 authors:
 - Yoonha Lee

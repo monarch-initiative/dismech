@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnagi.2022.892518
+reference_id: "DOI:10.3389/fnagi.2022.892518"
 title: Towards Understanding the Relationship Between ER Stress and Unfolded Protein Response in Amyotrophic Lateral Sclerosis
 authors:
 - Chenxuan Zhao

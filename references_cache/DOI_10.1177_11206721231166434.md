@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/11206721231166434
+reference_id: "DOI:10.1177/11206721231166434"
 title: "Multimodal imaging in Best Vitelliform Macular Dystrophy: Literature review and novel insights"
 authors:
 - Lorenzo Bianco

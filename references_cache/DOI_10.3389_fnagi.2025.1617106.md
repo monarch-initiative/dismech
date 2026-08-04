@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnagi.2025.1617106
+reference_id: "DOI:10.3389/fnagi.2025.1617106"
 title: "Understanding Parkinson’s disease: current trends and its multifaceted complications"
 authors:
 - Sameer A. Chaudhary

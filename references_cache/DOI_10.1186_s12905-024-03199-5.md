@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12905-024-03199-5
+reference_id: "DOI:10.1186/s12905-024-03199-5"
 title: "Effect of different treatment modalities on the prognosis of stage IV epithelial ovarian cancer: analysis of the SEER database"
 authors:
 - Shuyuan Zhang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.06.18.25329632
+reference_id: "DOI:10.1101/2025.06.18.25329632"
 title: "Clinicogenomic landscape and function of <i>PIK3CA</i> , <i>AKT1</i> , and <i>PTEN</i> mutations in breast cancer"
 authors:
 - Jacqueline J. Tao

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0194599820909438
+reference_id: "DOI:10.1177/0194599820909438"
 title: "Clinical Practice Guideline: Ménière’s Disease"
 authors:
 - Gregory J. Basura

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12071607
+reference_id: "DOI:10.3390/biomedicines12071607"
 title: Flow Cytometry as a New Accessible Method to Evaluate Diagnostic Osmotic Changes in Patients with Red Blood Cell Membrane Defects
 authors:
 - Asunción Beltrán

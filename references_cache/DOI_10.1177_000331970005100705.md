@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/000331970005100705
+reference_id: "DOI:10.1177/000331970005100705"
 title: "Accumulation of Lymphocytes, Dendritic Cells, and Granulocytes in the Aortic Wall Affected by Takayasu's Disease"
 authors:
 - Stephanie Jane Inder

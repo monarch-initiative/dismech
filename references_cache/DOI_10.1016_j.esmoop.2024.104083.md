@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.esmoop.2024.104083
+reference_id: "DOI:10.1016/j.esmoop.2024.104083"
 title: "Use and outcomes of trastuzumab deruxtecan in HER2-positive and HER2-low metastatic breast cancer in a real-world setting: a nationwide cohort study"
 authors:
 - H. Jourdain

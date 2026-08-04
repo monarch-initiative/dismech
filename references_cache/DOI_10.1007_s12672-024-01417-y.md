@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12672-024-01417-y
+reference_id: "DOI:10.1007/s12672-024-01417-y"
 title: "Unraveling the role of heavy metals xenobiotics in cancer: a critical review"
 authors:
 - Sourav Pal

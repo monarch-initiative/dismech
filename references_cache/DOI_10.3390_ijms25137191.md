@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25137191
+reference_id: "DOI:10.3390/ijms25137191"
 title: "Inflammatory Response in the Pathogenesis and Treatment of Hepatocellular Carcinoma: A Double-Edged Weapon"
 authors:
 - Linda Galasso

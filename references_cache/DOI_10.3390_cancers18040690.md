@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers18040690
+reference_id: "DOI:10.3390/cancers18040690"
 title: The Development of Novel Treatment Strategies for Rhabdomyosarcoma
 authors:
 - Kenji Nakano

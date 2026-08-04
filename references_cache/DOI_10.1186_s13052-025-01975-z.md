@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13052-025-01975-z
+reference_id: "DOI:10.1186/s13052-025-01975-z"
 title: "Diagnosis of glutaric aciduria type I based on neuroradiological findings: when neonatal screening fails"
 authors:
 - Vincenza Gragnaniello

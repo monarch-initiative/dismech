@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31661/gmj.vi.3854
+reference_id: "DOI:10.31661/gmj.vi.3854"
 title: Advances in the Molecular Pathogenesis and  Targeted Therapy of Psoriasis
 authors:
 - Parivash Shokoufa

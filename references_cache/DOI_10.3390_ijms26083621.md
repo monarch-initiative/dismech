@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26083621
+reference_id: "DOI:10.3390/ijms26083621"
 title: "Matrix Dynamics and Microbiome Crosstalk: Matrix Metalloproteinases as Key Players in Disease and Therapy"
 authors:
 - Paraskevi Ioannou

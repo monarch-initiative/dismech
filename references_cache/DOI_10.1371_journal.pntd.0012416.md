@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012416
+reference_id: "DOI:10.1371/journal.pntd.0012416"
 title: "Soil surveillance for monitoring soil-transmitted helminths: Method development and field testing in three countries"
 authors:
 - Malathi Manuel

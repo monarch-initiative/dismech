@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biology13090662
+reference_id: "DOI:10.3390/biology13090662"
 title: "The Constellation of Risk Factors and Paraneoplastic Syndromes in Cholangiocarcinoma: Integrating the Endocrine Panel Amid Tumour-Related Biology (A Narrative Review)"
 authors:
 - Mihai-Lucian Ciobica

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43556-025-00313-3
+reference_id: "DOI:10.1186/s43556-025-00313-3"
 title: "Atopic dermatitis: diagnosis, molecular pathogenesis, and therapeutics"
 authors:
 - Ruimin Bai

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5152/turkarchpediatr.2023.23022
+reference_id: "DOI:10.5152/turkarchpediatr.2023.23022"
 title: "Creatine Deficiency Disorders: Phenotypes, Genotypes, Diagnosis, and Treatment Outcomes"
 authors:
 - Crystal Mulik

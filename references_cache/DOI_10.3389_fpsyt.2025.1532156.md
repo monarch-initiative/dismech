@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyt.2025.1532156
+reference_id: "DOI:10.3389/fpsyt.2025.1532156"
 title: The burden of attention deficit hyperactivity disorder and incidence rate forecast in China from 1990 to 2021
 authors:
 - Ningyu Li

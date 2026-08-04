@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13052-023-01562-0
+reference_id: "DOI:10.1186/s13052-023-01562-0"
 title: "Prevalence of depression and anxiety in patients with Tourette syndrome; 1997 to 2022: a systematic review and meta-analysis"
 authors:
 - Parvin Abbasi

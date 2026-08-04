@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03924193
+reference_id: "clinicaltrials:NCT03924193"
 title: Cognitive-Behavioral and Pharmacologic (LDX) Treatment of Binge-Eating Disorder and Obesity
 content_type: summary
 full_text_attempted: true

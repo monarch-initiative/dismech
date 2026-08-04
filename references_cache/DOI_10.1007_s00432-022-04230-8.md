@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00432-022-04230-8
+reference_id: "DOI:10.1007/s00432-022-04230-8"
 title: "HER2 overexpression/amplification status in colorectal cancer: a comparison between immunohistochemistry and fluorescence in situ hybridization using five different immunohistochemical scoring criteria"
 authors:
 - Qi Sun

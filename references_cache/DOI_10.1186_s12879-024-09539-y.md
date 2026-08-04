@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-024-09539-y
+reference_id: "DOI:10.1186/s12879-024-09539-y"
 title: "Follow up study of symptomatic human cystic echinococcosis treatment with albendazole and praziquantel, in Uruguay"
 authors:
 - Daniel Da Rosa

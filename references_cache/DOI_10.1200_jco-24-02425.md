@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco-24-02425
+reference_id: "DOI:10.1200/jco-24-02425"
 title: "Treatment of Pleural Mesothelioma: ASCO Guideline Update"
 authors:
 - Hedy L. Kindler

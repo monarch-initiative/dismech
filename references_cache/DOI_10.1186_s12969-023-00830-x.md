@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12969-023-00830-x
+reference_id: "DOI:10.1186/s12969-023-00830-x"
 title: "Paediatric Cogan´s syndrome - review of literature, case report and practical approach to diagnosis and management"
 authors:
 - Kristina Rücklová

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/nu17010155
+reference_id: "DOI:10.3390/nu17010155"
 title: "Exploring Gut Microbiota Imbalance in Irritable Bowel Syndrome: Potential Therapeutic Effects of Probiotics and Their Metabolites"
 authors:
 - María José García Mansilla

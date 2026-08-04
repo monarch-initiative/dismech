@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-020-72847-1
+reference_id: "DOI:10.1038/s41598-020-72847-1"
 title: "The neurophysiological architecture of semantic dementia: spectral dynamic causal modelling of a neurodegenerative proteinopathy"
 authors:
 - Elia Benhamou

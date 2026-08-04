@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-25-3262
+reference_id: "DOI:10.1158/1078-0432.ccr-25-3262"
 title: Exploratory Analysis of Biomarkers and Treatment Outcomes from the COLUMBUS Study in BRAF V600E/K–Mutant Advanced or Metastatic Melanoma
 authors:
 - Reinhard Dummer

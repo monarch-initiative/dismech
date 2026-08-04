@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/spectrum.01028-24
+reference_id: "DOI:10.1128/spectrum.01028-24"
 title: "Genotypic characterization and antimicrobial susceptibility of human <i>Campylobacter jejuni</i> isolates in Southern Spain"
 authors:
 - Pablo Fernández-Palacios

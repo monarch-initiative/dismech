@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/19418744231223283
+reference_id: "DOI:10.1177/19418744231223283"
 title: "Vasculitis in the Central Nervous System: Etiology, Characteristics, and Outcomes in a Large Single-Center Cohort"
 authors:
 - Yoji Hoshina

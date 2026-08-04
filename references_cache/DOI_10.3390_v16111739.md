@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v16111739
+reference_id: "DOI:10.3390/v16111739"
 title: "Acute Hepatitis C: Current Status and Future Perspectives"
 authors:
 - Massimo Fasano

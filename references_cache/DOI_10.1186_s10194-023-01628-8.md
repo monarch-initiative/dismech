@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10194-023-01628-8
+reference_id: "DOI:10.1186/s10194-023-01628-8"
 title: Optogenetic cortical spreading depolarization induces headache-related behaviour and neuroinflammatory responses some prolonged in familial hemiplegic migraine type 1 mice
 authors:
 - Anisa Dehghani

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyt.2023.1084255
+reference_id: "DOI:10.3389/fpsyt.2023.1084255"
 title: Feasibility of the virtual reality-based assessments in patients with panic disorder
 authors:
 - Byung-Hoon Kim

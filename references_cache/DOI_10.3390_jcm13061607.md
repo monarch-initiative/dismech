@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13061607
+reference_id: "DOI:10.3390/jcm13061607"
 title: Primary Cutaneous Melanoma—Management in 2024
 authors:
 - Anthony Joseph Dixon

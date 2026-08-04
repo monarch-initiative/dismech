@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-024-02003-0
+reference_id: "DOI:10.1186/s12943-024-02003-0"
 title: Single-cell transcriptome analysis reveals subtype-specific clonal evolution and microenvironmental changes in liver metastasis of pancreatic adenocarcinoma and their clinical implications
 authors:
 - Joo Kyung Park

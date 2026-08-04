@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0022034517726496
+reference_id: "DOI:10.1177/0022034517726496"
 title: "The Use of Variant Maps to Explore Domain-Specific Mutations of <i>FGFR1</i>"
 authors:
 - L.A. Lansdon

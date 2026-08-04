@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000540475
+reference_id: "DOI:10.1159/000540475"
 title: "Autoimmune Hemolytic Anemias: Challenges in Diagnosis and Therapy"
 authors:
 - Wilma Barcellini

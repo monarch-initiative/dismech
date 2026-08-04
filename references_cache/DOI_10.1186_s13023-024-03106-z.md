@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03106-z
+reference_id: "DOI:10.1186/s13023-024-03106-z"
 title: "Tracheal agenesis versus tracheal atresia: anatomical conditions, pathomechanisms and causes with a possible link to a novel MAPK11 variant in one case"
 authors:
 - Mateja Pfeifer

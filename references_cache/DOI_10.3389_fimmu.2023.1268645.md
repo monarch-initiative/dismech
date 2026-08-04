@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1268645
+reference_id: "DOI:10.3389/fimmu.2023.1268645"
 title: "Two bullets in the gun: combining immunotherapy with chemotherapy to defeat neuroblastoma by targeting adrenergic-mesenchymal plasticity"
 authors:
 - Silvia D’Amico

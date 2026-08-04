@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms23137284
+reference_id: "DOI:10.3390/ijms23137284"
 title: The p.Pro482Ala Variant in the CNNM2 Gene Causes Severe Hypomagnesemia Amenable to Treatment with Spironolactone
 authors:
 - Ioannis Petrakis

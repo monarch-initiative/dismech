@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1465747
+reference_id: "DOI:10.3389/fneur.2024.1465747"
 title: "Assessing the effectiveness and safety of Patisiran and Vutrisiran in ATTRv amyloidosis with polyneuropathy: a systematic review"
 authors:
 - Mohammad Amin Karimi

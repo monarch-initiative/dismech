@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/curroncol31080326
+reference_id: "DOI:10.3390/curroncol31080326"
 title: "Non-Small-Cell Lung Cancer Patients Harboring ROS1 Rearrangement: Real World Testing Practices, Characteristics and Treatment Patterns (ROS1REAL Study)"
 authors:
 - Urska Janzic

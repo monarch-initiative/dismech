@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-018-0826-2
+reference_id: "DOI:10.1186/s13023-018-0826-2"
 title: "What’s new in pontocerebellar hypoplasia? An update on genes and subtypes"
 authors:
 - Tessa van Dijk

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2023.1282725
+reference_id: "DOI:10.3389/fitd.2023.1282725"
 title: Present drugs and future perspectives in treating soil-transmitted helminthiasis
 authors:
 - Jennifer Keiser

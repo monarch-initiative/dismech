@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1383263
+reference_id: "DOI:10.3389/fimmu.2024.1383263"
 title: Research progress on the role of macrophages in acne and regulation by natural plant products
 authors:
 - Dan Zhao

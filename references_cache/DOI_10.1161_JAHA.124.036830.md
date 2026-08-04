@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/JAHA.124.036830
+reference_id: "DOI:10.1161/JAHA.124.036830"
 title: "<i>RNF213</i> Variant and Infectious Burden Associated With Intracranial Artery Stenosis in Moyamoya Disease"
 authors:
 - Chaofan Zeng

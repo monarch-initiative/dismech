@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1625456
+reference_id: "DOI:10.3389/fimmu.2025.1625456"
 title: "Unraveling the complexity of IgG4-related aortitis and periarteritis: from pathogenesis to clinical practice"
 authors:
 - Yan Wang

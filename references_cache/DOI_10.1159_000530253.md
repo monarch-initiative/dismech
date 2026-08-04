@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000530253
+reference_id: "DOI:10.1159/000530253"
 title: "&lt;i&gt;NPM1&lt;/i&gt;-Mutated Acute Myeloid Leukemia: Recent Developments and Open Questions"
 authors:
 - Sanjay S. Patel

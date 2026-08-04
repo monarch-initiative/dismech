@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012167
+reference_id: "DOI:10.1371/journal.ppat.1012167"
 title: The inflammasome pathway is activated by dengue virus non-structural protein 1 and is protective during dengue virus infection
 authors:
 - Marcus P. Wong

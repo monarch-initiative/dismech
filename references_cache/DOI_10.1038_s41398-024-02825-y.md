@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-024-02825-y
+reference_id: "DOI:10.1038/s41398-024-02825-y"
 title: "ADHD medications use and risk of mortality and unintentional injuries: a population-based cohort study"
 authors:
 - Helen-Maria Vasiliadis

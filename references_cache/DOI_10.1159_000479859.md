@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000479859
+reference_id: "DOI:10.1159/000479859"
 title: "Significant Improvement of Clinical Symptoms, Bone Lesions, and Bone Turnover after Long-Term Zoledronic Acid Treatment in Patients with a Severe Form of Camurati-Engelmann Disease"
 authors:
 - Giampiero I. Baroncelli

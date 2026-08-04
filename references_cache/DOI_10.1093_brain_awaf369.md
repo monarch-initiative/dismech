@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/brain/awaf369
+reference_id: "DOI:10.1093/brain/awaf369"
 title: Atrophy progression in frontotemporal lobar degeneration-TDP-C with primary progressive aphasia
 authors:
 - Elena Barbieri

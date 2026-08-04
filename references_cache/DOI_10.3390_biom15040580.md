@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom15040580
+reference_id: "DOI:10.3390/biom15040580"
 title: "Not Just an Alternative Energy Source: Diverse Biological Functions of Ketone Bodies and Relevance of HMGCS2 to Health and Disease"
 authors:
 - Varshini V. Suresh

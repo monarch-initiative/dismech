@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1106318
+reference_id: "DOI:10.3389/fmed.2023.1106318"
 title: "Lichen sclerosus: The 2023 update"
 authors:
 - David A. De Luca

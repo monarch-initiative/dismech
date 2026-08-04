@@ -1,5 +1,5 @@
 ---
-reference_id: METABOLIGHTS:MTBLS10743
+reference_id: "METABOLIGHTS:MTBLS10743"
 title: Metabolomic Changes in Idiopathic and GBA1 Parkinson’s Disease
 content_type: abstract_only
 full_text_attempted: true

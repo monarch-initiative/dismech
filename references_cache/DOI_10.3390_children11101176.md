@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/children11101176
+reference_id: "DOI:10.3390/children11101176"
 title: "Preterm Infant with Generalized Arterial Calcification of Infancy Who Survived Due to Early Diagnosis and Appropriate Treatment with Bisphosphonates: A Case Report"
 authors:
 - Masato Tanaka

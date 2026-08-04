@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/metabo13070787
+reference_id: "DOI:10.3390/metabo13070787"
 title: Inborn Errors of Purine Salvage and Catabolism
 authors:
 - Marcella Camici

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/2394-5079.2024.16
+reference_id: "DOI:10.20517/2394-5079.2024.16"
 title: Introduction to 2023 Chinese expert consensus on the whole-course management of hepatocellular carcinoma
 authors:
 - Jie Li

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41569-022-00683-z
+reference_id: "DOI:10.1038/s41569-022-00683-z"
 title: RNA-targeting and gene editing therapies for transthyretin amyloidosis
 authors:
 - Alberto Aimo

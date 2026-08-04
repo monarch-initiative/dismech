@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011347
+reference_id: "DOI:10.1371/journal.pntd.0011347"
 title: "Lymphatic filariasis endgame strategies: Using GEOFIL to model mass drug administration and targeted surveillance and treatment strategies in American Samoa"
 authors:
 - Callum Shaw

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2021.816779
+reference_id: "DOI:10.3389/fgene.2021.816779"
 title: "Clinical, Biochemical, Molecular, and Outcome Features of Mitochondrial 3-Hydroxy-3-Methylglutaryl-CoA Synthase Deficiency in 10 Chinese Patients"
 authors:
 - Shengnan Wu

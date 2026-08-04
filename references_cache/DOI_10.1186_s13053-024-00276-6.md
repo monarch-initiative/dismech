@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13053-024-00276-6
+reference_id: "DOI:10.1186/s13053-024-00276-6"
 title: "Current prospects of hereditary adrenal tumors: towards better clinical management"
 authors:
 - Akihiro Ohmoto

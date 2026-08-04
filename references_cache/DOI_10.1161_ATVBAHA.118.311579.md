@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/ATVBAHA.118.311579
+reference_id: "DOI:10.1161/ATVBAHA.118.311579"
 title: CD73 (Cluster of Differentiation 73) and the Differences Between Mice and Humans
 authors:
 - Pouya Joolharzadeh

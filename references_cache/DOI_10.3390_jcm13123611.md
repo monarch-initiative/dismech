@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13123611
+reference_id: "DOI:10.3390/jcm13123611"
 title: "Novel Treatment Strategies for Hormone Receptor (HR)-Positive, HER2-Negative Metastatic Breast Cancer"
 authors:
 - Antonella Ferro

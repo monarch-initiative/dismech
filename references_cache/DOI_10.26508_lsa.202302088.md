@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.26508/lsa.202302088
+reference_id: "DOI:10.26508/lsa.202302088"
 title: Aberrant DNA methylation distorts developmental trajectories in atypical teratoid/rhabdoid tumors
 authors:
 - Meeri Pekkarinen

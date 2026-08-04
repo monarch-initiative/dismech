@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2021.761622
+reference_id: "DOI:10.3389/fphys.2021.761622"
 title: "Small Airway Dysfunction in Cough Variant Asthma: Prevalence, Clinical, and Pathophysiological Features"
 authors:
 - Fang Yi

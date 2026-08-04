@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011602
+reference_id: "DOI:10.1371/journal.pntd.0011602"
 title: "The genomes of the yaws bacterium, Treponema pallidum subsp. pertenue, of nonhuman primate and human origin are not genomically distinct"
 authors:
 - Klára Janečková

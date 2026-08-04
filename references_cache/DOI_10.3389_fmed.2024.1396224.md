@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2024.1396224
+reference_id: "DOI:10.3389/fmed.2024.1396224"
 title: "Chromoblastomycosis caused by Alternaria infectoria, concurrent with myiasis, in a recipient of a kidney transplant: a compelling case report"
 authors:
 - Hamidreza Mahmoudi

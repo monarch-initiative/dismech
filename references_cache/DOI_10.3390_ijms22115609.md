@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms22115609
+reference_id: "DOI:10.3390/ijms22115609"
 title: "Candidate Genes for Eyelid Myoclonia with Absences, Review of the Literature"
 authors:
 - Sonia Mayo

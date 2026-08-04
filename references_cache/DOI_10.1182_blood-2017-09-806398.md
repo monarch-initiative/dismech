@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2017-09-806398
+reference_id: "DOI:10.1182/blood-2017-09-806398"
 title: "iwCLL guidelines for diagnosis, indications for treatment, response assessment, and supportive management of CLL"
 authors:
 - Michael Hallek

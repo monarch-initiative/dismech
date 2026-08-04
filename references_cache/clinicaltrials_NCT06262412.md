@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06262412
+reference_id: "clinicaltrials:NCT06262412"
 title: "Clinical Efficacy and Cost-effectiveness of Internet-delivered Cognitive-behaviour Therapy for Children and Adolescents With Body Dysmorphic Disorder: a Randomised Controlled Trial"
 content_type: summary
 full_text_attempted: true

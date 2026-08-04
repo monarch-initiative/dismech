@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1516650
+reference_id: "DOI:10.3389/fphar.2024.1516650"
 title: Metabolic reprogramming in lung cancer and its clinical implication
 authors:
 - Qingqiu Huang

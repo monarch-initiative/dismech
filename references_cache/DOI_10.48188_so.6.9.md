@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.48188/so.6.9
+reference_id: "DOI:10.48188/so.6.9"
 title: "Transcriptome analysis of thyroid tissue in patients with Hashimoto’s disease using next-generation sequencing: case–control study"
 authors:
 - Marija Čikotić

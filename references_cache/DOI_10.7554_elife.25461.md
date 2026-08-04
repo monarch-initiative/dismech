@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/elife.25461
+reference_id: "DOI:10.7554/elife.25461"
 title: APOL1 renal risk variants have contrasting resistance and susceptibility associations with African trypanosomiasis
 authors:
 - Anneli Cooper

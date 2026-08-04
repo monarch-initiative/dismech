@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnagi.2018.00230
+reference_id: "DOI:10.3389/fnagi.2018.00230"
 title: Clustering Analysis of FDG-PET Imaging in Primary Progressive Aphasia
 authors:
 - Jordi A. Matias-Guiu

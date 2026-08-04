@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32641/andespediatr.v94i6.4680
+reference_id: "DOI:10.32641/andespediatr.v94i6.4680"
 title: Long-term follow-up data of patients with Multiple Pituitary Hormone Deficiency
 authors:
 - Aysegul Elvan Tuz

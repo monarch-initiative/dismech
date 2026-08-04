@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5603/ocp.100725
+reference_id: "DOI:10.5603/ocp.100725"
 title: Diagnosis and treatment of pleural mesothelioma. State of the art 2024
 authors:
 - Zofia Lewandowska

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13041065
+reference_id: "DOI:10.3390/jcm13041065"
 title: New Perspectives of Therapies in Osteogenesis Imperfecta—A Literature Review
 authors:
 - Alexandru Dinulescu

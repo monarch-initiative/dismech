@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines11051406
+reference_id: "DOI:10.3390/biomedicines11051406"
 title: "Paraneoplastic Neurological Syndromes of the Central Nervous System: Pathophysiology, Diagnosis, and Treatment"
 authors:
 - Luca Marsili

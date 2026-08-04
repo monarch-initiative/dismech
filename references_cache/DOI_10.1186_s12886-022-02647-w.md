@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12886-022-02647-w
+reference_id: "DOI:10.1186/s12886-022-02647-w"
 title: "Acute annular outer retinopathy preceded by invasive ductal breast carcinoma: a case report"
 authors:
 - Rishi B. Gupta

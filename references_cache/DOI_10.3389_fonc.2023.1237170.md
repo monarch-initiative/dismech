@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1237170
+reference_id: "DOI:10.3389/fonc.2023.1237170"
 title: High frequency of WNT-activated medulloblastomas with CTNNB1 wild type suggests a higher proportion of hereditary cases in a Latin-Iberian population
 authors:
 - Daniel Antunes Moreno

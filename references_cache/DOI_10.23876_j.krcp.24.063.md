@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.23876/j.krcp.24.063
+reference_id: "DOI:10.23876/j.krcp.24.063"
 title: Pathological diagnosis of Alport syndrome
 authors:
 - Kyoung Bun Lee

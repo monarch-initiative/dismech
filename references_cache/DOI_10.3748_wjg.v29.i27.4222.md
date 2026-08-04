@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3748/wjg.v29.i27.4222
+reference_id: "DOI:10.3748/wjg.v29.i27.4222"
 title: "Rare causes of acute non-variceal upper gastrointestinal bleeding: A comprehensive review"
 authors:
 - Alberto Martino

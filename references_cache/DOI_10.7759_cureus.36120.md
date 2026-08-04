@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.36120
+reference_id: "DOI:10.7759/cureus.36120"
 title: "A Rare Presentation of Adult-Onset Bartter Syndrome: A Case Report"
 authors:
 - Deekshitha Alla

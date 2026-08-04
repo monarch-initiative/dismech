@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s42047-024-00157-1
+reference_id: "DOI:10.1186/s42047-024-00157-1"
 title: Predictive biomarkers in thyroid cancer in the current molecular-morphology paradigm
 authors:
 - Humberto Carvalho Carneiro

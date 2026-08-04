@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines11041119
+reference_id: "DOI:10.3390/biomedicines11041119"
 title: A Comprehensive Review of the Genetic and Epigenetic Contributions to the Development of Fibromyalgia
 authors:
 - Erik A. Ovrom

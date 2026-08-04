@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40360-024-00825-8
+reference_id: "DOI:10.1186/s40360-024-00825-8"
 title: "Efficacy and safety of azathioprine in patients with Cronkhite-Canada syndrome: a case series from Peking Union Medical College Hospital"
 authors:
 - Qiushi Xu

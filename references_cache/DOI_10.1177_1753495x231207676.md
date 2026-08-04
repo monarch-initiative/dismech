@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/1753495x231207676
+reference_id: "DOI:10.1177/1753495x231207676"
 title: "Thalassemia screening by third-generation sequencing: Pilot study in a Thai population"
 authors:
 - Kuntharee Traisrisilp

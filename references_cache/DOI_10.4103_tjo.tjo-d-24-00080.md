@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4103/tjo.tjo-d-24-00080
+reference_id: "DOI:10.4103/tjo.tjo-d-24-00080"
 title: Phenotype and genetic spectrum of six Indian patients with bestrophinopathy
 authors:
 - Areeba Shakeel

@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE26155
+reference_id: "GEO:GSE26155"
 title: Advanced Study of Aortic Pathology (ASAP)
 content_type: summary
 full_text_attempted: true

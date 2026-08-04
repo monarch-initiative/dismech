@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom13071067
+reference_id: "DOI:10.3390/biom13071067"
 title: Systemic Photoprotection in Melanoma and Non-Melanoma Skin Cancer
 authors:
 - Mariafrancesca Hyeraci

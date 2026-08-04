@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE63142
+reference_id: "GEO:GSE63142"
 title: Asthma II
 content_type: summary
 full_text_attempted: true

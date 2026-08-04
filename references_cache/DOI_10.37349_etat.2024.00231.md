@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/etat.2024.00231
+reference_id: "DOI:10.37349/etat.2024.00231"
 title: "Resistance to immune checkpoint inhibitors in colorectal cancer with deficient mismatch repair/microsatellite instability: misdiagnosis, pseudoprogression and/or tumor heterogeneity?"
 authors:
 - Nicola Normanno

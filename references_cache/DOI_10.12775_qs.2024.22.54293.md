@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12775/qs.2024.22.54293
+reference_id: "DOI:10.12775/qs.2024.22.54293"
 title: "IgG4-Related Disease: Comprehensive Overview of Pathogenesis, Clinical Manifestations, and Diagnostic Challenges."
 authors:
 - Lidia Bartoszek

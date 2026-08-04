@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40001-023-01508-6
+reference_id: "DOI:10.1186/s40001-023-01508-6"
 title: "Sex-specific association between carotid atherosclerosis and fundus arteriosclerosis in a Chinese population: a retrospective cross-sectional study"
 authors:
 - Chunxing Liu

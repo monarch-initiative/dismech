@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13075-024-03364-z
+reference_id: "DOI:10.1186/s13075-024-03364-z"
 title: Expression of CD163 and major histocompatibility complex class I as diagnostic markers for idiopathic inflammatory myopathies
 authors:
 - Byeongzu Ghang

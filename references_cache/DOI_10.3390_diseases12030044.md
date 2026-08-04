@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diseases12030044
+reference_id: "DOI:10.3390/diseases12030044"
 title: Clinical Practice Guidelines for the Diagnosis and Management of Hereditary Fructose Intolerance
 authors:
 - Félix Úbeda

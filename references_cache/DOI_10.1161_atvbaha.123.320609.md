@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/atvbaha.123.320609
+reference_id: "DOI:10.1161/atvbaha.123.320609"
 title: Evinacumab and Cardiovascular Outcome in Patients With Homozygous Familial Hypercholesterolemia
 authors:
 - Sophie Béliard

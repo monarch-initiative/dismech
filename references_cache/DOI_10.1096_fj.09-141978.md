@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1096/fj.09-141978
+reference_id: "DOI:10.1096/fj.09-141978"
 title: Cellular mechanisms of IL‐17‐induced blood‐brain barrier disruption
 authors:
 - Jula Huppert

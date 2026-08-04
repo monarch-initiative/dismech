@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE82137
+reference_id: "GEO:GSE82137"
 title: Molecular impact of electronic cigarette aerosol exposure in human bronchial epithelium
 content_type: summary
 full_text_attempted: true

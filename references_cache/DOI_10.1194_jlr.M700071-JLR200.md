@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1194/jlr.M700071-JLR200
+reference_id: "DOI:10.1194/jlr.M700071-JLR200"
 title: Secreted PCSK9 downregulates low density lipoprotein receptor through receptor-mediated endocytosis
 authors:
 - Yue-Wei Qian

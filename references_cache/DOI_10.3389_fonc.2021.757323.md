@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2021.757323
+reference_id: "DOI:10.3389/fonc.2021.757323"
 title: "Alternative Energy: Breaking Down the Diverse Metabolic Features of Lung Cancers"
 authors:
 - Kasey R. Cargill

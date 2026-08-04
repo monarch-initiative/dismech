@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/nu16111596
+reference_id: "DOI:10.3390/nu16111596"
 title: "Cytokine and Microbiome Changes in Adolescents with Anorexia Nervosa at Admission, Discharge, and One-Year Follow-Up"
 authors:
 - Larissa Käver

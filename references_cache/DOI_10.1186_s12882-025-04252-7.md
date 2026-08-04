@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12882-025-04252-7
+reference_id: "DOI:10.1186/s12882-025-04252-7"
 title: "Liddle syndrome with a SCNN1B mutation: a case report and systematic review"
 authors:
 - Qian Tang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12887-021-02922-7
+reference_id: "DOI:10.1186/s12887-021-02922-7"
 title: "Component of oligomeric Golgi complex 1 deficiency leads to hypoglycemia: a case report and literature review"
 authors:
 - Yizhou Huang

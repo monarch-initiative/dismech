@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.55563/clinexprheumatol/i8iszc
+reference_id: "DOI:10.55563/clinexprheumatol/i8iszc"
 title: "Pathogenesis of Sjögren's disease: one year in review 2024"
 authors:
 - Chiara Baldini

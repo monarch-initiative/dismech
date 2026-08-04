@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12881-020-01158-z
+reference_id: "DOI:10.1186/s12881-020-01158-z"
 title: Hereditary intrinsic factor deficiency in China caused by a novel mutation in the intrinsic factor gene—a case report
 authors:
 - Jing Ruan

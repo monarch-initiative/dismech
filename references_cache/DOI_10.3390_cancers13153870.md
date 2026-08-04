@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers13153870
+reference_id: "DOI:10.3390/cancers13153870"
 title: "Review of the Molecular Genetics of Basal Cell Carcinoma; Inherited Susceptibility, Somatic Mutations, and Targeted Therapeutics"
 authors:
 - James M. Kilgour

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1620895
+reference_id: "DOI:10.3389/fimmu.2025.1620895"
 title: "Molecular pathology of lymphoma and its treatment strategies: from mechanistic elucidation to precision medicine"
 authors:
 - Zhongyu Wang

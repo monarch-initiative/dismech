@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/braincomms/fcae239
+reference_id: "DOI:10.1093/braincomms/fcae239"
 title: Role of senataxin in R-loop-mediated neurodegeneration
 authors:
 - Annapoorna Kannan

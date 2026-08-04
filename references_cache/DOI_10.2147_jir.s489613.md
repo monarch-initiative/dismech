@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jir.s489613
+reference_id: "DOI:10.2147/jir.s489613"
 title: "The Interplay of Aging and PANoptosis in Osteoarthritis Pathogenesis: Implications for Novel Therapeutic Strategies"
 authors:
 - Shaoshan Liu

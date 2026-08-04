@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1410172
+reference_id: "DOI:10.3389/fphar.2024.1410172"
 title: "Efficacy and safety of complement inhibitors in patients with geographic atrophy associated with age-related macular degeneration: a network meta-analysis of randomized controlled trials"
 authors:
 - Huan Wang

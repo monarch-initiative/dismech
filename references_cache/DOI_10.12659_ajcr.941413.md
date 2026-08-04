@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12659/ajcr.941413
+reference_id: "DOI:10.12659/ajcr.941413"
 title: Autosomal Recessive Adolescent Syndromic Nephronophthisis Caused by a Novel Compound Heterozygous Pathogenic Variant
 authors:
 - Oyintayo Ajiboye

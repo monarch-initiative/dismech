@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-13171-z
+reference_id: "DOI:10.1186/s12885-024-13171-z"
 title: "Clinicopathologic features and treatment efficacy of patients with BRAF V600E-mutated metastatic colorectal cancer: a multi-center real-world propensity score matching study"
 authors:
 - Gui-Xia Wei

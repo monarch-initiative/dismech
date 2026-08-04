@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3174/ajnr.a7663
+reference_id: "DOI:10.3174/ajnr.a7663"
 title: Distinctive Brain Malformations in Zhu-Tokita-Takenouchi-Kim Syndrome
 authors:
 - B.J. Halliday

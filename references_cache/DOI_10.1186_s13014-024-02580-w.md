@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13014-024-02580-w
+reference_id: "DOI:10.1186/s13014-024-02580-w"
 title: "Efficacy and safety of proton radiotherapy in treating choroidal melanoma: a systematic review and meta-analysis"
 authors:
 - Yuxin Miao

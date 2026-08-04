@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fanes.2023.1138175
+reference_id: "DOI:10.3389/fanes.2023.1138175"
 title: "Hypotension prediction index: From reactive to predictive hemodynamic management, the key to maintaining hemodynamic stability"
 authors:
 - Javier Ripollés-Melchor

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12890/2025_005836
+reference_id: "DOI:10.12890/2025_005836"
 title: Morgagni-Stewart-Morel syndrome presenting as acute neurological and respiratory distress
 authors:
 - Marwa Ben Abdallah

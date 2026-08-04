@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7150/thno.89520
+reference_id: "DOI:10.7150/thno.89520"
 title: Inactivation of the NLRP3 inflammasome mediates exosome-based prevention of atrial fibrillation
 authors:
 - Sandrine Parent

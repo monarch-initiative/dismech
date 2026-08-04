@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5056/jnm22168
+reference_id: "DOI:10.5056/jnm22168"
 title: "Small Intestinal Bacterial Overgrowth Complicating Gastrointestinal Manifestations of Systemic Sclerosis: A Systematic Review and Meta-analysis"
 authors:
 - Ayesha Shah

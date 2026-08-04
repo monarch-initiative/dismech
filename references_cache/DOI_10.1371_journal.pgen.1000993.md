@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1000993
+reference_id: "DOI:10.1371/journal.pgen.1000993"
 title: "Web-Based, Participant-Driven Studies Yield Novel Genetic Associations for Common Traits"
 authors:
 - Nicholas Eriksson

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.1006528
+reference_id: "DOI:10.5772/intechopen.1006528"
 title: "What Is the Role of Surgery in Secondary and Tertiary Hyperparathyroidism?"
 authors:
 - Diana Vetter

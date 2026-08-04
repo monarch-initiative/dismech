@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012643
+reference_id: "DOI:10.1371/journal.pntd.0012643"
 title: "Accuracy of immunological tests on serum and urine for diagnosis of Taenia solium neurocysticercosis: A systematic review"
 authors:
 - Lisa Van Acker

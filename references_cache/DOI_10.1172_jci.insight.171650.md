@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.171650
+reference_id: "DOI:10.1172/jci.insight.171650"
 title: Lentivirus-mediated gene therapy corrects ribosomal biogenesis and shows promise for Diamond Blackfan anemia
 authors:
 - Yari Giménez

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.69734/f83fbc79
+reference_id: "DOI:10.69734/f83fbc79"
 title: 2.  Diagnosis of Chronic Pancreatitis
 authors:
 - David Whitcomb

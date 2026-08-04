@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.celrep.2023.113622
+reference_id: "DOI:10.1016/j.celrep.2023.113622"
 title: ATM-deficiency-induced microglial activation promotes neurodegeneration in ataxia-telangiectasia
 authors:
 - Jenny Lai

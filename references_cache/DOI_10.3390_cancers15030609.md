@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15030609
+reference_id: "DOI:10.3390/cancers15030609"
 title: Evolving Applications of Circulating Tumor DNA in Merkel Cell Carcinoma
 authors:
 - Varsha Prakash

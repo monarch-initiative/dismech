@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03060-w
+reference_id: "DOI:10.1186/s13023-024-03060-w"
 title: Epidemiology and economic burden of Von Hippel-Lindau Disease-associated central nervous system hemangioblastomas and pancreatic neuroendocrine tumors in the United States
 authors:
 - Eric Jonasch

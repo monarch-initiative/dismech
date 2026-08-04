@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0805462105
+reference_id: "DOI:10.1073/pnas.0805462105"
 title: "Metastatic osteosarcoma induced by inactivation of <i>Rb</i> and <i>p53</i> in the osteoblast lineage"
 authors:
 - Seth D. Berman

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.172475
+reference_id: "DOI:10.1172/jci.insight.172475"
 title: An atypical form of 60S ribosomal subunit in Diamond-Blackfan anemia linked to RPL17 variants
 authors:
 - Florence Fellmann

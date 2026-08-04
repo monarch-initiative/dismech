@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/hbsn-22-469
+reference_id: "DOI:10.21037/hbsn-22-469"
 title: "A review of 2022 Chinese clinical guidelines on the management of hepatocellular carcinoma: updates and insights"
 authors:
 - Di-Yang Xie

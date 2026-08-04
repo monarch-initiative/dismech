@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/physiol.00054.2015
+reference_id: "DOI:10.1152/physiol.00054.2015"
 title: "Aromatase: Contributions to Physiology and Disease in Women and Men"
 authors:
 - Jennifer Blakemore

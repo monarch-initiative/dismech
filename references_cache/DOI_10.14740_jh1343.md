@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14740/jh1343
+reference_id: "DOI:10.14740/jh1343"
 title: "Siltuximab in Idiopathic Multicentric Castleman Disease: Real-World Experience"
 authors:
 - Ciprian Jitaru

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens14060586
+reference_id: "DOI:10.3390/pathogens14060586"
 title: "The Challenge of Lyssavirus Infections in Domestic and Other Animals: A Mix of Virological Confusion, Consternation, Chagrin, and Curiosity"
 authors:
 - Charles E. Rupprecht

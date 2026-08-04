@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.08.12.669857
+reference_id: "DOI:10.1101/2025.08.12.669857"
 title: "Immune dysregulation in the prostates of C57BL/6 <sup>Aire-/-</sup> mice mirrors that seen in human benign prostatic hyperplasia"
 authors:
 - Nadia A. Lanman

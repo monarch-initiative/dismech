@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyt.2023.1125553
+reference_id: "DOI:10.3389/fpsyt.2023.1125553"
 title: Blood transcriptome analysis suggests an indirect molecular association of early life adversities and adult social anxiety disorder by immune-related signal transduction
 authors:
 - Susanne Edelmann

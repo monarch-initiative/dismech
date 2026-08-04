@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood.2022016896
+reference_id: "DOI:10.1182/blood.2022016896"
 title: Characterization of Bone Marrow Niche in Chronic Myeloid Leukemia Patients Identifies CXCL14 as a New Therapeutic Option
 authors:
 - Monika Dolinska

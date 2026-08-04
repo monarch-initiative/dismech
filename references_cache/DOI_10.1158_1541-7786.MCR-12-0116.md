@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1541-7786.MCR-12-0116
+reference_id: "DOI:10.1158/1541-7786.MCR-12-0116"
 title: Yes-Associated Protein 1 Is Activated and Functions as an Oncogene in Meningiomas
 authors:
 - Gilson S. Baia

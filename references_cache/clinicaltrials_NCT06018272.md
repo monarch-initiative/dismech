@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06018272
+reference_id: "clinicaltrials:NCT06018272"
 title: "Mentalisierungsbasierte Therapie Versus Bona-fide-Therapie für Patient:Innen Mit Borderline-Persönlichkeitsstörung in Deutschland (MaGnet): Eine Prospektive, Multizentrische Randomisiert-kontrollierte Studie Mentalization-based Treatment Versus Bona-fide Treatment for Patients With Borderline Personality Disorder in Germany (MAGNET): a Prospective, Multi-centre Randomized Controlled Trial"
 content_type: summary
 full_text_attempted: true

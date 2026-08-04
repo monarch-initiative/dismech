@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2025.1639699
+reference_id: "DOI:10.3389/fgene.2025.1639699"
 title: "The hidden in plain sight: global, regional, and national trends in the pediatric burden of Klinefelter syndrome, 1990–2021"
 authors:
 - Guoqian Ma

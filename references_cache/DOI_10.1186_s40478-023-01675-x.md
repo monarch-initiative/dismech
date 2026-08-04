@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-023-01675-x
+reference_id: "DOI:10.1186/s40478-023-01675-x"
 title: Deep histopathology genotype–phenotype analysis of focal cortical dysplasia type II differentiates between the GATOR1-altered autophagocytic subtype IIa and MTOR-altered migration deficient subtype IIb
 authors:
 - Jonas Honke

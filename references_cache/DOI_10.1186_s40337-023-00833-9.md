@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40337-023-00833-9
+reference_id: "DOI:10.1186/s40337-023-00833-9"
 title: "Pharmacotherapy, alternative and adjunctive therapies for eating disorders: findings from a rapid review"
 authors:
 - Sarah-Catherine Rodan

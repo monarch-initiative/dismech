@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.33574/hjog.0584
+reference_id: "DOI:10.33574/hjog.0584"
 title: First live birth in Greece after blastocyst trophectoderm biopsy and preimplantation genetic testing for Holt-Oram Syndrome
 authors:
 - Konstantinos A. Economou

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-024-01810-0
+reference_id: "DOI:10.1186/s12920-024-01810-0"
 title: Broadening the phenotype and genotype spectrum of novel mutations in pontocerebellar hypoplasia with a comprehensive molecular literature review
 authors:
 - Mohammad-Reza Ghasemi

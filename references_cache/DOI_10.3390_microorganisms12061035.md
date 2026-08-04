@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/microorganisms12061035
+reference_id: "DOI:10.3390/microorganisms12061035"
 title: "Contemporary Insights into Hepatitis C Virus: A Comprehensive Review"
 authors:
 - Malik Sallam

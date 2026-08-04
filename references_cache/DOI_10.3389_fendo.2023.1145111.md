@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1145111
+reference_id: "DOI:10.3389/fendo.2023.1145111"
 title: "Current understanding on pathogenesis and effective treatment of glycogen storage disease type Ib with empagliflozin: new insights coming from diabetes for its potential implications in other metabolic disorders"
 authors:
 - Arianna Maiorana

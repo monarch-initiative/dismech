@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012562
+reference_id: "DOI:10.1371/journal.pntd.0012562"
 title: A global chromoblastomycosis strategy and development of the global chromoblastomycosis working group
 authors:
 - Dallas J. Smith

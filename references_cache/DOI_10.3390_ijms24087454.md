@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24087454
+reference_id: "DOI:10.3390/ijms24087454"
 title: Dysregulated Liver Metabolism and Polycystic Ovarian Syndrome
 authors:
 - Muhammad Sohaib Khan

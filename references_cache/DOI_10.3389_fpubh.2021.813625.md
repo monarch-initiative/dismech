@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpubh.2021.813625
+reference_id: "DOI:10.3389/fpubh.2021.813625"
 title: The Construction and Development of a Clinical Prediction Model to Assess Lymph Node Metastases in Osteosarcoma
 authors:
 - Wenle Li

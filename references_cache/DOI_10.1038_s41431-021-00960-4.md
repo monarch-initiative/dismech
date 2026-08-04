@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41431-021-00960-4
+reference_id: "DOI:10.1038/s41431-021-00960-4"
 title: Establishing the phenotypic spectrum of ZTTK syndrome by analysis of 52 individuals with variants in SON
 authors:
 - Alexander J. M. Dingemans

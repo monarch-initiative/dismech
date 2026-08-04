@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2022.837462
+reference_id: "DOI:10.3389/fped.2022.837462"
 title: "Pediatric Intestinal Pseudo-Obstruction: Progress and Challenges"
 authors:
 - Marie-Catherine Turcotte

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gutjnl-2022-328515
+reference_id: "DOI:10.1136/gutjnl-2022-328515"
 title: "Irritable bowel syndrome: treatment based on pathophysiology and biomarkers"
 authors:
 - Michael Camilleri

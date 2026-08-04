@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms22115755
+reference_id: "DOI:10.3390/ijms22115755"
 title: Fc-Receptor Targeted Therapies for the Treatment of Myasthenia gravis
 authors:
 - Christian W. Keller

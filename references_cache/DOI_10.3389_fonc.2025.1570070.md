@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1570070
+reference_id: "DOI:10.3389/fonc.2025.1570070"
 title: "Fusion oncogenes in rhabdomyosarcoma: model systems, mechanisms of tumorigenesis, and therapeutic implications"
 authors:
 - Chinmay S. Sankhe

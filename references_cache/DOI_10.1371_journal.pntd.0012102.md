@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012102
+reference_id: "DOI:10.1371/journal.pntd.0012102"
 title: Female genital schistosomiasis burden and risk factors in two endemic areas in Malawi nested in the Morbidity Operational Research for Bilharziasis Implementation Decisions (MORBID) cross-sectional study
 authors:
 - Olimpia Lamberti

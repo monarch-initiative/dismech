@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2023.1125547
+reference_id: "DOI:10.3389/fphar.2023.1125547"
 title: Recent progress in targeted therapy for non-small cell lung cancer
 authors:
 - Yanxia Xiao

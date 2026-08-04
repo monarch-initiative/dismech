@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12876-021-01664-1
+reference_id: "DOI:10.1186/s12876-021-01664-1"
 title: "Whipple's disease: the great masquerader—a high level of suspicion is the key to diagnosis"
 authors:
 - Nikolaos Melas

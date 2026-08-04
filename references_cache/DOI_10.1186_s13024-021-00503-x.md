@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13024-021-00503-x
+reference_id: "DOI:10.1186/s13024-021-00503-x"
 title: TDP-43 Pathology in Alzheimer’s Disease
 authors:
 - Axel Meneses

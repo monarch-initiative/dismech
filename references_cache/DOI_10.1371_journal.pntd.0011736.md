@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011736
+reference_id: "DOI:10.1371/journal.pntd.0011736"
 title: Mycetoma and the environment
 authors:
 - Ahmed Hassan Fahal

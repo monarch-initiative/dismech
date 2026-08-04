@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0306429
+reference_id: "DOI:10.1371/journal.pone.0306429"
 title: "Beyond its preferential niche: Brucella abortus RNA down-modulates the IFN-γ-induced MHC-I expression in epithelial and endothelial cells"
 authors:
 - Agustina Serafino

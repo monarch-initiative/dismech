@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2021.674368
+reference_id: "DOI:10.3389/fneur.2021.674368"
 title: "Clinical Characteristics and Long-Term Prognosis of Anti-LGI1 Encephalitis: A Single-Center Cohort Study in Beijing, China"
 authors:
 - Tao-Ran Li

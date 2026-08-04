@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14030739
+reference_id: "DOI:10.3390/genes14030739"
 title: "The Expanding Phenotype of ZTTK Syndrome Due to the Heterozygous Variant of SON Gene Focusing on Liver Involvement: Patient Report and Literature Review"
 authors:
 - Andrea Pietrobattista

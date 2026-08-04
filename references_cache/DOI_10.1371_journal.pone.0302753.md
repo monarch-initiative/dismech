@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0302753
+reference_id: "DOI:10.1371/journal.pone.0302753"
 title: "Identification of potential biomarkers of leprosy: A study based on GEO datasets"
 authors:
 - Qun Zhou

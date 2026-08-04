@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1213532
+reference_id: "DOI:10.3389/fimmu.2023.1213532"
 title: "Clinical characteristics and prognosis in patients with neuronal surface antibody-mediated autoimmune encephalitis: a single-center cohort study in China"
 authors:
 - Teng Huang

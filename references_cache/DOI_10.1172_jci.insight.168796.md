@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.168796
+reference_id: "DOI:10.1172/jci.insight.168796"
 title: Hypochondroplasia gain-of-function mutation in FGFR3 causes defective bone mineralization in mice
 authors:
 - Léa Loisay

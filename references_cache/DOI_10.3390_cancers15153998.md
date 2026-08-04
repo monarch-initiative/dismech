@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15153998
+reference_id: "DOI:10.3390/cancers15153998"
 title: Circulating Tumor DNA Analysis on Metastatic Prostate Cancer with Disease Progression
 authors:
 - Sungun Bang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/11795735241249693
+reference_id: "DOI:10.1177/11795735241249693"
 title: "From progression to progress: The future of multiple sclerosis"
 authors:
 - Jiwon Oh

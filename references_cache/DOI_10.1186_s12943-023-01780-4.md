@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-023-01780-4
+reference_id: "DOI:10.1186/s12943-023-01780-4"
 title: Aberrant m5C hypermethylation mediates intrinsic resistance to gefitinib through NSUN2/YBX1/QSOX1 axis in EGFR-mutant non-small-cell lung cancer
 authors:
 - Yueqin Wang

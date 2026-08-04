@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25126730
+reference_id: "DOI:10.3390/ijms25126730"
 title: The Role of the PAX Genes in Renal Cell Carcinoma
 authors:
 - Lei Li

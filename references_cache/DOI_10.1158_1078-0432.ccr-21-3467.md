@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-21-3467
+reference_id: "DOI:10.1158/1078-0432.ccr-21-3467"
 title: "Impact of Venetoclax and Azacitidine in Treatment-Naïve Patients with Acute Myeloid Leukemia and <i>IDH1/2</i> Mutations"
 authors:
 - Daniel A. Pollyea

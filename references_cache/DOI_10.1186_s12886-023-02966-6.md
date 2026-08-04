@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12886-023-02966-6
+reference_id: "DOI:10.1186/s12886-023-02966-6"
 title: "Cogan’s syndrome is more than just keratitis: a case-based literature review"
 authors:
 - Yanqing Wang

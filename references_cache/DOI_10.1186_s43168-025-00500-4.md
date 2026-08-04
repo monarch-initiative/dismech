@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43168-025-00500-4
+reference_id: "DOI:10.1186/s43168-025-00500-4"
 title: "A lobe lost and a vein misplaced: an adult’s tale of scimitar syndrome"
 authors:
 - Anil Kumar Singh

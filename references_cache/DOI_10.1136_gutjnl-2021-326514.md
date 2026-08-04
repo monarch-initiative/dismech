@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gutjnl-2021-326514
+reference_id: "DOI:10.1136/gutjnl-2021-326514"
 title: Novel microenvironment-based classification of intrahepatic cholangiocarcinoma with therapeutic implications
 authors:
 - Miguel A Martin-Serrano

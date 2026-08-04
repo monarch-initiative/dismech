@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.22.00409
+reference_id: "DOI:10.1200/jco.22.00409"
 title: "Circulating Tumor DNA Is Prognostic in Intermediate-Risk Rhabdomyosarcoma: A Report From the Children's Oncology Group"
 authors:
 - Samuel Abbou

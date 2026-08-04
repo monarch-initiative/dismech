@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0284185120943040
+reference_id: "DOI:10.1177/0284185120943040"
 title: Diverse MRI findings and clinical outcomes of acute Marchiafava-Bignami disease
 authors:
 - Wei Li

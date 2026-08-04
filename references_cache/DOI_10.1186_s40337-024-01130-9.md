@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40337-024-01130-9
+reference_id: "DOI:10.1186/s40337-024-01130-9"
 title: "Early-onset anorexia nervosa: a scoping review and management guidelines"
 authors:
 - Anaël Ayrolles

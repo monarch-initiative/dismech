@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5501/wjv.v13.i2.89985
+reference_id: "DOI:10.5501/wjv.v13.i2.89985"
 title: "Long chikungunya? An overview to immunopathology of persistent arthralgia"
 authors:
 - Jayme Euclydes Picasky Silveira-Freitas

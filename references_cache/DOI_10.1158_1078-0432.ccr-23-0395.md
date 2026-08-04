@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-0395
+reference_id: "DOI:10.1158/1078-0432.ccr-23-0395"
 title: Biomarker Analyses Investigating Disease Biology and Associations with Outcomes in the JAVELIN Merkel 200 Trial of Avelumab in Metastatic Merkel Cell Carcinoma
 authors:
 - Sandra P. D’Angelo

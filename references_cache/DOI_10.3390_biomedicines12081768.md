@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12081768
+reference_id: "DOI:10.3390/biomedicines12081768"
 title: Molecular Features and Treatment Paradigms of Acute Myeloid Leukemia
 authors:
 - Mihir Shukla

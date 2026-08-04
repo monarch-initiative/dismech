@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/brain/awad309
+reference_id: "DOI:10.1093/brain/awad309"
 title: Glial reactivity and T cell infiltration in frontotemporal lobar degeneration with tau pathology
 authors:
 - Iain J Hartnell

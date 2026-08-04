@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms22094555
+reference_id: "DOI:10.3390/ijms22094555"
 title: "ABCC6, Pyrophosphate and Ectopic Calcification: Therapeutic Solutions"
 authors:
 - Briana K. Shimada

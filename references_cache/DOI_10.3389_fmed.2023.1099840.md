@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1099840
+reference_id: "DOI:10.3389/fmed.2023.1099840"
 title: "Long-term outcome of Bartter syndrome in 54 patients: A multicenter study in Korea"
 authors:
 - Naye Choi

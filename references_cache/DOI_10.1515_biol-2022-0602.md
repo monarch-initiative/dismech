@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1515/biol-2022-0602
+reference_id: "DOI:10.1515/biol-2022-0602"
 title: "Novel compound heterozygous mutations in <i>TELO2</i> in an infant with You-Hoover-Fong syndrome: A case report and literature review"
 authors:
 - Yong Zhao

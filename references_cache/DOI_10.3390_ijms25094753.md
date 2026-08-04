@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25094753
+reference_id: "DOI:10.3390/ijms25094753"
 title: "Wilson Disease: Copper-Mediated Cuproptosis, Iron-Related Ferroptosis, and Clinical Highlights, with Comprehensive and Critical Analysis Update"
 authors:
 - Rolf Teschke

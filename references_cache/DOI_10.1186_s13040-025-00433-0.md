@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13040-025-00433-0
+reference_id: "DOI:10.1186/s13040-025-00433-0"
 title: "Analysis of global trends and hotspots of skin microbiome in acne: a bibliometric perspective"
 authors:
 - Lanfang Zhang

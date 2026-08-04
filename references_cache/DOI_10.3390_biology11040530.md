@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biology11040530
+reference_id: "DOI:10.3390/biology11040530"
 title: "Clinical Profile, Arrhythmias, and Adverse Cardiac Outcomes in Emery–Dreifuss Muscular Dystrophies: A Systematic Review of the Literature"
 authors:
 - Anna Chiara Valenti

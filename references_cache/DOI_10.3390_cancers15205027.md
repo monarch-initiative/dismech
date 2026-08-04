@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15205027
+reference_id: "DOI:10.3390/cancers15205027"
 title: A Prognostic Model to Predict Ruxolitinib Discontinuation and Death in Patients with Myelofibrosis
 authors:
 - Francesca Palandri

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/26330040241265414
+reference_id: "DOI:10.1177/26330040241265414"
 title: "Koolen-de Vries Syndrome: a journey from diagnosis to treatments"
 authors:
 - Anna C. Pfalzer

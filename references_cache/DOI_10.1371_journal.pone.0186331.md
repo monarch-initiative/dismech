@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0186331
+reference_id: "DOI:10.1371/journal.pone.0186331"
 title: XX Disorder of Sex Development is associated with an insertion on chromosome 9 and downregulation of RSPO1 in dogs (Canis lupus familiaris)
 authors:
 - Vicki N. Meyers-Wallen

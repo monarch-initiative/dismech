@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25115917
+reference_id: "DOI:10.3390/ijms25115917"
 title: Targeted Therapies for EGFR Exon 20 Insertion Mutation in Non-Small-Cell Lung Cancer
 authors:
 - Donghyun Seo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03237-3
+reference_id: "DOI:10.1186/s13023-024-03237-3"
 title: Consensus-based expert recommendations on the management of MPS IVa and VI in Saudi Arabia
 authors:
 - Moeenaldeen AlSayed

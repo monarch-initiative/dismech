@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4081/itjm.2024.1795
+reference_id: "DOI:10.4081/itjm.2024.1795"
 title: "Segmental arterial mediolysis: a challenging diagnosis in internal medicine"
 authors:
 - Giulia Bombardieri

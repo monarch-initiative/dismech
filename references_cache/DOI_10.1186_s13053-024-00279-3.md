@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13053-024-00279-3
+reference_id: "DOI:10.1186/s13053-024-00279-3"
 title: Incidences of colorectal adenomas and cancers under colonoscopy surveillance suggest an accelerated “Big Bang” pathway to CRC in three of the four Lynch syndromes
 authors:
 - Pål Møller

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1328547
+reference_id: "DOI:10.3389/fneur.2023.1328547"
 title: "Transcriptome analysis of skeletal muscle in dermatomyositis, polymyositis, and dysferlinopathy, using a bioinformatics approach"
 authors:
 - Ha-Neul Jeong
