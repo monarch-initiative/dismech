@@ -587,7 +587,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -748,6 +748,19 @@ count-verified-snippets *args:
 check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# Catches the ad-hoc-seeding corruption in #7682: a row built by string
+# concatenation whose label contains a comma parses to >3 fields and is
+# silently truncated at that comma, and a later "repair" pass cements the
+# truncation as clean-looking data that `just validate-terms` then reports as
+# ontology truth. Also covers cache/enums/*.csv, the dynamic-enum membership
+# caches, which stand in for an authority the same way. Structural facts only
+# -- it does NOT re-derive labels from OAK, so `just validate-terms` remains
+# the last line of defence. Runs in `qc` before the heavier data validators.
+# Deterministically validate the structure of cache/*/terms.csv + enums (#7682).
+[group('QC')]
+check-term-cache-integrity:
+    uv run python -m dismech.term_cache_integrity cache
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
@@ -919,6 +932,13 @@ schema-doc:
 [group('Browser')]
 gen-browser-data:
     uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; files=[p for p in sorted(Path('kb/disorders').glob('*.yaml')) if not p.name.endswith('.history.yaml')]; BrowserExporter().export_to_js(files, Path('app/data.js'))"
+
+# Verify every page_url in app/data.js points at a rendered page (no dead links).
+# data.js is always rebuilt from the whole KB while pages may build incrementally,
+# so the two can drift apart — this is the gate that catches it (see PR #7903).
+[group('Browser')]
+check-browser-links:
+    uv run python scripts/check_browser_data_links.py
 
 # Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
@@ -1438,6 +1458,20 @@ research-disorder-cyberian-codex disorder *args="":
 [group('Research')]
 research-providers:
     uv run deep-research-client providers
+
+# Named Entity Confusion (NEC) preflight: verify a deep-research report is about
+# the disease entity you intend to curate, by cross-checking the report's
+# gene-mention frequencies and OMIM IDs against the MONDO term's canonical gene
+# (issue #3889). Run this BEFORE using any DR content.
+# Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
+# discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
+# Exits non-zero on FAIL, or on WARN too with --strict.
+# Examples:
+#   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
+#   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
+[group('Research')]
+preflight-dr report mondo *args="":
+    uv run python -m dismech.preflight_dr "$1" "$2" {{args}}
 
 # One TSV row per disorder summarizing deep-research provider coverage.
 # Summary lines are prefixed with "#" so the table stays easy to grep/awk.

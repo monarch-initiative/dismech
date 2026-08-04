@@ -1047,7 +1047,11 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
-        .hypothesis-box .item-desc { color: #0f766e; }
+        /* pre-line keeps the paragraph breaks curators write into a hypothesis
+           description; a long assessment of a superseded model is unreadable as
+           a single run-on block. Folded single-paragraph descriptions contain no
+           newlines and are unaffected. */
+        .hypothesis-box .item-desc { color: #0f766e; white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -1067,6 +1071,56 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. The
+           reader should not have to infer standing from the number of citations. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+
+        /* Hypothesis chips on pathophysiology nodes and causal edges carry the
+           status, so a node in a retired group is not read as current. */
+        .tag-hypothesis-link-DEPRECATED {
+            background: #f3f4f6;
+            color: #6b7280;
+            text-decoration: line-through;
+            text-decoration-color: #9ca3af;
+        }
+        .tag-hypothesis-link-DEPRECATED a { color: #6b7280; }
 
         /* Discussions and proposed experiments */
         .discussion-box {
@@ -4468,6 +4522,33 @@
                     <span class="tag tag-classification">{{ subtype }}</span>
                     {% endfor %}
                 </div>
+                {% if hypothesis.status == 'DEPRECATED' %}
+                <div class="hypothesis-overturned">
+                    <div class="hypothesis-overturned-title">⚠ Overturned model &mdash; shown for reference, not as current mechanism</div>
+                    <p>
+                        DisMech records superseded hypotheses explicitly rather than deleting
+                        them, so that claims still circulating in reviews, textbooks and older
+                        diagnostic criteria can be checked against an assessment. This model is
+                        <strong>not</strong> part of the disease mechanism DisMech asserts.
+                    </p>
+                    <p>
+                        Citation volume does not decide standing here. A hypothesis may retain
+                        more supporting than refuting citations simply because the supporting
+                        literature accumulated for decades before the refutation landed; where
+                        the two conflict, DisMech follows the more recent and more direct
+                        evidence. Supporting citations below are retained for the historical
+                        record.
+                    </p>
+                </div>
+                {% endif %}
+                {% if hypothesis._evidence_tally %}
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+                    {% for bucket in hypothesis._evidence_tally %}
+                    <span class="evidence-support support-{{ bucket.supports }}">{{ bucket.count }} {{ bucket.supports | replace('_', ' ') | lower }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% if hypothesis.description %}
                 <div class="item-desc" style="margin-top: 8px;">{{ hypothesis.description }}</div>
                 {% endif %}
@@ -4619,7 +4700,8 @@
                 {% if patho._hypothesis_links %}
                 <div class="item-meta">
                     {% for link in patho._hypothesis_links %}
-                    <span class="tag tag-mechanistic">
+                    <span class="tag tag-mechanistic{% if link.status == 'DEPRECATED' %} tag-hypothesis-link-DEPRECATED{% endif %}"{% if link.status == 'DEPRECATED' %} title="Overturned hypothesis: retained for reference, not asserted as current mechanism"{% endif %}>
+                        {% if link.status == 'DEPRECATED' %}⚠ {% endif %}
                         {% if link.anchor_id %}
                         <a href="#{{ link.anchor_id }}">{{ link.hypothesis_label }}</a>
                         {% else %}
@@ -4769,7 +4851,8 @@
                                 {% if edge._hypothesis_links %}
                                 <span class="tag-list" style="margin-top: 4px;">
                                     {% for link in edge._hypothesis_links %}
-                                    <span class="tag tag-mechanistic">
+                                    <span class="tag tag-mechanistic{% if link.status == 'DEPRECATED' %} tag-hypothesis-link-DEPRECATED{% endif %}"{% if link.status == 'DEPRECATED' %} title="Overturned hypothesis: retained for reference, not asserted as current mechanism"{% endif %}>
+                                        {% if link.status == 'DEPRECATED' %}⚠ {% endif %}
                                         {% if link.anchor_id %}
                                         <a href="#{{ link.anchor_id }}">{{ link.hypothesis_label }}</a>
                                         {% else %}

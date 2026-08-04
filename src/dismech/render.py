@@ -19,7 +19,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
-from dismech.export.utils import RESEARCH_REPORT_PATTERN
+from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
@@ -176,11 +176,6 @@ def curie_to_url(curie: str) -> str:
 def _strip_line_end_whitespace(text: str) -> str:
     """Remove renderer-introduced spaces at line ends without changing content."""
     return re.sub(r"[ \t]+(?=\r?\n|$)", "", text)
-
-
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
 
 
 def _prune_orphan_pages(
@@ -631,6 +626,39 @@ def _coerce_string_list(value: object) -> list[str]:
     return [str(value)]
 
 
+#: Order in which evidence-balance chips are shown on a hypothesis box.
+_HYPOTHESIS_EVIDENCE_ORDER = (
+    "SUPPORT",
+    "PARTIAL",
+    "REFUTE",
+    "WRONG_STATEMENT",
+    "NO_EVIDENCE",
+)
+
+
+def _hypothesis_evidence_tally(hypothesis: dict) -> list[dict]:
+    """Count a hypothesis's evidence items by ``supports`` value.
+
+    A DEPRECATED hypothesis often still carries more supporting than refuting
+    citations, because the supporting literature accumulated over decades before
+    the refutation landed. Surfacing the split makes that asymmetry visible
+    instead of letting a reader infer standing from citation volume.
+    """
+    evidence = hypothesis.get("evidence") or []
+    if not isinstance(evidence, list):
+        return []
+    counts: dict[str, int] = defaultdict(int)
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        supports = str(item.get("supports") or "").strip().upper()
+        if supports:
+            counts[supports] += 1
+    ordered = [key for key in _HYPOTHESIS_EVIDENCE_ORDER if key in counts]
+    ordered += sorted(key for key in counts if key not in _HYPOTHESIS_EVIDENCE_ORDER)
+    return [{"supports": key, "count": counts[key]} for key in ordered]
+
+
 def _annotate_hypothesis_group_links(disorder: dict) -> None:
     """Attach anchors and visible cross-links for mechanistic hypothesis groups."""
     hypotheses = disorder.get("mechanistic_hypotheses") or []
@@ -650,6 +678,7 @@ def _annotate_hypothesis_group_links(disorder: dict) -> None:
         hypothesis["_anchor_id"] = _make_anchor_id("hypothesis", hypothesis_id)
         hypothesis["_pathograph_links"] = []
         hypothesis["_research_reports"] = []
+        hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
         hypotheses_by_id.setdefault(hypothesis_id, hypothesis)
 
     pathophysiology_by_name: dict[str, dict] = {}
@@ -2092,6 +2121,13 @@ def render_module(
         disorders_dir=disorders_dir,
         usage_index=usage_index,
     )
+    # Module hypothesis boxes show the same support/refute balance as disorder
+    # pages. Only the tally is computed here: modules do not render hypothesis
+    # chips on pathophysiology nodes, so the rest of
+    # _annotate_hypothesis_group_links has nothing to attach to.
+    for hypothesis in module.get("mechanistic_hypotheses") or []:
+        if isinstance(hypothesis, dict):
+            hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
     yaml_content = yaml_path.read_text()
 
     if template_path is None:
