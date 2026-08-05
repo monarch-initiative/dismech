@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood.2023020794
+reference_id: "DOI:10.1182/blood.2023020794"
 title: "Diagnosis, prognostic factors, and assessment of ALL in adults: 2024 ELN recommendations from a European expert panel"
 authors:
 - Nicola Gökbuget

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15123095
+reference_id: "DOI:10.3390/cancers15123095"
 title: Prevalence of Homologous Recombination Deficiency in First-Line PARP Inhibitor Maintenance Clinical Trials and Further Implication of Personalized Treatment in Ovarian Cancer
 authors:
 - E Sun Paik

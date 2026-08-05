@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0001355
+reference_id: "DOI:10.1371/journal.pntd.0001355"
 title: "Life Quality Impairment Caused by Hookworm-Related Cutaneous Larva Migrans in Resource-Poor Communities in Manaus, Brazil"
 authors:
 - Angela Schuster

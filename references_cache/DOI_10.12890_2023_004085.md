@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12890/2023_004085
+reference_id: "DOI:10.12890/2023_004085"
 title: "Segmental arterial mediolysis and its mimickers: a case report and review of the literature"
 authors:
 - Marine Najmaoui

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.isci.2024.108959
+reference_id: "DOI:10.1016/j.isci.2024.108959"
 title: Metabolic rewiring and autophagy inhibition correct lysosomal storage disease in mucopolysaccharidosis IIIB
 authors:
 - Melania Scarcella

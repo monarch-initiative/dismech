@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/circulationaha.123.065529
+reference_id: "DOI:10.1161/circulationaha.123.065529"
 title: Evinacumab for Pediatric Patients With Homozygous Familial Hypercholesterolemia
 authors:
 - Albert Wiegman

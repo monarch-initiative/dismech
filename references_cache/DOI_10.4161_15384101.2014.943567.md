@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4161/15384101.2014.943567
+reference_id: "DOI:10.4161/15384101.2014.943567"
 title: "Juxta-articular joint-capsule mineralization in CD73 deficient mice: Similarities to patients with <i>NT5E</i> mutations"
 authors:
 - Qiaoli Li

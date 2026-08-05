@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31138/mjr.220125.era
+reference_id: "DOI:10.31138/mjr.220125.era"
 title: "The Great Vasculitis Pretenders: Mycotic Pseudoaneurysm, Aortitis with Occlusive Iliac Thrombus, and Paraneoplastic Aortitis. A Case-Based Review"
 authors:
 - Cristine Kuzhuppilly Arcilla

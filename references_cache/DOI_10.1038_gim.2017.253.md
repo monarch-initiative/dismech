@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/gim.2017.253
+reference_id: "DOI:10.1038/gim.2017.253"
 title: "Arterial tortuosity syndrome: 40 new families and literature review"
 authors:
 - Aude Beyens

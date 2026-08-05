@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17020228
+reference_id: "DOI:10.3390/cancers17020228"
 title: Triple-Negative Breast Cancer Progression and Drug Resistance in the Context of Epithelial–Mesenchymal Transition
 authors:
 - Ewa Błaszczak

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms241814385
+reference_id: "DOI:10.3390/ijms241814385"
 title: Endothelial Dysfunction in Systemic Sclerosis
 authors:
 - Eshaan Patnaik

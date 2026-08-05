@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13075-024-03314-9
+reference_id: "DOI:10.1186/s13075-024-03314-9"
 title: Effectiveness of janus kinase inhibitors in relapsing giant cell arteritis in real-world clinical practice and review of the literature
 authors:
 - Javier Loricera

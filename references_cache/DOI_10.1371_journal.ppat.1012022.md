@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012022
+reference_id: "DOI:10.1371/journal.ppat.1012022"
 title: Enterovirus A71 does not meet the uncoating receptor SCARB2 at the cell surface
 authors:
 - Yorihiro Nishimura

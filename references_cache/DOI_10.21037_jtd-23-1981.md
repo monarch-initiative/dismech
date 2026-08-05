@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/jtd-23-1981
+reference_id: "DOI:10.21037/jtd-23-1981"
 title: "Development of neuromodulation for atrial fibrillation: a narrative review"
 authors:
 - Ning Yang

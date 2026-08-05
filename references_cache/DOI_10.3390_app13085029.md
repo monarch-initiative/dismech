@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/app13085029
+reference_id: "DOI:10.3390/app13085029"
 title: "Neuromyelitis Optica Spectrum Disorders: Clinical Perspectives, Molecular Mechanisms, and Treatments"
 authors:
 - Subramanian Thangaleela

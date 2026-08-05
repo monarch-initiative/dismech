@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000200165
+reference_id: "DOI:10.1212/nxi.0000000000200165"
 title: "Prevalence, Clinical Profiles, and Prognosis of Stiff-Person Syndrome in a Japanese Nationwide Survey"
 authors:
 - Naoko Matsui

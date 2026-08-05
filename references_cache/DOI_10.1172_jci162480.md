@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci162480
+reference_id: "DOI:10.1172/jci162480"
 title: "Von Hippel–Lindau disease: insights into oxygen sensing, protein degradation, and cancer"
 authors:
 - William G. Kaelin

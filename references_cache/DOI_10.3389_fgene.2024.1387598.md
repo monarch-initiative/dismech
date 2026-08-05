@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1387598
+reference_id: "DOI:10.3389/fgene.2024.1387598"
 title: "Worldwide cohort study of 46, XY differences/disorders of sex development genetic diagnoses: geographic and ethnic differences in variants"
 authors:
 - Chen Jiali

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci157782
+reference_id: "DOI:10.1172/jci157782"
 title: Accumulation of α-synuclein mediates podocyte injury in Fabry nephropathy
 authors:
 - Fabian Braun

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-023-08276-y
+reference_id: "DOI:10.1186/s12879-023-08276-y"
 title: Whipple’s disease presenting as weight gain and constipation in a Chinese woman
 authors:
 - Haiyan Ye

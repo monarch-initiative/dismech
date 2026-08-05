@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/po.21.00070
+reference_id: "DOI:10.1200/po.21.00070"
 title: "Differential Activity of PARP Inhibitors in<i>BRCA1</i>- Versus<i>BRCA2</i>-Altered Metastatic Castration-Resistant Prostate Cancer"
 authors:
 - Fadi Taza

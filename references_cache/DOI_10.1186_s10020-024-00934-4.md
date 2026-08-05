@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10020-024-00934-4
+reference_id: "DOI:10.1186/s10020-024-00934-4"
 title: Utility of patient-derived xenografts to evaluate drug sensitivity and select optimal treatments for individual non-small-cell lung cancer patients
 authors:
 - Xiaoqing Wang

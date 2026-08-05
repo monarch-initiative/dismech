@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2019.00014
+reference_id: "DOI:10.3389/fmed.2019.00014"
 title: "Psoriatic Synovitis: Singularity and Potential Clinical Implications"
 authors:
 - Raquel Celis

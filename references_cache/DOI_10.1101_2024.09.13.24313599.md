@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.09.13.24313599
+reference_id: "DOI:10.1101/2024.09.13.24313599"
 title: "A multi-omics bidirectional mendelian randomization study and meta-analysis on the causal relationship between gut microbiota, inflammatory proteins, and fibromyalgia."
 authors:
 - Mengqi Niu

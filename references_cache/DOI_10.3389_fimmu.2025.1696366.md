@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1696366
+reference_id: "DOI:10.3389/fimmu.2025.1696366"
 title: "Roles of cytokine storm in sepsis progression: biomarkers, and emerging therapeutic strategies"
 authors:
 - Weibin You

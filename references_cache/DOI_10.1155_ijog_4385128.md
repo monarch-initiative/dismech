@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1155/ijog/4385128
+reference_id: "DOI:10.1155/ijog/4385128"
 title: "Clinical and Genetic Functional Validation of a Novel <i>AP1S1</i> Mutation Causing MEDNIK Syndrome"
 authors:
 - Lifen Duan

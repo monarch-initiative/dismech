@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.23482
+reference_id: "DOI:10.7759/cureus.23482"
 title: "Comparative Analysis of Adult Patients With Idiopathic Pulmonary Hemosiderosis and Lane-Hamilton Syndrome: A Systematic Review of the Literature in the Period 1971-2022"
 authors:
 - Biplab K Saha

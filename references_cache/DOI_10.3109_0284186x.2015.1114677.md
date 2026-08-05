@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3109/0284186x.2015.1114677
+reference_id: "DOI:10.3109/0284186x.2015.1114677"
 title: "Trends in melanoma in the elderly in Denmark, 1980–2012"
 authors:
 - Lise Hoejberg

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/rheumatology/keae420
+reference_id: "DOI:10.1093/rheumatology/keae420"
 title: "Association of rare and common genetic variants in <i>MOCOS</i> with inadequate response to allopurinol"
 authors:
 - Niamh C Fanning

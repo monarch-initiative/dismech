@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000200225
+reference_id: "DOI:10.1212/nxi.0000000000200225"
 title: "Risk of Seizure Recurrence Due to Autoimmune Encephalitis With NMDAR, LGI1, CASPR2, and GABA <sub>B</sub> R Antibodies"
 authors:
 - Anna Rada

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.70672/bcfbzp08
+reference_id: "DOI:10.70672/bcfbzp08"
 title: Diagnostic Challenges of Pityriasis Lichenoides et Varioliformis Acuta (PLEVA)
 authors:
 - Abd Rahman MA

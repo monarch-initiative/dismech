@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpubh.2025.1743423
+reference_id: "DOI:10.3389/fpubh.2025.1743423"
 title: "Clinical and epidemiological characteristics of cat scratch disease in children from southwestern China: a retrospective analysis of mNGS-confirmed cases"
 authors:
 - Shu-yu Lai

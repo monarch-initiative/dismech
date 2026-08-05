@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/ndt.s540718
+reference_id: "DOI:10.2147/ndt.s540718"
 title: Updates on Parkinson’s Disease
 authors:
 - Hong Bai

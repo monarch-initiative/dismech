@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012568
+reference_id: "DOI:10.1371/journal.ppat.1012568"
 title: Purified CDT toxins and a clean deletion within the CDT locus provide novel insights into the contribution of binary toxin in cellular inflammation and Clostridioides difficile infection
 authors:
 - Kateryna Nabukhotna

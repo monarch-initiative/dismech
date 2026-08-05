@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2024.1356069
+reference_id: "DOI:10.3389/fphys.2024.1356069"
 title: Bone and bone derived factors in kidney disease
 authors:
 - Petra Simic

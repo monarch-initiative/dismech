@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1298749
+reference_id: "DOI:10.3389/fimmu.2024.1298749"
 title: "Leprosy: treatment, prevention, immune response and gene function"
 authors:
 - Xiang Li

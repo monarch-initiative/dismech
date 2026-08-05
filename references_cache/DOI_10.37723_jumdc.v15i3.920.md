@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37723/jumdc.v15i3.920
+reference_id: "DOI:10.37723/jumdc.v15i3.920"
 title: Response of the intravenous versus oral antibiotic regimen in brucellosis bacteremia.
 authors:
 - Dr. Imran Nazir

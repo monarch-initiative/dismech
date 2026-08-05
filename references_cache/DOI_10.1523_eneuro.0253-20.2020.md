@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1523/eneuro.0253-20.2020
+reference_id: "DOI:10.1523/eneuro.0253-20.2020"
 title: Transmembrane Prolyl 4-Hydroxylase is a Novel Regulator of Calcium Signaling in Astrocytes
 authors:
 - Nadiya Byts

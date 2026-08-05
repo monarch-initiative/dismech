@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/10760296241278615
+reference_id: "DOI:10.1177/10760296241278615"
 title: "Thrombosis in Critically Ill Influenza Patients: Incidence and Risk Factors"
 authors:
 - Xianming Qiu

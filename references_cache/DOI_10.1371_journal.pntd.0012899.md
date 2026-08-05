@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012899
+reference_id: "DOI:10.1371/journal.pntd.0012899"
 title: Guidance for conducting and evaluating serological surveys to assess interruption of yaws transmission in the context of an eradication target
 authors:
 - Oriol Mitjà

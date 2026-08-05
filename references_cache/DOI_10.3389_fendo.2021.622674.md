@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2021.622674
+reference_id: "DOI:10.3389/fendo.2021.622674"
 title: "Case Report: Hyperplastic Callus of the Femur Mimicking Osteosarcoma in Osteogenesis Imperfecta Type V"
 authors:
 - Ying Deng

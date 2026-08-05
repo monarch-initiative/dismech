@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/ijgm.s455872
+reference_id: "DOI:10.2147/ijgm.s455872"
 title: "The Effects of Budesonide Inhalation Treatment on the Expression Levels of Serum IL-6, TGF-β1, and IgE and Pulmonary Function in Patients with Cough Variant Asthma and an Evaluation of Treatment Efficacy"
 authors:
 - Yueying Niu

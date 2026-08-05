@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13567-024-01351-5
+reference_id: "DOI:10.1186/s13567-024-01351-5"
 title: Pasteurella multocida infection induces blood–brain barrier disruption by decreasing tight junctions and adherens junctions between neighbored brain microvascular endothelial cells
 authors:
 - Lin Lin

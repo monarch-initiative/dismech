@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2022.1082062
+reference_id: "DOI:10.3389/fonc.2022.1082062"
 title: "Pediatric diffuse midline glioma H3K27- altered: A complex clinical and biological landscape behind a neatly defined tumor type"
 authors:
 - Stefano Gabriele Vallero

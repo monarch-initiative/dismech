@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jitc-2024-009028
+reference_id: "DOI:10.1136/jitc-2024-009028"
 title: Long-term survival follow-up for tebentafusp in previously treated metastatic uveal melanoma
 authors:
 - Joseph J Sacco

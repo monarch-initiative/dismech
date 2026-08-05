@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/23120541.00177-2024
+reference_id: "DOI:10.1183/23120541.00177-2024"
 title: What every clinician should know about inflammation in COPD
 authors:
 - Michael E. Wechsler

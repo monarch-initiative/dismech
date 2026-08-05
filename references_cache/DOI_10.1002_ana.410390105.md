@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/ana.410390105
+reference_id: "DOI:10.1002/ana.410390105"
 title: Pathology of the motor‐sensory axonal Guillain‐Barré syndrome
 authors:
 - J. W. Griffin

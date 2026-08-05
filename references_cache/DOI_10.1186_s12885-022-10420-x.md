@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-022-10420-x
+reference_id: "DOI:10.1186/s12885-022-10420-x"
 title: "A phase II study of daily encorafenib in combination with biweekly cetuximab in patients with BRAF V600E mutated metastatic colorectal cancer: the NEW BEACON study"
 authors:
 - Martina Eriksen

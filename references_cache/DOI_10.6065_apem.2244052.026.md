@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.6065/apem.2244052.026
+reference_id: "DOI:10.6065/apem.2244052.026"
 title: "Growth hormone deficiency in a boy with Wiedemann-Steiner syndrome: a case report and review"
 authors:
 - Mi Ra Kim

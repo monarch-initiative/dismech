@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07503730
+reference_id: "clinicaltrials:NCT07503730"
 title: "Multicenter, Randomized Controlled Clinical Study on Early Application of Realgar-Indigo Naturalis Formula (RIF) for Treatment of Acute Promyelocytic Leukemia (APL)"
 content_type: summary
 full_text_attempted: true

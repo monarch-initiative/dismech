@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06207370
+reference_id: "clinicaltrials:NCT06207370"
 title: A Double-blind Placebo-controlled Study to Assess the Safety and Efficacy of Oral Tafenoquine Plus Standard of Care Versus Placebo Plus Standard of Care in Patients Hospitalized for Babesiosis
 content_type: summary
 full_text_attempted: true

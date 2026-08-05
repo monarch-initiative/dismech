@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17020255
+reference_id: "DOI:10.3390/cancers17020255"
 title: Recent Advances in the Clinical Translation of Small-Cell Lung Cancer Therapeutics
 authors:
 - Subhadeep Das

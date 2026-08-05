@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14091138
+reference_id: "DOI:10.3390/biom14091138"
 title: Current Treatment Methods for Charcot–Marie–Tooth Diseases
 authors:
 - Hongxian Dong

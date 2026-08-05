@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/po.24.00321
+reference_id: "DOI:10.1200/po.24.00321"
 title: "<i>NTRK</i> Fusion–Positive Thyroid Carcinoma: From Diagnosis to Targeted Therapy"
 authors:
 - Vicente R. Marczyk

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5826/mrm.2024.992
+reference_id: "DOI:10.5826/mrm.2024.992"
 title: "Navigating the complexity of BRAF mutations in non-small cell lung cancer: current insights and future prospects"
 authors:
 - Sufyan Ibrahim

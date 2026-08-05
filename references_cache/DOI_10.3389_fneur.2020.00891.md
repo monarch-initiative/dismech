@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2020.00891
+reference_id: "DOI:10.3389/fneur.2020.00891"
 title: Biomechanics of Third Window Syndrome
 authors:
 - Marta M. Iversen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1289/ehp14336
+reference_id: "DOI:10.1289/ehp14336"
 title: A Snapshot of Lead in Consumer Products Across Four US Jurisdictions
 authors:
 - Kate Porterfield

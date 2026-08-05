@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-0459
+reference_id: "DOI:10.1158/1078-0432.ccr-23-0459"
 title: "FDA Approval Summary: Selpercatinib for the Treatment of Advanced <i>RET</i> Fusion-Positive Solid Tumors"
 authors:
 - Elizabeth S. Duke

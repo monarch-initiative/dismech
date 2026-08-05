@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/mc.23640
+reference_id: "DOI:10.1002/mc.23640"
 title: Immune landscape in molecular subtypes of human papillomavirus‐negative head and neck cancer
 authors:
 - Mengyu Xie

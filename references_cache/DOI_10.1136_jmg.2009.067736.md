@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg.2009.067736
+reference_id: "DOI:10.1136/jmg.2009.067736"
 title: "Phenotype and genotype in mucolipidoses II and III alpha/beta: a study of 61 probands"
 authors:
 - S S Cathey

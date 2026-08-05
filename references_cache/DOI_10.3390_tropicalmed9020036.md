@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed9020036
+reference_id: "DOI:10.3390/tropicalmed9020036"
 title: "Cystic Echinococcosis in the Early 2020s: A Review"
 authors:
 - Mihai-Octav Hogea

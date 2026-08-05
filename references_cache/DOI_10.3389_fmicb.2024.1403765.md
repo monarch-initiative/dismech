@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1403765
+reference_id: "DOI:10.3389/fmicb.2024.1403765"
 title: "Current treatment options for leptospirosis: a mini-review"
 authors:
 - Pavlo Petakh

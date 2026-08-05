@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1160144
+reference_id: "DOI:10.3389/fonc.2023.1160144"
 title: Real-world treatment patterns and outcomes among individuals receiving first-line pembrolizumab therapy for recurrent/metastatic head and neck squamous cell carcinoma
 authors:
 - Christopher M. Black

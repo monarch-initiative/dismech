@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/atm-22-4479
+reference_id: "DOI:10.21037/atm-22-4479"
 title: "A snapshot of lung cancer: where are we now?—a narrative review"
 authors:
 - Gogo-ogute Ibodeng

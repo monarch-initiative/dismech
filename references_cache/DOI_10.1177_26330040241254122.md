@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/26330040241254122
+reference_id: "DOI:10.1177/26330040241254122"
 title: "Linking Angelman and dup15q data for expanded research (LADDER) database: a model for advancing research, clinical guidance, and therapeutic development for rare conditions"
 authors:
 - Sarah Nelson Potter

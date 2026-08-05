@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.64898/2026.04.01.715876
+reference_id: "DOI:10.64898/2026.04.01.715876"
 title: Decoupled calcium homeostasis and signaling associated with cytoskeletal instability in YWHAG R132C induced pluripotent stem cell-derived cortical neurons
 authors:
 - Anna Maria Schreiber

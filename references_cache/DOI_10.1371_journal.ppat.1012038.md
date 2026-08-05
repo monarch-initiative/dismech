@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012038
+reference_id: "DOI:10.1371/journal.ppat.1012038"
 title: "Recent advances in the treatment of Ebola disease: A brief overview"
 authors:
 - L’Emir Wassim El Ayoubi

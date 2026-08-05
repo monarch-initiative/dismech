@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/con.0000000000001287
+reference_id: "DOI:10.1212/con.0000000000001287"
 title: Circadian Rhythm Sleep-Wake Disorders
 authors:
 - Flavia B. Consens

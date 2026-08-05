@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1200815
+reference_id: "DOI:10.3389/fonc.2023.1200815"
 title: "Histological and molecular glioblastoma, IDH-wildtype: a real-world landscape using the 2021 WHO classification of central nervous system tumors"
 authors:
 - Xiaopeng Guo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/hematolrep16010006
+reference_id: "DOI:10.3390/hematolrep16010006"
 title: "Survival Outcomes of Patients with Mantle Cell Lymphoma: A Retrospective, 15-Year, Real-Life Study"
 authors:
 - Emanuele Cencini

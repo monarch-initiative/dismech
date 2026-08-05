@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12196242
+reference_id: "DOI:10.3390/jcm12196242"
 title: Vogt-Koyanagi-Harada Disease and COVID
 authors:
 - Priscilla Manni

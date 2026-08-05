@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1165638
+reference_id: "DOI:10.3389/fped.2023.1165638"
 title: "A novel pathogenic variant of DNMT3A associated with craniosynostosis: a case report of Heyn–Sproul–Jackson syndrome"
 authors:
 - Ga Hye Kim

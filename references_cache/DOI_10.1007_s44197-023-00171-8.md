@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s44197-023-00171-8
+reference_id: "DOI:10.1007/s44197-023-00171-8"
 title: Surveillance Compliance and Quality of Life Assessment Among Surgical Patients with Familial Adenomatous Polyposis Syndrome
 authors:
 - Noura Alhassan

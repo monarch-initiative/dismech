@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16183145
+reference_id: "DOI:10.3390/cancers16183145"
 title: Prognostic and Predictive Roles of HER2 Status in Non-Breast and Non-Gastroesophageal Carcinomas
 authors:
 - Erica Quaquarini

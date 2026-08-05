@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15326/jcopdf.2022.0339
+reference_id: "DOI:10.15326/jcopdf.2022.0339"
 title: Quality of Life and Mortality Outcomes for Augmentation Naïve and Augmented Patients with Severe Alpha-1 Antitrypsin Deficiency
 authors:
 - Paul R. Ellis

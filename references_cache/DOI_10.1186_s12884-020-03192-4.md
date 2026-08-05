@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12884-020-03192-4
+reference_id: "DOI:10.1186/s12884-020-03192-4"
 title: "Increased creatine demand during pregnancy in Arginine: Glycine Amidino-Transferase deficiency: a case report"
 authors:
 - Maria Grazia Alessandrì

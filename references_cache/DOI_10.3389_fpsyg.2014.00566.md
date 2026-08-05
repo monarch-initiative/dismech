@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyg.2014.00566
+reference_id: "DOI:10.3389/fpsyg.2014.00566"
 title: The development of cognitive control in children with chromosome 22q11.2 deletion syndrome
 authors:
 - Heather M. Shapiro

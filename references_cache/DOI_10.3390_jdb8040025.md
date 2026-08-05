@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jdb8040025
+reference_id: "DOI:10.3390/jdb8040025"
 title: "Molecular and Cellular Pathogenesis of Ellis-van Creveld Syndrome: Lessons from Targeted and Natural Mutations in Animal Models"
 authors:
 - Ke’ale W. Louie

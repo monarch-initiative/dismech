@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20431/2456-0022.0807003
+reference_id: "DOI:10.20431/2456-0022.0807003"
 title: Health Literacy and Treatment Adherence in Patients with Cutaneous-Limited Vasculitis and Musculoskeletal Pain
 authors:
 - Lynn Fadel

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxg.0000000000200209
+reference_id: "DOI:10.1212/nxg.0000000000200209"
 title: "Clinical Features, Biochemistry, Imaging, and Treatment Response in a Single-Center Cohort With Coenzyme Q <sub>10</sub> Biosynthesis Disorders"
 authors:
 - Azizia Wahedi

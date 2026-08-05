@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2021.648407
+reference_id: "DOI:10.3389/fphar.2021.648407"
 title: Clinically-Relevant ABC Transporter for Anti-Cancer Drug Resistance
 authors:
 - Huan Xiao

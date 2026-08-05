@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1279828
+reference_id: "DOI:10.3389/fendo.2023.1279828"
 title: Local recurrence and metastatic disease in pheochromocytomas and sympathetic paragangliomas
 authors:
 - Marta Araujo-Castro

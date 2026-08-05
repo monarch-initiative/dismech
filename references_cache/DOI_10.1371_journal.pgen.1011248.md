@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1011248
+reference_id: "DOI:10.1371/journal.pgen.1011248"
 title: Unraveling the genetics of arsenic toxicity with cellular morphology QTL
 authors:
 - Callan O’Connor

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3803/enm.2024.1978
+reference_id: "DOI:10.3803/enm.2024.1978"
 title: Roles of Parathyroid Hormone and Fibroblast Growth Factor 23 in Advanced Chronic Kidney Disease
 authors:
 - Yosuke Nakagawa

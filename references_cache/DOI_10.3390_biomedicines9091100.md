@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines9091100
+reference_id: "DOI:10.3390/biomedicines9091100"
 title: "Wilson’s Disease: Facing the Challenge of Diagnosing a Rare Disease"
 authors:
 - Ana Sánchez-Monteagudo

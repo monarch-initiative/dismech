@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1341680
+reference_id: "DOI:10.3389/fimmu.2023.1341680"
 title: "The pyrin inflammasome, a leading actor in pediatric autoinflammatory diseases"
 authors:
 - Saverio La Bella

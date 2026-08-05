@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/iai.00291-08
+reference_id: "DOI:10.1128/iai.00291-08"
 title: "Impaired Opsonization with C3b and Phagocytosis of<i>Streptococcus pneumoniae</i>in Sera from Subjects with Defects in the Classical Complement Pathway"
 authors:
 - Jose Yuste

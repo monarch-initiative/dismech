@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13027-025-00710-x
+reference_id: "DOI:10.1186/s13027-025-00710-x"
 title: Kaposi sarcoma incidence and mortality trends and disparities in the United States
 authors:
 - Ahsan Raza Raja

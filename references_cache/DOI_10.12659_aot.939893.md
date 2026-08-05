@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12659/aot.939893
+reference_id: "DOI:10.12659/aot.939893"
 title: Outcomes from a Single Transplant Center of 5 Pediatric Cases of Domino Liver Transplantation from Live Donors with Maple Syrup Urine Disease
 authors:
 - Jin-Ping Zhang

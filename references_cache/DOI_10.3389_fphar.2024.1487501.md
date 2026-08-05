@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1487501
+reference_id: "DOI:10.3389/fphar.2024.1487501"
 title: Literature review analysis of aortitis induced by granulocyte-colony stimulating factor
 authors:
 - Ting Zhao

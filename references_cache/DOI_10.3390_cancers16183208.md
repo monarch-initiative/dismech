@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16183208
+reference_id: "DOI:10.3390/cancers16183208"
 title: "MRD in Acute Leukemias: Lessons Learned from Acute Promyelocytic Leukemia"
 authors:
 - David Kegyes

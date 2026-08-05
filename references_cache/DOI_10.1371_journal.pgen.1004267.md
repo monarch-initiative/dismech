@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1004267
+reference_id: "DOI:10.1371/journal.pgen.1004267"
 title: CNNM2 Mutations Cause Impaired Brain Development and Seizures in Patients with Hypomagnesemia
 authors:
 - Francisco J. Arjona

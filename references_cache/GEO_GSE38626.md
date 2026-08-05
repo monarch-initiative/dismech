@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE38626
+reference_id: "GEO:GSE38626"
 title: Induced pluripotent stem cells from CINCA syndrome patients as a model for dissecting somatic mosaicism and drug discovery
 content_type: summary
 full_text_attempted: true

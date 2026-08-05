@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1415535
+reference_id: "DOI:10.3389/fneur.2024.1415535"
 title: "Soluble biomarkers for Neuromyelitis Optica Spectrum Disorders: a mini review"
 authors:
 - Rachel E. Rodin

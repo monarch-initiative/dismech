@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12040779
+reference_id: "DOI:10.3390/biomedicines12040779"
 title: Cellular and Molecular Mechanisms of Heterotopic Ossification in Fibrodysplasia Ossificans Progressiva
 authors:
 - Loreilys Mejias Rivera

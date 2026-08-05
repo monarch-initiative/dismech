@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1687320
+reference_id: "DOI:10.3389/fonc.2025.1687320"
 title: "Shifting burden of nasopharyngeal carcinoma: global patterns and forecasts to 2050 from the GBD 2021"
 authors:
 - Enhui Zhou

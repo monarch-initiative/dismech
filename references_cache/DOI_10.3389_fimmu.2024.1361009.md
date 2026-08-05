@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1361009
+reference_id: "DOI:10.3389/fimmu.2024.1361009"
 title: Carcinogenic mechanisms of virus-associated lymphoma
 authors:
 - Ying Zhang

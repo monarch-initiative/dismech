@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.171984
+reference_id: "DOI:10.1172/jci.insight.171984"
 title: Altered Sox9 and FGF signaling gene expression in Aga2 OI mice negatively affects linear growth
 authors:
 - Jennifer Zieba

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.846101
+reference_id: "DOI:10.3389/fgene.2022.846101"
 title: "Molecular Genetics and Pathogenesis of the Floating Harbor Syndrome: Case Report of Long-Term Growth Hormone Treatment and a Literature Review"
 authors:
 - Mariia E. Turkunova

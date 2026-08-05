@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.182382
+reference_id: "DOI:10.1172/jci.insight.182382"
 title: Dysregulation of RAS proteostasis by autosomal-dominant LZTR1 mutation induces Noonan syndrome–like phenotypes in mice
 authors:
 - Taiki Abe

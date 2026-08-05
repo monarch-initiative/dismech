@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pharmaceutics17010102
+reference_id: "DOI:10.3390/pharmaceutics17010102"
 title: "Current Status of Gout Arthritis: Current Approaches to Gout Arthritis Treatment: Nanoparticles Delivery Systems Approach"
 authors:
 - Yedi Herdiana

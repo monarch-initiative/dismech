@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm14113677
+reference_id: "DOI:10.3390/jcm14113677"
 title: "The Genetic Background of Ankylosing Spondylitis Reveals a Distinct Overlap with Autoimmune Diseases: A Systematic Review"
 authors:
 - Theodora Zormpa

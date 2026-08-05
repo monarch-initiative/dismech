@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012446
+reference_id: "DOI:10.1371/journal.pntd.0012446"
 title: Effectiveness of ongoing single dose rifampicin post-exposure prophylaxis (SDR-PEP) implementation under routine programme conditions—An observational study in Nepal
 authors:
 - Nand Lal Banstola

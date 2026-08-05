@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-13101-z
+reference_id: "DOI:10.1186/s12885-024-13101-z"
 title: "Interim analysis of the multinational, post-authorization safety study (NISSO) to assess the long-term safety of sonidegib in patients with locally advanced basal cell carcinoma"
 authors:
 - Ralf Gutzmer

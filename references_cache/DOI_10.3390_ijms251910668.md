@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms251910668
+reference_id: "DOI:10.3390/ijms251910668"
 title: "Advances in the Treatment of Cognitive Impairment in Schizophrenia: Targeting NMDA Receptor Pathways"
 authors:
 - Ting Zhang

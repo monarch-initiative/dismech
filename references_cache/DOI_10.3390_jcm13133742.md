@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13133742
+reference_id: "DOI:10.3390/jcm13133742"
 title: Epidemiological Characteristics of Inherited Epidermolysis Bullosa in an Eastern European Population
 authors:
 - Alina Suru

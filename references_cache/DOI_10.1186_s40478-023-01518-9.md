@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-023-01518-9
+reference_id: "DOI:10.1186/s40478-023-01518-9"
 title: Molecular signatures of inherited and acquired sporadic late onset nemaline myopathies
 authors:
 - Stefan Nicolau

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12888-020-02644-7
+reference_id: "DOI:10.1186/s12888-020-02644-7"
 title: Validity and reliability of social anxiety disorder diagnoses in the Swedish National Patient Register
 authors:
 - Alba Vilaplana-Pérez

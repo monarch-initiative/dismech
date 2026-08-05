@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2022.04.13.22273750
+reference_id: "DOI:10.1101/2022.04.13.22273750"
 title: "Mondo: Unifying diseases for the world, by the world"
 authors:
 - Nicole A Vasilevsky

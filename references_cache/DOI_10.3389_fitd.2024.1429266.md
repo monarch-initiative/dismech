@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2024.1429266
+reference_id: "DOI:10.3389/fitd.2024.1429266"
 title: "Scabies: current knowledge and future directions"
 authors:
 - Elke Mitchell

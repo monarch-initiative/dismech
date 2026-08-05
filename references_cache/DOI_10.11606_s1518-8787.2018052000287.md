@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.11606/s1518-8787.2018052000287
+reference_id: "DOI:10.11606/s1518-8787.2018052000287"
 title: Urinary cotinine in tobacco farmers in Southern Brazil
 authors:
 - Anaclaudia Gastal Fassa

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3350/cmh.2022.0349
+reference_id: "DOI:10.3350/cmh.2022.0349"
 title: "Acute hepatitis C virus infection: clinical update and remaining challenges"
 authors:
 - Chen-Hua Liu

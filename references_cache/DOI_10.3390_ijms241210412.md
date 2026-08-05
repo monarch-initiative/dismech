@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms241210412
+reference_id: "DOI:10.3390/ijms241210412"
 title: Molecular Mechanisms of Craniofacial and Dental Abnormalities in Osteopetrosis
 authors:
 - Yu Ma

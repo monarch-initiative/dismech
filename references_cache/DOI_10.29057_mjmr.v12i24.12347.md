@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.29057/mjmr.v12i24.12347
+reference_id: "DOI:10.29057/mjmr.v12i24.12347"
 title: "Exploring In Vitro Models: Advances and Challenges in Human Respiratory Tract Research"
 authors:
 - Doris Cerecedo

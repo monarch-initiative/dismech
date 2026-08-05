@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5114/ada.2024.139233
+reference_id: "DOI:10.5114/ada.2024.139233"
 title: Senear-Usher syndrome in a 5-year-old girl
 authors:
 - Hubert Arasiewicz

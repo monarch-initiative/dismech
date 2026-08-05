@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012429
+reference_id: "DOI:10.1371/journal.pntd.0012429"
 title: "Quality of life among adults with scabies: A community-based cross-sectional study in north-western Ethiopia"
 authors:
 - Robel Yirgu

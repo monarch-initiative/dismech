@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci172839
+reference_id: "DOI:10.1172/jci172839"
 title: "Central conducting lymphatic anomaly: from bench to bedside"
 authors:
 - Luciana Daniela Garlisi Torales

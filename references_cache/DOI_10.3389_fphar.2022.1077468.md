@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2022.1077468
+reference_id: "DOI:10.3389/fphar.2022.1077468"
 title: "Immune-mediated hepatitis induced by immune checkpoint inhibitors: Current updates and future perspectives"
 authors:
 - Zherui Liu

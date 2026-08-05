@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/cdr.2023.150
+reference_id: "DOI:10.20517/cdr.2023.150"
 title: Current knowledge about immunotherapy resistance for melanoma and potential predictive and prognostic biomarkers
 authors:
 - Lanni Song

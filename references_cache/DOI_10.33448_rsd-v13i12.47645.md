@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.33448/rsd-v13i12.47645
+reference_id: "DOI:10.33448/rsd-v13i12.47645"
 title: "Visceral leishmaniasis: Therapeutic challenges and the potential of microalgae as a source of antileishmanial compounds"
 authors:
 - Júlia Santos Pinto de Sousa

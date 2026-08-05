@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13223-024-00931-6
+reference_id: "DOI:10.1186/s13223-024-00931-6"
 title: Urticaria
 authors:
 - Moshe Ben-Shoshan

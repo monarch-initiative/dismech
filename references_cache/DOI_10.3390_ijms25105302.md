@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25105302
+reference_id: "DOI:10.3390/ijms25105302"
 title: "Exploring Acne Treatments: From Pathophysiological Mechanisms to Emerging Therapies"
 authors:
 - Hyun Jee Kim

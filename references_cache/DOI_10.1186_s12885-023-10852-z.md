@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-023-10852-z
+reference_id: "DOI:10.1186/s12885-023-10852-z"
 title: Highly sensitive droplet digital PCR for detection of RET fusion in papillary thyroid cancer
 authors:
 - Mengke Chen

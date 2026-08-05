@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1489045
+reference_id: "DOI:10.3389/fphar.2024.1489045"
 title: A real-world study of adverse drug reactions of two isocitrate dehydrogenase inhibitor based on the US FDA adverse event reporting system and VigiAccess databases
 authors:
 - Mengmeng Peng

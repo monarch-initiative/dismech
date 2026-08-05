@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12882-024-03512-2
+reference_id: "DOI:10.1186/s12882-024-03512-2"
 title: Validation of IgA nephropathy diagnosis in the Swedish Renal Registry
 authors:
 - Johanna Rehnberg

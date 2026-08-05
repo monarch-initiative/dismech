@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1202565
+reference_id: "DOI:10.3389/fneur.2023.1202565"
 title: "Microsurgical revascularization of a symptomatic proximal vertebral artery: pilot experiences from a single center"
 authors:
 - Tongfu Zhang

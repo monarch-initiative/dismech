@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25073840
+reference_id: "DOI:10.3390/ijms25073840"
 title: "Chagas Disease: A Silent Threat for Dogs and Humans"
 authors:
 - João Durães-Oliveira

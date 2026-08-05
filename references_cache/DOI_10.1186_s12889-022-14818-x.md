@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12889-022-14818-x
+reference_id: "DOI:10.1186/s12889-022-14818-x"
 title: "Long-term exposure to low-level arsenic in drinking water is associated with cause-specific mortality and hospitalization in the Mt. Amiata area (Tuscany, Italy)"
 authors:
 - Daniela Nuvolone

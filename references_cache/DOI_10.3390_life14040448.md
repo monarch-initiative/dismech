@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/life14040448
+reference_id: "DOI:10.3390/life14040448"
 title: "Retinal Structural and Vascular Changes in Patients with Coronary Artery Disease: A Systematic Review and Meta-Analysis"
 authors:
 - Alexandra Cristina Rusu

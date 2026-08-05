@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-12155-3
+reference_id: "DOI:10.1186/s12885-024-12155-3"
 title: "Pembrolizumab-based first-line treatment for PD-L1-positive, recurrent or metastatic head and neck squamous cell carcinoma: a retrospective analysis"
 authors:
 - Alessio Cirillo

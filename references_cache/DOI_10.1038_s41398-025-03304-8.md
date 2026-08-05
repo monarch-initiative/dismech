@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-025-03304-8
+reference_id: "DOI:10.1038/s41398-025-03304-8"
 title: Spotlight on mechanism of sudden unexpected death in epilepsy in Dravet syndrome
 authors:
 - WeiHui Shao

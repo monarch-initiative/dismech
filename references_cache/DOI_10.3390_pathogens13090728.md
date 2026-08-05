@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13090728
+reference_id: "DOI:10.3390/pathogens13090728"
 title: "Unlocking the Potential: Epstein-Barr Virus (EBV) in Gastric Cancer and Future Treatment Prospects, a Literature Review"
 authors:
 - Salvatore Corallo

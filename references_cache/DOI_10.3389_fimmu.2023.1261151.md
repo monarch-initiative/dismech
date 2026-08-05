@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1261151
+reference_id: "DOI:10.3389/fimmu.2023.1261151"
 title: The involvement of NETs in ANCA-associated vasculitis
 authors:
 - Satoka Shiratori-Aso

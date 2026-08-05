@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1402024
+reference_id: "DOI:10.3389/fimmu.2024.1402024"
 title: The impact of Mycobacterium tuberculosis on the macrophage cholesterol metabolism pathway
 authors:
 - Zhanpeng Chen

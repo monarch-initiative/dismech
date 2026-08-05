@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13061744
+reference_id: "DOI:10.3390/jcm13061744"
 title: "Renal AL Amyloidosis: Updates on Diagnosis, Staging, and Management"
 authors:
 - Areez Shafqat

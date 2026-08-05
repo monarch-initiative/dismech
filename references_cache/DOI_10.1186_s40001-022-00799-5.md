@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40001-022-00799-5
+reference_id: "DOI:10.1186/s40001-022-00799-5"
 title: Identification of a novel de novo pathogenic variant in GFAP in an Iranian family with Alexander disease by whole-exome sequencing
 authors:
 - Katayoun Heshmatzad

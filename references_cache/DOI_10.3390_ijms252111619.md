@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252111619
+reference_id: "DOI:10.3390/ijms252111619"
 title: "New Insights into the Fanconi Anemia Pathogenesis: A Crosstalk Between Inflammation and Oxidative Stress"
 authors:
 - Anna Repczynska

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1368460
+reference_id: "DOI:10.3389/fimmu.2024.1368460"
 title: "Neutrophilic leukocytosis and erythema nodosum leprosum in leprosy: insights from a retrospective observational study"
 authors:
 - Marcella Feitosa da Silva Barboza

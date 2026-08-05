@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE75838
+reference_id: "GEO:GSE75838"
 title: Absence of integrin α3 modulates the integrin landscape of human keratinocytes
 content_type: summary
 full_text_attempted: true

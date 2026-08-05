@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE11911
+reference_id: "GEO:GSE11911"
 title: Gene expression profiling of experimental asthma reveals a possible role of paraoxonase-1 in asthma
 content_type: summary
 full_text_attempted: true

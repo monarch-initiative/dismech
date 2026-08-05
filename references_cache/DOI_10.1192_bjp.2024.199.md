@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1192/bjp.2024.199
+reference_id: "DOI:10.1192/bjp.2024.199"
 title: "Life expectancy and years of life lost for adults with diagnosed ADHD in the UK: matched cohort study"
 authors:
 - "Elizabeth O'Nions"

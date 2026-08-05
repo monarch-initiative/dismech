@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/mmr.2025.13757
+reference_id: "DOI:10.3892/mmr.2025.13757"
 title: Research progress on molecular therapy for glaucoma (Review)
 authors:
 - Weiwei Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/cdr.2023.120
+reference_id: "DOI:10.20517/cdr.2023.120"
 title: The evolving role of immune checkpoint inhibitors in cervical and endometrial cancer
 authors:
 - Bertha Alejandra Martinez-Cannon

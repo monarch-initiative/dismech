@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jcp.20148
+reference_id: "DOI:10.1002/jcp.20148"
 title: P253R fibroblast growth factor receptor‐2 mutation induces RUNX2 transcript variants and calvarial osteoblast differentiation
 authors:
 - Tiziano Baroni

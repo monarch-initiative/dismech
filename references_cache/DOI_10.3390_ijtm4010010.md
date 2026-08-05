@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijtm4010010
+reference_id: "DOI:10.3390/ijtm4010010"
 title: "Advancements Exploring Major Depressive Disorder: Insights on Oxidative Stress, Serotonin Metabolism, BDNF, HPA Axis Dysfunction, and Pharmacotherapy Advances"
 authors:
 - Ana Salomé Correia

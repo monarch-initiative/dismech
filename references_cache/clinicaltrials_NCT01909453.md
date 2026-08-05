@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01909453
+reference_id: "clinicaltrials:NCT01909453"
 title: "A 2-part Phase III Randomized, Open Label, Multicenter Study of LGX818 Plus MEK162 Versus Vemurafenib and LGX818 Monotherapy in Patients With Unresectable or Metastatic BRAF V600 Mutant Melanoma"
 content_type: summary
 full_text_attempted: true

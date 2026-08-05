@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13550-023-01056-4
+reference_id: "DOI:10.1186/s13550-023-01056-4"
 title: "[18F]FDOPA PET/CT is superior to [68Ga]DOTATOC PET/CT in diagnostic imaging of pheochromocytoma"
 authors:
 - Peter Iversen

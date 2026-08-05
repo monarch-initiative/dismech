@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13052-022-01370-y
+reference_id: "DOI:10.1186/s13052-022-01370-y"
 title: "Long term follow-up in two siblings with Sengers syndrome: Case report"
 authors:
 - Chiara Panicucci

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0288263
+reference_id: "DOI:10.1371/journal.pone.0288263"
 title: Seven naturally variant loci serve as genetic modifiers of Lamc2jeb induced non-Herlitz junctional Epidermolysis Bullosa in mice
 authors:
 - Thomas J. Sproule

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1507/endocrj.ej25-0509
+reference_id: "DOI:10.1507/endocrj.ej25-0509"
 title: "Novel frameshift variant in the β subunit of epithelial sodium channels uncovers Liddle syndrome in a young patient with metabolic syndrome: a case report with review of literature"
 authors:
 - Ai Li

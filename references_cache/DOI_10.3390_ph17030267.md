@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph17030267
+reference_id: "DOI:10.3390/ph17030267"
 title: "Hitting the Target! Challenges and Opportunities for TGF-β Inhibition for the Treatment of Cardiac fibrosis"
 authors:
 - Maria Vistnes

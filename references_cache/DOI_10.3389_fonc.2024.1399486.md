@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1399486
+reference_id: "DOI:10.3389/fonc.2024.1399486"
 title: Hotspots and future trends of dermatofibrosarcoma protuberans
 authors:
 - Zhen Meng

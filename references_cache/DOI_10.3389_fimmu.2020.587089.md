@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2020.587089
+reference_id: "DOI:10.3389/fimmu.2020.587089"
 title: Cellular Signaling Pathways in Medium and Large Vessel Vasculitis
 authors:
 - Ryu Watanabe

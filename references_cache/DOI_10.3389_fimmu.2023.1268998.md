@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1268998
+reference_id: "DOI:10.3389/fimmu.2023.1268998"
 title: FioSchisto’s expert perspective on implementing WHO guidelines for schistosomiasis control and transmission elimination in Brazil
 authors:
 - Camilla Almeida Menezes

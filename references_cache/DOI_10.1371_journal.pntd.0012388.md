@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012388
+reference_id: "DOI:10.1371/journal.pntd.0012388"
 title: Multimodal mucosal and systemic immune characterization of a non-human primate trachoma model highlights the critical role of local immunity during acute phase disease
 authors:
 - Elodie Paulet

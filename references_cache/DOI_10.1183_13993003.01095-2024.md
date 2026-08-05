@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/13993003.01095-2024
+reference_id: "DOI:10.1183/13993003.01095-2024"
 title: "Pathology and pathobiology of pulmonary hypertension: current insights and future directions"
 authors:
 - Christophe Guignabert

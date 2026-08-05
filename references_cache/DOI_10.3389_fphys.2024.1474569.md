@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2024.1474569
+reference_id: "DOI:10.3389/fphys.2024.1474569"
 title: Therapeutics for sickle cell disease intravascular hemolysis
 authors:
 - Jianyao Xue

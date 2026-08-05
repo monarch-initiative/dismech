@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2166/wh.2024.107
+reference_id: "DOI:10.2166/wh.2024.107"
 title: "Waterborne <i>Cryptosporidium</i> species and <i>Giardia duodenalis</i> in resources of MENA: A systematic review and meta-analysis"
 authors:
 - Layla Ben Ayed

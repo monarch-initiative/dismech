@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41398-023-02313-9
+reference_id: "DOI:10.1038/s41398-023-02313-9"
 title: Polygenic risk for mental disorders as predictors of posttraumatic stress disorder after mild traumatic brain injury
 authors:
 - Murray B. Stein

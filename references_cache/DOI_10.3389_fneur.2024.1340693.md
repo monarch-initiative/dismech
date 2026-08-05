@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1340693
+reference_id: "DOI:10.3389/fneur.2024.1340693"
 title: "Case report: A novel ACTA1 variant in a patient with nemaline rods and increased glycogen deposition"
 authors:
 - Daniela Piga

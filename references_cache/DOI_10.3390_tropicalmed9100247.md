@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed9100247
+reference_id: "DOI:10.3390/tropicalmed9100247"
 title: "Chronic Rheumatologic Disease in Chikungunya Virus Fever: Results from a Cohort Study Conducted in Piedecuesta, Colombia"
 authors:
 - Anyela Lozano-Parra

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40780-023-00293-y
+reference_id: "DOI:10.1186/s40780-023-00293-y"
 title: "Olanzapine treatment effectively relieves breakthrough chemotherapy-induced nausea and vomiting: a real-world experience"
 authors:
 - Akihiro Uchiike

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13092608
+reference_id: "DOI:10.3390/jcm13092608"
 title: Drusen in AMD from the Perspective of Cholesterol Metabolism and Hypoxic Response
 authors:
 - Norimitsu Ban

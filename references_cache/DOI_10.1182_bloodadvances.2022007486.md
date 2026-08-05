@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/bloodadvances.2022007486
+reference_id: "DOI:10.1182/bloodadvances.2022007486"
 title: "Rational polypharmacological targeting of FLT3, JAK2, ABL, and ERK1 suppresses the adaptive resistance to FLT3 inhibitors in AML"
 authors:
 - Mohammad Azhar

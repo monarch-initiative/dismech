@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012049
+reference_id: "DOI:10.1371/journal.pntd.0012049"
 title: "Serological diagnosis of soil-transmitted helminth (Ascaris, Trichuris and hookworm) infections: A scoping review"
 authors:
 - Sara Roose

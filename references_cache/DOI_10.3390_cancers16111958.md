@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16111958
+reference_id: "DOI:10.3390/cancers16111958"
 title: "Helicobacter pylori Infection in Patients with Gastric Cancer: A 2024 Update"
 authors:
 - Claudia Burz

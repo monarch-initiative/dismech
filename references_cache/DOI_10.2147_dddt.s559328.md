@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/dddt.s559328
+reference_id: "DOI:10.2147/dddt.s559328"
 title: "Fibroblast Growth Factor Receptor (FGFR) Inhibitors for the Treatment of Cholangiocarcinoma: Key Therapeutic Developments and Knowledge Gaps"
 authors:
 - Enes Erul

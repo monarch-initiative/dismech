@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1346476
+reference_id: "DOI:10.3389/fendo.2024.1346476"
 title: Systemic treatments for radioiodine-refractory thyroid cancers
 authors:
 - Piaohong Chen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24043224
+reference_id: "DOI:10.3390/ijms24043224"
 title: "Genetic Heterogeneity of Familial Hypercholesterolemia: Repercussions for Molecular Diagnosis"
 authors:
 - Maria Donata Di Taranto

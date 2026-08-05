@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13075-023-03128-1
+reference_id: "DOI:10.1186/s13075-023-03128-1"
 title: "Efficacy and safety of upadacitinib in patients with ankylosing spondylitis refractory to biologic therapy: 1-year results from the open-label extension of a phase III study"
 authors:
 - Xenofon Baraliakos

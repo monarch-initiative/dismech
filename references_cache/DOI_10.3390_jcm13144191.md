@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13144191
+reference_id: "DOI:10.3390/jcm13144191"
 title: "Antiphospholipid Syndrome: Insights into Molecular Mechanisms and Clinical Manifestations"
 authors:
 - Alessandra Ida Celia

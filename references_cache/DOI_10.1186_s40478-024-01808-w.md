@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-024-01808-w
+reference_id: "DOI:10.1186/s40478-024-01808-w"
 title: "Neuroradiological, genetic and clinical characteristics of histone H3 K27-mutant diffuse midline gliomas in the Kansai Molecular Diagnosis Network for CNS Tumors (Kansai Network): multicenter retrospective cohort"
 authors:
 - Nobuhide Hayashi

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11938-020-00298-8
+reference_id: "DOI:10.1007/s11938-020-00298-8"
 title: "Gastritis: An Update in 2020"
 authors:
 - Massimo Rugge

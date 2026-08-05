@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1305157
+reference_id: "DOI:10.3389/fimmu.2024.1305157"
 title: HCV-induced autophagy and innate immunity
 authors:
 - Jiyoung Lee

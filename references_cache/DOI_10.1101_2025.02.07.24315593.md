@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.02.07.24315593
+reference_id: "DOI:10.1101/2025.02.07.24315593"
 title: "A systematic review of the noma evidence landscape: current knowledge and gaps"
 authors:
 - Brittany J. Maguire

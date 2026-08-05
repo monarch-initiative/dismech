@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.19185/matters.201609000009
+reference_id: "DOI:10.19185/matters.201609000009"
 title: "Carnitine Palmitoyltransfersase-1c and 5-oxoprolinase interact in the mouse brain.&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;"
 authors:
 - Michael Wolfgang

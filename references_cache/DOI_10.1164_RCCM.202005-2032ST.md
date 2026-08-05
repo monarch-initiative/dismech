@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1164/RCCM.202005-2032ST
+reference_id: "DOI:10.1164/RCCM.202005-2032ST"
 title: "Diagnosis of Hypersensitivity Pneumonitis in Adults: An Official ATS/JRS/ALAT Clinical Practice Guideline"
 authors:
 - Ganesh Raghu

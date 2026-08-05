@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43042-024-00517-2
+reference_id: "DOI:10.1186/s43042-024-00517-2"
 title: "Mowat-Wilson syndrome: unraveling the complexities of diagnosis, treatment, and symptom management"
 authors:
 - Yalda Zhoulideh

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1339167
+reference_id: "DOI:10.3389/fneur.2024.1339167"
 title: Epidemiology of myasthenia gravis in the United States
 authors:
 - Yun Ye

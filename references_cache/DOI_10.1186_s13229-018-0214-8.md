@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13229-018-0214-8
+reference_id: "DOI:10.1186/s13229-018-0214-8"
 title: "Abnormal coherence and sleep composition in children with Angelman syndrome: a retrospective EEG study"
 authors:
 - Hanna den Bakker

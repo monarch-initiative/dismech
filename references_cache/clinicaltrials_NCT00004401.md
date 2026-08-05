@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00004401
+reference_id: "clinicaltrials:NCT00004401"
 title: Study of Human Botulism Immunoglobulin in Infants With Botulism
 content_type: summary
 full_text_attempted: true

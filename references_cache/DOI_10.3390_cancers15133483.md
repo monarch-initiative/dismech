@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15133483
+reference_id: "DOI:10.3390/cancers15133483"
 title: "Diagnosis, Management and Theragnostic Approach of Gastro-Entero-Pancreatic Neuroendocrine Neoplasms"
 authors:
 - Leandra Piscopo

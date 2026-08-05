@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s11658-025-00749-z
+reference_id: "DOI:10.1186/s11658-025-00749-z"
 title: "Immune cell aberrations in Systemic Lupus Erythematosus: navigating the targeted therapies toward precision management"
 authors:
 - YuXian Wu

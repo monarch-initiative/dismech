@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.22.01935
+reference_id: "DOI:10.1200/jco.22.01935"
 title: Ruxolitinib Versus Best Available Therapy for Polycythemia Vera Intolerant or Resistant to Hydroxycarbamide in a Randomized Trial
 authors:
 - Claire N. Harrison

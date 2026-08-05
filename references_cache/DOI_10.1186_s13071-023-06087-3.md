@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-023-06087-3
+reference_id: "DOI:10.1186/s13071-023-06087-3"
 title: "Onchocerca volvulus microfilariae in the anterior chambers of the eye and ocular adverse events after a single dose of 8 mg moxidectin or 150 µg/kg ivermectin: results of a randomized double-blind Phase 3 trial in the Democratic Republic of the Congo, Ghana and Liberia"
 authors:
 - Eric M. Kanza

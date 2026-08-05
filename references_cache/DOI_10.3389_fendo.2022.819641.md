@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2022.819641
+reference_id: "DOI:10.3389/fendo.2022.819641"
 title: "Natural History of Type II Autosomal Dominant Osteopetrosis: A Single Center Retrospective Study"
 authors:
 - Ziyuan Wang

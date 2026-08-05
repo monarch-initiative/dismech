@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43088-024-00569-8
+reference_id: "DOI:10.1186/s43088-024-00569-8"
 title: "Exploring the impact of brucellosis on maternal and child health: transmission mechanisms, patient effects, and current trends in drug use and resistance: a scoping review"
 authors:
 - Tran Xuan Ngoc Huy

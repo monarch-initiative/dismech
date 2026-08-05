@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2023.1189470
+reference_id: "DOI:10.3389/fnins.2023.1189470"
 title: Current insights in the molecular genetic pathogenesis of amyotrophic lateral sclerosis
 authors:
 - Wan Zhou

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/cddis.2016.475
+reference_id: "DOI:10.1038/cddis.2016.475"
 title: Autophagy dysregulation in Danon disease
 authors:
 - Anna Chiara Nascimbeni

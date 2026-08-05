@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/1346-8138.17923
+reference_id: "DOI:10.1111/1346-8138.17923"
 title: "Biologics and Small‐Molecule Therapies in Netherton Syndrome: A Comprehensive Review"
 authors:
 - Shin Morizane

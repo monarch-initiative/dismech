@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/13993003.00826-2023
+reference_id: "DOI:10.1183/13993003.00826-2023"
 title: "Advances in non-type 2 severe asthma: from molecular insights to novel treatment strategies"
 authors:
 - Tao Liu

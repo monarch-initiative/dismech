@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fncel.2024.1345349
+reference_id: "DOI:10.3389/fncel.2024.1345349"
 title: Microglia-neuron interactions in schizophrenia
 authors:
 - Sophia-Marie Hartmann

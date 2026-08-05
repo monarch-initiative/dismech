@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252111787
+reference_id: "DOI:10.3390/ijms252111787"
 title: "Neuroinflammatory Proteins in Huntington’s Disease: Insights into Mechanisms, Diagnosis, and Therapeutic Implications"
 authors:
 - Xinhui Li

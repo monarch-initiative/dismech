@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/curroncol32060339
+reference_id: "DOI:10.3390/curroncol32060339"
 title: "Myelofibrosis: Treatment Options After Ruxolitinib Failure"
 authors:
 - Ruth Stuckey

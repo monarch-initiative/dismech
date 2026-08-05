@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2020.00406
+reference_id: "DOI:10.3389/fonc.2020.00406"
 title: Downregulation of miR-22 Contributes to Epithelial-Mesenchymal Transition in Osteosarcoma by Targeting Twist1
 authors:
 - Shu-tao Zhu

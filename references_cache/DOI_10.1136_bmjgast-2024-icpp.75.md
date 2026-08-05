@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bmjgast-2024-icpp.75
+reference_id: "DOI:10.1136/bmjgast-2024-icpp.75"
 title: 04163 Functional characterization of new pathogenic and lead-poisoning predisposing variants in ALA Dehydratase Porphyria (ADP)
 authors:
 - Francisco Javier Castelbón

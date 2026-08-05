@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17879/freeneuropathology-2024-5269
+reference_id: "DOI:10.17879/freeneuropathology-2024-5269"
 title: "Mesial temporal lobe epilepsy and hippocampal sclerosis associated with BRAFV600E mutant neurons in the Cornu Ammonis: an uncertain pathogenesis and a diagnostic challenge"
 authors:
 - "Alsalek, Samir"

@@ -1,5 +1,5 @@
 ---
-reference_id: MGNIFY:MGYS00000596
+reference_id: "MGNIFY:MGYS00000596"
 title: American Gut Project
 content_type: abstract_only
 full_text_attempted: true

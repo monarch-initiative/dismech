@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1172-7-31
+reference_id: "DOI:10.1186/1750-1172-7-31"
 title: "3-methylcrotonyl-CoA carboxylase deficiency: Clinical, biochemical, enzymatic and molecular studies in 88 individuals"
 authors:
 - Sarah C Grünert

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms262311665
+reference_id: "DOI:10.3390/ijms262311665"
 title: "Therapeutic Advances in Metastatic Prostate Cancer: A Journey from Standard of Care to New Emerging Treatment"
 authors:
 - Rossella Cicchetti

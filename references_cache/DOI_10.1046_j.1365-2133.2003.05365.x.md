@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1046/j.1365-2133.2003.05365.x
+reference_id: "DOI:10.1046/j.1365-2133.2003.05365.x"
 title: "Morphological and biochemical studies of human beta-mannosidosis: identification of a novel beta-mannosidase gene mutation"
 authors:
 - Y. Uchino

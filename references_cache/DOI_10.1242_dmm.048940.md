@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1242/dmm.048940
+reference_id: "DOI:10.1242/dmm.048940"
 title: "Autosomal recessive osteopetrosis: mechanisms and treatments"
 authors:
 - Sara Penna

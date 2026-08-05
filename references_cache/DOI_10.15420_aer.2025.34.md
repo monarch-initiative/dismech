@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15420/aer.2025.34
+reference_id: "DOI:10.15420/aer.2025.34"
 title: "Idiopathic Ventricular Fibrillation: Substrates, Mechanisms and Treatment"
 authors:
 - Marine Arnaud

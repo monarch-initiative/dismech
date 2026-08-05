@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1027598
+reference_id: "DOI:10.3389/fendo.2023.1027598"
 title: Clinical and genetic analysis of atypical parathyroid adenoma compared with parathyroid carcinoma and benign lesions in a Chinese cohort
 authors:
 - Yingyu Chen

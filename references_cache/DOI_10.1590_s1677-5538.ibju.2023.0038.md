@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1590/s1677-5538.ibju.2023.0038
+reference_id: "DOI:10.1590/s1677-5538.ibju.2023.0038"
 title: "The Pheochromocytoma/Paraganglioma syndrome: an overview on mechanisms, diagnosis and management"
 authors:
 - José Viana Lima Junior

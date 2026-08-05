@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.21.02508
+reference_id: "DOI:10.1200/jco.21.02508"
 title: "Pembrolizumab With or Without Chemotherapy in Recurrent or Metastatic Head and Neck Squamous Cell Carcinoma: Updated Results of the Phase III KEYNOTE-048 Study"
 authors:
 - Kevin J. Harrington

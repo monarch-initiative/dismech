@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26010308
+reference_id: "DOI:10.3390/ijms26010308"
 title: "EML4-ALK: Update on ALK Inhibitors"
 authors:
 - Alessandra Bearz

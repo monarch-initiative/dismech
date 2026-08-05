@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/msphere.00560-24
+reference_id: "DOI:10.1128/msphere.00560-24"
 title: "Diversity of <i>Campylobacter</i> spp. circulating in a rhesus macaque ( <i>Macaca mulatta</i> ) breeding colony using culture and molecular methods"
 authors:
 - Rebecca L. Bacon

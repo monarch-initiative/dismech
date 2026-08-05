@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/audiolres14010019
+reference_id: "DOI:10.3390/audiolres14010019"
 title: "Association of Head Injury, Neck Injury or Acoustic Trauma on Phenotype of Ménière’s Disease"
 authors:
 - Ilmari Pyykkö

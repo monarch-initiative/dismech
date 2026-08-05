@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16081571
+reference_id: "DOI:10.3390/cancers16081571"
 title: "Current State of Melanoma Therapy and Next Steps: Battling Therapeutic Resistance"
 authors:
 - Anna Fateeva

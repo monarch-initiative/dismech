@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/j.1708-8305.2007.00148.x
+reference_id: "DOI:10.1111/j.1708-8305.2007.00148.x"
 title: Hookworm‐Related Cutaneous Larva Migrans
 authors:
 - Patrick Hochedez

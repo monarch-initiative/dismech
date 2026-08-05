@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1169947
+reference_id: "DOI:10.3389/fimmu.2023.1169947"
 title: "Mouse models of pemphigus: valuable tools to investigate pathomechanisms and novel therapeutic interventions"
 authors:
 - Shirin Emtenani

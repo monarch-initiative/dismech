@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.47129
+reference_id: "DOI:10.7759/cureus.47129"
 title: "Alport Syndrome: A Comprehensive Review"
 authors:
 - Avanti Adone

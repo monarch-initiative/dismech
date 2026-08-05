@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.53022/oarjbp.2024.10.2.0013
+reference_id: "DOI:10.53022/oarjbp.2024.10.2.0013"
 title: "Triple Negative Breast Cancer (TNBC): Signalling pathways-Role of plant-based inhibitors"
 authors:
 - Ravindra B. Malabadi

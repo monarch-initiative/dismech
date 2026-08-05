@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1361641
+reference_id: "DOI:10.3389/fphar.2024.1361641"
 title: "Leprosy: Comprehensive insights into pathology, immunology, and cutting-edge treatment strategies, integrating nanoparticles and ethnomedicinal plants"
 authors:
 - Neetika Kimta

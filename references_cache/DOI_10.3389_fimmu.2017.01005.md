@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2017.01005
+reference_id: "DOI:10.3389/fimmu.2017.01005"
 title: "Role of Neuroinflammation in Amyotrophic Lateral Sclerosis: Cellular Mechanisms and Therapeutic Implications"
 authors:
 - Jia Liu

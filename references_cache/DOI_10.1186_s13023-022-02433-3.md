@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02433-3
+reference_id: "DOI:10.1186/s13023-022-02433-3"
 title: "A global, cross-sectional survey of patient-reported outcomes, disease burden, and quality of life in epidermolysis bullosa simplex"
 authors:
 - Jodi Y. So

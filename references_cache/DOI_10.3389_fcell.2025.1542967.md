@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2025.1542967
+reference_id: "DOI:10.3389/fcell.2025.1542967"
 title: "Notch signaling in cancers: mechanism and potential therapy"
 authors:
 - Chen Chen

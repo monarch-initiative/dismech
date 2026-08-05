@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/psychiatryint5020015
+reference_id: "DOI:10.3390/psychiatryint5020015"
 title: "Modifications to Enhance Outcomes of Family-Based Treatment for Anorexia Nervosa: A Scoping Review"
 authors:
 - Signe Holm Pedersen

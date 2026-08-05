@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed7110366
+reference_id: "DOI:10.3390/tropicalmed7110366"
 title: "Guinea Worm Disease: A Neglected Diseases on the Verge of Eradication"
 authors:
 - Carmen Pellegrino

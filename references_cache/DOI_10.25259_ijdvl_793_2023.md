@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25259/ijdvl_793_2023
+reference_id: "DOI:10.25259/ijdvl_793_2023"
 title: "Differential expression of serum CXCL9 and CXCL10 levels in vitiligo patients and their correlation with disease severity and stability: A cross-sectional study"
 authors:
 - Shayna Aulakh

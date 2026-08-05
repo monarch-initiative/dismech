@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-24-1834
+reference_id: "DOI:10.1158/1078-0432.ccr-24-1834"
 title: "Understanding and Overcoming Resistance to Selective FGFR Inhibitors across <i>FGFR2</i> -Driven Malignancies"
 authors:
 - Francesco Facchinetti

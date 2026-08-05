@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03019-x
+reference_id: "DOI:10.1186/s13023-024-03019-x"
 title: A position statement on the post gene-therapy rehabilitation of aromatic I-amino acid decarboxylase deficiency patients
 authors:
 - Hui-Min Lee

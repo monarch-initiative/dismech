@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5853/jos.2025.00626
+reference_id: "DOI:10.5853/jos.2025.00626"
 title: "Carotid Web: An Update Focusing on Its Relationship With Fibromuscular Dysplasia and Therapeutic Strategy"
 authors:
 - Marialuisa Zedde

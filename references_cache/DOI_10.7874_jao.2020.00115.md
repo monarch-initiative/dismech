@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7874/jao.2020.00115
+reference_id: "DOI:10.7874/jao.2020.00115"
 title: "Experimental Animal Models for Meniere’s Disease: A Mini-Review"
 authors:
 - Young Joon Seo

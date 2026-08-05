@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1272084
+reference_id: "DOI:10.3389/fimmu.2024.1272084"
 title: IgG4 autoantibodies and autoantigens in the context of IgG4-autoimmune disease and IgG4-related disease
 authors:
 - Rodrigo V. Motta

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14020465
+reference_id: "DOI:10.3390/genes14020465"
 title: "Genotype–Phenotype Correlations in 2q37-Deletion Syndrome: An Update of the Clinical Spectrum and Literature Review"
 authors:
 - Eva-Cristiana Gavril

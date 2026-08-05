@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/elife.89763.3
+reference_id: "DOI:10.7554/elife.89763.3"
 title: "Pleiotropic effects of trisomy and pharmacologic modulation on structural, functional, molecular, and genetic systems in a Down syndrome mouse model"
 authors:
 - Sergi Llambrich

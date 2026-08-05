@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/evidoa2200335
+reference_id: "DOI:10.1056/evidoa2200335"
 title: Ropeginterferon versus Standard Therapy for Low-Risk Patients with Polycythemia Vera
 authors:
 - Tiziano Barbui

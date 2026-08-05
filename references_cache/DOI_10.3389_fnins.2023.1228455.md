@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2023.1228455
+reference_id: "DOI:10.3389/fnins.2023.1228455"
 title: Non-canonical pathways in the pathophysiology and therapeutics of bipolar disorder
 authors:
 - Rodrigo Machado-Vieira

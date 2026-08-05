@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fbioe.2025.1740135
+reference_id: "DOI:10.3389/fbioe.2025.1740135"
 title: "Innovations in collagen-network remodeling and extracellular matrix mechanics: toward a new era in articular cartilage repair"
 authors:
 - Kai Huang

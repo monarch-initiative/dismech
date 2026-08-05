@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-12426-z
+reference_id: "DOI:10.1186/s12885-024-12426-z"
 title: "Patterns and trends in melanoma mortality in the United States, 1999–2020"
 authors:
 - Alexander J. Didier

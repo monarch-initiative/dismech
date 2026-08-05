@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgph.0002249
+reference_id: "DOI:10.1371/journal.pgph.0002249"
 title: "The WHO atlas for female-genital schistosomiasis: Co-design of a practicable diagnostic guide, digital support and training"
 authors:
 - Santiago Gil Martinez

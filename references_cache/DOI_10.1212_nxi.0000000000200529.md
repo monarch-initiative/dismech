@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000200529
+reference_id: "DOI:10.1212/nxi.0000000000200529"
 title: Astrocyte Biology in CNS Inflammatory Diseases
 authors:
 - Jessica Ye

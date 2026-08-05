@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1172913
+reference_id: "DOI:10.3389/fimmu.2023.1172913"
 title: Insights into anti-tumor immunity via the polyomavirus shared across human Merkel cell carcinomas
 authors:
 - Saumya Jani

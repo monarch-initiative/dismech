@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1679537
+reference_id: "DOI:10.3389/fimmu.2025.1679537"
 title: "Targeting tumor-associated macrophages in non-small cell lung cancer: mechanisms, prognosis, and therapeutic opportunities"
 authors:
 - Dameng Hao

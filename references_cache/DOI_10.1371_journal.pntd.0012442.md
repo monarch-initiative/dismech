@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012442
+reference_id: "DOI:10.1371/journal.pntd.0012442"
 title: "Diagnosis of brucellosis: Combining tests to improve performance"
 authors:
 - Paul Loubet

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1355962
+reference_id: "DOI:10.3389/fgene.2024.1355962"
 title: "Brain function in classic galactosemia, a galactosemia network (GalNet) members review"
 authors:
 - Bianca Panis

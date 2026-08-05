@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40348-024-00188-4
+reference_id: "DOI:10.1186/s40348-024-00188-4"
 title: "Diagnostic delay in cerebral creatine deficiency disorders: lessons learned from a cross-sectional single center study, and guanidinoacetate and creatine measurements in Switzerland between 2015 and 2023"
 authors:
 - Christina Kaufman

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3341/kjo.2023.0008
+reference_id: "DOI:10.3341/kjo.2023.0008"
 title: "Voretigene Neparvovec for the Treatment of RPE65-associated Retinal Dystrophy: Consensus and Recommendations from the Korea RPE65-IRD Consensus Paper Committee"
 authors:
 - Jinu Han

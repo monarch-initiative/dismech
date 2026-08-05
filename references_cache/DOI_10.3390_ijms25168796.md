@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25168796
+reference_id: "DOI:10.3390/ijms25168796"
 title: "Phenotypes Associated with NOTCH3 Cysteine-Sparing Mutations in Patients with Clinical Suspicion of CADASIL: A Systematic Review"
 authors:
 - Yuan Cao

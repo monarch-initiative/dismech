@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1270796
+reference_id: "DOI:10.3389/fendo.2023.1270796"
 title: "How do BRAFV600E and TERT promoter mutations interact with the ATA and TNM staging systems in thyroid cancer?"
 authors:
 - Noha Mukhtar

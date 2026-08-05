@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0043-1770384
+reference_id: "DOI:10.1055/s-0043-1770384"
 title: Chemoprevention in Inherited Colorectal Cancer Syndromes
 authors:
 - Ophir Gilad

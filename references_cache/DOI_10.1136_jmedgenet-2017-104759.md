@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmedgenet-2017-104759
+reference_id: "DOI:10.1136/jmedgenet-2017-104759"
 title: "Missense variants in the chromatin remodeler <i>CHD1</i> are associated with neurodevelopmental disability"
 authors:
 - Genay O Pilarowski

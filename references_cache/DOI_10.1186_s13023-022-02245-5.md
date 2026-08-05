@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02245-5
+reference_id: "DOI:10.1186/s13023-022-02245-5"
 title: "Wilson disease in Northern Portugal: a long-term follow-up study"
 authors:
 - Isabel Garrido

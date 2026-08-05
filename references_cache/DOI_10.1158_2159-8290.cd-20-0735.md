@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/2159-8290.cd-20-0735
+reference_id: "DOI:10.1158/2159-8290.cd-20-0735"
 title: SWI/SNF Complex Mutations Promote Thyroid Tumor Progression and Insensitivity to Redifferentiation Therapies
 authors:
 - Mahesh Saqcena

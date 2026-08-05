@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40035-024-00429-6
+reference_id: "DOI:10.1186/s40035-024-00429-6"
 title: "Tau in neurodegenerative diseases: molecular mechanisms, biomarkers, and therapeutic strategies"
 authors:
 - Xingyu Zhang

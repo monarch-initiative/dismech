@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1100869
+reference_id: "DOI:10.3389/fimmu.2023.1100869"
 title: Chemokines and chemokine receptors as promising targets in rheumatoid arthritis
 authors:
 - Masanori A. Murayama

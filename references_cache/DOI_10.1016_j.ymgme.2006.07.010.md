@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ymgme.2006.07.010
+reference_id: "DOI:10.1016/j.ymgme.2006.07.010"
 title: "Inborn errors of isoleucine degradation: A review"
 authors:
 - Stanley H. Korman

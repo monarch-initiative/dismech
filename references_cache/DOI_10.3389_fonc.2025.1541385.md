@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1541385
+reference_id: "DOI:10.3389/fonc.2025.1541385"
 title: Systemic therapy for laryngeal carcinoma
 authors:
 - Thorsten Fuereder

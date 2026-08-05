@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10194-024-01827-x
+reference_id: "DOI:10.1186/s10194-024-01827-x"
 title: Unraveling the interplay of neuroinflammatory signaling between parenchymal and meningeal cells in migraine headache
 authors:
 - Turgay Dalkara

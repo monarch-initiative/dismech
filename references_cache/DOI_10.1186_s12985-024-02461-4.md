@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12985-024-02461-4
+reference_id: "DOI:10.1186/s12985-024-02461-4"
 title: Correlations of PSGL-1 VNTR polymorphism with the susceptibility to severe HFMD associated with EV-71 and the immune status after infection
 authors:
 - Xia Wang

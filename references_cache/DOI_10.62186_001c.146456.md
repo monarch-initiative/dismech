@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.62186/001c.146456
+reference_id: "DOI:10.62186/001c.146456"
 title: "Stroke, Aortic Regurgitation and Aortic Aneurysm in Younger Female: Case of Giant Cell Aortitis and Discussion"
 authors:
 - Elizabeth Chan

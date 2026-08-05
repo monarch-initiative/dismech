@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40560-021-00554-8
+reference_id: "DOI:10.1186/s40560-021-00554-8"
 title: "A novel risk score for the prediction of airway management in patients with deep neck space abscess: a multicenter retrospective cohort study"
 authors:
 - Yu Lin

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2022.964675
+reference_id: "DOI:10.3389/fcvm.2022.964675"
 title: Mechanisms underlying the role of ankyrin-B in cardiac and neurological health and disease
 authors:
 - Nicole S. York

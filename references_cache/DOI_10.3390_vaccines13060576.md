@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/vaccines13060576
+reference_id: "DOI:10.3390/vaccines13060576"
 title: Comprehensive Assessment of Reactogenicity and Safety of the Live-Attenuated Chikungunya Vaccine (IXCHIQ®)
 authors:
 - Gabriele Maurer

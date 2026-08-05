@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/2159-8290.cd-14-0729
+reference_id: "DOI:10.1158/2159-8290.cd-14-0729"
 title: Mutation-Specific RAS Oncogenicity Explains NRAS Codon 61 Selection in Melanoma
 authors:
 - Christin E. Burd

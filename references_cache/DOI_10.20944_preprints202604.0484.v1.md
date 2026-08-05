@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20944/preprints202604.0484.v1
+reference_id: "DOI:10.20944/preprints202604.0484.v1"
 title: "Are the Guidelines for Dietary and Workplace Exposure to Cadmium Adequate?"
 authors:
 - Soisungwan Satarug

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/tlcr-24-93
+reference_id: "DOI:10.21037/tlcr-24-93"
 title: "Diagnosis and treatment of non-small cell lung cancer (NSCLC) harboring MET Ex14 skipping: have we met the desired drug?"
 authors:
 - Go Makimoto

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-02849-5
+reference_id: "DOI:10.1186/s13023-023-02849-5"
 title: "Pathogenic mechanisms of osteogenesis imperfecta, evidence for classification"
 authors:
 - Hongjie Yu

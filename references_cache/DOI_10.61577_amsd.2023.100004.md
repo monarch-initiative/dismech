@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.61577/amsd.2023.100004
+reference_id: "DOI:10.61577/amsd.2023.100004"
 title: Molecular genetics and pathogenesis of ichthyosis
 authors:
 - Suman Panda

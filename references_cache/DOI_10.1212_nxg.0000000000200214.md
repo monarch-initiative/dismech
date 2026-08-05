@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxg.0000000000200214
+reference_id: "DOI:10.1212/nxg.0000000000200214"
 title: "Nemaline Myopathy Type 6 Caused by Variants in the <i>KBTBD13</i> Gene"
 authors:
 - Esmee S.B. van Kleef

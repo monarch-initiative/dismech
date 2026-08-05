@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1374447
+reference_id: "DOI:10.3389/fimmu.2024.1374447"
 title: IP-10 acts early in CV-A16 infection to induce BBB destruction and promote virus entry into the CNS by increasing TNF-α expression
 authors:
 - Yajie Hu

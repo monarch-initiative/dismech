@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/9781119697312.ch21
+reference_id: "DOI:10.1002/9781119697312.ch21"
 title: Lysosomal Membrane Defects
 authors:
 - Michael Schwake

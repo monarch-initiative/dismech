@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph17111507
+reference_id: "DOI:10.3390/ph17111507"
 title: "The Therapeutic Management of Chemical and Herbal Medications on Uric Acid Levels and Gout: Modern and Traditional Wisdom"
 authors:
 - Zhijian Lin

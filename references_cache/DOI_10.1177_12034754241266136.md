@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/12034754241266136
+reference_id: "DOI:10.1177/12034754241266136"
 title: "Biomarkers in Pemphigus Vulgaris: A Systematic Review"
 authors:
 - Ryan S. Q. Geng

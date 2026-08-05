@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2021.717535
+reference_id: "DOI:10.3389/fgene.2021.717535"
 title: Congenital Disorders of Deficiency in Glycosaminoglycan Biosynthesis
 authors:
 - Shuji Mizumoto

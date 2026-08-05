@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04442503
+reference_id: "clinicaltrials:NCT04442503"
 title: "A Randomized, Double-Blind, Placebo-controlled Study Evaluating the Efficacy and Safety of SAGE-217 in the Treatment of Adults With Severe Postpartum Depression"
 content_type: summary
 full_text_attempted: true

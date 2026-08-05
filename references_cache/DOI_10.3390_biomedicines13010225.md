@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines13010225
+reference_id: "DOI:10.3390/biomedicines13010225"
 title: Advances in Immunotherapy and Targeted Therapy of Malignant Melanoma
 authors:
 - Xue Wang

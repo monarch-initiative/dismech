@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2024.1425030
+reference_id: "DOI:10.3389/fped.2024.1425030"
 title: Identification of a novel FERMT1 variant causing kindler syndrome and a review of the clinical and molecular genetic features in Chinese patients
 authors:
 - Qiang Zhang

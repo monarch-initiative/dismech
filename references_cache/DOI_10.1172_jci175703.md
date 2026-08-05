@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci175703
+reference_id: "DOI:10.1172/jci175703"
 title: Von Hippel Lindau tumor suppressor controls m6A-dependent gene expression in renal tumorigenesis
 authors:
 - Cheng Zhang

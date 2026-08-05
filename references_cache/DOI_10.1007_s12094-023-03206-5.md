@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12094-023-03206-5
+reference_id: "DOI:10.1007/s12094-023-03206-5"
 title: SEOM-GOTEL clinical guidelines on diffuse large B cell lymphoma (2022)
 authors:
 - Josep Gumà

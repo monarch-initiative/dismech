@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-07395-7
+reference_id: "DOI:10.1038/s41598-025-07395-7"
 title: Single-cell RNA-seq analysis of mouse carotid artery under disturbed flow and human carotid plaques identifies key cell populations in atherosclerosis development
 authors:
 - Xuyang Liu

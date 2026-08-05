@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16071336
+reference_id: "DOI:10.3390/cancers16071336"
 title: "HER2-Positive Gastric Cancer and Antibody Treatment: State of the Art and Future Developments"
 authors:
 - Magdalena K. Scheck

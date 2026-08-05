@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12165250
+reference_id: "DOI:10.3390/jcm12165250"
 title: Transoral Flexible Laser Surgery of the Larynx with Blue Laser
 authors:
 - Ramón González-Herranz

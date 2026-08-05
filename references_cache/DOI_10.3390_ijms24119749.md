@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24119749
+reference_id: "DOI:10.3390/ijms24119749"
 title: Etiopathogenesis and Emerging Methods for Treatment of Vitiligo
 authors:
 - Tomasz Iwanowski

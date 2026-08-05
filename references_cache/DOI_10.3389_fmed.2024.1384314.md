@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2024.1384314
+reference_id: "DOI:10.3389/fmed.2024.1384314"
 title: "Global, regional, and national burden and trends analysis of gallbladder and biliary tract cancer from 1990 to 2019 and predictions to 2030: a systematic analysis for the Global Burden of Disease Study 2019"
 authors:
 - Jiao Su

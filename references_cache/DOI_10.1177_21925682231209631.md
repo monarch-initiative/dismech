@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/21925682231209631
+reference_id: "DOI:10.1177/21925682231209631"
 title: A Systematic Review and Meta-Analysis of Vertebral Artery Injury After Cervical Spine Trauma
 authors:
 - Kartik Goyal

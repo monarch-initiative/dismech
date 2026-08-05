@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13019-026-03913-4
+reference_id: "DOI:10.1186/s13019-026-03913-4"
 title: "Experience with patients presenting with the clinical features of Holt-Oram syndrome: a single center retrospective study"
 authors:
 - Xuechen Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13070561
+reference_id: "DOI:10.3390/pathogens13070561"
 title: "Host Innate Antiviral Response to Influenza A Virus Infection: From Viral Sensing to Antagonism and Escape"
 authors:
 - Wenlong An

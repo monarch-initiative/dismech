@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.181877
+reference_id: "DOI:10.1172/jci.insight.181877"
 title: Mechanisms underlying age-associated exacerbation of pulmonary veno-occlusive disease
 authors:
 - Amit Prabhakar

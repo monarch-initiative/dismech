@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/a-1545-4279
+reference_id: "DOI:10.1055/a-1545-4279"
 title: 2020 WHO Classification of Female Genital Tumors
 authors:
 - Anne Kathrin Höhn

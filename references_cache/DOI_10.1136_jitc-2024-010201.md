@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jitc-2024-010201
+reference_id: "DOI:10.1136/jitc-2024-010201"
 title: "Immune microenvironment of Epstein-Barr virus (EBV)-negative compared to EBV-associated gastric cancers: implications for immunotherapy"
 authors:
 - Tracee L McMiller

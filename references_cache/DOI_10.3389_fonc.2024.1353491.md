@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1353491
+reference_id: "DOI:10.3389/fonc.2024.1353491"
 title: "Efficacy of chemo-immunotherapy in metastatic BRAF-mutated lung cancer: a single-center retrospective data"
 authors:
 - Ningning Yan

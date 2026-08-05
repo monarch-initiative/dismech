@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13073-024-01347-y
+reference_id: "DOI:10.1186/s13073-024-01347-y"
 title: Knockout mice with pituitary malformations help identify human cases of hypopituitarism
 authors:
 - Julian Martinez-Mayer

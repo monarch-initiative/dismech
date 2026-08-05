@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012904
+reference_id: "DOI:10.1371/journal.pntd.0012904"
 title: "Chikungunya virus in Europe: A retrospective epidemiology study from 2007 to 2023"
 authors:
 - Qian Liu

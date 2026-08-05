@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.101180
+reference_id: "DOI:10.7759/cureus.101180"
 title: "Gastrointestinal Stromal Tumors: Histopathological Spectrum, Molecular Subtypes, and Implications for Targeted Therapy"
 authors:
 - Hussein Qasim

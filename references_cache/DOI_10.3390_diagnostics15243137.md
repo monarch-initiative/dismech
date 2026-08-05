@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diagnostics15243137
+reference_id: "DOI:10.3390/diagnostics15243137"
 title: "Fibrotic Patterns and Diagnostic Correlates in Hypersensitivity Pneumonitis: Clinical, Radiologic, and Hematologic Insights"
 authors:
 - Esma Sevil Akkurt

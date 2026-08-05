@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1471-2490-14-104
+reference_id: "DOI:10.1186/1471-2490-14-104"
 title: "46,XX testicular disorder of sexual development with SRY-negative caused by some unidentified mechanisms: a case report and review of the literature"
 authors:
 - Tian-Fu Li

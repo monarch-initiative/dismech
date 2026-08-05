@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-023-01697-3
+reference_id: "DOI:10.1186/s12920-023-01697-3"
 title: "Prenatal whole-exome sequencing for fetal structural anomalies: a retrospective analysis of 145 Chinese cases"
 authors:
 - Yayun Qin

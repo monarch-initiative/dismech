@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2022-108753
+reference_id: "DOI:10.1136/jmg-2022-108753"
 title: "Conclusion of diagnostic odysseys due to inversions disrupting <i>GLI3</i> and <i>FBN1</i>"
 authors:
 - Alistair T Pagnamenta

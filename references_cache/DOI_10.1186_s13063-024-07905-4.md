@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13063-024-07905-4
+reference_id: "DOI:10.1186/s13063-024-07905-4"
 title: "The Meteoritics Trial: efficacy of methotrexate after remission-induction with tocilizumab and glucocorticoids in giant cell arteritis—study protocol for a randomized, double-blind, placebo-controlled, parallel-group phase II study"
 authors:
 - Lena Kreis

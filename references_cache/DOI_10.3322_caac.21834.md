@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3322/caac.21834
+reference_id: "DOI:10.3322/caac.21834"
 title: "Global cancer statistics 2022: GLOBOCAN estimates of incidence and mortality worldwide for 36 cancers in 185 countries"
 authors:
 - Freddie Bray

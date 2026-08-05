@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02960893
+reference_id: "clinicaltrials:NCT02960893"
 title: "A Phase IIb/III, Randomized, Double-blind, Placebo-controlled Trial of Troriluzole in Adult Participants With Spinocerebellar Ataxia"
 content_type: summary
 full_text_attempted: true

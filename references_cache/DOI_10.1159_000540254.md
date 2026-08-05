@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000540254
+reference_id: "DOI:10.1159/000540254"
 title: "Adult Moyamoya disease and moyamoya syndrome: what’s new?"
 authors:
 - Shinichiro Uchiyama

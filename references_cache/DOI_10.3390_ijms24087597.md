@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24087597
+reference_id: "DOI:10.3390/ijms24087597"
 title: "Colorectal Cancer Chemoprevention: A Dream Coming True?"
 authors:
 - Martina Lepore Signorile

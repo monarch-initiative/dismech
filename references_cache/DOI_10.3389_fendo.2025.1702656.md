@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2025.1702656
+reference_id: "DOI:10.3389/fendo.2025.1702656"
 title: "Biochemical evaluation of X-linked hypophosphatemia and tumor-induced osteomalacia: insights into diagnosis and management"
 authors:
 - Jorge Díaz-Garzón Marco

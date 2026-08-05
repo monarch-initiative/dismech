@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12895-019-0092-6
+reference_id: "DOI:10.1186/s12895-019-0092-6"
 title: "Ainhum, a rare mutilating dermatological disease in a female Cameroonian: a case report"
 authors:
 - Diego Nitcheu Tchouakam

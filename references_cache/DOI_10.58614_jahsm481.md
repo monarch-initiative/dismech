@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.58614/jahsm481
+reference_id: "DOI:10.58614/jahsm481"
 title: "Impact And Acceptability of Seasonal Malaria Chemoprevention (SMC) And Pharmacovigilance Campaign Among Under-Five Children In Nigeria: An Explanatory Study"
 authors:
 - Abuhuraira Ado Musa

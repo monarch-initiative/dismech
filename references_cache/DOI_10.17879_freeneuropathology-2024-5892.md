@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17879/freeneuropathology-2024-5892
+reference_id: "DOI:10.17879/freeneuropathology-2024-5892"
 title: Adult glioblastoma with Lynch syndrome-associated mismatch repair deficiency forms a distinct high-risk molecular subgroup
 authors:
 - "Georgescu, Maria-Magdalena"

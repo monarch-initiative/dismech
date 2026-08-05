@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2196/59604
+reference_id: "DOI:10.2196/59604"
 title: "Molecular Evolutionary Dynamics of Coxsackievirus A6 Causing Hand, Foot, and Mouth Disease From 2021 to 2023 in China: Genomic Epidemiology Study"
 authors:
 - Yu Chen

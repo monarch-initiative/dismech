@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1463318
+reference_id: "DOI:10.3389/fgene.2024.1463318"
 title: "Marfan syndrome: insights from animal models"
 authors:
 - Yuanyuan Jiang

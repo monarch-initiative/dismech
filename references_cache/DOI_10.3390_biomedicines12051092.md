@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12051092
+reference_id: "DOI:10.3390/biomedicines12051092"
 title: Polymerase I as a Target for Treating Neurodegenerative Disorders
 authors:
 - Mark S. LeDoux

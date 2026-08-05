@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12964-024-01488-y
+reference_id: "DOI:10.1186/s12964-024-01488-y"
 title: Egr-1 is a key regulator of the blood-brain barrier damage induced by meningitic Escherichia coli
 authors:
 - Ruicheng Yang

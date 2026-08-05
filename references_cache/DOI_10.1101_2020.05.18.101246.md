@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2020.05.18.101246
+reference_id: "DOI:10.1101/2020.05.18.101246"
 title: The minor and major spliceosome interact to regulate alternative splicing around minor introns
 authors:
 - Anouk M. Olthof

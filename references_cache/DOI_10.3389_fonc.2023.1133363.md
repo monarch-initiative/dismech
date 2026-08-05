@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1133363
+reference_id: "DOI:10.3389/fonc.2023.1133363"
 title: Somatic mutation detection and KRAS amplification in testicular germ cell tumors
 authors:
 - Eduardo R. M. Cabral

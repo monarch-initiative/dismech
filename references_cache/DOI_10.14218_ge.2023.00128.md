@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14218/ge.2023.00128
+reference_id: "DOI:10.14218/ge.2023.00128"
 title: "Exploring the Impact of Iron Overload on Mitochondrial DNA in β-Thalassemia: A Comprehensive Review"
 authors:
 - Jyothi M. Narahari

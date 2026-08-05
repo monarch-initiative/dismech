@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43046-025-00276-0
+reference_id: "DOI:10.1186/s43046-025-00276-0"
 title: "Desmoplastic small round cell tumor: an update of current management practices"
 authors:
 - Ahmed Gawash

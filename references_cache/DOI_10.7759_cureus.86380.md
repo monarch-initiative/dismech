@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.86380
+reference_id: "DOI:10.7759/cureus.86380"
 title: "Delayed Diagnosis of Glutaric Aciduria Type 1: A Case Report"
 authors:
 - Cesar E Larancuent

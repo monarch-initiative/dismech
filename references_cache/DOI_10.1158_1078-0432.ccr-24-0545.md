@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-24-0545
+reference_id: "DOI:10.1158/1078-0432.ccr-24-0545"
 title: Identification of Therapy-Induced Clonal Evolution and Resistance Pathways in Minimal Residual Clones in Multiple Myeloma through Single-Cell Sequencing
 authors:
 - Jian Cui

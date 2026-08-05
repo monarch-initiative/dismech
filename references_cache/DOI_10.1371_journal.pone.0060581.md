@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0060581
+reference_id: "DOI:10.1371/journal.pone.0060581"
 title: "A Liver-Specific Defect of Acyl-CoA Degradation Produces Hyperammonemia, Hypoglycemia and a Distinct Hepatic Acyl-CoA Pattern"
 authors:
 - Nicolas Gauthier

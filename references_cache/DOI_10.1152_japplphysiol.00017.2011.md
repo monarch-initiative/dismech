@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/japplphysiol.00017.2011
+reference_id: "DOI:10.1152/japplphysiol.00017.2011"
 title: "Thrombosis, physical activity, and acute coronary syndromes"
 authors:
 - Arun Kumar

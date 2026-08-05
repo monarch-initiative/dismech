@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40792-024-02064-9
+reference_id: "DOI:10.1186/s40792-024-02064-9"
 title: "Sudden-onset gastrointestinal bleeding in a young adult: diagnostic and therapeutic challenges of a Dieulafoy’s lesion in the jejunum"
 authors:
 - Shikhar Tripathi

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bcr-2019-229857
+reference_id: "DOI:10.1136/bcr-2019-229857"
 title: Melkersson-Rosenthal syndrome with coeliac and allergic diseases
 authors:
 - Joana Albuquerque Martins

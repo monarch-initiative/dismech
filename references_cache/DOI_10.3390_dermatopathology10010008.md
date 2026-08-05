@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/dermatopathology10010008
+reference_id: "DOI:10.3390/dermatopathology10010008"
 title: "Rare Variants of Dermatofibrosarcoma Protuberans: Clinical, Histologic, and Molecular Features and Diagnostic Pitfalls"
 authors:
 - Celestine M. Trinidad

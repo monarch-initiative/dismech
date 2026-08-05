@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/s24185947
+reference_id: "DOI:10.3390/s24185947"
 title: Clinical Utility of Synthesized 18-Lead Electrocardiography
 authors:
 - Tetsushi Yamamoto

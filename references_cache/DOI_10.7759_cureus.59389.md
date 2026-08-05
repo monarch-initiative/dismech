@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.59389
+reference_id: "DOI:10.7759/cureus.59389"
 title: "Seborrheic Pemphigus: A Misunderstood Variant of Pemphigus Foliaceus"
 authors:
 - Diana Gallegos Espadas

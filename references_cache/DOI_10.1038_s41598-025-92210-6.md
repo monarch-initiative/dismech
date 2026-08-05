@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-92210-6
+reference_id: "DOI:10.1038/s41598-025-92210-6"
 title: Genome-wide association and multi-omics analyses provide insights into the disease mechanisms of central serous chorioretinopathy
 authors:
 - Yuki Mori

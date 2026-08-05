@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04591392
+reference_id: "clinicaltrials:NCT04591392"
 title: Evaluation of the Safety and Efficacy of the reSept ASD Occluder to Treat Patients With Clinically Significant Secundum Atrial Septal Defect
 content_type: summary
 full_text_attempted: true

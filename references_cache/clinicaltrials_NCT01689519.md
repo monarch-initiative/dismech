@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01689519
+reference_id: "clinicaltrials:NCT01689519"
 title: "A Phase III, Double-Blind, Placebo-Controlled Study of Vemurafenib Versus Vemurafenib Plus GDC-0973 in Previously Untreated BRAF^600-Mutation Positive Patients With Unresectable Locally Advanced or Metastatic Melanoma"
 content_type: summary
 full_text_attempted: true

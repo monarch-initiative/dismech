@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/17562864251357393
+reference_id: "DOI:10.1177/17562864251357393"
 title: Induction of immune tolerance in NMOSD and MOGAD
 authors:
 - Jorge Correale

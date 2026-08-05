@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1495205
+reference_id: "DOI:10.3389/fneur.2024.1495205"
 title: "Autoantibodies in neuromuscular disorders: a review of their utility in clinical practice"
 authors:
 - Valentin Loser

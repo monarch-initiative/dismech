@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1147657
+reference_id: "DOI:10.3389/fonc.2023.1147657"
 title: Epigenetic MMR defect identifies a risk group not accounted for through traditional risk stratification algorithms in endometrial cancer
 authors:
 - Courtney J. Riedinger

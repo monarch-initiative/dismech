@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000000727
+reference_id: "DOI:10.1212/nxi.0000000000000727"
 title: Clinical utility of AQP4-IgG titers and measures of complement-mediated cell killing in NMOSD
 authors:
 - Jiraporn Jitprapaikulsan

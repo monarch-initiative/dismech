@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/jtd-22-1776
+reference_id: "DOI:10.21037/jtd-22-1776"
 title: "Cough in chronic lung disease: a state of the art review"
 authors:
 - Barnaby Hirons

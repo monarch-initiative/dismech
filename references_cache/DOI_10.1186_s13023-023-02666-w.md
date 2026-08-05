@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-02666-w
+reference_id: "DOI:10.1186/s13023-023-02666-w"
 title: Chenodeoxycholic acid rescues axonal degeneration in induced pluripotent stem cell-derived neurons from spastic paraplegia type 5 and cerebrotendinous xanthomatosis patients
 authors:
 - Yongchao Mou

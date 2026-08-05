@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-024-01831-9
+reference_id: "DOI:10.1186/s12920-024-01831-9"
 title: Genetic analysis of a pedigree with MECP2 duplication syndrome in China
 authors:
 - Lan Zeng

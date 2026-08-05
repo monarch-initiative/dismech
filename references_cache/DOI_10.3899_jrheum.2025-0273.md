@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3899/jrheum.2025-0273
+reference_id: "DOI:10.3899/jrheum.2025-0273"
 title: "Exploring the Genetic Landscape of Psoriatic Arthritis: A Narrative Review of Recent Genomic Studies"
 authors:
 - Hugues Allard-Chamard

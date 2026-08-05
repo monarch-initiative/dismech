@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1112890
+reference_id: "DOI:10.3389/fcell.2023.1112890"
 title: FGF signaling in cranial suture development and related diseases
 authors:
 - Xiaolei Zhao

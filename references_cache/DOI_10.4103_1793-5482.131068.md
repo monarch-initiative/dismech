@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4103/1793-5482.131068
+reference_id: "DOI:10.4103/1793-5482.131068"
 title: "Intramedullary melanocytoma of thoracic spine: A rare case report"
 authors:
 - Pranav Dorwal

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14070854
+reference_id: "DOI:10.3390/biom14070854"
 title: "Recent Advances in Gene Therapy for Hemophilia: Projecting the Perspectives"
 authors:
 - Nikita Chernyi

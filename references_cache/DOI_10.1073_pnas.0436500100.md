@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0436500100
+reference_id: "DOI:10.1073/pnas.0436500100"
 title: Structural basis by which alternative splicing confers specificity in fibroblast growth factor receptors
 authors:
 - Brian K. Yeh

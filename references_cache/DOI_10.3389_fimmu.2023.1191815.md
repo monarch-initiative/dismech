@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1191815
+reference_id: "DOI:10.3389/fimmu.2023.1191815"
 title: Muscle fiber necroptosis in pathophysiology of idiopathic inflammatory myopathies and its potential as target of novel treatment strategy
 authors:
 - Mari Kamiya

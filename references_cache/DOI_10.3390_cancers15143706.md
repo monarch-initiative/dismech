@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15143706
+reference_id: "DOI:10.3390/cancers15143706"
 title: "Predictors of Response to Hydroxyurea and Switch to Ruxolitinib in HU-Resistant Polycythaemia VERA Patients: A Real-World PV-NET Study"
 authors:
 - Francesca Palandri

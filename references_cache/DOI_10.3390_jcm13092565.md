@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13092565
+reference_id: "DOI:10.3390/jcm13092565"
 title: "Chagas Disease: Comparison of Therapy with Nifurtimox and Benznidazole in Indigenous Communities in Colombia"
 authors:
 - Simone Kann

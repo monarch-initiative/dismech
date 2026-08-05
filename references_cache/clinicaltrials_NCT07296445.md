@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07296445
+reference_id: "clinicaltrials:NCT07296445"
 title: "LATITUDE - A Phase 3, Randomized, Open-Label, 3-Cohort, 2-Period, 2-Sequence, Crossover Trial to Evaluate the Pharmacokinetics, Safety, and Efficacy of Oral Arsenic Trioxide Versus Intravenous Arsenic Trioxide for Consolidation Therapy in Participants With Newly Diagnosed, Non-High-Risk, Acute Promyelocytic Leukemia"
 content_type: summary
 full_text_attempted: true

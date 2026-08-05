@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5385/nm.2024.31.1.1
+reference_id: "DOI:10.5385/nm.2024.31.1.1"
 title: "Should We Consider UGT1A1 Mutation Analysis in Evaluating the Prolonged Jaundice of Newborn Infants?"
 authors:
 - Young Don Kim

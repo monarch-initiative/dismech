@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.6065/apem.2346150.075
+reference_id: "DOI:10.6065/apem.2346150.075"
 title: "A novel compound heterozygous variant of the COL11A1 gene in a patient with fibrochondrogenesis type I: the first case in Korea"
 authors:
 - Jaesung Jeon

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/eaa.2024.00054
+reference_id: "DOI:10.37349/eaa.2024.00054"
 title: Pharmacological advances in giant cell arteritis treatment
 authors:
 - Giulia Costanzo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.2018740118
+reference_id: "DOI:10.1073/pnas.2018740118"
 title: A complex of distal appendage–associated kinases linked to human disease regulates ciliary trafficking and stability
 authors:
 - Abdelhalim Loukil

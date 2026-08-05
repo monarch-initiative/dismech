@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.24.00272
+reference_id: "DOI:10.1200/jco.24.00272"
 title: Results of the Simultaneous Combination of Ponatinib and Blinatumomab in Philadelphia Chromosome-Positive ALL
 authors:
 - Hagop Kantarjian

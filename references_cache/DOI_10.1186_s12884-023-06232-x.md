@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12884-023-06232-x
+reference_id: "DOI:10.1186/s12884-023-06232-x"
 title: "Fetal hemodynamic changes and mitochondrial dysfunction in myocardium and brain tissues in response to anemia: a lesson from hemoglobin Bart’s disease"
 authors:
 - Suchaya Luewan

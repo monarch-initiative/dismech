@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25137183
+reference_id: "DOI:10.3390/ijms25137183"
 title: "A Comprehensive Approach to Parkinson’s Disease: Addressing Its Molecular, Clinical, and Therapeutic Aspects"
 authors:
 - Mauricio Muleiro Alvarez

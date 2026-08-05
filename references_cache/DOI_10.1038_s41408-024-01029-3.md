@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41408-024-01029-3
+reference_id: "DOI:10.1038/s41408-024-01029-3"
 title: "Momelotinib for myelofibrosis: our 14 years of experience with 100 clinical trial patients and recent FDA approval"
 authors:
 - Ayalew Tefferi

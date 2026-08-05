@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells14110770
+reference_id: "DOI:10.3390/cells14110770"
 title: "Understanding Atherosclerotic Plaque Cellular Composition: Recent Advances Driven by Single Cell Omics"
 authors:
 - Esra Cetin

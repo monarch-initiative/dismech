@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14081539
+reference_id: "DOI:10.3390/genes14081539"
 title: "Danon Disease: Entire LAMP2 Gene Deletion with Unusual Clinical Presentation—Case Report and Review of the Literature"
 authors:
 - Adel Shalata

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13045-024-01617-7
+reference_id: "DOI:10.1186/s13045-024-01617-7"
 title: "Quizartinib: a potent and selective FLT3 inhibitor for the treatment of patients with FLT3-ITD–positive AML"
 authors:
 - Jorge Cortes

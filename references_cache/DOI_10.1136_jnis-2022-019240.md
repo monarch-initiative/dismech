@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jnis-2022-019240
+reference_id: "DOI:10.1136/jnis-2022-019240"
 title: "Long-term outcomes of flow diversion for unruptured intracranial aneurysms: a systematic review and meta-analysis"
 authors:
 - Mostafa A Shehata

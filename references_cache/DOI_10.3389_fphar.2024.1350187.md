@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1350187
+reference_id: "DOI:10.3389/fphar.2024.1350187"
 title: Hypoxia inducible factor-1ɑ as a potential therapeutic target for osteosarcoma metastasis
 authors:
 - Jianghu Zhou

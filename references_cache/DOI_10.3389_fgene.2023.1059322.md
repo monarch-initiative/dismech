@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1059322
+reference_id: "DOI:10.3389/fgene.2023.1059322"
 title: "Molecular dynamics and minigene assay of new splicing variant c.4298-20T&gt;A of COL4A5 gene that cause Alport syndrome"
 authors:
 - Lei Liang

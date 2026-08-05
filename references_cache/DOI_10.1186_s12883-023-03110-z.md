@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12883-023-03110-z
+reference_id: "DOI:10.1186/s12883-023-03110-z"
 title: In-stent restenosis and stented-territory infarction after carotid and vertebrobasilar artery stenting
 authors:
 - Jae-Chan Ryu

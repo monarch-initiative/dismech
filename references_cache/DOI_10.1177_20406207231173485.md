@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/20406207231173485
+reference_id: "DOI:10.1177/20406207231173485"
 title: "Epigenetic targets in B- and T-cell lymphomas: latest developments"
 authors:
 - Marcelo Lima Ribeiro

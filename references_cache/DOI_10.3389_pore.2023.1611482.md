@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/pore.2023.1611482
+reference_id: "DOI:10.3389/pore.2023.1611482"
 title: "Supratentorial meningeal melanocytoma mimicking meningioma: case report and literature review"
 authors:
 - Mayle Gomes Ferreira de Araújo

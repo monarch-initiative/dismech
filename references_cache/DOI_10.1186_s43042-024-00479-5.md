@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43042-024-00479-5
+reference_id: "DOI:10.1186/s43042-024-00479-5"
 title: "In silico analysis of mutation spectrum of Ehlers–Danlos, osteogenesis imperfecta, and cutis laxa overlapping phenotypes in Iranian population"
 authors:
 - Teymoor Khosravi

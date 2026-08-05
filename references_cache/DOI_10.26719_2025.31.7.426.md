@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.26719/2025.31.7.426
+reference_id: "DOI:10.26719/2025.31.7.426"
 title: A cost of illness study of the economic burden of diabetes in the Eastern Mediterranean Region
 authors:
 - Khalifa Elmusharaf

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci176938
+reference_id: "DOI:10.1172/jci176938"
 title: The etiologies of Kawasaki disease
 authors:
 - Jane C. Burns

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15245808
+reference_id: "DOI:10.3390/cancers15245808"
 title: The Current Treatment Landscape of Malignant Pleural Mesothelioma and Future Directions
 authors:
 - Beatriz Bertin

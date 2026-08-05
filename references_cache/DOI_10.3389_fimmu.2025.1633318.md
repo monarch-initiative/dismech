@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1633318
+reference_id: "DOI:10.3389/fimmu.2025.1633318"
 title: "Decoding the inflammatory-osteogenic axis in ankylosing spondylitis: mechanisms, dysregulation, and emerging therapeutic interventions"
 authors:
 - Afroza Parvin

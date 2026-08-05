@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1146/annurev-pathmechdis-051222-121126
+reference_id: "DOI:10.1146/annurev-pathmechdis-051222-121126"
 title: "ENPP1 in Blood and Bone: Skeletal and Soft Tissue Diseases Induced by ENPP1 Deficiency"
 authors:
 - Carlos R. Ferreira

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.867856
+reference_id: "DOI:10.3389/fgene.2022.867856"
 title: "Case Report: Lack of Response to Givosiran in a Case of ALAD Porphyria"
 authors:
 - Erica Graff

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13206161
+reference_id: "DOI:10.3390/jcm13206161"
 title: "An Update on Advances in Hypopituitarism: Etiology, Diagnosis, and Current Management"
 authors:
 - Pedro Iglesias

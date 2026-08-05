@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.35755/jmedassocthai.2025.5.377-383-02606
+reference_id: "DOI:10.35755/jmedassocthai.2025.5.377-383-02606"
 title: "Pityriasis Lichenoides in Thai Children: A 10-Years Review of Clinical and Treatment Outcome"
 journal: Journal of the Medical Association of Thailand
 year: '2025'

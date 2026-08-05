@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41392-024-01738-y
+reference_id: "DOI:10.1038/s41392-024-01738-y"
 title: "Major depressive disorder: hypothesis, mechanism, prevention and treatment"
 authors:
 - Lulu Cui

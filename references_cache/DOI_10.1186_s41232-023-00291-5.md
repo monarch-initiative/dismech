@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s41232-023-00291-5
+reference_id: "DOI:10.1186/s41232-023-00291-5"
 title: Autoimmune-mediated astrocytopathy
 authors:
 - Makoto Kinoshita

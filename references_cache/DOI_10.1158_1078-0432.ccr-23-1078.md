@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-1078
+reference_id: "DOI:10.1158/1078-0432.ccr-23-1078"
 title: "Assessing the Genomic Landscape of Cervical Cancers: Clinical Opportunities and Therapeutic Targets"
 authors:
 - Claire F. Friedman

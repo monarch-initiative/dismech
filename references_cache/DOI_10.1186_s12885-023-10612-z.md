@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-023-10612-z
+reference_id: "DOI:10.1186/s12885-023-10612-z"
 title: "Acute promyelocytic leukaemia: population-based study of epidemiology and outcome with ATRA and oral-ATO from 1991 to 2021"
 authors:
 - Harinder Gill

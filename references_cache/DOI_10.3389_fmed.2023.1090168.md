@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1090168
+reference_id: "DOI:10.3389/fmed.2023.1090168"
 title: "Cutaneous angiosarcoma: A review of current evidence for treatment with checkpoint inhibitors"
 authors:
 - Lucy Guan

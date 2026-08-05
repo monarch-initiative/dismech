@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/microorganisms11082070
+reference_id: "DOI:10.3390/microorganisms11082070"
 title: "Brucellosis and One Health: Inherited and Future Challenges"
 authors:
 - Ignacio Moriyón

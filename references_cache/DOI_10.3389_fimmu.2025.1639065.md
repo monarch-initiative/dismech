@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1639065
+reference_id: "DOI:10.3389/fimmu.2025.1639065"
 title: "Novel advances on pathophysiological mechanisms, clinical manifestations, and treatment of antiphospholipid syndrome"
 authors:
 - Qing-Nan Zhu

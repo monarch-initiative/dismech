@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/neurolint15030067
+reference_id: "DOI:10.3390/neurolint15030067"
 title: "Migraine: Advances in the Pathogenesis and Treatment"
 authors:
 - Horia Pleș

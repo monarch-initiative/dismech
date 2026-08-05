@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12889-023-16005-y
+reference_id: "DOI:10.1186/s12889-023-16005-y"
 title: "The contribution of secondhand tobacco smoke to blood lead levels in US children and adolescents: a cross-sectional analysis of NHANES 2015–2018"
 authors:
 - Alexander Obeng

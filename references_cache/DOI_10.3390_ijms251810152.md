@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms251810152
+reference_id: "DOI:10.3390/ijms251810152"
 title: "Pathogenesis of Inflammation in Skin Disease: From Molecular Mechanisms to Pathology"
 authors:
 - Simona N. Shirley

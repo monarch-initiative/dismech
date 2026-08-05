@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16101814
+reference_id: "DOI:10.3390/cancers16101814"
 title: "Pediatric Diffuse Midline Glioma H3K27-Altered: From Developmental Origins to Therapeutic Challenges"
 authors:
 - Manuela Mandorino

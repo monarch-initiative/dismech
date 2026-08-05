@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25042163
+reference_id: "DOI:10.3390/ijms25042163"
 title: "Current Understanding of Immune Thrombocytopenia: A Review of Pathogenesis and Treatment Options"
 authors:
 - Alina Mititelu

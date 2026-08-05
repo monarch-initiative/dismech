@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13073-024-01411-7
+reference_id: "DOI:10.1186/s13073-024-01411-7"
 title: Structural variant allelic heterogeneity in MECP2 duplication syndrome provides insight into clinical severity and variability of disease expression
 authors:
 - Davut Pehlivan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2018.00523
+reference_id: "DOI:10.3389/fnins.2018.00523"
 title: "Excitatory Dendritic Mitochondrial Calcium Toxicity: Implications for Parkinson’s and Other Neurodegenerative Diseases"
 authors:
 - Manish Verma

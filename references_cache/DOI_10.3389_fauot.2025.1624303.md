@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fauot.2025.1624303
+reference_id: "DOI:10.3389/fauot.2025.1624303"
 title: Advances in immune mediated inner ear disease
 authors:
 - Peter Kullar

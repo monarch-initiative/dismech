@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1190258
+reference_id: "DOI:10.3389/fcell.2023.1190258"
 title: EVC-EVC2 complex stability and ciliary targeting are regulated by modification with ubiquitin and SUMO
 authors:
 - Pablo Barbeito

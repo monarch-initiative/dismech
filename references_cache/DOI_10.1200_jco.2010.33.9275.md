@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.2010.33.9275
+reference_id: "DOI:10.1200/jco.2010.33.9275"
 title: "Phase II, Open-Label, Single-Arm Trial of Imatinib Mesylate in Patients With Metastatic Melanoma Harboring <i>c-Kit</i> Mutation or Amplification"
 authors:
 - Jun Guo

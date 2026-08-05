@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25137131
+reference_id: "DOI:10.3390/ijms25137131"
 title: "Epidermal Growth Factor Receptor Targeting in Colorectal Carcinoma: Antibodies and Patient-Derived Organoids as a Smart Model to Study Therapy Resistance"
 authors:
 - Samuele Tardito

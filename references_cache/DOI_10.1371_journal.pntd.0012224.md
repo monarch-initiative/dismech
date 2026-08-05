@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012224
+reference_id: "DOI:10.1371/journal.pntd.0012224"
 title: "Knowledge, attitudes and practices towards yaws in endemic areas of Ghana, Cameroon and Côte d’Ivoire"
 authors:
 - Camila González Beiras

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4102/ajlm.v12i1.1998
+reference_id: "DOI:10.4102/ajlm.v12i1.1998"
 title: "Neonatal presentation of a patient with Liddle syndrome, South Africa"
 authors:
 - Nicolene Steyn

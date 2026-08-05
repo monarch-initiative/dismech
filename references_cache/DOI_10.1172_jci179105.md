@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci179105
+reference_id: "DOI:10.1172/jci179105"
 title: Cytoplasmic transcription factor sequestration drives the pathogenesis of a rearranged leukemia
 authors:
 - Ali Shilatifard

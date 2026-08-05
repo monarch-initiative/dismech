@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13256-023-03838-9
+reference_id: "DOI:10.1186/s13256-023-03838-9"
 title: "Use of disease assessment tools to increase the value of case reports on Susac syndrome: two case reports"
 authors:
 - Danielle R. Bullock

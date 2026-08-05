@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0301464
+reference_id: "DOI:10.1371/journal.pone.0301464"
 title: "Effects of paediatric schistosomiasis control programmes in sub-Saharan Africa: A systematic review"
 authors:
 - Maryline Vere

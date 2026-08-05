@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1363985
+reference_id: "DOI:10.3389/fneur.2024.1363985"
 title: "Primary CNS vasculitis: insights into clinical, neuropathological, and neuroradiological characteristics"
 authors:
 - Tahani Saker Sheikh

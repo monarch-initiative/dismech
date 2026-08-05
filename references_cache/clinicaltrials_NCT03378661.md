@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT03378661
+reference_id: "clinicaltrials:NCT03378661"
 title: "Phase 2 Randomized, Multicenter, Safety and Efficacy Trial to Evaluate Different Oral Benznidazole Monotherapy and Benznidazole/E1224 Combination Regimens for the Treatment of Adult Patients With Chronic Indeterminate Chagas Disease"
 content_type: summary
 full_text_attempted: true

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.69208
+reference_id: "DOI:10.7759/cureus.69208"
 title: "Neurosarcoidosis: Current Perspectives on Diagnosis, Management, and Future Directions"
 authors:
 - Tanya Sinha

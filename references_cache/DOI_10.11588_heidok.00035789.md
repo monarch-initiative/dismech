@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.11588/heidok.00035789
+reference_id: "DOI:10.11588/heidok.00035789"
 title: New approaches in mathematical and data-based modeling for newborn screening
 authors:
 - "Zaunseder, Elaine Serena"

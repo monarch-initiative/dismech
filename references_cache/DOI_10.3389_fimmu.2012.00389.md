@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2012.00389
+reference_id: "DOI:10.3389/fimmu.2012.00389"
 title: Dendritic cells enhance the antigen sensitivity of T cells
 authors:
 - Natalio Garbi

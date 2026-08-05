@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15133394
+reference_id: "DOI:10.3390/cancers15133394"
 title: The Difference in Clinical Behavior of Gene Fusions Involving RET/PTC Fusions and THADA/IGF2BP3 Fusions in Thyroid Nodules
 authors:
 - George Tali

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1245/s10434-024-15478-4
+reference_id: "DOI:10.1245/s10434-024-15478-4"
 title: The Role of Neoadjuvant Immunotherapy in the Management of Merkel Cell Carcinoma with Clinically Detected Regional Lymph Node Metastasis
 authors:
 - Jenny H. Chang

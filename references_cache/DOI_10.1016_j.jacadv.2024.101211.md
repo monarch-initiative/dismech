@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.jacadv.2024.101211
+reference_id: "DOI:10.1016/j.jacadv.2024.101211"
 title: Device Closure of Hemodynamically Significant Patent Ductus Arteriosus in Premature Infants
 authors:
 - Alban-Elouen Baruteau

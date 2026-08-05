@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.64665
+reference_id: "DOI:10.7759/cureus.64665"
 title: "Successful Treatment of Cutaneous Larva Migrans With Combined Albendazole and Ivermectin Therapy: A Report of Two Cases From Sudan"
 authors:
 - Mahdi Shamad

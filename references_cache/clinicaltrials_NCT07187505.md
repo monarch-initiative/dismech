@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT07187505
+reference_id: "clinicaltrials:NCT07187505"
 title: "Venetoclax Plus All-Trans Retinoic Acid and Arsenic Trioxide in Newly Diagnosed Acute Promyelocytic Leukemia With Hyperleukocytosis: A Prospective Single-Arm Study"
 content_type: summary
 full_text_attempted: true

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41587-022-01628-0
+reference_id: "DOI:10.1038/s41587-022-01628-0"
 title: "Genome-scale metabolic reconstruction of 7,302 human microorganisms for personalized medicine"
 authors:
 - Almut Heinken

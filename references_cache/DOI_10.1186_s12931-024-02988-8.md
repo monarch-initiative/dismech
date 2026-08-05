@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12931-024-02988-8
+reference_id: "DOI:10.1186/s12931-024-02988-8"
 title: Differential transcriptomic host responses in the early phase of viral and bacterial infections in human lung tissue explants ex vivo
 authors:
 - Aaqib Sohail

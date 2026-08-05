@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2023.283737
+reference_id: "DOI:10.3324/haematol.2023.283737"
 title: Matching-adjusted indirect comparison from the Lymphoma Epidemiology of Outcomes Consortium for Real World Evidence (LEO CReWE) study to a clinical trial of mosunetuzumab in relapsed or refractory follicular lymphoma
 authors:
 - Matthew J. Maurer

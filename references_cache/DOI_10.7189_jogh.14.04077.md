@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7189/jogh.14.04077
+reference_id: "DOI:10.7189/jogh.14.04077"
 title: "Epidemiology of acute hepatitis C and hepatitis C virus-related cirrhosis in reproductive-age women, 1990–2019: An analysis of the Global Burden of Disease study"
 authors:
 - Yanzheng Zou

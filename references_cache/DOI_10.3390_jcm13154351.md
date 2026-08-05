@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13154351
+reference_id: "DOI:10.3390/jcm13154351"
 title: The Polish Society of Gynecological Oncology Guidelines for the Diagnosis and Treatment of Cervical Cancer (v2024.0)
 authors:
 - Jacek J. Sznurkowski

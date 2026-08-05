@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1265268
+reference_id: "DOI:10.3389/fgene.2023.1265268"
 title: "Genetic variations underlying Gilbert syndrome and HBV infection outcomes: a cross-sectional study"
 authors:
 - Bilian Yao

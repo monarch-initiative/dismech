@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40249-024-01185-5
+reference_id: "DOI:10.1186/s40249-024-01185-5"
 title: "Effectiveness of ivermectin mass drug administration in the control of soil-transmitted helminth infections in endemic populations: a systematic review and meta-analysis"
 authors:
 - Brandon Le

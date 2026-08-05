@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5551/jat.59857
+reference_id: "DOI:10.5551/jat.59857"
 title: Examination of Large Artery Atherosclerosis could Reveal Small Artery Retinopathy in Untreated Middle-Aged Individuals
 authors:
 - Tomonori Sugiura

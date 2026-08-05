@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2015.00448
+reference_id: "DOI:10.3389/fnins.2015.00448"
 title: "Golgi Fragmentation in ALS Motor Neurons. New Mechanisms Targeting Microtubules, Tethers, and Transport Vesicles"
 authors:
 - Georg Haase

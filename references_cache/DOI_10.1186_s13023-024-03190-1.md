@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03190-1
+reference_id: "DOI:10.1186/s13023-024-03190-1"
 title: "Therapies for cutaneous squamous cell carcinoma in recessive dystrophic epidermolysis bullosa: a systematic review of 157 cases"
 authors:
 - Austin Hwang

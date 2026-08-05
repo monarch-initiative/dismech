@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jof10030173
+reference_id: "DOI:10.3390/jof10030173"
 title: The Host Response to Coccidioidomycosis
 authors:
 - Theo N. Kirkland

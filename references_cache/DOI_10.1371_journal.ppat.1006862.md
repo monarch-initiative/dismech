@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1006862
+reference_id: "DOI:10.1371/journal.ppat.1006862"
 title: GM1 ganglioside-independent intoxication by Cholera toxin
 authors:
 - Jakob Cervin

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41420-025-02840-y
+reference_id: "DOI:10.1038/s41420-025-02840-y"
 title: Ferroptosis is a novel pathogenic mechanism of FDXR-related disease via disruption of the NRF2 pathway
 authors:
 - Teresa Campbell

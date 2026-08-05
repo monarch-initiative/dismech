@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15082285
+reference_id: "DOI:10.3390/cancers15082285"
 title: Large B-Cell Lymphomas in the 5th Edition of the WHO-Classification of Haematolymphoid Neoplasms—Updated Classification and New Concepts
 authors:
 - Katrin S. Kurz

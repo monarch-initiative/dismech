@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1192/bjp.2023.90
+reference_id: "DOI:10.1192/bjp.2023.90"
 title: "Childhood attention-deficit hyperactivity disorder problems and mid-life cardiovascular risk: prospective population cohort study"
 authors:
 - Ajay K. Thapar

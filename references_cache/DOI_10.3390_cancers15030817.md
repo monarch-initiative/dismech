@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15030817
+reference_id: "DOI:10.3390/cancers15030817"
 title: "Genetics of Hepatocellular Carcinoma: From Tumor to Circulating DNA"
 authors:
 - Claudia Campani

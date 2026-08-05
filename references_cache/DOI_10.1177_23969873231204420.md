@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/23969873231204420
+reference_id: "DOI:10.1177/23969873231204420"
 title: "Genetically determined blood pressure, antihypertensive medications, and risk of intracranial aneurysms and aneurysmal subarachnoid hemorrhage: A Mendelian randomization study"
 authors:
 - Hanchen Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0280209
+reference_id: "DOI:10.1371/journal.pone.0280209"
 title: "Impact of valganciclovir therapy on severe IRIS-Kaposi Sarcoma mortality: An open-label, parallel, randomized controlled trial"
 authors:
 - Patricia Volkow

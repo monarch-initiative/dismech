@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000536295
+reference_id: "DOI:10.1159/000536295"
 title: "Is 5-Oxoprolinase Deficiency More than Just a Benign Condition?"
 authors:
 - Çiğdem Seher Kasapkara

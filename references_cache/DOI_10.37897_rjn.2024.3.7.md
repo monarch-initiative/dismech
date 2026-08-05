@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37897/rjn.2024.3.7
+reference_id: "DOI:10.37897/rjn.2024.3.7"
 title: "Current trends in vestibular schwannoma management at a referral center in Indonesia: A cross-sectional study with retrospective data collection"
 authors:
 - Renindra Ananda Aman

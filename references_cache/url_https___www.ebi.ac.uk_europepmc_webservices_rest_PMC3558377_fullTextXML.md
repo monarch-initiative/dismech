@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3558377/fullTextXML
+reference_id: "url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC3558377/fullTextXML"
 title: Disease name/synonyms
 content_type: url
 ---

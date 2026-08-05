@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/circgen.118.002296
+reference_id: "DOI:10.1161/circgen.118.002296"
 title: "Single-Nucleotide Polymorphism of the <i>MLX</i> Gene Is Associated With Takayasu Arteritis"
 authors:
 - Natsuko Tamura

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2021.637011
+reference_id: "DOI:10.3389/fcell.2021.637011"
 title: CCDC154 Mutant Caused Abnormal Remodeling of the Otic Capsule and Hearing Loss in Mice
 authors:
 - Kai Xu

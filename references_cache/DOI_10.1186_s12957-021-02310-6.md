@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12957-021-02310-6
+reference_id: "DOI:10.1186/s12957-021-02310-6"
 title: "Clinicopathological features of desmoplastic small round cell tumors: clinical series and literature review"
 authors:
 - Ling-Ling Wang

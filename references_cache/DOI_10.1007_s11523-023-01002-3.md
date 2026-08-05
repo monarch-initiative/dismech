@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11523-023-01002-3
+reference_id: "DOI:10.1007/s11523-023-01002-3"
 title: "Ivosidenib: A Review in Advanced Cholangiocarcinoma"
 authors:
 - James E. Frampton

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.22.01649
+reference_id: "DOI:10.1200/jco.22.01649"
 title: Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
 authors:
 - Kim N. Chi

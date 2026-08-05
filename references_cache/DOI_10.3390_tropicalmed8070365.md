@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed8070365
+reference_id: "DOI:10.3390/tropicalmed8070365"
 title: "Chikungunya Virus Diagnosis: A Review of Current Antigen Detection Methods"
 authors:
 - Fredy Brice Nemg Simo

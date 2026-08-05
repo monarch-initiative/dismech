@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1063202
+reference_id: "DOI:10.3389/fgene.2023.1063202"
 title: "Case report: Novel TBX5-related pathogenic mechanism of Holt–Oram syndrome"
 authors:
 - Yuheng Lang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1442909
+reference_id: "DOI:10.3389/fonc.2024.1442909"
 title: "Real-world treatment patterns, biomarker testing, and clinical outcomes of metastatic non-small cell lung cancer patients in the immunotherapy era"
 authors:
 - Lior Apter

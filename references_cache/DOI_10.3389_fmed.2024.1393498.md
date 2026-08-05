@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2024.1393498
+reference_id: "DOI:10.3389/fmed.2024.1393498"
 title: "Helicobacterpylori eradication following endoscopic resection might prevent metachronous gastric cancer: a systematic review and meta-analysis of studies from Japan and Korea"
 authors:
 - Tian-Hang Yu

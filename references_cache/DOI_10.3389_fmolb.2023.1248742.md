@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2023.1248742
+reference_id: "DOI:10.3389/fmolb.2023.1248742"
 title: A randomized placebo−controlled clinical trial of oral green tea epigallocatechin 3−gallate on erythropoiesis and oxidative stress in transfusion−dependent β−thalassemia patients
 authors:
 - Kornvipa Settakorn

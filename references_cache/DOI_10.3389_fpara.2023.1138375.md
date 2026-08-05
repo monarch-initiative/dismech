@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpara.2023.1138375
+reference_id: "DOI:10.3389/fpara.2023.1138375"
 title: "Laboratory diagnosis of Trypanosoma cruzi infection: a narrative review"
 authors:
 - Constanza Lopez-Albizu

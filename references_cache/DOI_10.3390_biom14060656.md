@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14060656
+reference_id: "DOI:10.3390/biom14060656"
 title: Molecular Mechanisms in Tumorigenesis of Hepatocellular Carcinoma and in Target Treatments—An Overview
 authors:
 - Raluca-Margit Szilveszter

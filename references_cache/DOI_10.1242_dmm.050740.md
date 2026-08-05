@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1242/dmm.050740
+reference_id: "DOI:10.1242/dmm.050740"
 title: Human organoid model of pontocerebellar hypoplasia 2a recapitulates brain region-specific size differences
 authors:
 - Theresa Kagermeier

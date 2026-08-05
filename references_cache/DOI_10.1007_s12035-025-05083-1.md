@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12035-025-05083-1
+reference_id: "DOI:10.1007/s12035-025-05083-1"
 title: "Alexander’s Disease: Potential Drug Targets and Future Directions"
 authors:
 - Emily Zavala

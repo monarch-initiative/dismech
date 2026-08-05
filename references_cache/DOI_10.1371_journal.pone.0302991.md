@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0302991
+reference_id: "DOI:10.1371/journal.pone.0302991"
 title: "Creation and characterization of novel rat model for recessive dystrophic epidermolysis bullosa: Frameshift mutation of the Col7a1 gene leads to severe blistered phenotype"
 authors:
 - William Stone

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.24953/turkjpediatr.2024.5072
+reference_id: "DOI:10.24953/turkjpediatr.2024.5072"
 title: "Clinicopathological features and treatment of aggressive natural killer cell leukemia: case series and literature review"
 authors:
 - Yongan Ni

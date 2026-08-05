@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12941-024-00718-y
+reference_id: "DOI:10.1186/s12941-024-00718-y"
 title: Successful management of chromoblastomycosis utilizing conventional antifungal agents and imiquimod therapy
 authors:
 - Jinjin Zheng

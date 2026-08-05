@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms242115507
+reference_id: "DOI:10.3390/ijms242115507"
 title: "The BRCA1 c.4096+1G&gt;A Is a Founder Variant Which Originated in Ancient Times"
 authors:
 - Paolo Aretini

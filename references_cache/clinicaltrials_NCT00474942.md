@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00474942
+reference_id: "clinicaltrials:NCT00474942"
 title: Apparent Mineralocorticoid Excess Syndrome Natural History Clinical Protocol
 content_type: summary
 full_text_attempted: true

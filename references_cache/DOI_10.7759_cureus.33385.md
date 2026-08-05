@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.33385
+reference_id: "DOI:10.7759/cureus.33385"
 title: "Lane-Hamilton Syndrome in an Adult With Down Syndrome: A Case Report"
 authors:
 - Joana Fontes

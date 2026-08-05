@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14040472
+reference_id: "DOI:10.3390/biom14040472"
 title: "Joint Hypermobility Syndrome and Membrane Proteins: A Comprehensive Review"
 authors:
 - Raquel Pliego-Arreaga

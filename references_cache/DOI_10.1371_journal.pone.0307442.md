@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0307442
+reference_id: "DOI:10.1371/journal.pone.0307442"
 title: Investigation of dermal collagen nanostructures in Ehlers-Danlos Syndrome (EDS) patients
 authors:
 - Mehrnoosh Neshatian

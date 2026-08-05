@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14101223
+reference_id: "DOI:10.3390/biom14101223"
 title: "Adipose Tissue Plasticity: A Comprehensive Definition and Multidimensional Insight"
 authors:
 - Yu-Yao Mo

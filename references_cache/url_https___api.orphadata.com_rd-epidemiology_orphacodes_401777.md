@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://api.orphadata.com/rd-epidemiology/orphacodes/401777
+reference_id: "url:https://api.orphadata.com/rd-epidemiology/orphacodes/401777"
 title: "https://api.orphadata.com/rd-epidemiology/orphacodes/401777"
 content_type: url
 ---

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/hematology.2024000538
+reference_id: "DOI:10.1182/hematology.2024000538"
 title: "Common variable immunodeficiency: autoimmune cytopenias and advances in molecular diagnosis"
 authors:
 - Charlotte Cunningham-Rundles

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1055-9965.epi-08-1102
+reference_id: "DOI:10.1158/1055-9965.epi-08-1102"
 title: "<i>TP53 R249S</i> Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China"
 authors:
 - Katarzyna Szymañska

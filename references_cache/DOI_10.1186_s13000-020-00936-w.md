@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13000-020-00936-w
+reference_id: "DOI:10.1186/s13000-020-00936-w"
 title: "Primary non-Hodgkin lymphoma of the tongue base: the clinicopathology of seven cases and evaluation of HPV and EBV status"
 authors:
 - Xinyu Ren

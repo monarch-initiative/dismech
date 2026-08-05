@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1307558
+reference_id: "DOI:10.3389/fimmu.2024.1307558"
 title: Complement activation and cellular inflammation in Fabry disease patients despite enzyme replacement therapy
 authors:
 - Björn Laffer

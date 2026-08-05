@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5937/medi0-58355
+reference_id: "DOI:10.5937/medi0-58355"
 title: Neurodevelopmental disorders in children with 22q11.2 deletion syndrome and recommendations for pediatric follow-up
 authors:
 - Goran Čuturilo

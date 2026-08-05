@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16193305
+reference_id: "DOI:10.3390/cancers16193305"
 title: Mechanistic Insights on Microbiota-Mediated Development and Progression of Esophageal Cancer
 authors:
 - Kyaw Thu Moe

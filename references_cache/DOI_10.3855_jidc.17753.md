@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3855/jidc.17753
+reference_id: "DOI:10.3855/jidc.17753"
 title: Comparison of the standard Q syphilis antibody rapid diagnostic test to gold standards for yaws detection in children
 authors:
 - Yudo Irawan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-023-01510-1
+reference_id: "DOI:10.1186/s12920-023-01510-1"
 title: "Diagnosis of autism in a rare case of tyrosine hydroxylase deficiency: a case report"
 authors:
 - Zoe Maria Dominique Reyes

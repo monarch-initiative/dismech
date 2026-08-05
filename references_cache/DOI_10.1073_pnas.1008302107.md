@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.1008302107
+reference_id: "DOI:10.1073/pnas.1008302107"
 title: Targeting botulinum neurotoxin persistence by the ubiquitin-proteasome system
 authors:
 - Yien Che Tsai

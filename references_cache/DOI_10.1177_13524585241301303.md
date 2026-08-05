@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/13524585241301303
+reference_id: "DOI:10.1177/13524585241301303"
 title: Imaging Outcomes for Phase 2 Trials Targeting Compartmentalized Inflammation
 authors:
 - María I. Gaitán

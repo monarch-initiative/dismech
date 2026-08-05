@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/dddt.s466217
+reference_id: "DOI:10.2147/dddt.s466217"
 title: "Adagrasib in the Treatment of KRAS p.G12C Positive Advanced NSCLC: Design, Development and Place in Therapy"
 authors:
 - Brian Warnecke

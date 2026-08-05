@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-023-38378-1
+reference_id: "DOI:10.1038/s41598-023-38378-1"
 title: "Association between total bilirubin and gender-specific incidence of fundus arteriosclerosis in a Chinese population: a retrospective cohort study"
 authors:
 - Yongfei Dong

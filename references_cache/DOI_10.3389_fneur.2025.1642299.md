@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2025.1642299
+reference_id: "DOI:10.3389/fneur.2025.1642299"
 title: Progress in genetic mechanisms and precise treatment of neurocutaneous syndrome-related epilepsy
 authors:
 - Yang Li

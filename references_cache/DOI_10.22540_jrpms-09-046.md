@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.22540/jrpms-09-046
+reference_id: "DOI:10.22540/jrpms-09-046"
 title: "Recent Advances on the Biology, Prognosis and Treatment of Rhabdomyosarcoma"
 authors:
 - Konstantinos Pantelakis

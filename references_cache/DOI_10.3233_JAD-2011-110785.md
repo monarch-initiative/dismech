@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/JAD-2011-110785
+reference_id: "DOI:10.3233/JAD-2011-110785"
 title: Increased AβPP Processing in Familial Danish Dementia Patients
 authors:
 - Shuji Matsuda

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2174/1381612013397726
+reference_id: "DOI:10.2174/1381612013397726"
 title: "Pax3 and the Splotch Mutations: Structure, Function, and Relationship to Teratogenesis, Including Gene-Chemical Interactions"
 authors:
 - Antonio Machado

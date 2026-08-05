@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12788/cutis.0892
+reference_id: "DOI:10.12788/cutis.0892"
 title: Cutaneous Collagenous Vasculopathy With Ocular Involvement
 authors:
 - Ansley C DeVore

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32481/djph.2023.04.008
+reference_id: "DOI:10.32481/djph.2023.04.008"
 title: Human Papilloma Virus (HPV) and the Current State of Oropharyngeal Cancer Prevention and Treatment
 authors:
 - Jacob P. Gribb

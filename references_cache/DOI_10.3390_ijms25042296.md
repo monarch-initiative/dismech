@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25042296
+reference_id: "DOI:10.3390/ijms25042296"
 title: "Autoimmune Autonomic Neuropathy: From Pathogenesis to Diagnosis"
 authors:
 - Shunya Nakane

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25020761
+reference_id: "DOI:10.3390/ijms25020761"
 title: Splicing Modulation via Antisense Oligonucleotides in Recessive Dystrophic Epidermolysis Bullosa
 authors:
 - Stefan Hainzl

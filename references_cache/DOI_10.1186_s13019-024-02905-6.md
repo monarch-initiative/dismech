@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13019-024-02905-6
+reference_id: "DOI:10.1186/s13019-024-02905-6"
 title: "Total pulmonary arterial reconstruction in a patient with arterial tortuosity syndrome affecting the pulmonary artery: a case report and review of the literature"
 authors:
 - Fahad M. Alshair

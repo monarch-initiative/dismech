@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13027-023-00489-9
+reference_id: "DOI:10.1186/s13027-023-00489-9"
 title: "Assessing Epstein–Barr virus in gastric cancer: clinicopathological features and prognostic implications"
 authors:
 - Guanghua Li

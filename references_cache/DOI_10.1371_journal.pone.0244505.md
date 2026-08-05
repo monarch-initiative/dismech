@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0244505
+reference_id: "DOI:10.1371/journal.pone.0244505"
 title: CLK-2/TEL2 is a conserved component of the nonsense-mediated mRNA decay pathway
 authors:
 - Yanwu Guo

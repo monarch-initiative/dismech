@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.amsu.2022.103870
+reference_id: "DOI:10.1016/j.amsu.2022.103870"
 title: "The association between SARS-CoV-2 vaccines and transverse myelitis: A review"
 authors:
 - Fatima Naz Naeem

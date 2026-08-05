@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2025.1608853
+reference_id: "DOI:10.3389/fmolb.2025.1608853"
 title: "Emerging biomarkers in amyotrophic lateral sclerosis: from pathogenesis to clinical applications"
 authors:
 - Farah Anjum

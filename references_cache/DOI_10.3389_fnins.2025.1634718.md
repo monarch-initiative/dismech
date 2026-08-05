@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnins.2025.1634718
+reference_id: "DOI:10.3389/fnins.2025.1634718"
 title: "Dravet syndrome: novel insights into SCN1A-mediated epileptic neurodevelopmental disorders within the molecular diagnostic-therapeutic framework"
 authors:
 - Guirui Zhang

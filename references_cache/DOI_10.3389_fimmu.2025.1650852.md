@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1650852
+reference_id: "DOI:10.3389/fimmu.2025.1650852"
 title: "HIV and the gut: implications for HIV persistence, immune dysfunction and cure strategies"
 authors:
 - Jillian S. Y. Lau

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12775/qs.2025.45.66549
+reference_id: "DOI:10.12775/qs.2025.45.66549"
 title: "Holt-Oram Syndrome: When hand deformity leads to diagnosis of congenital heart disease"
 authors:
 - Daniel Dmowski

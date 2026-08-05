@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.24.00724
+reference_id: "DOI:10.1200/jco.24.00724"
 title: "CNS Protective Effect of Selpercatinib in First-Line <i>RET</i> Fusion-Positive Advanced Non–Small Cell Lung Cancer"
 authors:
 - Maurice Pérol

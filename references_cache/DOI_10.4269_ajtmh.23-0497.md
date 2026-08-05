@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4269/ajtmh.23-0497
+reference_id: "DOI:10.4269/ajtmh.23-0497"
 title: Efficacy of Single-Dose Albendazole and Albendazole Plus Ivermectin for Soil-Transmitted Helminth Infection in Children in the Peruvian Amazon
 authors:
 - Greisi Curico

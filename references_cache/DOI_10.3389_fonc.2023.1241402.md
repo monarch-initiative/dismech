@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1241402
+reference_id: "DOI:10.3389/fonc.2023.1241402"
 title: "Non-small cell lung cancer with MET amplification: review of epidemiology, associated disease characteristics, testing procedures, burden, and treatments"
 authors:
 - Mo Yang

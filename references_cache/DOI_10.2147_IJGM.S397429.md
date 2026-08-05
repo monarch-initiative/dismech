@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/IJGM.S397429
+reference_id: "DOI:10.2147/IJGM.S397429"
 title: "Anti-NMDA Receptor Autoimmune Encephalitis: Diagnosis and Management Strategies"
 authors:
 - Linda Nguyen

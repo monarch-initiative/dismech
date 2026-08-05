@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2022.942122
+reference_id: "DOI:10.3389/fonc.2022.942122"
 title: Analysis and prediction of relative survival trends in patients with non-Hodgkin lymphoma in the United States using a model-based period analysis method
 authors:
 - Shuping Xie

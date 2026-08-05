@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40246-021-00328-1
+reference_id: "DOI:10.1186/s40246-021-00328-1"
 title: Whole genome sequencing reveals a frameshift mutation and a large deletion in YY1AP1 in a girl with a panvascular artery disease
 authors:
 - Víctor Raggio

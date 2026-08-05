@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgen.1000289
+reference_id: "DOI:10.1371/journal.pgen.1000289"
 title: Loss of Kindlin-1 Causes Skin Atrophy and Lethal Neonatal Intestinal Epithelial Dysfunction
 authors:
 - Siegfried Ussar

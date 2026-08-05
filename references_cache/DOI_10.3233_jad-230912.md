@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/jad-230912
+reference_id: "DOI:10.3233/jad-230912"
 title: Amyloid and Tau PET Positivity in Progressive Agrammatic Aphasia and Apraxia of Speech
 authors:
 - Katerina A. Tetzloff

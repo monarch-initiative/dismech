@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms20225707
+reference_id: "DOI:10.3390/ijms20225707"
 title: "Epidermolysis Bullosa-Associated Squamous Cell Carcinoma: From Pathogenesis to Therapeutic Perspectives"
 authors:
 - Angelo Giuseppe Condorelli

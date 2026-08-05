@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.34172/jcs.33282
+reference_id: "DOI:10.34172/jcs.33282"
 title: "Dysphagia, Voice Problems and Health Related Quality of Life Among Head and Neck Cancer Survivors"
 authors:
 - Vaishali Sharma

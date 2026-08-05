@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.1054567
+reference_id: "DOI:10.3389/fgene.2022.1054567"
 title: "Identification of two rare NPRL3 variants in two Chinese families with familial focal epilepsy with variable foci 3: NGS analysis with literature review"
 authors:
 - Junji Hu

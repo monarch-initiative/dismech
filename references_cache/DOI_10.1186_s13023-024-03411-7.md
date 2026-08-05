@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03411-7
+reference_id: "DOI:10.1186/s13023-024-03411-7"
 title: "Exploring molecular spectrum in thai patients with maple syrup urine disease: unveiling a common variant"
 authors:
 - Panisara Lakkhana

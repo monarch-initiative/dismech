@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1379698
+reference_id: "DOI:10.3389/fonc.2024.1379698"
 title: "Natural products targeting autophagy and apoptosis in NSCLC: a novel therapeutic strategy"
 authors:
 - Peiyi Qin

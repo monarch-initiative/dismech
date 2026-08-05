@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/2767-9764.crc-24-0144
+reference_id: "DOI:10.1158/2767-9764.crc-24-0144"
 title: MYC is Sufficient to Generate Mid-Life High-Grade Serous Ovarian and Uterine Serous Carcinomas in a p53-R270H Mouse Model
 authors:
 - Alexandra Blackman

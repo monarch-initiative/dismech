@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1285901
+reference_id: "DOI:10.3389/fendo.2023.1285901"
 title: Autoimmune primary adrenal insufficiency -current diagnostic approaches and future perspectives
 authors:
 - Anette S. B. Wolff

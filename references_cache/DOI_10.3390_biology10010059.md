@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biology10010059
+reference_id: "DOI:10.3390/biology10010059"
 title: "Connexins and the Epithelial Tissue Barrier: A Focus on Connexin 26"
 authors:
 - Laura Garcia-Vega

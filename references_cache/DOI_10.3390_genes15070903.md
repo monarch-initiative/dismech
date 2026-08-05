@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes15070903
+reference_id: "DOI:10.3390/genes15070903"
 title: A Comprehensive Review of HER2 in Cancer Biology and Therapeutics
 authors:
 - Xiaoqing Cheng

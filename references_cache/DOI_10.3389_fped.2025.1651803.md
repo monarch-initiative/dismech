@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2025.1651803
+reference_id: "DOI:10.3389/fped.2025.1651803"
 title: Genetic diagnosis and clinical characteristics analysis of cardiospondylocarpofacial syndrome in a Chinese family
 authors:
 - Qi Yang

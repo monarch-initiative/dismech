@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12688/openreseurope.19077.1
+reference_id: "DOI:10.12688/openreseurope.19077.1"
 title: "The STROGHAT study protocol: An intervention study to evaluate safety, effectiveness and feasibility of treating gambiense HAT seropositive subjects with acoziborole."
 authors:
 - Elena Nicco

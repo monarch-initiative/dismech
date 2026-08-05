@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-3029
+reference_id: "DOI:10.1158/1078-0432.ccr-23-3029"
 title: A First-in-Human Phase 1 Study of a Tumor-Directed RNA-Interference Drug against HIF2α in Patients with Advanced Clear Cell Renal Cell Carcinoma
 authors:
 - James Brugarolas

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jox13010005
+reference_id: "DOI:10.3390/jox13010005"
 title: "Safety and Efficacy of Tyrosine Kinase Inhibitors in Immune Thrombocytopenic Purpura: A Systematic Review of Clinical Trials"
 authors:
 - Muhammad Ashar Ali

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12876-016-0436-1
+reference_id: "DOI:10.1186/s12876-016-0436-1"
 title: "Cronkhite-Canada syndrome: a rare case report and literature review"
 authors:
 - Ruifeng Zhao

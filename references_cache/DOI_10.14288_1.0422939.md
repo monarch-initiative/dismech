@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14288/1.0422939
+reference_id: "DOI:10.14288/1.0422939"
 title: Investigation into the early pathogenesis of lynch syndrome associated endometrial cancer
 authors:
 - "DeGrood, Maya Kevorkova"

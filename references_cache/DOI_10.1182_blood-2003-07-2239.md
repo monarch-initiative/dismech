@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood-2003-07-2239
+reference_id: "DOI:10.1182/blood-2003-07-2239"
 title: Identification of a 4-base deletion in the gene in inherited intrinsic factor deficiency
 authors:
 - Fawwaz Yassin

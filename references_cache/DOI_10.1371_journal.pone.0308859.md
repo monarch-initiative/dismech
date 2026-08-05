@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0308859
+reference_id: "DOI:10.1371/journal.pone.0308859"
 title: "HIV, the gut microbiome and clinical outcomes, a systematic review"
 authors:
 - Rachel Mac Cann

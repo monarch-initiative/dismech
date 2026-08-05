@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2023.1116486
+reference_id: "DOI:10.3389/fcvm.2023.1116486"
 title: "Sex-specific association of serum uric acid trajectories with risk of incident retinal arteriosclerosis in Chinese population: A population-based longitudinal study"
 authors:
 - Ruirui Geng

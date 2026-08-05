@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/0271678x221126280
+reference_id: "DOI:10.1177/0271678x221126280"
 title: "Phenotypic variability in 446 CADASIL patients: Impact of NOTCH3 gene mutation location in addition to the effects of age, sex and vascular risk factors"
 authors:
 - Charlotte Dupé

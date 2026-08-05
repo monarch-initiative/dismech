@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/pn-2024-004490
+reference_id: "DOI:10.1136/pn-2024-004490"
 title: Diagnosing Alexander disease in adults
 authors:
 - David S Lynch

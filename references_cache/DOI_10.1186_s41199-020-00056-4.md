@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s41199-020-00056-4
+reference_id: "DOI:10.1186/s41199-020-00056-4"
 title: Preclinical models of head and neck squamous cell carcinoma for a basic understanding of cancer biology and its translation into efficient therapies
 authors:
 - Ingeborg Tinhofer

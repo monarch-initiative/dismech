@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40949-018-0022-1
+reference_id: "DOI:10.1186/s40949-018-0022-1"
 title: "Antenatal diagnosis of idiopathic infantile arterial calcification (IIAC): a single centre experience and review of the literature"
 authors:
 - C. H. Mulcahy

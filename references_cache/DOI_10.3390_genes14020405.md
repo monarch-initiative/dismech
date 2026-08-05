@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14020405
+reference_id: "DOI:10.3390/genes14020405"
 title: "The Genetics of Primary Biliary Cholangitis: A GWAS and Post-GWAS Update"
 authors:
 - Yuki Hitomi

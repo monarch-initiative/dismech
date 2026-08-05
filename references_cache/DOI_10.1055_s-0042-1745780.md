@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0042-1745780
+reference_id: "DOI:10.1055/s-0042-1745780"
 title: "Hirschsprung-Associated Enterocolitis: Transformative Research from Bench to Bedside"
 authors:
 - Zhen Zhang

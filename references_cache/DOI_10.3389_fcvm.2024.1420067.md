@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2024.1420067
+reference_id: "DOI:10.3389/fcvm.2024.1420067"
 title: "Inflammation in Fabry disease: stages, molecular pathways, and therapeutic implications"
 authors:
 - Hibba Kurdi

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1111769
+reference_id: "DOI:10.3389/fneur.2023.1111769"
 title: "The conundrum of neuropsychiatric systemic lupus erythematosus: Current and novel approaches to diagnosis"
 authors:
 - Jonathan S. Emerson

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1272201
+reference_id: "DOI:10.3389/fcell.2023.1272201"
 title: "BMP signaling in the development and regeneration of tooth roots: from mechanisms to applications"
 authors:
 - Cangwei Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm14145053
+reference_id: "DOI:10.3390/jcm14145053"
 title: "Anti-Inflammatory Therapies for Atopic Dermatitis: A New Era in Targeted Treatment"
 authors:
 - Karol Biliński

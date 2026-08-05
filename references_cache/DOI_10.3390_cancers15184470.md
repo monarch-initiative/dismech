@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15184470
+reference_id: "DOI:10.3390/cancers15184470"
 title: Systematic Review of the Survival Outcomes of Neoadjuvant Chemotherapy in Women with Malignant Ovarian Germ Cell Tumors
 authors:
 - Hitomi Sakaguchi-Mukaida

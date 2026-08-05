@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2022.1058600
+reference_id: "DOI:10.3389/fmed.2022.1058600"
 title: Pathogenesis of giant cell arteritis with focus on cellular populations
 authors:
 - Pavlos Stamatis

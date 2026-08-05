@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/JCI175789
+reference_id: "DOI:10.1172/JCI175789"
 title: Protein aggregates containing wild-type and mutant NOTCH3 are major drivers of arterial pathology in CADASIL
 authors:
 - Nicolas Dupré

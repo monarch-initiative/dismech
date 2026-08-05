@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/08830738221096316
+reference_id: "DOI:10.1177/08830738221096316"
 title: "Pediatric Nemaline Myopathy: A Systematic Review Using Individual Patient Data"
 authors:
 - Briana Christophers

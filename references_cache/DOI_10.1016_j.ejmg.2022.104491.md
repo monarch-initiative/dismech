@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.ejmg.2022.104491
+reference_id: "DOI:10.1016/j.ejmg.2022.104491"
 title: Mosaicism in Hartsfield syndrome
 authors:
 - Elizabeth Harris

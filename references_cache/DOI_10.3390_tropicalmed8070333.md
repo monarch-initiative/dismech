@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed8070333
+reference_id: "DOI:10.3390/tropicalmed8070333"
 title: "Lymphatic Filariasis Elimination Status: Wuchereria bancrofti Infections in Human Populations after Five Effective Rounds of Mass Drug Administration in Zambia"
 authors:
 - Belem Blamwell Matapo

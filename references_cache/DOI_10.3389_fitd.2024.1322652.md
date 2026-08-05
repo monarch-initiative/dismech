@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2024.1322652
+reference_id: "DOI:10.3389/fitd.2024.1322652"
 title: "Repeated versus single praziquantel dosing regimen in treatment of female genital schistosomiasis: a phase 2 randomised controlled trial showing no difference in efficacy"
 authors:
 - Louise Thomsen Schmidt Arenholt

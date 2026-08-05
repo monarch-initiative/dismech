@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/mbio.00681-25
+reference_id: "DOI:10.1128/mbio.00681-25"
 title: "Lactate metabolism is exploited by <i>Francisella tularensis</i> via its O-antigen capsule to limit macrophage-mediated activation and cell death"
 authors:
 - Forrest Jessop

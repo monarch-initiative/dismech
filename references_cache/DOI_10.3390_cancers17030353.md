@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17030353
+reference_id: "DOI:10.3390/cancers17030353"
 title: Emerging Targeted Therapies in Non-Small-Cell Lung Cancer (NSCLC)
 authors:
 - Syeda A. Mina

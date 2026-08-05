@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.20.02088
+reference_id: "DOI:10.1200/jco.20.02088"
 title: "Encorafenib Plus Cetuximab as a New Standard of Care for Previously Treated <i>BRAF</i> V600E–Mutant Metastatic Colorectal Cancer: Updated Survival Results and Subgroup Analyses from the BEACON Study"
 authors:
 - Josep Tabernero

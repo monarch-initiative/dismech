@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1172-9-38
+reference_id: "DOI:10.1186/1750-1172-9-38"
 title: "PMP22 related neuropathies: Charcot-Marie-Tooth disease type 1A and Hereditary Neuropathy with liability to Pressure Palsies"
 authors:
 - Barbara W van Paassen

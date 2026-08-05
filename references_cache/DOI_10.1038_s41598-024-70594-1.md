@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-70594-1
+reference_id: "DOI:10.1038/s41598-024-70594-1"
 title: "TAK-861, a potent, orally available orexin receptor 2-selective agonist, produces wakefulness in monkeys and improves narcolepsy-like phenotypes in mouse models"
 authors:
 - Kayo Mitsukawa

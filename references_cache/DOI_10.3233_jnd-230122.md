@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/jnd-230122
+reference_id: "DOI:10.3233/jnd-230122"
 title: "Real-World Outcomes in Patients with Spinal Muscular Atrophy Treated with Onasemnogene Abeparvovec Monotherapy: Findings from the RESTORE Registry"
 authors:
 - Laurent Servais

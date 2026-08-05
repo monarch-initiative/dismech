@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes15101304
+reference_id: "DOI:10.3390/genes15101304"
 title: "Chromosome 15q11-q13 Duplication Syndrome: A Review of the Literature and 14 New Cases"
 authors:
 - Maria Bisba

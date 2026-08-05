@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/liv.16012
+reference_id: "DOI:10.1111/liv.16012"
 title: Practical recommendations for biochemical and genetic diagnosis of the porphyrias
 authors:
 - Aasne K. Aarsand

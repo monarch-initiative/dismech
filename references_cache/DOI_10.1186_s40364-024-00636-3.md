@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40364-024-00636-3
+reference_id: "DOI:10.1186/s40364-024-00636-3"
 title: "Single-cell, single-nucleus and xenium-based spatial transcriptomics analyses reveal inflammatory activation and altered cell interactions in the hippocampus in mice with temporal lobe epilepsy"
 authors:
 - Quanlei Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013217
+reference_id: "DOI:10.1371/journal.pntd.0013217"
 title: "Global sociodemographic, clinical, and epidemiological profiling of patients with mycetoma: A systematic review"
 authors:
 - Mohamed Elmuntasir Salah

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1466075
+reference_id: "DOI:10.3389/fneur.2024.1466075"
 title: Voltage-gated potassium channels and genetic epilepsy
 authors:
 - Yiting Zheng

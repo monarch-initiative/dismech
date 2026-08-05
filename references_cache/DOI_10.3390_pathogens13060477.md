@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13060477
+reference_id: "DOI:10.3390/pathogens13060477"
 title: Evaluation of the Local and Peripheral Immune Responses in Patients with Cystic Echinococcosis
 authors:
 - Linda Petrone

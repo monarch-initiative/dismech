@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43042-024-00600-8
+reference_id: "DOI:10.1186/s43042-024-00600-8"
 title: "Molecular characterization of Ebola virus, immune response, and therapeutic challenges: a narrative review"
 authors:
 - Martin Ndayambaje

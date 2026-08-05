@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16010101
+reference_id: "DOI:10.3390/cancers16010101"
 title: "Predictive Factors in Metastatic Melanoma Treated with Immune Checkpoint Inhibitors: From Clinical Practice to Future Perspective"
 authors:
 - Stefano Poletto

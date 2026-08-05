@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1227505
+reference_id: "DOI:10.3389/fneur.2023.1227505"
 title: "Acute motor-sensory axonal polyneuropathy variant of Guillain-Barré syndrome with a thalamic lesion and COVID-19: a case report and discussion on mechanism"
 authors:
 - Na Geng

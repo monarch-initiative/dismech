@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12903-024-05294-3
+reference_id: "DOI:10.1186/s12903-024-05294-3"
 title: Prevalence and root canal morphology of taurodontism analyzed by cone-beam computed tomography in Northern China
 authors:
 - Shaorong Li

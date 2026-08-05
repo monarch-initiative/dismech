@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcimb.2024.1384072
+reference_id: "DOI:10.3389/fcimb.2024.1384072"
 title: "Neisseria meningitidis activates pyroptotic pathways in a mouse model of meningitis: role of a two-partner secretion system"
 authors:
 - Chiara Pagliuca

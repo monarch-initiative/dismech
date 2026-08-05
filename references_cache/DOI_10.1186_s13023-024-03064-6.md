@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03064-6
+reference_id: "DOI:10.1186/s13023-024-03064-6"
 title: Clinical efficacy of metformin in familial adenomatous polyposis and the effect of intestinal flora
 authors:
 - Linxin Zhou

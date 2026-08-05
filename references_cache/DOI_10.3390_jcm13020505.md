@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13020505
+reference_id: "DOI:10.3390/jcm13020505"
 title: "Hypertensive Heart Disease: A Narrative Review Series—Part 3: Vasculature, Biomarkers and the Matrix of Hypertensive Heart Disease"
 authors:
 - Valeriya Nemtsova

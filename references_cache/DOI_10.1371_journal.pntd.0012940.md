@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012940
+reference_id: "DOI:10.1371/journal.pntd.0012940"
 title: Defining the noma research agenda
 authors:
 - Anaïs Galli

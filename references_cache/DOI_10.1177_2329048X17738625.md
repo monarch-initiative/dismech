@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/2329048X17738625
+reference_id: "DOI:10.1177/2329048X17738625"
 title: X-Linked Lissencephaly With Absent Corpus Callosum and Abnormal Genitalia
 authors:
 - David Coman

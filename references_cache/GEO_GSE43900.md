@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE43900
+reference_id: "GEO:GSE43900"
 title: Co-ordinate inhibition of autism candidate genes by topoisomerase inhibitors
 content_type: summary
 full_text_attempted: true

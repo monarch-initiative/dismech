@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13195-020-00600-x
+reference_id: "DOI:10.1186/s13195-020-00600-x"
 title: In vivo staging of frontotemporal lobar degeneration TDP-43 type C pathology
 authors:
 - Martina Bocchetta

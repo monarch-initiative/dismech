@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-019-1186-2
+reference_id: "DOI:10.1186/s13023-019-1186-2"
 title: European reference network for rare vascular diseases (VASCERN) consensus statement for the screening and management of patients with pathogenic ACTA2 variants
 authors:
 - Ingrid M. B. H. van de Laar

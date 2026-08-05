@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines13020503
+reference_id: "DOI:10.3390/biomedicines13020503"
 title: "Fibromyalgia, Depression, and Autoimmune Disorders: An Interconnected Web of Inflammation"
 authors:
 - Stefania Sedda

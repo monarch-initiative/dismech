@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2023.1207233
+reference_id: "DOI:10.3389/fgene.2023.1207233"
 title: Mapping the tumor microenvironment in clear cell renal carcinoma by single-cell transcriptome analysis
 authors:
 - Yuxiong Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jof8030315
+reference_id: "DOI:10.3390/jof8030315"
 title: "Clinical Presentations, Cluster Analysis and Laboratory-Based Investigation of Aspergillus Otomycosis—A Single Center Experience"
 authors:
 - Mila Bojanović

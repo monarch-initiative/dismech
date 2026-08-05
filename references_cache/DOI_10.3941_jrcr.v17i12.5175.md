@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3941/jrcr.v17i12.5175
+reference_id: "DOI:10.3941/jrcr.v17i12.5175"
 title: "Imaging findings of arterial calcification due to deficiency of CD73: A case study"
 authors:
 - Aniruddh Mandalapu

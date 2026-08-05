@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/thalassrep13030017
+reference_id: "DOI:10.3390/thalassrep13030017"
 title: "Understanding the Intricacies of Iron Overload Associated with β-Thalassemia: A Comprehensive Review"
 authors:
 - Subhangi Basu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms242115986
+reference_id: "DOI:10.3390/ijms242115986"
 title: "Beyond Myelin Oligodendrocyte Glycoprotein and Aquaporin-4 Antibodies: Alternative Causes of Optic Neuritis"
 authors:
 - Giacomo Greco

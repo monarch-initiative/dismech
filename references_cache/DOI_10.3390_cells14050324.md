@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells14050324
+reference_id: "DOI:10.3390/cells14050324"
 title: Molecular Mechanisms Underlying Heart Failure and Their Therapeutic Potential
 authors:
 - Oveena Fonseka

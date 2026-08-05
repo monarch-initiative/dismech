@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fncel.2023.1094503
+reference_id: "DOI:10.3389/fncel.2023.1094503"
 title: "Striatal spatial heterogeneity, clustering, and white matter association of GFAP+ astrocytes in a mouse model of Huntington’s disease"
 authors:
 - Taylor G. Brown

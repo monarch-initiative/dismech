@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-024-09492-w
+reference_id: "DOI:10.1186/s12879-024-09492-w"
 title: "Any resurgence of leprosy cases in the Togo’s post-elimination period? Trend analysis of reported leprosy cases from 2010 to 2022"
 authors:
 - Akila Wimima Bakoubayi

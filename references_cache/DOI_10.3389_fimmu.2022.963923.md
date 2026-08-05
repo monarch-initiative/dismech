@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.963923
+reference_id: "DOI:10.3389/fimmu.2022.963923"
 title: Evasion of interferon-mediated immune response by arteriviruses
 authors:
 - Zhijie Jian

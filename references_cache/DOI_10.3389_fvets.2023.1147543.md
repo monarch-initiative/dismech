@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fvets.2023.1147543
+reference_id: "DOI:10.3389/fvets.2023.1147543"
 title: Evaluation of country infrastructure as an indirect measure of dog-mediated human rabies deaths
 authors:
 - Sarah C. Bonaparte

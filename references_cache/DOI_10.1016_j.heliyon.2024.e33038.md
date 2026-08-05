@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.heliyon.2024.e33038
+reference_id: "DOI:10.1016/j.heliyon.2024.e33038"
 title: Baicalin-aluminum complex on the regulation of IPEC-1 infected with enterotoxigenic Escherichia coli
 authors:
 - Chun Ye

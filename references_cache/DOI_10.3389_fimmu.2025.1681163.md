@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1681163
+reference_id: "DOI:10.3389/fimmu.2025.1681163"
 title: "Alopecia areata: from immunopathogenesis to emerging therapeutic approaches"
 authors:
 - Su-Young Kim

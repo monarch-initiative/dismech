@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/ng1296-461
+reference_id: "DOI:10.1038/ng1296-461"
 title: "Retinal–specific guanylate cyclase gene mutations in Leber's congenital amaurosis"
 authors:
 - Isabella Perrault

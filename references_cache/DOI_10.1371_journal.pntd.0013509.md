@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013509
+reference_id: "DOI:10.1371/journal.pntd.0013509"
 title: "Territorial and gender-linked risk factors for Buruli ulcer in Southern Benin: A case-control study using geographic and behavioral surveying"
 authors:
 - Harvey Johnson

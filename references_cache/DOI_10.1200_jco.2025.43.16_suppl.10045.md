@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.2025.43.16_suppl.10045
+reference_id: "DOI:10.1200/jco.2025.43.16_suppl.10045"
 title: "<i>MYC</i> amplification as a prognostic biomarker in osteosarcoma: A report from the Children’s Oncology Group."
 authors:
 - Sarah Whittle

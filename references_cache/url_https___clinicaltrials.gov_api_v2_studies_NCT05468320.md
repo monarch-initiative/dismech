@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://clinicaltrials.gov/api/v2/studies/NCT05468320
+reference_id: "url:https://clinicaltrials.gov/api/v2/studies/NCT05468320"
 title: "https://clinicaltrials.gov/api/v2/studies/NCT05468320"
 content_type: url
 ---

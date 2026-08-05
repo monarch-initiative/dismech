@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15275/rusomj.2024.0413
+reference_id: "DOI:10.15275/rusomj.2024.0413"
 title: "Clinical and morphological features of the orbital floor in a patient with silent sinus syndrome: A clinical case report"
 authors:
 - Vladimir A. Sheptulin

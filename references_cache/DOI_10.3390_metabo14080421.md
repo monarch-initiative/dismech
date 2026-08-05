@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/metabo14080421
+reference_id: "DOI:10.3390/metabo14080421"
 title: Factors Affecting Non-Enzymatic Protein Acylation by trans-3-Methylglutaconyl Coenzyme A
 authors:
 - Elizabeth A. Jennings

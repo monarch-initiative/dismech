@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05716607
+reference_id: "clinicaltrials:NCT05716607"
 title: "Randomized Cross-over Trial in Patients Treated With Both Insulin & Hydrocortisone"
 content_type: summary
 full_text_attempted: true

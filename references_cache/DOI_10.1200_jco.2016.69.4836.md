@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.2016.69.4836
+reference_id: "DOI:10.1200/jco.2016.69.4836"
 title: "<i>HER2</i> Testing and Clinical Decision Making in Gastroesophageal Adenocarcinoma: Guideline From the College of American Pathologists, American Society for Clinical Pathology, and the American Society of Clinical Oncology"
 authors:
 - Angela N. Bartley

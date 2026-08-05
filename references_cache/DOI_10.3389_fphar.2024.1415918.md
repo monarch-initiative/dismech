@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1415918
+reference_id: "DOI:10.3389/fphar.2024.1415918"
 title: "Evaluation of pitolisant, sodium oxybate, solriamfetol, and modafinil for the management of narcolepsy: a retrospective analysis of the FAERS database"
 authors:
 - Xiaodan Zhou

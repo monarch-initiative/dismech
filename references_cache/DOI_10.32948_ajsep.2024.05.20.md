@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32948/ajsep.2024.05.20
+reference_id: "DOI:10.32948/ajsep.2024.05.20"
 title: "The relationship between vitamin D, chronic kidney disease, and mineral and bone disorder: a complex interplay comprehensive review"
 authors:
 - Abdul Ghaffar

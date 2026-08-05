@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41572-024-00580-4
+reference_id: "DOI:10.1038/s41572-024-00580-4"
 title: Guillain–Barré syndrome
 authors:
 - Sonja E. Leonhard

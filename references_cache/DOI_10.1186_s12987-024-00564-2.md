@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12987-024-00564-2
+reference_id: "DOI:10.1186/s12987-024-00564-2"
 title: The hypervirulent Group B Streptococcus HvgA adhesin promotes central nervous system invasion through transcellular crossing of the choroid plexus
 authors:
 - Eva Aznar

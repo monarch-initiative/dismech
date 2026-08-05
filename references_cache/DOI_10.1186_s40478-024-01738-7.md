@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40478-024-01738-7
+reference_id: "DOI:10.1186/s40478-024-01738-7"
 title: Phenotypically concordant distribution of pick bodies in aphasic versus behavioral dementias
 authors:
 - Allegra Kawles

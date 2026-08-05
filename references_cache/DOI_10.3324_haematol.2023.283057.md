@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2023.283057
+reference_id: "DOI:10.3324/haematol.2023.283057"
 title: Novel potential therapeutics to modify iron metabolism and red cell synthesis in diseases associated with defective erythropoiesis
 authors:
 - Amaliris Guerra

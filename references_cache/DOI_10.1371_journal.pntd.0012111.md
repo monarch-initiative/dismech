@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012111
+reference_id: "DOI:10.1371/journal.pntd.0012111"
 title: "The elimination of human African trypanosomiasis: Monitoring progress towards the 2021–2030 WHO road map targets"
 authors:
 - Jose R. Franco

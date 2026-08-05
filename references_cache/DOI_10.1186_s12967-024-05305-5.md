@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05305-5
+reference_id: "DOI:10.1186/s12967-024-05305-5"
 title: "Interplay between WNT/PI3K-mTOR axis and the microbiota in APC-driven colorectal carcinogenesis: data from a pilot study and possible implications for CRC prevention"
 authors:
 - Floriana Jessica Di Paola

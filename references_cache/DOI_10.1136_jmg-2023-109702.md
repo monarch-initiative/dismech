@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2023-109702
+reference_id: "DOI:10.1136/jmg-2023-109702"
 title: "Expanding the phenotype of Kleefstra syndrome: speech, language and cognition in 103 individuals"
 authors:
 - Lottie D. Morison

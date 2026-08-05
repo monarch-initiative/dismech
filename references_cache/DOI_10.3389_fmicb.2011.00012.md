@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2011.00012
+reference_id: "DOI:10.3389/fmicb.2011.00012"
 title: Role of the Nlrp3 Inflammasome in Microbial Infection
 authors:
 - Paras K. Anand

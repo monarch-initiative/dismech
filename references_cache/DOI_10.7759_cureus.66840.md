@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.66840
+reference_id: "DOI:10.7759/cureus.66840"
 title: "Cat-Scratch Disease Mimicking Neoplastic Etiology in a Complex Clinical Presentation: A Case Report"
 authors:
 - Evan Smith

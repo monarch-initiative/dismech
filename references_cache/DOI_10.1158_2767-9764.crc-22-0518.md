@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/2767-9764.crc-22-0518
+reference_id: "DOI:10.1158/2767-9764.crc-22-0518"
 title: "Targeting the Clear Cell Sarcoma Oncogenic Driver Fusion Gene <i>EWSR1::ATF1</i> by HDAC Inhibition"
 authors:
 - Hirokazu Mae

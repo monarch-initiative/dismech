@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/rdodj.2023.37
+reference_id: "DOI:10.20517/rdodj.2023.37"
 title: The inflammatory pathogenetic pathways of Fabry nephropathy
 authors:
 - Sandro Feriozzi

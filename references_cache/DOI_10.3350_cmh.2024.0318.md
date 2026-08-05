@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3350/cmh.2024.0318
+reference_id: "DOI:10.3350/cmh.2024.0318"
 title: "Burden of mortality from hepatocellular carcinoma and biliary tract cancers by race and ethnicity and sex in US, 2018–2023"
 authors:
 - Donghee Kim

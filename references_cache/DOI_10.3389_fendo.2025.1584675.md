@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2025.1584675
+reference_id: "DOI:10.3389/fendo.2025.1584675"
 title: Immune checkpoint inhibitor-induced thyroiditis and its potential mechanisms
 authors:
 - Xueqian Mao

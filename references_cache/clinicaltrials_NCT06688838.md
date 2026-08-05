@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06688838
+reference_id: "clinicaltrials:NCT06688838"
 title: "Exploring the Clinical Features and Factors Related to Efficacy in Blau Syndrome: A Retrospective Observational Study"
 content_type: summary
 full_text_attempted: true

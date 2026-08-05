@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jaa.s452097
+reference_id: "DOI:10.2147/jaa.s452097"
 title: Bibliometric Analysis of Cough Variant Asthma from 1993 to 2022
 authors:
 - Ziyu Zhu

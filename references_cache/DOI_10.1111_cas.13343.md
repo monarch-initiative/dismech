@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/cas.13343
+reference_id: "DOI:10.1111/cas.13343"
 title: "Mogamulizumab for relapsed adult T‐cell leukemia–lymphoma: Updated follow‐up analysis of phase I and <scp>II</scp> studies"
 authors:
 - Takashi Ishida

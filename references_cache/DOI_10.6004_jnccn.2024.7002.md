@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.6004/jnccn.2024.7002
+reference_id: "DOI:10.6004/jnccn.2024.7002"
 title: Update on the Sentinel Node Procedure in Vulvar Cancer
 authors:
 - Willemijn L. van der Kolk

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-47001-4
+reference_id: "DOI:10.1038/s41467-024-47001-4"
 title: Diverse roles of the metal binding domains and transport mechanism of copper transporting P-type ATPases
 authors:
 - Zongxin Guo

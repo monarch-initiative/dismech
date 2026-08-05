@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13054-020-03412-5
+reference_id: "DOI:10.1186/s13054-020-03412-5"
 title: Postoperative hypotension in patients discharged to the intensive care unit after non-cardiac surgery is associated with adverse clinical outcomes
 authors:
 - Nathan J. Smischney

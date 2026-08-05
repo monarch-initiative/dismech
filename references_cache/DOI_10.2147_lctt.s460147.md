@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/lctt.s460147
+reference_id: "DOI:10.2147/lctt.s460147"
 title: "LIBRETTO-431: Confirming the Superiority of Selpercatinib to Chemotherapy and the Lack of Efficacy of Immune Checkpoint Inhibitors in Advanced RET Fusion-Positive (RET+) NSCLC, Another Unique Never-Smoker Predominant Molecular Subtype of NSCLC"
 authors:
 - Alexandria Lee

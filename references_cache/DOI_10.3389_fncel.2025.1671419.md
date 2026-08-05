@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fncel.2025.1671419
+reference_id: "DOI:10.3389/fncel.2025.1671419"
 title: "TDP-43-proteinopathy at the crossroads of tauopathy: on copathology and current and prospective biomarkers"
 authors:
 - Abdul R. Nasir

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1687-9856-2013-s1-o42
+reference_id: "DOI:10.1186/1687-9856-2013-s1-o42"
 title: Losartan improves clinical outcome in Camurati Engelmann Disease
 authors:
 - Ahila Ayyavoo

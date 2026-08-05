@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1210/clinem/dgaf267
+reference_id: "DOI:10.1210/clinem/dgaf267"
 title: "Challenges and Opportunities for Understanding the Pathogenesis of Type 1 Diabetes: An Endocrine Society Scientific Statement"
 authors:
 - Aaron W Michels

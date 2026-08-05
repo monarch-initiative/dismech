@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1164/ajrccm.161.supplement_1.ltta-23
+reference_id: "DOI:10.1164/ajrccm.161.supplement_1.ltta-23"
 title: Interactions between Leukotrienes and Other  Inflammatory Mediators/Modulators in the Microvasculature
 authors:
 - PER HEDQVIST

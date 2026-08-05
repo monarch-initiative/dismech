@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s11689-024-09557-6
+reference_id: "DOI:10.1186/s11689-024-09557-6"
 title: "Characterizing the journey of Rett syndrome among females in the United States: a real-world evidence study using the Rett syndrome natural history study database"
 authors:
 - Damian May

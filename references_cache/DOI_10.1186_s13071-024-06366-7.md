@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-024-06366-7
+reference_id: "DOI:10.1186/s13071-024-06366-7"
 title: Slow recovery rates and spatial aggregation of Triatoma infestans populations in an area with high pyrethroid resistance in the Argentine Chaco
 authors:
 - María Carla Cecere

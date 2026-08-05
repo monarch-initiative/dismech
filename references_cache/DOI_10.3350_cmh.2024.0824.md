@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3350/cmh.2024.0824
+reference_id: "DOI:10.3350/cmh.2024.0824"
 title: "Hepatocellular carcinoma: updates on epidemiology, surveillance, diagnosis and treatment"
 authors:
 - Soo Young Hwang

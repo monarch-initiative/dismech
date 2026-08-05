@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000539665
+reference_id: "DOI:10.1159/000539665"
 title: "Sustained Clinical Response to Ivosidenib in Previously Treated Patients with Advanced Intrahepatic Cholangiocarcinoma Harboring an IDH1 R132 Mutation: Two Case Reports"
 authors:
 - Christian Müller

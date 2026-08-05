@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14744/anatoljcardiol.2024.4480
+reference_id: "DOI:10.14744/anatoljcardiol.2024.4480"
 title: Monogenic Hypertension Linked to the Renin–Angiotensin–Aldosterone System
 authors:
 - Murat Özdede

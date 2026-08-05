@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-87130-4
+reference_id: "DOI:10.1038/s41598-025-87130-4"
 title: "Integrated analysis of genetic, proteinic, and metabolomic alterations in Behcet’s disease"
 authors:
 - Yanlin Pu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1283511
+reference_id: "DOI:10.3389/fneur.2023.1283511"
 title: "Anti-NMDAR antibodies, the blood–brain barrier, and anti-NMDAR encephalitis"
 authors:
 - Xiarong Gong

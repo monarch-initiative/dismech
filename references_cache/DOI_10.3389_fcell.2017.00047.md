@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2017.00047
+reference_id: "DOI:10.3389/fcell.2017.00047"
 title: A Novel Role for the BMP Antagonist Noggin in Sensitizing Cells to Non-canonical Wnt-5a/Ror2/Disheveled Pathway Activation
 authors:
 - Ondrej Bernatik

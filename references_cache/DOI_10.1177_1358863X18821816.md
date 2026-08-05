@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/1358863X18821816
+reference_id: "DOI:10.1177/1358863X18821816"
 title: First International Consensus on the diagnosis and management of fibromuscular dysplasia
 authors:
 - Heather L Gornik

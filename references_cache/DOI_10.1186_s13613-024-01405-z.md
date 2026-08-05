@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13613-024-01405-z
+reference_id: "DOI:10.1186/s13613-024-01405-z"
 title: "Intracranial complications in adult patients with severe pneumococcal meningitis: a retrospective multicenter cohort study"
 authors:
 - Camille Legouy

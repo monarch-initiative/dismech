@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26062406
+reference_id: "DOI:10.3390/ijms26062406"
 title: Identification of POU1F1 Variants in Vietnamese Patients with Combined Pituitary Hormone Deficiency
 authors:
 - Ha Thu Nguyen

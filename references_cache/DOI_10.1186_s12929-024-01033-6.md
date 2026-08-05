@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12929-024-01033-6
+reference_id: "DOI:10.1186/s12929-024-01033-6"
 title: "Campylobacter jejuni virulence factors: update on emerging issues and trends"
 authors:
 - Alexandra Tikhomirova

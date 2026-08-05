@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-014-0110-z
+reference_id: "DOI:10.1186/s13023-014-0110-z"
 title: "IgG4- related disease: an orphan disease with many faces"
 authors:
 - Herwig Pieringer

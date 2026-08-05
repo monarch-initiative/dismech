@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17037/pubs.04673813
+reference_id: "DOI:10.17037/pubs.04673813"
 title: "Development of Rapid Diagnostic Tests for Trypanosoma cruzi Lineage-Specific Serology, Comparative Epidemiology and for Monitoring Efficacy of Chemotherapy"
 authors:
 - "Murphy, N"

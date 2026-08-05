@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1382728
+reference_id: "DOI:10.3389/fimmu.2024.1382728"
 title: "Therapeutic efficacy and safety of JAK inhibitors in treating polymyositis/dermatomyositis: a single-arm systemic meta-analysis"
 authors:
 - Chenhang Ma

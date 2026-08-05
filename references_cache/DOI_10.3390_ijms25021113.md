@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25021113
+reference_id: "DOI:10.3390/ijms25021113"
 title: Molecular Mechanisms in Pathophysiology of Mucopolysaccharidosis and Prospects for Innovative Therapy
 authors:
 - Yasuhiko Ago

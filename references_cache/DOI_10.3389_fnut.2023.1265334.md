@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnut.2023.1265334
+reference_id: "DOI:10.3389/fnut.2023.1265334"
 title: "Scurvy in a young man: a rare case report"
 authors:
 - Rui-Ling Lu

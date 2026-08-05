@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32074/1591-951x-830
+reference_id: "DOI:10.32074/1591-951x-830"
 title: Paediatric-type diffuse high-grade gliomas in the 5th CNS WHO Classification
 authors:
 - Francesca Gianno

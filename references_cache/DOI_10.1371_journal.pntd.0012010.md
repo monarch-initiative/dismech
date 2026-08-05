@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012010
+reference_id: "DOI:10.1371/journal.pntd.0012010"
 title: "Efficacy and safety of therapeutic strategies for human brucellosis: A systematic review and network meta-analysis"
 authors:
 - Sarah Nascimento Silva

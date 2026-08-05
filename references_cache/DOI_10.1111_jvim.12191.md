@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/jvim.12191
+reference_id: "DOI:10.1111/jvim.12191"
 title: Sensory Nerve Conduction and Somatosensory Evoked Potentials of the Trigeminal Nerve in Horses with Idiopathic Headshaking
 authors:
 - M. Aleman

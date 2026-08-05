@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.54014/4vbs-5jpp
+reference_id: "DOI:10.54014/4vbs-5jpp"
 title: "Exploring The Molecular Landscape Of Hepatitis C Virus: Insights Into Viral Replication And Host Interactions"
 authors:
 - Deniece Brown

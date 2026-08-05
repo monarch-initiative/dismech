@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph18101574
+reference_id: "DOI:10.3390/ph18101574"
 title: "Sex-Related Safety Signals of Sotorasib in Non-Small Cell Lung Cancer: A Real-World, Pharmacovigilance Study from the EudraVigilance Database"
 authors:
 - Desirèe Speranza

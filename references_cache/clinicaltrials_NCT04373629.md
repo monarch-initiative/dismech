@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04373629
+reference_id: "clinicaltrials:NCT04373629"
 title: Neural Mechanisms of Perceptual Abnormalities and Their Malleability in Body Dysmorphic Disorder
 content_type: summary
 full_text_attempted: true

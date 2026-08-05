@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15585/mmwr.mm7321a1
+reference_id: "DOI:10.15585/mmwr.mm7321a1"
 title: "Varicella Outbreak Among Recent Arrivals to New York City, 2022–2024"
 authors:
 - Krishika A. Graham

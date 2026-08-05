@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyt.2026.1799520
+reference_id: "DOI:10.3389/fpsyt.2026.1799520"
 title: "Narcolepsy as an immune-associated hypothalamic encephalopathy: orexin dysfunction and implications for precision sleep medicine"
 authors:
 - Oscar Arias-Carrión

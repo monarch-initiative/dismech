@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4236/psych.2023.141003
+reference_id: "DOI:10.4236/psych.2023.141003"
 title: "Generalized Anxiety Disorder: A Review of Current Literature in Saudi Arabia"
 authors:
 - Omar Abdulqader Bamalan

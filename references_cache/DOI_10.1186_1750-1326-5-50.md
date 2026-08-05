@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1326-5-50
+reference_id: "DOI:10.1186/1750-1326-5-50"
 title: Abnormal iron metabolism in fibroblasts from a patient with the neurodegenerative disease hereditary ferritinopathy
 authors:
 - Ana G Barbeito

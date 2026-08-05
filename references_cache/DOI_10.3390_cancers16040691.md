@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16040691
+reference_id: "DOI:10.3390/cancers16040691"
 title: "Kaposi’s Sarcoma: Evaluation of Clinical Features, Treatment Outcomes, and Prognosis in a Single-Center Retrospective Case Series"
 authors:
 - Irene Russo

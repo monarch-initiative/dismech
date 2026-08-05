@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/sci7010012
+reference_id: "DOI:10.3390/sci7010012"
 title: "Tocilizumab in Extracranial Giant-Cell Arteritis and Takayasu Arteritis: A Multicentric Observational Comparative Study"
 authors:
 - Carmen Lasa-Teja

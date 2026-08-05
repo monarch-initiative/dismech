@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1339438
+reference_id: "DOI:10.3389/fneur.2024.1339438"
 title: "Case report: Susac syndrome—two ends of the spectrum, single center case reports and review of the literature"
 authors:
 - Martina Cviková

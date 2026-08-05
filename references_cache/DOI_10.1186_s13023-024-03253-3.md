@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03253-3
+reference_id: "DOI:10.1186/s13023-024-03253-3"
 title: "Novel approach for tracheal resection in Morquio a syndrome with end-stage critical airway obstruction: a UK case series"
 authors:
 - Johnny Kenth

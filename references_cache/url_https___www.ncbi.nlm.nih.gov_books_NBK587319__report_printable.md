@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ncbi.nlm.nih.gov/books/NBK587319/?report=printable
+reference_id: "url:https://www.ncbi.nlm.nih.gov/books/NBK587319/?report=printable"
 title: NR2F1-Related Neurodevelopmental Disorder - GeneReviews® - NCBI Bookshelf
 content_type: url
 ---

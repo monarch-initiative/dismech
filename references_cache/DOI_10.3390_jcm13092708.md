@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13092708
+reference_id: "DOI:10.3390/jcm13092708"
 title: Challenges in Echocardiography for the Diagnosis and Prognosis of Non-Ischemic Hypertensive Heart Disease
 authors:
 - Nikolaos P. E. Kadoglou

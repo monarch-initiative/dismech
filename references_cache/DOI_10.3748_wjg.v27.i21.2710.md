@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3748/wjg.v27.i21.2710
+reference_id: "DOI:10.3748/wjg.v27.i21.2710"
 title: Molecular alterations in pancreatic tumors
 authors:
 - Michela Visani

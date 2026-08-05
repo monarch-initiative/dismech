@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/cmar.s481656
+reference_id: "DOI:10.2147/cmar.s481656"
 title: "Molecular Complexity of Colorectal Cancer: Pathways, Biomarkers, and Therapeutic Strategies"
 authors:
 - Zhengdong Yang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1302285
+reference_id: "DOI:10.3389/fcell.2023.1302285"
 title: The extracellular matrix glycoprotein fibrillin-1 in health and disease
 authors:
 - Li Li

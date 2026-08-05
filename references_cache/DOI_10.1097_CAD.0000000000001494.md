@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1097/CAD.0000000000001494
+reference_id: "DOI:10.1097/CAD.0000000000001494"
 title: "EGFR inhibitor-induced folliculitis decalvans: a case series and management guidelines"
 authors:
 - Joanna Nowaczyk

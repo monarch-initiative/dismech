@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2025.1615770
+reference_id: "DOI:10.3389/fphar.2025.1615770"
 title: "Potential signaling pathways, biomarkers, natural drugs, and chronic myeloid leukemia therapeutics"
 authors:
 - Sultan Alqahtani

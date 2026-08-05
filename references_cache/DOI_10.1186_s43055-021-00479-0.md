@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43055-021-00479-0
+reference_id: "DOI:10.1186/s43055-021-00479-0"
 title: A case report of achondrogenesis type II (Langer-Saldino achondrogenesis)
 authors:
 - Saurabh Maheshwari

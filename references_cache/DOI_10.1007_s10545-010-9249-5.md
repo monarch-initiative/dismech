@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10545-010-9249-5
+reference_id: "DOI:10.1007/s10545-010-9249-5"
 title: Expanding the clinical spectrum of 3‐phosphoglycerate dehydrogenase deficiency
 authors:
 - L. Tabatabaie

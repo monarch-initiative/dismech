@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-021-01955-6
+reference_id: "DOI:10.1186/s13023-021-01955-6"
 title: "Haploidentical haematopoietic stem cell transplantation for malignant infantile osteopetrosis and intermediate osteopetrosis: a retrospective analysis of a single centre"
 authors:
 - Guanghua Zhu

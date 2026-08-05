@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2023.1199660
+reference_id: "DOI:10.3389/fmicb.2023.1199660"
 title: "Evaluation of Leptospira interrogans knockdown mutants for LipL32, LipL41, LipL21, and OmpL1 proteins"
 authors:
 - Luis G. V. Fernandes

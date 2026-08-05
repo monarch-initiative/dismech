@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa2308809
+reference_id: "DOI:10.1056/nejmoa2308809"
 title: "Rusfertide, a Hepcidin Mimetic, for Control of Erythrocytosis in Polycythemia Vera"
 authors:
 - Marina Kremyanskaya

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/brainsci14020179
+reference_id: "DOI:10.3390/brainsci14020179"
 title: An Overview of UBTF Neuroregression Syndrome
 authors:
 - Anneliesse A. Braden

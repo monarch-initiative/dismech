@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.179071
+reference_id: "DOI:10.1172/jci.insight.179071"
 title: FDXR variants cause adrenal insufficiency and atypical sexual development
 authors:
 - Emanuele Pignatti

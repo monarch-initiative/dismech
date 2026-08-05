@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16071349
+reference_id: "DOI:10.3390/cancers16071349"
 title: "Effects of Peptide Receptor Radiotherapy in Patients with Advanced Paraganglioma and Pheochromocytoma: A Nation-Wide Cohort Study"
 authors:
 - Linda Skibsted Kornerup

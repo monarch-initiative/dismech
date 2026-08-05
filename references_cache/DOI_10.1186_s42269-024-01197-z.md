@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s42269-024-01197-z
+reference_id: "DOI:10.1186/s42269-024-01197-z"
 title: "Type 1 diabetes mellitus: retrospect and prospect"
 authors:
 - Tamer A. Addissouky

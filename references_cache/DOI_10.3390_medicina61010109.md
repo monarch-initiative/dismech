@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/medicina61010109
+reference_id: "DOI:10.3390/medicina61010109"
 title: "Impact of Microbiota on Irritable Bowel Syndrome Pathogenesis and Management: A Narrative Review"
 authors:
 - Mhd Bashir Almonajjed

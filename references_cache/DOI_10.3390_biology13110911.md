@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biology13110911
+reference_id: "DOI:10.3390/biology13110911"
 title: Genetic Insights into Congenital Cardiac Septal Defects—A Narrative Review
 authors:
 - Jorge L. Cervantes-Salazar

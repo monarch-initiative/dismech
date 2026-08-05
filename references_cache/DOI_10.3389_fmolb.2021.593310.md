@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2021.593310
+reference_id: "DOI:10.3389/fmolb.2021.593310"
 title: The Smad Dependent TGF-β and BMP Signaling Pathway in Bone Remodeling and Therapies
 authors:
 - Ming-Li Zou

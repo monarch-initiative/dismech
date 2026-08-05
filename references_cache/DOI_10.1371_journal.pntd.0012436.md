@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012436
+reference_id: "DOI:10.1371/journal.pntd.0012436"
 title: Prevalence of dermal trypanosomes in suspected and confirmed cases of gambiense human African trypanosomiasis in Guinea
 authors:
 - Alseny M’mah Soumah

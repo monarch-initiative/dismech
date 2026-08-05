@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers17172872
+reference_id: "DOI:10.3390/cancers17172872"
 title: "Immune Checkpoint Inhibitors in Sinonasal Squamous Cell Carcinoma: A Retrospective Study and Literature Review"
 authors:
 - Kosuke Terazawa

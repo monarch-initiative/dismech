@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15030879
+reference_id: "DOI:10.3390/cancers15030879"
 title: Development of Novel Murine BRAFV600E-Driven Papillary Thyroid Cancer Cell Lines for Modeling of Disease Progression and Preclinical Evaluation of Therapeutics
 authors:
 - Grace Purvis Branigan

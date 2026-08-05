@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12933-024-02315-x
+reference_id: "DOI:10.1186/s12933-024-02315-x"
 title: "Data-independent LC-MS/MS analysis of ME/CFS plasma reveals a dysregulated coagulation system, endothelial dysfunction, downregulation of complement machinery"
 authors:
 - Massimo Nunes

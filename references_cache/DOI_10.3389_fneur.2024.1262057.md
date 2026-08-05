@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1262057
+reference_id: "DOI:10.3389/fneur.2024.1262057"
 title: "Biomarkers and Tourette syndrome: a systematic review and meta-analysis"
 authors:
 - Yanlin Jiang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03069-1
+reference_id: "DOI:10.1186/s13023-024-03069-1"
 title: "Rare variants in alpha 1 antitrypsin deficiency: a systematic literature review"
 authors:
 - Ilaria Ferrarotti

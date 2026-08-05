@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1621492
+reference_id: "DOI:10.3389/fimmu.2025.1621492"
 title: "From mechanisms to therapies: current advances breakthroughs in alopecia areata immunopathology"
 authors:
 - Huai-Bo Zhao

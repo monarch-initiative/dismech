@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252413693
+reference_id: "DOI:10.3390/ijms252413693"
 title: "EWSR1::ATF1 Translocation: A Common Tumor Driver of Distinct Human Neoplasms"
 authors:
 - Julia Raffaella Bianco

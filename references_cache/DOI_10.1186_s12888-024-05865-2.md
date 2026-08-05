@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12888-024-05865-2
+reference_id: "DOI:10.1186/s12888-024-05865-2"
 title: "Mentalization based treatment for a broad range of personality disorders: a naturalistic study"
 authors:
 - Endang Rizzi

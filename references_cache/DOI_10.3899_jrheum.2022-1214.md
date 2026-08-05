@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3899/jrheum.2022-1214
+reference_id: "DOI:10.3899/jrheum.2022-1214"
 title: "Relapse Risk and Safety of Long-Term Tocilizumab Use Among Patients With Giant Cell Arteritis: A Single-Enterprise Cohort Study"
 authors:
 - Matthew J. Samec

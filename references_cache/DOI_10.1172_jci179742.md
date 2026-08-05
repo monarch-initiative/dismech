@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci179742
+reference_id: "DOI:10.1172/jci179742"
 title: "Myasthenia gravis: the future is here"
 authors:
 - Henry J. Kaminski

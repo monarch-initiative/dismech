@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2024.1369136
+reference_id: "DOI:10.3389/fmed.2024.1369136"
 title: "Targeting KRAS mutations in pancreatic cancer: opportunities for future strategies"
 authors:
 - Anna Linehan

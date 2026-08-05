@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-018-0875-6
+reference_id: "DOI:10.1186/s13023-018-0875-6"
 title: Fatal pitfalls in newborn screening for mitochondrial trifunctional protein (MTP)/long-chain 3-Hydroxyacyl-CoA dehydrogenase (LCHAD) deficiency
 authors:
 - Amelie S. Lotz-Havla

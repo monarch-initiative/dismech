@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13082391
+reference_id: "DOI:10.3390/jcm13082391"
 title: Primary Coenzyme Q10 Deficiency-Related Ataxias
 authors:
 - Piervito Lopriore

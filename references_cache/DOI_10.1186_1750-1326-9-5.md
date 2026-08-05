@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1326-9-5
+reference_id: "DOI:10.1186/1750-1326-9-5"
 title: Amyloid peptides ABri and ADan show differential neurotoxicity in transgenic Drosophila models of familial British and Danish dementia
 authors:
 - María S Marcora

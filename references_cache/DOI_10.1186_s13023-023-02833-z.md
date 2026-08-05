@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-02833-z
+reference_id: "DOI:10.1186/s13023-023-02833-z"
 title: "Biochemical and molecular features of chinese patients with glutaric acidemia type 1 from Fujian Province, southeastern China"
 authors:
 - Jinfu Zhou

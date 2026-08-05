@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcdd12060230
+reference_id: "DOI:10.3390/jcdd12060230"
 title: "Retinal Imaging as a Window into Cardiovascular Health: Towards Harnessing Retinal Analytics for Precision Cardiovascular Medicine"
 authors:
 - Jay Bharatsingh Bisen

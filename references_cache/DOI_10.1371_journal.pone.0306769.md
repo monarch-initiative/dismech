@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0306769
+reference_id: "DOI:10.1371/journal.pone.0306769"
 title: Patent ductus arteriosus (also non-hemodynamically significant) correlates with poor outcomes in very low birth weight infants. A multicenter cohort study
 authors:
 - Elena Chesi

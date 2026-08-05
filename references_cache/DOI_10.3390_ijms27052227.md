@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms27052227
+reference_id: "DOI:10.3390/ijms27052227"
 title: "Prenatal Molecular Diagnosis of COL2A1-Associated Stickler Syndrome: Genotype–Phenotype Correlation in a Resource-Limited Healthcare Setting"
 authors:
 - Elitsa Gyokova

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.09.07.24313247
+reference_id: "DOI:10.1101/2024.09.07.24313247"
 title: Oxidative stress markers predict treatment outcomes in patients with generalized anxiety disorder treated with selective serotonin reuptake inhibitors
 authors:
 - Lijun Cui

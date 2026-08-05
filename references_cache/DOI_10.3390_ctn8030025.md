@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ctn8030025
+reference_id: "DOI:10.3390/ctn8030025"
 title: "Pediatric Narcolepsy Type 1: A State-of-the-Art Review"
 authors:
 - Valentina Baldini

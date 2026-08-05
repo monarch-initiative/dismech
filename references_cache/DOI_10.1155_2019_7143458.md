@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1155/2019/7143458
+reference_id: "DOI:10.1155/2019/7143458"
 title: New Genotypes and Phenotypes in Patients with 3 Subtypes of Waardenburg Syndrome Identified by Diagnostic Next-Generation Sequencing
 authors:
 - Wu Li

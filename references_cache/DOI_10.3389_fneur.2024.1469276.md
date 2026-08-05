@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1469276
+reference_id: "DOI:10.3389/fneur.2024.1469276"
 title: "The evolution of intractable Ménière’s disease: attacks resolve over time"
 authors:
 - F. R. Gerritsen

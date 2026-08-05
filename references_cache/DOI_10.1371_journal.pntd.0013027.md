@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013027
+reference_id: "DOI:10.1371/journal.pntd.0013027"
 title: Dermal trypanosomes in seropositive suspects of gambiense human African trypanosomiasis in Côte d’Ivoire
 authors:
 - Martial Kassi N’Djetchi

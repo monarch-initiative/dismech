@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1515/oncologie-2024-0101
+reference_id: "DOI:10.1515/oncologie-2024-0101"
 title: "Primary renal synovial sarcomas diagnosed by a novel fusion gene with the fusion site involving exons of SS18 and SSX2: a case report"
 authors:
 - Hong Qiu

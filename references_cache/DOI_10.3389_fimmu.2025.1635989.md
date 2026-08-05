@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1635989
+reference_id: "DOI:10.3389/fimmu.2025.1635989"
 title: "B cell depletion as a therapeutic strategy for neuromyelitis optica spectrum disorder: rationale, evidence, and challenges"
 authors:
 - Hirofumi Ochi

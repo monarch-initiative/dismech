@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/children10040647
+reference_id: "DOI:10.3390/children10040647"
 title: "Holoprosencephaly: Review of Embryology, Clinical Phenotypes, Etiology and Management"
 authors:
 - Maísa Malta

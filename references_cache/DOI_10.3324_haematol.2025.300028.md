@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2025.300028
+reference_id: "DOI:10.3324/haematol.2025.300028"
 title: "Preserving thrombosis and life years in polycythemia vera: start by reading the biology of the disease"
 authors:
 - Tiziano Barbui

@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE72946
+reference_id: "GEO:GSE72946"
 title: Cathelicidin insufficiency in patients with fatal leptospirosis
 content_type: summary
 full_text_attempted: true

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijns10040083
+reference_id: "DOI:10.3390/ijns10040083"
 title: Digital-Tier Strategy Improves Newborn Screening for Glutaric Aciduria Type 1
 authors:
 - Elaine Zaunseder

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.875013
+reference_id: "DOI:10.3389/fgene.2022.875013"
 title: Novel CNNM2 Mutation Responsible for Autosomal-Dominant Hypomagnesemia With Seizure
 authors:
 - Min-Hua Tseng

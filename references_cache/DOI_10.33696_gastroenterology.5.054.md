@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.33696/gastroenterology.5.054
+reference_id: "DOI:10.33696/gastroenterology.5.054"
 title: Translating Molecular Heterogeneity into Precision Medicine for Advanced Liver Disease
 authors:
 - Tamer A. Addissouky

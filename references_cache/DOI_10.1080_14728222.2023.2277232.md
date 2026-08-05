@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/14728222.2023.2277232
+reference_id: "DOI:10.1080/14728222.2023.2277232"
 title: "Bench-to-bedside investigations of H3 K27-altered diffuse midline glioma: drug targets and potential pharmacotherapies"
 authors:
 - Julian S. Rechberger

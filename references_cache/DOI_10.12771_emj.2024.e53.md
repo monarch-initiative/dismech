@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12771/emj.2024.e53
+reference_id: "DOI:10.12771/emj.2024.e53"
 title: "Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review"
 authors:
 - Hye-Jin Yoo

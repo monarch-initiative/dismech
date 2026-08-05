@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13034-024-00710-6
+reference_id: "DOI:10.1186/s13034-024-00710-6"
 title: "Recognition and management of children and adolescents with conduct disorder: a real-world data study from four western countries"
 authors:
 - Christian J Bachmann

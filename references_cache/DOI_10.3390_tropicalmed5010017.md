@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/tropicalmed5010017
+reference_id: "DOI:10.3390/tropicalmed5010017"
 title: Innovative Partnerships for the Elimination of Human African Trypanosomiasis and the Development of Fexinidazole
 authors:
 - Philippe Neau

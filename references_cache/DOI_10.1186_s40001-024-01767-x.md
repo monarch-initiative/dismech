@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40001-024-01767-x
+reference_id: "DOI:10.1186/s40001-024-01767-x"
 title: "Systematic review of the molecular basis of hereditary breast and ovarian cancer syndrome in Brazil: the current scenario"
 authors:
 - Andreza Amália de Freitas Ribeiro

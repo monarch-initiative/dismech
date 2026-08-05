@@ -1,5 +1,5 @@
 ---
-reference_id: METABOLIGHTS:MTBLS2266
+reference_id: "METABOLIGHTS:MTBLS2266"
 title: "Metabolomics of sebum reveals lipid dysregulation in Parkinson's disease"
 content_type: abstract_only
 full_text_attempted: true

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13175212
+reference_id: "DOI:10.3390/jcm13175212"
 title: "Linking Intra-Articular Inflammatory Biomarkers with Peripheral and Central Sensitization in Late-Stage Knee Osteoarthritis Pain: A Pilot Study"
 authors:
 - Sofie Puts

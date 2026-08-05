@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci83926
+reference_id: "DOI:10.1172/jci83926"
 title: Tyrosine kinase inhibitor NVP-BGJ398 functionally improves FGFR3-related dwarfism in mouse model
 authors:
 - Davide Komla-Ebri

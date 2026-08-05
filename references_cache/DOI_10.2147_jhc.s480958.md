@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jhc.s480958
+reference_id: "DOI:10.2147/jhc.s480958"
 title: "Efficacy and Safety of Transcatheter Arterial Chemoembolization Combined with Lenvatinib Plus Anti-PD-1 Inhibitors for Hepatocellular Carcinoma Patients with Extrahepatic Metastases: A Multicenter Retrospective Study"
 authors:
 - De-Yi Liu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12105-024-01680-z
+reference_id: "DOI:10.1007/s12105-024-01680-z"
 title: Simultaneous p53 and p16 Immunostaining for Molecular Subclassification of Head and Neck Squamous Cell Carcinomas
 authors:
 - Pihla Pakkanen
@@ -798,7 +798,8 @@ feld N et al (2016) Optimized p53 immunohistochemistry is an
 Authors and Affiliations
 Pihla Pakkanen1 · Antti Silvoniemi2 · Katri Aro1 · Leif Bäck1 · Heikki Irjala2 · Leena-Maija Aaltonen1 · 
 Jaana Hagström3,4,5 · Caj Haglund5,6 · Jukka Laine7 · Heikki Minn8 · Jutta Huvila7
-  Jutta Huvila
+ 
+ Jutta Huvila
 jutta.huvila@utu.fi
 Pihla Pakkanen
 pihla.pakkanen@hus.fi

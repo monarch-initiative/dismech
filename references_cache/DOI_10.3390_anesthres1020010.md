@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/anesthres1020010
+reference_id: "DOI:10.3390/anesthres1020010"
 title: "Enhancing Neuroprotection in Cardiac and Aortic Surgeries: A Narrative Review"
 authors:
 - Debora Emanuela Torre

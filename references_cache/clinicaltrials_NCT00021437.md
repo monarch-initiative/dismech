@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT00021437
+reference_id: "clinicaltrials:NCT00021437"
 title: "Biological Significance of the Bloom's Syndrome Protein"
 content_type: summary
 full_text_attempted: true

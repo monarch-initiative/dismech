@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14051080
+reference_id: "DOI:10.3390/genes14051080"
 title: "Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene"
 authors:
 - Chiara Moltrasio

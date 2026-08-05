@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1210/endrev/bnab017
+reference_id: "DOI:10.1210/endrev/bnab017"
 title: "Osteogenesis Imperfecta: Mechanisms and Signaling Pathways Connecting Classical and Rare OI Types"
 authors:
 - Milena Jovanovic

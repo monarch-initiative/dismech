@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells11050802
+reference_id: "DOI:10.3390/cells11050802"
 title: Impaired p53-Mediated DNA Damage Response Contributes to Microcephaly in Nijmegen Breakage Syndrome Patient-Derived Cerebral Organoids
 authors:
 - Soraia Martins

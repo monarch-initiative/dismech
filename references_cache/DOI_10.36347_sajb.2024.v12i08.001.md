@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.36347/sajb.2024.v12i08.001
+reference_id: "DOI:10.36347/sajb.2024.v12i08.001"
 title: "Otomycosis, Review"
 authors:
 - Mouna Akeel Hamed Al-Oebady

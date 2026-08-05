@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/2515841421997191
+reference_id: "DOI:10.1177/2515841421997191"
 title: "Bestrophinopathies: perspectives on clinical disease, Bestrophin-1 function and developing therapies"
 authors:
 - Simranjeet Singh Grewal

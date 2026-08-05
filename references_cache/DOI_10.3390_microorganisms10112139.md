@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/microorganisms10112139
+reference_id: "DOI:10.3390/microorganisms10112139"
 title: "Campylobacter jejuni Infection, Anti-Ganglioside Antibodies, and Neuropathy"
 authors:
 - Norman Latov

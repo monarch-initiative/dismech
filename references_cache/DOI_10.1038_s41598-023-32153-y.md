@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-023-32153-y
+reference_id: "DOI:10.1038/s41598-023-32153-y"
 title: "Genomic profiles of IDH-mutant gliomas: MYCN-amplified IDH-mutant astrocytoma had the worst prognosis"
 authors:
 - Kwanghoon Lee

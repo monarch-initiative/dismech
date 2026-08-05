@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14444/8570
+reference_id: "DOI:10.14444/8570"
 title: Minimally Invasive Surgery Transpedicular Intrabody Cage Technique for the Management of Kummell Disease
 authors:
 - Junseok Bae

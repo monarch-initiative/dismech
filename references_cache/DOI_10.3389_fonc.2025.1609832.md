@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2025.1609832
+reference_id: "DOI:10.3389/fonc.2025.1609832"
 title: The impact of estrogen on benign breast tumors and exploration of recurrence mechanisms
 authors:
 - Zhe Fan

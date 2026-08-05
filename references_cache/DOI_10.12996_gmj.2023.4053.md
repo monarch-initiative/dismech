@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.12996/gmj.2023.4053
+reference_id: "DOI:10.12996/gmj.2023.4053"
 title: "A Rare Prenatal Case: Greig Cephalopolysyndactyly Syndrome"
 authors:
 - Tilbe Hakçıl

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.66555
+reference_id: "DOI:10.7759/cureus.66555"
 title: "Antiphospholipid Syndrome and Catastrophic Antiphospholipid Syndrome: A Comprehensive Review of Pathogenesis, Clinical Features, and Management Strategies"
 authors:
 - Avinash Parepalli

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41392-025-02415-4
+reference_id: "DOI:10.1038/s41392-025-02415-4"
 title: "Multiple sclerosis: molecular pathogenesis and therapeutic intervention"
 authors:
 - Imane Boutitah-Benyaich

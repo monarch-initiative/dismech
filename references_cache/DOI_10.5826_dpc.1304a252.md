@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5826/dpc.1304a252
+reference_id: "DOI:10.5826/dpc.1304a252"
 title: Immunotherapy and Its Timing in Advanced Basal Cell Carcinoma Treatment
 authors:
 - Clio Dessinioti

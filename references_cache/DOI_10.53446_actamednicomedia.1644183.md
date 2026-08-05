@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.53446/actamednicomedia.1644183
+reference_id: "DOI:10.53446/actamednicomedia.1644183"
 title: Hyperostosis Frontalis Interna and Its Clinical Significance
 authors:
 - Hürriyet Çetinok

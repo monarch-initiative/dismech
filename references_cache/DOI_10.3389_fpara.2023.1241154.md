@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpara.2023.1241154
+reference_id: "DOI:10.3389/fpara.2023.1241154"
 title: "Clinical use of molecular methods for Trypanosoma cruzi infection in endemic and non-endemic countries: Benefits, limitations and challenges"
 authors:
 - Maria-Jesus Pinazo

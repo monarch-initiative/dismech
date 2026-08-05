@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5551/jat.cr005
+reference_id: "DOI:10.5551/jat.cr005"
 title: Guidelines for the Diagnosis and Treatment of Adult Familial Hypercholesterolemia 2022
 authors:
 - Mariko Harada-Shiba

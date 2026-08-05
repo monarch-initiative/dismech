@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25137405
+reference_id: "DOI:10.3390/ijms25137405"
 title: "Exploring Fibrosis Pathophysiology in Lean and Obese Metabolic-Associated Fatty Liver Disease: An In-Depth Comparison"
 authors:
 - Milena Vesković

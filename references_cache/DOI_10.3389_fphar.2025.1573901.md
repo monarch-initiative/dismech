@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2025.1573901
+reference_id: "DOI:10.3389/fphar.2025.1573901"
 title: "Modulating TRPV1 and TRPA1 channels: a viable strategy for treating asthma using Chinese herbal medicines"
 authors:
 - Xiang Yao

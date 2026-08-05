@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.99989
+reference_id: "DOI:10.7759/cureus.99989"
 title: "Radiologic Diagnosis of Arterial Tortuosity Syndrome in a Pediatric Patient: A Case Report"
 authors:
 - Amina Salah Alkooheji

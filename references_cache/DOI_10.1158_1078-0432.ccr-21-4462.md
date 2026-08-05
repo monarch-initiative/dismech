@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-21-4462
+reference_id: "DOI:10.1158/1078-0432.ccr-21-4462"
 title: "FDA Approval Summary: Ivosidenib for the Treatment of Patients with Advanced Unresectable or Metastatic, Chemotherapy Refractory Cholangiocarcinoma with an IDH1 Mutation"
 authors:
 - Sandra J. Casak

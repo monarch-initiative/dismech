@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1394812
+reference_id: "DOI:10.3389/fendo.2024.1394812"
 title: "Understanding testicular single cell transcriptional atlas: from developmental complications to male infertility"
 authors:
 - Munichandra Babu Tirumalasetty

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1148/rg.2021200075
+reference_id: "DOI:10.1148/rg.2021200075"
 title: Radiologic Features of Type II and Type XI Collagenopathies
 authors:
 - Atsuhiko Handa

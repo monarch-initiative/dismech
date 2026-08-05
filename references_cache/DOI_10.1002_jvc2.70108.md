@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jvc2.70108
+reference_id: "DOI:10.1002/jvc2.70108"
 title: "Clinical Effectiveness of Interventions to Increase Self‐Surveillance in People at High Risk of Melanoma: A Systematic Review"
 authors:
 - Kieran Gooley

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40249-024-01238-9
+reference_id: "DOI:10.1186/s40249-024-01238-9"
 title: "Global burden of soil-transmitted helminth infections, 1990–2021"
 authors:
 - Jin Chen

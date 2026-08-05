@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1184289
+reference_id: "DOI:10.3389/fmed.2023.1184289"
 title: "Advancing the understanding of allergic contact dermatitis: from pathophysiology to novel therapeutic approaches"
 authors:
 - Marta Tramontana

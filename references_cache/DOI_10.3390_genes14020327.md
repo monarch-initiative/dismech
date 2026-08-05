@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14020327
+reference_id: "DOI:10.3390/genes14020327"
 title: Autistic Behavior as Novel Clinical Finding in OFD1 Syndrome
 authors:
 - Sorina Mihaela Papuc

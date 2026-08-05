@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2025.1673283
+reference_id: "DOI:10.3389/fmed.2025.1673283"
 title: "The role of copper dysregulation in Wilson disease: an expert opinion"
 authors:
 - Wolfgang Stremmel

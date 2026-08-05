@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.25259/ijmr_1382_2024
+reference_id: "DOI:10.25259/ijmr_1382_2024"
 title: "Typhoid &amp; paratyphoid vaccine development in the laboratory: a review &amp; in-country experience"
 authors:
 - Suparna Chakraborty

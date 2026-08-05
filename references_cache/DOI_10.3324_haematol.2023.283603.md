@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2023.283603
+reference_id: "DOI:10.3324/haematol.2023.283603"
 title: "Longitudinal, natural history study reveals the disease burden of idiopathic multicentric Castleman disease"
 authors:
 - Mateo Sarmiento Bustamante

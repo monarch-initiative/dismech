@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gutjnl-2023-330029
+reference_id: "DOI:10.1136/gutjnl-2023-330029"
 title: British Society of Gastroenterology guidelines for the diagnosis and management of cholangiocarcinoma
 authors:
 - Simon M Rushbrook

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2022.1062524
+reference_id: "DOI:10.3389/fonc.2022.1062524"
 title: "The treatment of acute promyelocytic leukemia in 2023: Paradigm, advances, and future directions"
 authors:
 - Sunil Girish Iyer

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15252/embj.2022112095
+reference_id: "DOI:10.15252/embj.2022112095"
 title: "Presynaptic targeting of botulinum neurotoxin type A requires a tripartite <scp>PSG‐Syt1</scp> ‐ <scp>SV2</scp> plasma membrane nanocluster for synaptic vesicle entry"
 authors:
 - Merja Joensuu

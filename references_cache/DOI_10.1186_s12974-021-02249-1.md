@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12974-021-02249-1
+reference_id: "DOI:10.1186/s12974-021-02249-1"
 title: "Neuromyelitis optica spectrum disorders: from pathophysiology to therapeutic strategies"
 authors:
 - Edgar Carnero Contentti

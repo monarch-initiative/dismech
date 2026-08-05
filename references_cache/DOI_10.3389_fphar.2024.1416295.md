@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1416295
+reference_id: "DOI:10.3389/fphar.2024.1416295"
 title: Novel genetic alterations in liver cancer distinguish distinct clinical outcomes and combination immunotherapy responses
 authors:
 - Yizhou Wang

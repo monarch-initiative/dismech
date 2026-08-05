@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/ATVBAHA.119.313885
+reference_id: "DOI:10.1161/ATVBAHA.119.313885"
 title: "A Novel Recurrent <i>COL5A1</i> Genetic Variant Is Associated With a Dysplasia-Associated Arterial Disease Exhibiting Dissections and Fibromuscular Dysplasia"
 authors:
 - Julie Richer

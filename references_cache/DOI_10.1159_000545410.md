@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000545410
+reference_id: "DOI:10.1159/000545410"
 title: Genotype-Phenotype Analysis and New Clinical Findings in a Series of 24 Patients Presenting with Noonan Syndrome and Related Disorders
 authors:
 - Bruna Miranda Corso

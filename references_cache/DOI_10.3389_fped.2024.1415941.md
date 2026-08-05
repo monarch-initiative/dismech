@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2024.1415941
+reference_id: "DOI:10.3389/fped.2024.1415941"
 title: Research perspective in the clinical management of Kawasaki disease
 authors:
 - Xiong-xiong Yi

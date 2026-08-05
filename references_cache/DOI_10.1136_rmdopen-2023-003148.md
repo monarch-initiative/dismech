@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/rmdopen-2023-003148
+reference_id: "DOI:10.1136/rmdopen-2023-003148"
 title: "Anti-topoisomerase, but not anti-centromere B cell responses in systemic sclerosis display active, Ig-secreting cells associated with lung fibrosis"
 authors:
 - Corrie M Wortel

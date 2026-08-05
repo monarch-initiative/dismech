@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12985-024-02359-1
+reference_id: "DOI:10.1186/s12985-024-02359-1"
 title: The regulation of cGAS-STING signaling by RNA virus-derived components
 authors:
 - Feiting Xie

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1476859
+reference_id: "DOI:10.3389/fimmu.2024.1476859"
 title: "CAR T-cell therapy for systemic lupus erythematosus: current status and future perspectives"
 authors:
 - Jincai Zhou

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-020-77202-y
+reference_id: "DOI:10.1038/s41598-020-77202-y"
 title: Lipocalin 2 as a potential systemic biomarker for central serous chorioretinopathy
 authors:
 - A. Matet

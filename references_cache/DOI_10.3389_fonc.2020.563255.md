@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2020.563255
+reference_id: "DOI:10.3389/fonc.2020.563255"
 title: LncRNA NR_027471 Functions as a ceRNA for miRNA-8055 Leading to Suppression of Osteosarcoma by Regulating the Expression of TP53INP1
 authors:
 - Jiajia Chen

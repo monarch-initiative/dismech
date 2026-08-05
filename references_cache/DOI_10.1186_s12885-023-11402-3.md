@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-023-11402-3
+reference_id: "DOI:10.1186/s12885-023-11402-3"
 title: "Incident Kaposi sarcoma during the expansion of antiretroviral therapy eligibility in Nigeria: a retrospective cohort study"
 authors:
 - Maxwell. O. Akanbi

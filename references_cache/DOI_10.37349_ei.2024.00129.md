@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/ei.2024.00129
+reference_id: "DOI:10.37349/ei.2024.00129"
 title: Decoding the impact of autoinflammatory/autoimmune diseases on inner ear harmony and hearing loss
 authors:
 - Michail Athanasopoulos

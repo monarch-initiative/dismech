@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011882
+reference_id: "DOI:10.1371/journal.pntd.0011882"
 title: "The lymphatic filariasis treatment study landscape: A systematic review of study characteristics and the case for an individual participant data platform"
 authors:
 - Luzia T. Freitas

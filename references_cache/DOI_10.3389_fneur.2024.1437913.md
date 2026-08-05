@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1437913
+reference_id: "DOI:10.3389/fneur.2024.1437913"
 title: "Innovation and optimization in autoimmune encephalitis trials: the design and rationale for the Phase 3, randomized study of satralizumab in patients with NMDAR-IgG-antibody-positive or LGI1-IgG-antibody-positive autoimmune encephalitis (CIELO)"
 authors:
 - Soon-Tae Lee

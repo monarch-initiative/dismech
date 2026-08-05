@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1551911
+reference_id: "DOI:10.3389/fimmu.2025.1551911"
 title: "A review of recent studies on the pathogenesis of Systemic Sclerosis: focus on fibrosis pathways"
 authors:
 - Sergio A. Jimenez

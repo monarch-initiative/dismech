@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06982274
+reference_id: "clinicaltrials:NCT06982274"
 title: "Combination of Oral Arsenic With ATRA and Minimal-Dose Chemotherapy for Newly Diagnosed Patients With Acute Promyelocytic Leukemia: a Study by the International Consortium on APL"
 content_type: summary
 full_text_attempted: true

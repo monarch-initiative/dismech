@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/HYPERTENSIONAHA.122.17965
+reference_id: "DOI:10.1161/HYPERTENSIONAHA.122.17965"
 title: "Endovascular Versus Medical Management of Atherosclerotic Renovascular Disease: Update and Emerging Concepts"
 authors:
 - Marco Pappaccogli

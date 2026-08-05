@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci38519
+reference_id: "DOI:10.1172/jci38519"
 title: Heparan sulfate deficiency leads to Peters anomaly in mice by disturbing neural crest TGF-β2 signaling
 authors:
 - Keiichiro Iwao

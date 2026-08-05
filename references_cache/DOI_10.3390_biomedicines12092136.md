@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12092136
+reference_id: "DOI:10.3390/biomedicines12092136"
 title: "Outcome Disparities in Patients with Early-Stage Laryngeal Cancer Depending on Localization, Tobacco Consumption, and Treatment Modality"
 authors:
 - Theresa Wald

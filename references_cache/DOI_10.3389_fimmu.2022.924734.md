@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.924734
+reference_id: "DOI:10.3389/fimmu.2022.924734"
 title: Divergent complement system activation in two clinically distinct murine models of multiple sclerosis
 authors:
 - Michael Linzey

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012444
+reference_id: "DOI:10.1371/journal.ppat.1012444"
 title: Genome-wide CRISPR/Cas9 screen identifies SLC39A9 and PIK3C3 as crucial entry factors for Ebola virus infection
 authors:
 - Mingli Gong

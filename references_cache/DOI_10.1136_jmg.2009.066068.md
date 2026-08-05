@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg.2009.066068
+reference_id: "DOI:10.1136/jmg.2009.066068"
 title: Encephalocraniocutaneous lipomatosis
 authors:
 - U Moog

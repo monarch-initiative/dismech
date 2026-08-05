@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2023.1271100
+reference_id: "DOI:10.3389/fcvm.2023.1271100"
 title: Lower limb arterial calcification and its clinical relevance with peripheral arterial disease
 authors:
 - Yue Dong

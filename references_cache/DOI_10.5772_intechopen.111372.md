@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.111372
+reference_id: "DOI:10.5772/intechopen.111372"
 title: Chlamydial Eye Infections
 authors:
 - Seçil Özdemir Şahin

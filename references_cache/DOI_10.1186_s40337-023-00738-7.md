@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40337-023-00738-7
+reference_id: "DOI:10.1186/s40337-023-00738-7"
 title: "Epidemiology of eating disorders: population, prevalence, disease burden and quality of life informing public policy in Australia—a rapid review"
 authors:
 - Phillipa Hay

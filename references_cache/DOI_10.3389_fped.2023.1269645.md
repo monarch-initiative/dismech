@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1269645
+reference_id: "DOI:10.3389/fped.2023.1269645"
 title: "Hematological characteristics and hepatobiliary complications of hereditary spherocytosis in a tertiary care pediatric center: optimizing diagnosis and care through local and international networks"
 authors:
 - Maria Paola Boaro

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2025.1662211
+reference_id: "DOI:10.3389/fitd.2025.1662211"
 title: Participatory approach in designing a One Health rabies surveillance form for integrated bite case management in Uganda
 authors:
 - Samuel George Okech

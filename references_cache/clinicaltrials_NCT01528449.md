@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01528449
+reference_id: "clinicaltrials:NCT01528449"
 title: Blood Donation Screening for Babesia Microti by Real-time Polymerase Chain Reaction (PCR) and by Indirect Flourescent Antibody (IFA) Assays
 content_type: summary
 full_text_attempted: true

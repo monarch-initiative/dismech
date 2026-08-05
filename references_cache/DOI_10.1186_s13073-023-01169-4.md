@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13073-023-01169-4
+reference_id: "DOI:10.1186/s13073-023-01169-4"
 title: X chromosome dosage and the genetic impact across human tissues
 authors:
 - Mette Viuff

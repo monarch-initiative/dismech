@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-021-00993-0
+reference_id: "DOI:10.1186/s12920-021-00993-0"
 title: Diagnostic yield of rare skeletal dysplasia conditions in the radiogenomics era
 authors:
 - Ataf H. Sabir

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms251910329
+reference_id: "DOI:10.3390/ijms251910329"
 title: In Silico Modeling of Fabry Disease Pathophysiology for the Identification of Early Cellular Damage Biomarker Candidates
 authors:
 - Javier Gervas-Arruga

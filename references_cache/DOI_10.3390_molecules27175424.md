@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/molecules27175424
+reference_id: "DOI:10.3390/molecules27175424"
 title: Poly-(lactic-co-glycolic) Acid Nanoparticles Entrapping Pterostilbene for Targeting Aspergillus Section Nigri
 authors:
 - Anastasia Orekhova

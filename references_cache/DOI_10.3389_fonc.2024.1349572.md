@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1349572
+reference_id: "DOI:10.3389/fonc.2024.1349572"
 title: "The histological and molecular characteristics of early-onset colorectal cancer: a systematic review and meta-analysis"
 authors:
 - Thomas Lawler

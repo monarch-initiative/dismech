@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05158296
+reference_id: "clinicaltrials:NCT05158296"
 title: "A Double-Masked, Randomized, Controlled, Multiple-Dose Study to Evaluate the Efficacy, Safety and Tolerability of Ultevursen in Subjects With Retinitis Pigmentosa (RP) Due to Mutations in Exon 13 of the USH2A Gene (Sirius)"
 content_type: summary
 full_text_attempted: true

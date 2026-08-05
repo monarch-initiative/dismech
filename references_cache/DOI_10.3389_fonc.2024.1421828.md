@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1421828
+reference_id: "DOI:10.3389/fonc.2024.1421828"
 title: "Does a high peritoneal cancer index lead to a worse prognosis of patients with advanced ovarian cancer?: a systematic review and meta-analysis based on the latest evidence"
 authors:
 - Siyu Wang

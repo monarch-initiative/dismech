@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneph.2023.1331847
+reference_id: "DOI:10.3389/fneph.2023.1331847"
 title: Primary cilia and actin regulatory pathways in renal ciliopathies
 authors:
 - Rita Kalot

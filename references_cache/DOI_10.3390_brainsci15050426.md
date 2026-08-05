@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/brainsci15050426
+reference_id: "DOI:10.3390/brainsci15050426"
 title: Epidemiology of Tourette Syndrome
 authors:
 - Abdullah Yasir Yilmaz

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/ott.s468787
+reference_id: "DOI:10.2147/ott.s468787"
 title: "Management and Future Therapeutic Perspectives of Classic Kaposi’s Sarcoma: An Evidence-Based Review"
 authors:
 - Nerina Denaro

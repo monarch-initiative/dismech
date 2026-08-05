@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/01.con.0001097968.42765.7a
+reference_id: "DOI:10.1212/01.con.0001097968.42765.7a"
 title: AUTOIMMUNE TRANSVERSE MYELITIS
 journal: Continuum
 year: '2005'

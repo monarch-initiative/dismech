@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011073
+reference_id: "DOI:10.1371/journal.pntd.0011073"
 title: "Global prevalence of 4 neglected foodborne trematodes targeted for control by WHO: A scoping review to highlight the gaps"
 authors:
 - Rachel Tidman

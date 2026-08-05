@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16234048
+reference_id: "DOI:10.3390/cancers16234048"
 title: "Genetic Blueprints in Lung Cancer: Foundations for Targeted Therapies"
 authors:
 - Andra Dan

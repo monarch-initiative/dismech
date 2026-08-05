@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmra1713301
+reference_id: "DOI:10.1056/nejmra1713301"
 title: Autoimmune Polyendocrine Syndromes
 authors:
 - Eystein S. Husebye

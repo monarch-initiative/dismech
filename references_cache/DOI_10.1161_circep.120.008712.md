@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/circep.120.008712
+reference_id: "DOI:10.1161/circep.120.008712"
 title: Cardiac Emerinopathy
 authors:
 - Taisuke Ishikawa

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.22.02018
+reference_id: "DOI:10.1200/jco.22.02018"
 title: "Initial Evidence for the Efficacy of Naporafenib in Combination With Trametinib in <i>NRAS</i>-Mutant Melanoma: Results From the Expansion Arm of a Phase Ib, Open-Label Study"
 authors:
 - Filippo de Braud

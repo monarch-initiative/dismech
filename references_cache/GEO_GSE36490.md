@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE36490
+reference_id: "GEO:GSE36490"
 title: "Analysis of the Transcriptomes of Giardia intestinalis Assemblages A, B and E Using Strand-specific RNA-seq"
 content_type: summary
 full_text_attempted: true

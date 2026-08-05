@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0303205
+reference_id: "DOI:10.1371/journal.pone.0303205"
 title: "Trends of emergency department visits for cannabinoid hyperemesis syndrome in Nevada: An interrupted time series analysis"
 authors:
 - Jaeseung Soh

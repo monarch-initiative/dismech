@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells12070978
+reference_id: "DOI:10.3390/cells12070978"
 title: STAT3 Drives GFAP Accumulation and Astrocyte Pathology in a Mouse Model of Alexander Disease
 authors:
 - Tracy L. Hagemann

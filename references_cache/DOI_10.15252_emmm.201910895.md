@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15252/emmm.201910895
+reference_id: "DOI:10.15252/emmm.201910895"
 title: "Follistatin is a novel therapeutic target and biomarker in <scp>FLT</scp> 3/ <scp>ITD</scp> acute myeloid leukemia"
 authors:
 - Bai‐Liang He

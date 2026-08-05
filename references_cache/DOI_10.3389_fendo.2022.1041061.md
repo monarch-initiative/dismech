@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2022.1041061
+reference_id: "DOI:10.3389/fendo.2022.1041061"
 title: Clinical characteristics and the influence of rs1800470 in patients with Camurati-Engelmann disease
 authors:
 - Hanting Liang

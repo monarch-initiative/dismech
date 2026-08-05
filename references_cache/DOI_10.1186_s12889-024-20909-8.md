@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12889-024-20909-8
+reference_id: "DOI:10.1186/s12889-024-20909-8"
 title: "Clinical, aetiological, and epidemiological studies of outpatient cases of hand, foot, and mouth disease in Chengdu, China, from 2019 to 2022: a retrospective study"
 authors:
 - Maoyao Xia

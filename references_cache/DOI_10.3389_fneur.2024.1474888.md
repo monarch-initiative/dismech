@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1474888
+reference_id: "DOI:10.3389/fneur.2024.1474888"
 title: Clinical characteristics and prognosis analysis of acute symptomatic seizures secondary to autoimmune encephalitis
 authors:
 - Mengyun Li

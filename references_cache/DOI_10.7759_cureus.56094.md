@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.56094
+reference_id: "DOI:10.7759/cureus.56094"
 title: "A Comparative Review of Typical and Atypical Optic Neuritis: Advancements in Treatments, Diagnostics, and Prognosis"
 authors:
 - Noah J Spillers

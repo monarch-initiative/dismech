@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14080925
+reference_id: "DOI:10.3390/biom14080925"
 title: "The Next Chapter in Cancer Diagnostics: Advances in HPV-Positive Head and Neck Cancer"
 authors:
 - Antea Krsek

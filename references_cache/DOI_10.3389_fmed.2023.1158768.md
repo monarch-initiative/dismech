@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1158768
+reference_id: "DOI:10.3389/fmed.2023.1158768"
 title: "Targeting intracellular pathways in idiopathic inflammatory myopathies: A narrative review"
 authors:
 - Gaetano La Rocca

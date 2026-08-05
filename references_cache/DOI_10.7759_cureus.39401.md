@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.39401
+reference_id: "DOI:10.7759/cureus.39401"
 title: A Unique Presentation of 3-Methylcrotonyl-CoA Carboxylase Deficiency
 authors:
 - Ashwin Jagadish

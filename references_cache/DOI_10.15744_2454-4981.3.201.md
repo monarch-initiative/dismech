@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15744/2454-4981.3.201
+reference_id: "DOI:10.15744/2454-4981.3.201"
 title: The Importance of Brain MRI in the Diagnosis of Marchiafava-Bignami Disease
 authors:
 - Pontes CM

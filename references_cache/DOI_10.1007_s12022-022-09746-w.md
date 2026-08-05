@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12022-022-09746-w
+reference_id: "DOI:10.1007/s12022-022-09746-w"
 title: "TOP2A Expression in Pheochromocytoma and Abdominal Paraganglioma: a Marker of Poor Clinical Outcome?"
 authors:
 - Karolina Solhusløkk Höse

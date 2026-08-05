@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.1004554
+reference_id: "DOI:10.5772/intechopen.1004554"
 title: "Neurocysticercosis and the Central Nervous System: Advancements in Diagnosis, Treatment, and Future Prospects"
 authors:
 - Nicholas Aderinto

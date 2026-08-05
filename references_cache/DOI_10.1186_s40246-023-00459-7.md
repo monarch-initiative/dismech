@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40246-023-00459-7
+reference_id: "DOI:10.1186/s40246-023-00459-7"
 title: Genetic association of PRKCD and CARD9 polymorphisms with Vogt–Koyanagi–Harada disease in the Chinese Han population
 authors:
 - Chunya Zhou

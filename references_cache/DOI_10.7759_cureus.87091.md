@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.87091
+reference_id: "DOI:10.7759/cureus.87091"
 title: "Exploring the Immune System's Role in Endometriosis: Insights Into Pathogenesis, Pain, and Treatment"
 authors:
 - Rania S Ahmed

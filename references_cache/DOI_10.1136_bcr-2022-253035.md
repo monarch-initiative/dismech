@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/bcr-2022-253035
+reference_id: "DOI:10.1136/bcr-2022-253035"
 title: Abnormal liver function tests and improved survival in a child with splice mutation TARP syndrome
 authors:
 - Michael Lane

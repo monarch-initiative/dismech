@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1391851
+reference_id: "DOI:10.3389/fgene.2024.1391851"
 title: Evolutionary history of adenomas to colorectal cancer in FAP families
 authors:
 - Cuiping Yang

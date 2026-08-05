@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ph17050649
+reference_id: "DOI:10.3390/ph17050649"
 title: A New and Rapid LC-MS/MS Method for the Determination of Cysteamine Plasma Levels in Cystinosis Patients
 authors:
 - Raffaele Simeoli

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41388-023-02783-7
+reference_id: "DOI:10.1038/s41388-023-02783-7"
 title: Genetically engineered mouse models of head and neck cancers
 authors:
 - Jason Tasoulas

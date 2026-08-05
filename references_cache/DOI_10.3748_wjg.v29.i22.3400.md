@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3748/wjg.v29.i22.3400
+reference_id: "DOI:10.3748/wjg.v29.i22.3400"
 title: Epidemiology of small intestinal bacterial overgrowth
 authors:
 - Irina Efremova

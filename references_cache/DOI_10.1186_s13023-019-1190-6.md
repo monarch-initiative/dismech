@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-019-1190-6
+reference_id: "DOI:10.1186/s13023-019-1190-6"
 title: Ocular manifestations in Gorlin-Goltz syndrome
 authors:
 - Antonietta Moramarco

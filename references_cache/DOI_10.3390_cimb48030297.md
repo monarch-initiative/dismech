@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cimb48030297
+reference_id: "DOI:10.3390/cimb48030297"
 title: "Medulloblastoma in Adolescents and Young Adults: Molecular Subgroups, Prognostic Biomarkers, and Age-Specific Therapeutic Challenges"
 authors:
 - Antonio Ruggiero

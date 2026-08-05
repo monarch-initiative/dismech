@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1155/crh/7796972
+reference_id: "DOI:10.1155/crh/7796972"
 title: "Aggressive Natural Killer Cell Leukemia: A Rare and Rapidly Progressive Hematologic Malignancy—Case Report and Literature Review"
 authors:
 - Jennifer Priessnitz

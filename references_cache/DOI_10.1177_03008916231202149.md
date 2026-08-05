@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/03008916231202149
+reference_id: "DOI:10.1177/03008916231202149"
 title: "Alk-rearranged lung adenocarcinoma: From molecular genetics to therapeutic targeting"
 authors:
 - Ugo Testa

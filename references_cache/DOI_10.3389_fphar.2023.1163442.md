@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2023.1163442
+reference_id: "DOI:10.3389/fphar.2023.1163442"
 title: Role of transporters in regulating mammalian intracellular inorganic phosphate
 authors:
 - Michael L. Jennings

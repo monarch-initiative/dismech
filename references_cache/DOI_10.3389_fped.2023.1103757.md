@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1103757
+reference_id: "DOI:10.3389/fped.2023.1103757"
 title: Urea cycle disorders and indications for liver transplantation
 authors:
 - Marta García Vega

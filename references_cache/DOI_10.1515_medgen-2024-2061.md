@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1515/medgen-2024-2061
+reference_id: "DOI:10.1515/medgen-2024-2061"
 title: Genetic diagnosis of the Ehlers-Danlos syndromes
 authors:
 - Johannes Zschocke

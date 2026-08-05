@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40337-023-00904-x
+reference_id: "DOI:10.1186/s40337-023-00904-x"
 title: The social epidemiology of binge-eating disorder and behaviors in early adolescents
 authors:
 - Jason M. Nagata

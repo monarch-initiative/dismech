@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2022.960504
+reference_id: "DOI:10.3389/fgene.2022.960504"
 title: Exploring and expanding the phenotype and genotype diversity in seven Chinese families with spondylo-epi-metaphyseal dysplasia
 authors:
 - Shanshan Lv

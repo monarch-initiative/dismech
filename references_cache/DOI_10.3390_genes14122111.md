@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes14122111
+reference_id: "DOI:10.3390/genes14122111"
 title: "The Cardiofaciocutaneous Syndrome: From Genetics to Prognostic–Therapeutic Implications"
 authors:
 - Giovanna Scorrano

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17264/stmarieng.15.21
+reference_id: "DOI:10.17264/stmarieng.15.21"
 title: "Atrial Standstill: A Rare Cause of Pediatric Stroke and Management Strategies"
 authors:
 - Tadahito Kato

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.33448/rsd-v14i1.48022
+reference_id: "DOI:10.33448/rsd-v14i1.48022"
 title: Noma in a Pacient whitout Sistemic Involvement
 authors:
 - Vinícius Cezak Santos

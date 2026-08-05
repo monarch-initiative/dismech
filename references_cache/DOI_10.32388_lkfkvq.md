@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32388/lkfkvq
+reference_id: "DOI:10.32388/lkfkvq"
 title: Huntington disease-like 2
 journal: Definitions
 year: '2020'

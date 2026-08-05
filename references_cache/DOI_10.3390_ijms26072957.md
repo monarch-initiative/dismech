@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms26072957
+reference_id: "DOI:10.3390/ijms26072957"
 title: Strategies to Overcome Resistance to Osimertinib in EGFR-Mutated Lung Cancer
 authors:
 - Donatella Romaniello

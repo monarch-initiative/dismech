@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-23-3780
+reference_id: "DOI:10.1158/1078-0432.ccr-23-3780"
 title: "Clinical Value of Liquid Biopsy in Patients with <i>FGFR2</i> Fusion–Positive Cholangiocarcinoma During Targeted Therapy"
 authors:
 - Alberto González-Medina

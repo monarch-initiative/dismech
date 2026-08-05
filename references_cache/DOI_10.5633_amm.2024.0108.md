@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5633/amm.2024.0108
+reference_id: "DOI:10.5633/amm.2024.0108"
 title: CD4+ T CELL PROFILES IN AUTOIMMUNE HEMOLYTIC ANEMIA
 authors:
 - Miloš Kostić

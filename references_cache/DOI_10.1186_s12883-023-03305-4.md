@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12883-023-03305-4
+reference_id: "DOI:10.1186/s12883-023-03305-4"
 title: Clinical presentations and treatment outcomes of Hashimoto encephalopathy at Siriraj Hospital – Thailand’s largest national tertiary referral center
 authors:
 - Chaisak Dumrikarnlert

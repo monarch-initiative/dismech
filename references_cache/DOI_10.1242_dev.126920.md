@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1242/dev.126920
+reference_id: "DOI:10.1242/dev.126920"
 title: Yap and Taz play a crucial role in neural crest-derived craniofacial development
 authors:
 - Jun Wang

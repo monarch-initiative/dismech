@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1402579
+reference_id: "DOI:10.3389/fendo.2024.1402579"
 title: "46,XX Differences of Sex Development outside congenital adrenal hyperplasia: pathogenesis, clinical aspects, puberty, sex hormone replacement therapy and fertility outcomes"
 authors:
 - Marianna Rita Stancampiano

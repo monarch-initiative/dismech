@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1055753
+reference_id: "DOI:10.3389/fmed.2023.1055753"
 title: Innate immune responses in Behçet disease and relapsing polychondritis
 authors:
 - Jun Shimizu

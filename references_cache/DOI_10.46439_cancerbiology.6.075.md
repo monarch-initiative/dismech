@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.46439/cancerbiology.6.075
+reference_id: "DOI:10.46439/cancerbiology.6.075"
 title: Oncogenic specificity in nevus and melanoma formation
 authors:
 - Konrad Kaminiow

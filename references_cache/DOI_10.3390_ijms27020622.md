@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms27020622
+reference_id: "DOI:10.3390/ijms27020622"
 title: The Importance of Ear Canal Microbiota and Earwax in the Prevention of Outer Ear Infections
 authors:
 - Paulina Paprocka

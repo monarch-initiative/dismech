@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13053-024-00289-1
+reference_id: "DOI:10.1186/s13053-024-00289-1"
 title: "Adrenal tumours in patients with pathogenic APC mutations: a retrospective study"
 authors:
 - Lyman Lin

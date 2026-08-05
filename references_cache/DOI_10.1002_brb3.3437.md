@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/brb3.3437
+reference_id: "DOI:10.1002/brb3.3437"
 title: Expanding deep phenotypic spectrum associated with atypical pathogenic structural variations overlapping 15q11–q13 imprinting region
 authors:
 - Rabeya Akter Mim

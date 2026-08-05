@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11894-019-0737-y
+reference_id: "DOI:10.1007/s11894-019-0737-y"
 title: Pediatric Intestinal Pseudo-obstruction in the Era of Genetic Sequencing
 authors:
 - Heidi E. Gamboa

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-12407-2
+reference_id: "DOI:10.1186/s12885-024-12407-2"
 title: Genomic profiling informs therapies and prognosis for patients with hepatocellular carcinoma in clinical practice
 authors:
 - Mengqi Song

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/blood.2024024310
+reference_id: "DOI:10.1182/blood.2024024310"
 title: "Molecular, clinical, and therapeutic determinants of outcome in <i>NPM1</i>-mutated AML"
 authors:
 - Jad Othman

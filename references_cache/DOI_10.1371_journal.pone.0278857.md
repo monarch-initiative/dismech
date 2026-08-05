@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0278857
+reference_id: "DOI:10.1371/journal.pone.0278857"
 title: "The impact of modifier genes on cone-rod dystrophy heterogeneity: An explorative familial pilot study and a hypothesis on neurotransmission impairment"
 authors:
 - Luigi Donato

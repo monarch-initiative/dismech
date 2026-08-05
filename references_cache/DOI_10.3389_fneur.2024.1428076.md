@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1428076
+reference_id: "DOI:10.3389/fneur.2024.1428076"
 title: "Clinical characteristics of patients with P4HTM variant-associated epilepsy and therapeutic exploration: a case report and literature review"
 authors:
 - Yan-Juan Wang

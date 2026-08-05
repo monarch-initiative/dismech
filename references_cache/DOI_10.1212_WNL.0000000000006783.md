@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/WNL.0000000000006783
+reference_id: "DOI:10.1212/WNL.0000000000006783"
 title: A score that predicts 1-year functional status in patients with anti-NMDA receptor encephalitis
 authors:
 - Ramani Balu

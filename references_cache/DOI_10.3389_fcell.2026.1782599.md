@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2026.1782599
+reference_id: "DOI:10.3389/fcell.2026.1782599"
 title: Integrative epigenetic and transcriptomic profiling of whole blood and fibroblasts in Hao-Fountain syndrome
 authors:
 - Liselot van der Laan

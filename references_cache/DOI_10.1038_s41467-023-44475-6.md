@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-44475-6
+reference_id: "DOI:10.1038/s41467-023-44475-6"
 title: "Sequential immunotherapy and targeted therapy for metastatic BRAF V600 mutated melanoma: 4-year survival and biomarkers evaluation from the phase II SECOMBIT trial"
 authors:
 - Paolo A. Ascierto

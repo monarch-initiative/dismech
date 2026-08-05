@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012405
+reference_id: "DOI:10.1371/journal.pntd.0012405"
 title: "Updated therapeutic options for human brucellosis: A systematic review and network meta-analysis of randomized controlled trials"
 authors:
 - Shanjun Huang

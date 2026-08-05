@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/medicina60101647
+reference_id: "DOI:10.3390/medicina60101647"
 title: "Age-Related Macular Degeneration (AMD): Pathophysiology, Drug Targeting Approaches, and Recent Developments in Nanotherapeutics"
 authors:
 - Mahendra Singh

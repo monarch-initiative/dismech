@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1422462
+reference_id: "DOI:10.3389/fgene.2024.1422462"
 title: "A particular focus on the prevalence of α-thalassemia and β-thalassemia among pregnant women in Changsha County, Hunan Province"
 authors:
 - Yu Xia

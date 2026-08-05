@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-026-04265-x
+reference_id: "DOI:10.1186/s13023-026-04265-x"
 title: "Gyrate atrophy of the choroid and retina: a tertiary center experience"
 authors:
 - Ekin Özsaydı Aktaşoğlu

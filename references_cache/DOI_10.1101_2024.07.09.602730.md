@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.07.09.602730
+reference_id: "DOI:10.1101/2024.07.09.602730"
 title: RBM10 loss induces aberrant splicing of cytoskeletal and extracellular matrix mRNAs and promotes metastatic fitness
 authors:
 - Gnana P. Krishnamoorthy

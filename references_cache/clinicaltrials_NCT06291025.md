@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06291025
+reference_id: "clinicaltrials:NCT06291025"
 title: "Efficacy and Safety of Immunosuppression, Caplacizumab and Plasma Infusion Without Therapeutic Plasma Exchange in Immune-mediated Thrombotic Thrombocytopenic Purpura: Multicentric Non-inferiority Single-arm Study"
 content_type: summary
 full_text_attempted: true

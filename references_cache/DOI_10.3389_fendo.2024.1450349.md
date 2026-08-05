@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2024.1450349
+reference_id: "DOI:10.3389/fendo.2024.1450349"
 title: Correction of osteopetrosis in the neonate oc/oc murine model after lentiviral vector gene therapy and non-genotoxic conditioning
 authors:
 - Sara Penna

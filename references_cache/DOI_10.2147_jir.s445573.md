@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jir.s445573
+reference_id: "DOI:10.2147/jir.s445573"
 title: "Pyroptosis in Osteoarthritis: Molecular Mechanisms and Therapeutic Implications"
 authors:
 - Yeping Chen

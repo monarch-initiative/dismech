@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT02631447
+reference_id: "clinicaltrials:NCT02631447"
 title: "A Three Arms Prospective, Randomized Phase II Study to Evaluate the Best Sequential Approach With Combo Immunotherapy (Ipilimumab/Nivolumab) and Combo Target Therapy (LGX818/MEK162) in Patients With Metastatic Melanoma and BRAF Mutation"
 content_type: summary
 full_text_attempted: true

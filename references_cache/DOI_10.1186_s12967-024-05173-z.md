@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05173-z
+reference_id: "DOI:10.1186/s12967-024-05173-z"
 title: Autoimmune hepatitis displays distinctively high multi-antennary sialylation on plasma N-glycans compared to other liver diseases
 authors:
 - Tamas Pongracz

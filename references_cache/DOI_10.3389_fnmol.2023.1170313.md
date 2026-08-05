@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2023.1170313
+reference_id: "DOI:10.3389/fnmol.2023.1170313"
 title: Peroxisomal defects in microglial cells induce a disease-associated microglial signature
 authors:
 - Quentin Raas

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41408-023-00972-x
+reference_id: "DOI:10.1038/s41408-023-00972-x"
 title: "One thousand patients with essential thrombocythemia: the Mayo Clinic experience"
 authors:
 - Naseema Gangat

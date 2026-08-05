@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-022-01347-0
+reference_id: "DOI:10.1186/s12920-022-01347-0"
 title: "Duplication of SOX3 in an SRY-negative 46,XX male with prostatic utricle: case report and literature review"
 authors:
 - Jiansheng Wei

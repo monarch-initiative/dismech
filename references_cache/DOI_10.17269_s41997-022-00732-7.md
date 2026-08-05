@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17269/s41997-022-00732-7
+reference_id: "DOI:10.17269/s41997-022-00732-7"
 title: "Epidemiology of tetanus in Canada, 1995–2019"
 authors:
 - Nicole Salem

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diseases12050090
+reference_id: "DOI:10.3390/diseases12050090"
 title: "A Review of the CACNA Gene Family: Its Role in Neurological Disorders"
 authors:
 - Oliwia Szymanowicz

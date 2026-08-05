@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12886-024-03574-8
+reference_id: "DOI:10.1186/s12886-024-03574-8"
 title: Clinical and genetic features in autosomal recessive bestrophinopathy in Chinese cohort
 authors:
 - Dongsheng Zhao

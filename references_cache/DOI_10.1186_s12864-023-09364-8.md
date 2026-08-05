@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12864-023-09364-8
+reference_id: "DOI:10.1186/s12864-023-09364-8"
 title: Genotype-degree of hemolysis correlation in hereditary spherocytosis
 authors:
 - Yimeng Shi

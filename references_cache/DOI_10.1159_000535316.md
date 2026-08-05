@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000535316
+reference_id: "DOI:10.1159/000535316"
 title: A first case of acute flaccid myelitis related to enterovirus D-68 in Belgium
 authors:
 - Marine Rodesch

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13058-023-01718-0
+reference_id: "DOI:10.1186/s13058-023-01718-0"
 title: "Interplay between ESR1/PIK3CA codon variants, oncogenic pathway alterations and clinical phenotype in patients with metastatic breast cancer (MBC): comprehensive circulating tumor DNA (ctDNA) analysis"
 authors:
 - Lorenzo Gerratana

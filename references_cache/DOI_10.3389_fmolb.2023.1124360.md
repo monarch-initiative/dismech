@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmolb.2023.1124360
+reference_id: "DOI:10.3389/fmolb.2023.1124360"
 title: Molecular classification and therapeutics in diffuse large B-cell lymphoma
 authors:
 - Gaelen Shimkus

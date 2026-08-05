@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41577-025-01159-0
+reference_id: "DOI:10.1038/s41577-025-01159-0"
 title: The immunology of asthma and chronic rhinosinusitis
 authors:
 - Atsushi Kato

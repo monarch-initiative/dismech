@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12967-024-05512-0
+reference_id: "DOI:10.1186/s12967-024-05512-0"
 title: Paired organoids from primary gastric cancer and lymphatic metastasis are useful for personalized medicine
 authors:
 - Ruixin Yang

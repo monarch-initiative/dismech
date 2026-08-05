@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1247606
+reference_id: "DOI:10.3389/fimmu.2023.1247606"
 title: Current understanding of the molecular mechanisms of circulating permeability factor in focal segmental glomerulosclerosis
 authors:
 - Giuseppe Salfi

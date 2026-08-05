@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.163454
+reference_id: "DOI:10.1172/jci.insight.163454"
 title: Prdm6 drives ductus arteriosus closure by promoting ductus arteriosus smooth muscle cell identity and contractility
 authors:
 - Meng Zou

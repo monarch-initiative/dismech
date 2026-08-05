@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.132342
+reference_id: "DOI:10.1172/jci.insight.132342"
 title: Chronic liver disease and impaired hepatic glycogen metabolism in argininosuccinate lyase deficiency
 authors:
 - Lindsay C. Burrage

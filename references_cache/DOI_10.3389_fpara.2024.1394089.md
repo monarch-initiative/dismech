@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpara.2024.1394089
+reference_id: "DOI:10.3389/fpara.2024.1394089"
 title: "From laboratory to clinical practice: an update of the immunological and molecular tools for neurocysticercosis diagnosis"
 authors:
 - Luz M. Toribio

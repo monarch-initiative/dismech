@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2741/1671
+reference_id: "DOI:10.2741/1671"
 title: Roles of FGF signaling in skeletal development and human genetic diseases
 authors:
 - "Lin, Chen"

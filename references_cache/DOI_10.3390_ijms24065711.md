@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24065711
+reference_id: "DOI:10.3390/ijms24065711"
 title: "Immunology of Multisystem Inflammatory Syndrome after COVID-19 in Children: A Review of the Current Evidence"
 authors:
 - Filippos Filippatos

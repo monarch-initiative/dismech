@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms22105104
+reference_id: "DOI:10.3390/ijms22105104"
 title: "Impaired Wound Healing, Fibrosis, and Cancer: The Paradigm of Recessive Dystrophic Epidermolysis Bullosa"
 authors:
 - Grace Tartaglia

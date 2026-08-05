@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12935-023-03142-y
+reference_id: "DOI:10.1186/s12935-023-03142-y"
 title: "GNF-7, a novel FLT3 inhibitor, overcomes drug resistance for the treatment of FLT3‑ITD acute myeloid leukemia"
 authors:
 - Xinhua Xiao

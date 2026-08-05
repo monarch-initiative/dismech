@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1327503
+reference_id: "DOI:10.3389/fimmu.2024.1327503"
 title: "Causal relationship between gut microbiota and risk of gastroesophageal reflux disease: a genetic correlation and bidirectional Mendelian randomization study"
 authors:
 - Kui Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-023-37402-8
+reference_id: "DOI:10.1038/s41598-023-37402-8"
 title: Soil-transmitted helminthiasis (STH) endemicity and performance of preventive chemotherapy intervention programme in Nigeria (in year 2021)
 authors:
 - Oyetunde T. Oyeyemi

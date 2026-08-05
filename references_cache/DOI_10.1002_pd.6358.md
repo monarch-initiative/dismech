@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/pd.6358
+reference_id: "DOI:10.1002/pd.6358"
 title: "Early and severe tricuspid valve dysplasia in a fetus with cardiospondylocarpofacial syndrome due to a variant c.616T&gt;G p.(Tyr206Asp) in <i>MAP3K7</i>"
 authors:
 - Subrahmanya Vasishta

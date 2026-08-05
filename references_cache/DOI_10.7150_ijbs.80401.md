@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7150/ijbs.80401
+reference_id: "DOI:10.7150/ijbs.80401"
 title: Advances in the multi-omics landscape of follicular lymphoma
 authors:
 - Tianyuan Xu

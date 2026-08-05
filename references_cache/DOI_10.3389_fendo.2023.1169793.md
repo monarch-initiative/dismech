@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1169793
+reference_id: "DOI:10.3389/fendo.2023.1169793"
 title: Treatment for secondary hyperparathyroidism focusing on parathyroidectomy
 authors:
 - Takahisa Hiramitsu

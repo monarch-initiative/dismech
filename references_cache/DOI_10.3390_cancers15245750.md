@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15245750
+reference_id: "DOI:10.3390/cancers15245750"
 title: "EWSR1::ATF1 Orchestrates the Clear Cell Sarcoma Transcriptome in Human Tumors and a Mouse Genetic Model"
 authors:
 - Benjamin B. Ozenberger

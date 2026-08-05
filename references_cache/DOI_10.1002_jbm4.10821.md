@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jbm4.10821
+reference_id: "DOI:10.1002/jbm4.10821"
 title: "Palovarotene Action Against Heterotopic Ossification Includes a Reduction of Local Participating Activin <scp>A‐Expressing</scp> Cell Populations"
 authors:
 - Christina Mundy

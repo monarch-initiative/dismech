@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0287937
+reference_id: "DOI:10.1371/journal.pone.0287937"
 title: A comprehensive survey and analysis of international drinking water regulations for inorganic chemicals with comparisons to the World Health Organization’s drinking-water guidelines
 authors:
 - Erika J. Mitchell

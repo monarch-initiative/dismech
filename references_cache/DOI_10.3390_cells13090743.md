@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13090743
+reference_id: "DOI:10.3390/cells13090743"
 title: "Clinical Phenotypes, Serological Biomarkers, and Synovial Features Defining Seropositive and Seronegative Rheumatoid Arthritis: A Literature Review"
 authors:
 - James Perera

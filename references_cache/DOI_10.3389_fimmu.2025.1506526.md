@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1506526
+reference_id: "DOI:10.3389/fimmu.2025.1506526"
 title: The role of immune regulation in HBV infection and hepatocellular carcinogenesis
 authors:
 - Hailong Zheng

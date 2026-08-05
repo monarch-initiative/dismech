@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-024-55222-2
+reference_id: "DOI:10.1038/s41598-024-55222-2"
 title: "The role of susceptibility-weighted imaging &amp; contrast-enhanced MRI in the diagnosis of primary CNS vasculitis: a large case series"
 authors:
 - Sushant Agarwal

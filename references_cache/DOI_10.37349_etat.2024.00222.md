@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/etat.2024.00222
+reference_id: "DOI:10.37349/etat.2024.00222"
 title: "Tumor metabolism in pheochromocytomas: clinical and therapeutic implications"
 authors:
 - Mohammad Sadiq Jeeyavudeen

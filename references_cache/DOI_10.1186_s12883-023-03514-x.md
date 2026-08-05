@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12883-023-03514-x
+reference_id: "DOI:10.1186/s12883-023-03514-x"
 title: Clinical characteristics of autoimmune encephalitis with co-existence of multiple anti-neuronal antibodies
 authors:
 - Yiyi Zhou

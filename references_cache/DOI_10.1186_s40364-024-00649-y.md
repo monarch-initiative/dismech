@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40364-024-00649-y
+reference_id: "DOI:10.1186/s40364-024-00649-y"
 title: "Global, regional, and national burden of acute myeloid leukemia, 1990–2021: a systematic analysis for the global burden of disease study 2021"
 authors:
 - Yeming Zhou

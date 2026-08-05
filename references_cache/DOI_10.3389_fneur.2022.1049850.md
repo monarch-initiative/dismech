@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2022.1049850
+reference_id: "DOI:10.3389/fneur.2022.1049850"
 title: "Cerebrotendinous Xanthomatosis: A practice review of pathophysiology, diagnosis, and treatment"
 authors:
 - Paulo Ribeiro Nóbrega

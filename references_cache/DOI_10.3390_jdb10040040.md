@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jdb10040040
+reference_id: "DOI:10.3390/jdb10040040"
 title: The Shape of the Jaw—Zebrafish Col11a1a Regulates Meckel’s Cartilage Morphogenesis and Mineralization
 authors:
 - Jonathon C. Reeck

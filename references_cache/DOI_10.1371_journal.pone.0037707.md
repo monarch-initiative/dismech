@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0037707
+reference_id: "DOI:10.1371/journal.pone.0037707"
 title: "Aflatoxin-Induced TP53 R249S Mutation in HepatoCellular Carcinoma in Thailand: Association with Tumors Developing in the Absence of Liver Cirrhosis"
 authors:
 - Stephanie Villar

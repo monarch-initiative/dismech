@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1520441
+reference_id: "DOI:10.3389/fimmu.2024.1520441"
 title: "The prognostic value of circulating tumor DNA in malignant melanoma patients treated with immune checkpoint inhibitors: a systematic review and meta-analysis"
 authors:
 - Lei Liu

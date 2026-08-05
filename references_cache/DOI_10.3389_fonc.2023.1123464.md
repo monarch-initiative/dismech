@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1123464
+reference_id: "DOI:10.3389/fonc.2023.1123464"
 title: Emerging targeted and cellular therapies in the treatment of advanced and metastatic synovial sarcoma
 authors:
 - Joseph R. Fuchs

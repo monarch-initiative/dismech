@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40364-024-00640-7
+reference_id: "DOI:10.1186/s40364-024-00640-7"
 title: "Oncological characteristics, treatments and prognostic outcomes in MMR-deficient colorectal cancer"
 authors:
 - Wen-Xuan Fan

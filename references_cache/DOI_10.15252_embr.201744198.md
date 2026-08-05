@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15252/embr.201744198
+reference_id: "DOI:10.15252/embr.201744198"
 title: "The structure of the tetanus toxin reveals <scp>pH</scp> ‐mediated domain dynamics"
 authors:
 - Geoffrey Masuyer

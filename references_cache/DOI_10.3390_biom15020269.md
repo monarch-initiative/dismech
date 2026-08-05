@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom15020269
+reference_id: "DOI:10.3390/biom15020269"
 title: Mechanisms of Resistance to Anti-PD-1 Immunotherapy in Melanoma and Strategies to Overcome It
 authors:
 - Magdalena K. Zielińska

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.62347/wtmu5537
+reference_id: "DOI:10.62347/wtmu5537"
 title: New advances in the treatment of EGFR exon20ins mutant advanced NSCLC
 authors:
 - Chun Yuan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5694/mja2.52008
+reference_id: "DOI:10.5694/mja2.52008"
 title: Current approaches in the recognition and management of eating disorders
 authors:
 - Phillipa J Hay

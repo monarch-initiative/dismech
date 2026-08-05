@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2025.1602427
+reference_id: "DOI:10.3389/fneur.2025.1602427"
 title: "Comparison between primary and secondary central nervous system vasculitis in terms of clinical, biochemical, radiological, histopathological features, and outcomes: a single-center retrospective cohort study"
 authors:
 - Pasquale Scoppettuolo

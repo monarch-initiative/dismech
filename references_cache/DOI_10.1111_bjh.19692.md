@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/bjh.19692
+reference_id: "DOI:10.1111/bjh.19692"
 title: "Intragenic deletions in <i>SPTB</i> are associated with hereditary spherocytosis: Series of 12 cases"
 authors:
 - Ophélie Evrard

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1157421
+reference_id: "DOI:10.3389/fimmu.2023.1157421"
 title: Degradation of collagen I by activated C1s in periodontal Ehlers-Danlos Syndrome
 authors:
 - Albert Amberger

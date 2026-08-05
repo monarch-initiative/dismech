@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5505/respircase.2024.73604
+reference_id: "DOI:10.5505/respircase.2024.73604"
 title: "Diet-treatable Cause of Hemoptysis: Lane Hamilton Syndrome"
 authors:
 - Esra Arslan Aksu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14740/jmc2928e
+reference_id: "DOI:10.14740/jmc2928e"
 title: "Hypersensitivity Pneumonitis: A Woman With Chronic Dyspnea"
 authors:
 - Naketa Chand

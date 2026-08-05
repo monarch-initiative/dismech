@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.isci.2024.110676
+reference_id: "DOI:10.1016/j.isci.2024.110676"
 title: Modulating the extracellular matrix to treat wound healing defects in Ehlers-Danlos syndrome
 authors:
 - Kindra M. Kelly-Scumpia

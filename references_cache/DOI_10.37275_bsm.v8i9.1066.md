@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37275/bsm.v8i9.1066
+reference_id: "DOI:10.37275/bsm.v8i9.1066"
 title: "Analysis of the Role of Vitamin C Hypovitaminosis in Scurvy on Bone Health: A Single Center Observational Study at Dr. Moewardi General Hospital, Surakarta, Indonesia"
 authors:
 - Udi Heru Nefihancoro

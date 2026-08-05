@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2214/ajr.10.7266
+reference_id: "DOI:10.2214/ajr.10.7266"
 title: "Extranodal Lymphoma From Head to Toe: Part 1, The Head and Spine"
 authors:
 - Adam G. Thomas

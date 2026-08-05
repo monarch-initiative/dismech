@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-44541-z
+reference_id: "DOI:10.1038/s41467-023-44541-z"
 title: GWAS for systemic sclerosis identifies six novel susceptibility loci including one in the Fcγ receptor region
 authors:
 - Yuki Ishikawa

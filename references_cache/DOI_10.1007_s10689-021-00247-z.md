@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10689-021-00247-z
+reference_id: "DOI:10.1007/s10689-021-00247-z"
 title: "Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)"
 authors:
 - L. Guerrini-Rousseau

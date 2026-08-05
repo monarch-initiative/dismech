@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13237448
+reference_id: "DOI:10.3390/jcm13237448"
 title: Current and Evolving Biomarkers in the Diagnosis and Management of Testicular Germ Cell Tumors
 authors:
 - Jennifer Sykes

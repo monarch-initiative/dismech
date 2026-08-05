@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gpsych-2023-101438
+reference_id: "DOI:10.1136/gpsych-2023-101438"
 title: "Prevalence of post‐traumatic stress disorder and depressive symptoms among civilians residing in armed conflict‐affected regions: a systematic review and meta‐analysis"
 authors:
 - Syed Hassan Ahmed

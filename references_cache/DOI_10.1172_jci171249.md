@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci171249
+reference_id: "DOI:10.1172/jci171249"
 title: Mg2+ supplementation treats secretory diarrhea in mice by activating calcium-sensing receptor in intestinal epithelial cells
 authors:
 - Livia de Souza Goncalves

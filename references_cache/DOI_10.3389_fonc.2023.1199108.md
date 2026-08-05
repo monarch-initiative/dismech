@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1199108
+reference_id: "DOI:10.3389/fonc.2023.1199108"
 title: Biological insights into the role of TET2 in T cell lymphomas
 authors:
 - Shannon A. Carty

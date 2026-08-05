@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/op-24-00690
+reference_id: "DOI:10.1200/op-24-00690"
 title: Real-World Evidence of Combination Therapy Use in Metastatic Hormone-Sensitive Prostate Cancer in the United States From 2017 to 2023
 authors:
 - Amit D. Raval

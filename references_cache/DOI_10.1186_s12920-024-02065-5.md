@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-024-02065-5
+reference_id: "DOI:10.1186/s12920-024-02065-5"
 title: Clinical characteristics and genetic analysis of four pediatric patients with Kleefstra syndrome
 authors:
 - Rong Ren

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1111/pai.13020
+reference_id: "DOI:10.1111/pai.13020"
 title: "Ataxia‐telangiectasia: A review of clinical features and molecular pathology"
 authors:
 - Parisa Amirifar

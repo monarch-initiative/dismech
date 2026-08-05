@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm8010014
+reference_id: "DOI:10.3390/jcm8010014"
 title: "Effects of Corticosteroid Treatment and Antigen Avoidance in a Large Hypersensitivity Pneumonitis Cohort: A Single-Centre Cohort Study"
 authors:
 - Laurens J. De Sadeleer

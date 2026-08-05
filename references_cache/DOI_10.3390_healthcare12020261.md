@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/healthcare12020261
+reference_id: "DOI:10.3390/healthcare12020261"
 title: "Management of Skin Lesions in Patients with Epidermolysis Bullosa by Topical Treatment: Systematic Review and Meta-Analysis"
 authors:
 - Manuel Pabón-Carrasco

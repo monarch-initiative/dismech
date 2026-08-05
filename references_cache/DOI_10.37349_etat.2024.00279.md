@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.37349/etat.2024.00279
+reference_id: "DOI:10.37349/etat.2024.00279"
 title: "Targeted therapies and molecular targets in the therapeutic landscape of advanced urothelial carcinoma: state of the art and future perspectives"
 authors:
 - Irene Testi

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jof9060650
+reference_id: "DOI:10.3390/jof9060650"
 title: "Coccidioidomycosis Granulomas Informed by Other Diseases: Advancements, Gaps, and Challenges"
 authors:
 - Nadia Miranda

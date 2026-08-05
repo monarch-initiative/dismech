@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12888-022-04380-6
+reference_id: "DOI:10.1186/s12888-022-04380-6"
 title: "The Bergen 4-day treatment for panic disorder: replication and implementation in a new clinic"
 authors:
 - Hanne Moe Iversen

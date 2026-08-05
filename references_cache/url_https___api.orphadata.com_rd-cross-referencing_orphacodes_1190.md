@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1190
+reference_id: "url:https://api.orphadata.com/rd-cross-referencing/orphacodes/1190"
 title: "https://api.orphadata.com/rd-cross-referencing/orphacodes/1190"
 content_type: url
 ---

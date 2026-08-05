@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2025.1698639
+reference_id: "DOI:10.3389/fmicb.2025.1698639"
 title: Strain-specific tropism and transcriptional responses of enterovirus D68 infection in human spinal cord organoids
 authors:
 - Nathânia Dábilla

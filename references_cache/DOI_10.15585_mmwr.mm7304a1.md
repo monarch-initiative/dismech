@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15585/mmwr.mm7304a1
+reference_id: "DOI:10.15585/mmwr.mm7304a1"
 title: "Surveillance for Acute Flaccid Myelitis ― United States, 2018–2022"
 authors:
 - Erin R. Whitehouse

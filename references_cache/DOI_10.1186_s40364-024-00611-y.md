@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40364-024-00611-y
+reference_id: "DOI:10.1186/s40364-024-00611-y"
 title: The impact of integrated hepatitis B virus DNA on oncogenesis and antiviral therapy
 authors:
 - Mingming Zhang

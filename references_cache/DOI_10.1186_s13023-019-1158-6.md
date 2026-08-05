@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-019-1158-6
+reference_id: "DOI:10.1186/s13023-019-1158-6"
 title: "Assessment of the risk and characterization of non-melanoma skin cancer in Kindler syndrome: study of a series of 91 patients"
 authors:
 - Sara Guerrero-Aspizua

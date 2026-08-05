@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2024.04.12.24305492
+reference_id: "DOI:10.1101/2024.04.12.24305492"
 title: "Safety, effectiveness, and skin immune response in a controlled human infection model of sand fly transmitted cutaneous leishmaniasis"
 authors:
 - Vivak Parkash

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1081256
+reference_id: "DOI:10.3389/fimmu.2023.1081256"
 title: The roles of T cells in psoriasis
 authors:
 - Peng Zhang

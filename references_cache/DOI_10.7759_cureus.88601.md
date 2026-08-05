@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.88601
+reference_id: "DOI:10.7759/cureus.88601"
 title: "Dermatomyositis: A Narrative Review of Skin as a Window to Muscle and Malignancy"
 authors:
 - Maria Cristofori

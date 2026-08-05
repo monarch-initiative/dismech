@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://portal.gdc.cancer.gov/projects/TCGA-SKCM
+reference_id: "url:https://portal.gdc.cancer.gov/projects/TCGA-SKCM"
 title: "https://portal.gdc.cancer.gov/projects/TCGA-SKCM"
 content_type: url
 ---

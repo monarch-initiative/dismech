@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.ppat.1012119
+reference_id: "DOI:10.1371/journal.ppat.1012119"
 title: "The adaptive immune response to Trichuris in wild versus laboratory mice: An established model system in context"
 authors:
 - Iris Mair

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12886-024-03511-9
+reference_id: "DOI:10.1186/s12886-024-03511-9"
 title: Predictive factors and adalimumab efficacy in managing chronic recurrence Vogt-Koyanagi-Harada disease
 authors:
 - Hui Feng

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1396932
+reference_id: "DOI:10.3389/fmicb.2024.1396932"
 title: "Anorexia nervosa and bulimia nervosa: a Mendelian randomization study of gut microbiota"
 authors:
 - Zongliang Yu

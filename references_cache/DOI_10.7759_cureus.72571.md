@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.72571
+reference_id: "DOI:10.7759/cureus.72571"
 title: Pathognomonic Features of Olmesartan-Induced Collagenous Sprue Resulting in Severe Small Bowel Malabsorption
 authors:
 - McKennah A Goshgarian

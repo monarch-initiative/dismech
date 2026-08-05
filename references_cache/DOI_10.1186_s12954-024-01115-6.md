@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12954-024-01115-6
+reference_id: "DOI:10.1186/s12954-024-01115-6"
 title: "How far are we? Assessing progress in hepatitis C response towards the WHO 2030 elimination goals by the civil society monitoring in 25 European countries, period 2020 to 2023"
 authors:
 - Mojca Maticic

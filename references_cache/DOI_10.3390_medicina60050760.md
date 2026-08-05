@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/medicina60050760
+reference_id: "DOI:10.3390/medicina60050760"
 title: The Role of Oxidative Stress and Inflammatory Parameters in Heart Failure
 authors:
 - Karolina Wróbel-Nowicka

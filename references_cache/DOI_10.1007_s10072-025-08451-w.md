@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10072-025-08451-w
+reference_id: "DOI:10.1007/s10072-025-08451-w"
 title: Susac syndrome – different treatment approaches for one disease (analysis of case series)
 authors:
 - Bogna Grygiel-Górniak
@@ -71,7 +71,8 @@ symptoms characterized by vision loss, hearing loss, and
 various neurological symptoms (including encephalopathy) 
 [1–3]. Although the disease can develop in each age group, 
 it primarily affects young women [4].
-  Bogna Grygiel-Górniak
+ 
+ Bogna Grygiel-Górniak
 bgrygiel@ump.edu.pl
 1 Department of Rheumatology, Rehabilitation and Internal 
 Diseases, Poznan University of Medical Sciences,  

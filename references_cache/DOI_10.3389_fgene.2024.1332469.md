@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2024.1332469
+reference_id: "DOI:10.3389/fgene.2024.1332469"
 title: MECP2-related disorders while gene-based therapies are on the horizon
 authors:
 - Katherine Allison

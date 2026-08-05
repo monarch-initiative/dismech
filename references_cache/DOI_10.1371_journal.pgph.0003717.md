@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgph.0003717
+reference_id: "DOI:10.1371/journal.pgph.0003717"
 title: "The impact of community based interventions for the prevention and control of soil-transmitted helminths: A systematic review and meta-analysis"
 authors:
 - Sommy C. Ugwu

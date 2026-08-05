@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13052-024-01782-y
+reference_id: "DOI:10.1186/s13052-024-01782-y"
 title: "Triheptanoin in patients with long-chain fatty acid oxidation disorders: clinical experience in Italy"
 authors:
 - Francesco Porta

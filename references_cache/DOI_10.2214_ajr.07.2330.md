@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2214/ajr.07.2330
+reference_id: "DOI:10.2214/ajr.07.2330"
 title: Incidence and Management of Complex Fibroadenomas
 authors:
 - Miri Sklair-Levy

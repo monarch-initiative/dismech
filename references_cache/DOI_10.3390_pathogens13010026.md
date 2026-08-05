@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13010026
+reference_id: "DOI:10.3390/pathogens13010026"
 title: "Calcified Neurocysticercosis: Demographic, Clinical, and Radiological Characteristics of a Large Hospital-Based Patient Cohort"
 authors:
 - Javier A. Bustos

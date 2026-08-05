@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1078-0432.ccr-20-4271
+reference_id: "DOI:10.1158/1078-0432.ccr-20-4271"
 title: "FDA Approval Summary: Gilteritinib for Relapsed or Refractory Acute Myeloid Leukemia with a <i>FLT3</i> Mutation"
 authors:
 - E. Dianne Pulte

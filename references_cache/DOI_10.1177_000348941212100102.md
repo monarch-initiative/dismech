@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/000348941212100102
+reference_id: "DOI:10.1177/000348941212100102"
 title: Histopathology of the Temporal Bone in a Case of Superior Canal Dehiscence Syndrome
 authors:
 - Michael Teixido

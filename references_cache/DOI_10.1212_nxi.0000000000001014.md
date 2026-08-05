@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/nxi.0000000000001014
+reference_id: "DOI:10.1212/nxi.0000000000001014"
 title: Updated Diagnostic Criteria for Paraneoplastic Neurologic Syndromes
 authors:
 - Francesc Graus

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.73146
+reference_id: "DOI:10.7759/cureus.73146"
 title: "Marchiafava-Bignami Disease: A Case Report of a Reversible Cause of Dementia"
 authors:
 - Paulo Conceição

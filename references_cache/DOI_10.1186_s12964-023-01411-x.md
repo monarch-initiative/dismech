@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12964-023-01411-x
+reference_id: "DOI:10.1186/s12964-023-01411-x"
 title: "KIT mutations and expression: current knowledge and new insights for overcoming IM resistance in GIST"
 authors:
 - Shishan Zhou

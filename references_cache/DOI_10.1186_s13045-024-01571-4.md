@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13045-024-01571-4
+reference_id: "DOI:10.1186/s13045-024-01571-4"
 title: "A practical approach on the classifications of myeloid neoplasms and acute leukemia: WHO and ICC"
 authors:
 - Wenbin Xiao

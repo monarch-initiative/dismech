@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.64083
+reference_id: "DOI:10.7759/cureus.64083"
 title: "Anterior Spinal Cord Infarction: A Rare Diagnosis With an Uncommon Presentation"
 authors:
 - Sílvia Ferreira

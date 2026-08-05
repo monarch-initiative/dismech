@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12943-024-02014-x
+reference_id: "DOI:10.1186/s12943-024-02014-x"
 title: "Molecular classification and biomarkers of outcome with immunotherapy in extensive-stage small-cell lung cancer: analyses of the CASPIAN phase 3 study"
 authors:
 - Mingchao Xie

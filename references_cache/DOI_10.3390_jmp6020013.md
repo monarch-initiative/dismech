@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jmp6020013
+reference_id: "DOI:10.3390/jmp6020013"
 title: The Current Landscape of Molecular Pathology for the Diagnosis and Treatment of Atypical Teratoid Rhabdoid Tumor
 authors:
 - Ashley Childress

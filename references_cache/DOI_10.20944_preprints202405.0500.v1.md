@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20944/preprints202405.0500.v1
+reference_id: "DOI:10.20944/preprints202405.0500.v1"
 title: "Gilbert’s Syndrome: The Good, the Bad and the Ugly"
 authors:
 - Arjuna P De Silva

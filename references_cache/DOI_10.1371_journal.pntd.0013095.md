@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013095
+reference_id: "DOI:10.1371/journal.pntd.0013095"
 title: Large-scale epidemiology of opisthorchiasis in 21 provinces in Thailand based on diagnosis by fecal egg examination and urine antigen assay and analysis of risk factors for infection
 authors:
 - Kulthida Y. Kopolrat

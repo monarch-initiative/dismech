@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13100841
+reference_id: "DOI:10.3390/pathogens13100841"
 title: Hepatitis C Virus Infection in Europe
 authors:
 - Margarida Simão

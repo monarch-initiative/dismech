@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1164/rccm.202302-0327so
+reference_id: "DOI:10.1164/rccm.202302-0327so"
 title: "Pulmonary Hypertension: A Contemporary Review"
 authors:
 - Shelsey Johnson

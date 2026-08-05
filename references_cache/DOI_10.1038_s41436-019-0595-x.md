@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41436-019-0595-x
+reference_id: "DOI:10.1038/s41436-019-0595-x"
 title: "The Liberfarb syndrome, a multisystem disorder affecting eye, ear, bone, and brain development, is caused by a founder pathogenic variant in the PISD gene"
 authors:
 - Virginie G. Peter

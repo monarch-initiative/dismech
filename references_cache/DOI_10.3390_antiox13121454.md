@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/antiox13121454
+reference_id: "DOI:10.3390/antiox13121454"
 title: Oxidative Stress in Kidney Injury and Hypertension
 authors:
 - Willaim J. Arendshorst

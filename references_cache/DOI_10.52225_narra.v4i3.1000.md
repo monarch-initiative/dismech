@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.52225/narra.v4i3.1000
+reference_id: "DOI:10.52225/narra.v4i3.1000"
 title: "Challenges in diagnosing and treating Liddle syndrome in resource-limited settings: A case report from Indonesia"
 authors:
 - Nurhasan A. Prabowo

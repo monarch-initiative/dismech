@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13075-024-03283-z
+reference_id: "DOI:10.1186/s13075-024-03283-z"
 title: B cell receptor repertoire analysis in primary Sjogren’s syndrome salivary glands identifies repertoire features associated with clinical activity
 authors:
 - Ling Chang

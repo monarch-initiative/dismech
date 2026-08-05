@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17863/cam.95022
+reference_id: "DOI:10.17863/cam.95022"
 title: Iron homeostasis governs erythroid phenotype in polycythemia vera.
 authors:
 - "Bennett, Cavan"

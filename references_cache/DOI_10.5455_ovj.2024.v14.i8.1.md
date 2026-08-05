@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5455/ovj.2024.v14.i8.1
+reference_id: "DOI:10.5455/ovj.2024.v14.i8.1"
 title: "Campylobacteriosis: A rising threat in foodborne illnesses"
 authors:
 - Aswin Khairullah

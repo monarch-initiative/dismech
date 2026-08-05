@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/jmg-2023-109785
+reference_id: "DOI:10.1136/jmg-2023-109785"
 title: "Encephalocraniocutaneous lipomatosis phenotype associated with mosaic biallelic pathogenic variants in the <i>NF1</i> gene"
 authors:
 - Steven Smeijers

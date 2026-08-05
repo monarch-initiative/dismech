@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci141694
+reference_id: "DOI:10.1172/jci141694"
 title: Blood-brain barrier resealing in neuromyelitis optica occurs independently of astrocyte regeneration
 authors:
 - Anne Winkler

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1242/dmm.024711
+reference_id: "DOI:10.1242/dmm.024711"
 title: "Hallmarks of progeroid syndromes: lessons from mice and reprogrammed cells"
 authors:
 - Dido Carrero

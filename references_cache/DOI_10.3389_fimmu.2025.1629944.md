@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1629944
+reference_id: "DOI:10.3389/fimmu.2025.1629944"
 title: "Multidimensional mechanisms and therapies underlying gastroesophageal reflux disease: focus on immunity, signaling pathways, and the microbiota-gut-brain axis"
 authors:
 - Jiajing Zheng

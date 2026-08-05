@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13226779
+reference_id: "DOI:10.3390/jcm13226779"
 title: German Real-World Experience of Patients with Diverse Features of Acute Intermittent Porphyria Treated with Givosiran
 authors:
 - Ilja Kubisch

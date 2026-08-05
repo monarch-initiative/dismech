@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/cmr.00034-23
+reference_id: "DOI:10.1128/cmr.00034-23"
 title: An updated list of eumycetoma causative agents and their differences in grain formation and treatment response
 authors:
 - Wendy W. J. van de Sande

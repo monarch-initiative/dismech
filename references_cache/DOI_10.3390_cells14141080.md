@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells14141080
+reference_id: "DOI:10.3390/cells14141080"
 title: Pathogenesis of Autoimmunity/Systemic Lupus Erythematosus (SLE)
 authors:
 - Shunichi Shiozawa

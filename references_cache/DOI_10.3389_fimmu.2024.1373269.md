@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1373269
+reference_id: "DOI:10.3389/fimmu.2024.1373269"
 title: "Empowering macrophages: the cancer fighters within the tumour microenvironment in mantle cell lymphoma"
 authors:
 - Patrick Nylund

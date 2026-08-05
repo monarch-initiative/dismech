@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2023.1274040
+reference_id: "DOI:10.3389/fcell.2023.1274040"
 title: Stem cell models of Angelman syndrome
 authors:
 - João Camões dos Santos

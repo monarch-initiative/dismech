@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/annrheumdis-2018-214603
+reference_id: "DOI:10.1136/annrheumdis-2018-214603"
 title: "Clinical phenotypes of IgG4-related disease: an analysis of two international cross-sectional cohorts"
 authors:
 - Zachary S Wallace

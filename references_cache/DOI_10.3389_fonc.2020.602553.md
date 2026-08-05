@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2020.602553
+reference_id: "DOI:10.3389/fonc.2020.602553"
 title: "Clinical Features and Molecular Markers on Diffuse Midline Gliomas With H3K27M Mutations: A 43 Cases Retrospective Cohort Study"
 authors:
 - Yuan Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13148-023-01529-2
+reference_id: "DOI:10.1186/s13148-023-01529-2"
 title: "Efficacy and safety of FDA-approved IDH inhibitors in the treatment of IDH mutated acute myeloid leukemia: a systematic review and meta-analysis"
 authors:
 - Xiu Chen

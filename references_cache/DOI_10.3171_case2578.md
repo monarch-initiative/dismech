@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3171/case2578
+reference_id: "DOI:10.3171/case2578"
 title: "Functional hemispherectomy for seizure control in encephalocraniocutaneous lipomatosis: illustrative case"
 authors:
 - Joyce Koueik

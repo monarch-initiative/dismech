@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/microbiolspec.dmih2-0031-2016
+reference_id: "DOI:10.1128/microbiolspec.dmih2-0031-2016"
 title: Bloodstream Infections
 authors:
 - Raquel M. Martinez

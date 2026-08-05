@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/toxins2030310
+reference_id: "DOI:10.3390/toxins2030310"
 title: "Cholera Toxin: An Intracellular Journey into the Cytosol by Way of the Endoplasmic Reticulum"
 authors:
 - Naomi L. B. Wernick

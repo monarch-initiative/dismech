@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.6004/jnccn.2022.7077
+reference_id: "DOI:10.6004/jnccn.2022.7077"
 title: "Immunoglobulin Light Chain Amyloidosis: Diagnosis and Risk Assessment"
 authors:
 - Saurabh Zanwar

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2014.00614
+reference_id: "DOI:10.3389/fimmu.2014.00614"
 title: Molecular Mechanisms That Influence the Macrophage M1â€“M2 Polarization Balance
 authors:
 - Nan Wang

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17925/ee.2023.19.2.7
+reference_id: "DOI:10.17925/ee.2023.19.2.7"
 title: "Teplizumab in Type 1 Diabetes Mellitus: An Updated Review"
 authors:
 - Simran Thakkar

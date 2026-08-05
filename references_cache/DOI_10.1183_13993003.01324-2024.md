@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/13993003.01324-2024
+reference_id: "DOI:10.1183/13993003.01324-2024"
 title: "Definition, classification and diagnosis of pulmonary hypertension"
 authors:
 - Gabor Kovacs

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-024-06478-x
+reference_id: "DOI:10.1038/s42003-024-06478-x"
 title: Single-cell transcriptional profiling of clear cell renal cell carcinoma reveals a tumor-associated endothelial tip cell phenotype
 authors:
 - Justina Zvirblyte

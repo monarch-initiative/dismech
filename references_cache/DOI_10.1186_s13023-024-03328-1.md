@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03328-1
+reference_id: "DOI:10.1186/s13023-024-03328-1"
 title: Economic burden and health-related quality of life in patients with epidermolysis bullosa in Spain
 authors:
 - Isaac Aranda-Reneo

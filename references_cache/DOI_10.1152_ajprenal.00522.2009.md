@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/ajprenal.00522.2009
+reference_id: "DOI:10.1152/ajprenal.00522.2009"
 title: "Mutation of the Na<sup>+</sup>-K<sup>+</sup>-2Cl<sup>−</sup>cotransporter NKCC2 in mice is associated with severe polyuria and a urea-selective concentrating defect without hyperreninemia"
 authors:
 - Elisabeth Kemter

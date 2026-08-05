@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0044-1779485
+reference_id: "DOI:10.1055/s-0044-1779485"
 title: "Progress in von Willebrand Disease Treatment: Evolution towards Newer Therapies"
 authors:
 - Miriam M. Moser

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1301817
+reference_id: "DOI:10.3389/fimmu.2023.1301817"
 title: Molecular mechanisms of pruritus in prurigo nodularis
 authors:
 - Yixin Shao

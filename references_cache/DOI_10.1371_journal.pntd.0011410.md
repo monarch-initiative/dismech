@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011410
+reference_id: "DOI:10.1371/journal.pntd.0011410"
 title: "Chagas prevention and control in an endemic area from the Argentinian Gran Chaco Region: Data from 14 years of uninterrupted intervention"
 authors:
 - Diego Weinberg

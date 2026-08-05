@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2023.968106
+reference_id: "DOI:10.3389/fphar.2023.968106"
 title: "Efficacy and safety of praziquantel preventive chemotherapy in Schistosoma mansoni infected school children in Southern Ethiopia: A prospective cohort study"
 authors:
 - Tigist Dires Gebreyesus

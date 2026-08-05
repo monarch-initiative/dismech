@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.13005/bbra/3233
+reference_id: "DOI:10.13005/bbra/3233"
 title: "Managing Chemotherapy-Induced Diarrhea: Efficacy of Interventions for Cancer Patients"
 authors:
 - N. Venkateswaramurthy

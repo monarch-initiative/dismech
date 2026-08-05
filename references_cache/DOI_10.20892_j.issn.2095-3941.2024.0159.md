@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20892/j.issn.2095-3941.2024.0159
+reference_id: "DOI:10.20892/j.issn.2095-3941.2024.0159"
 title: "Global, regional, and national burden of early-onset gastric cancer"
 authors:
 - Nuopei Tan

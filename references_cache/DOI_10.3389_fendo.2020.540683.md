@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2020.540683
+reference_id: "DOI:10.3389/fendo.2020.540683"
 title: "The Potential Synergic Effect of a Complex Pattern of Multiple Inherited Genetic Variants as a Pathogenic Factor for Ovarian Dysgenesis: A Case Report"
 authors:
 - Alessandro Cattoni

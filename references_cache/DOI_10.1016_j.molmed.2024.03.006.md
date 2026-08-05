@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.molmed.2024.03.006
+reference_id: "DOI:10.1016/j.molmed.2024.03.006"
 title: Molecular mechanisms in the pathogenesis of dengue infections
 authors:
 - Gathsaurie Neelika Malavige

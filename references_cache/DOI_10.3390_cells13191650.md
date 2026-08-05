@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13191650
+reference_id: "DOI:10.3390/cells13191650"
 title: "Bile Acids-Based Therapies for Primary Sclerosing Cholangitis: Current Landscape and Future Developments"
 authors:
 - Stefano Fiorucci

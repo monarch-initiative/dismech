@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12959-024-00657-w
+reference_id: "DOI:10.1186/s12959-024-00657-w"
 title: "Lipoprotein apheresis: an established therapeutic modality for homozygous familial hypercholesterolemia patients refractory to PCSK9 inhibitors: a case report and literature review"
 authors:
 - Mingjing Guan

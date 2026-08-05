@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3341/kjo.2023.0032
+reference_id: "DOI:10.3341/kjo.2023.0032"
 title: "Mini-Review: Clinical Features and Management of Granular Corneal Dystrophy Type 2"
 authors:
 - Myung Soo Chang

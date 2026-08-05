@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41586-024-07384-2
+reference_id: "DOI:10.1038/s41586-024-07384-2"
 title: The PARTNER trial of neoadjuvant olaparib with chemotherapy in triple-negative breast cancer
 authors:
 - Jean E. Abraham

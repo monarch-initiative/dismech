@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12864-016-3035-1
+reference_id: "DOI:10.1186/s12864-016-3035-1"
 title: "A missense mutation in solute carrier family 12, member 1 (SLC12A1) causes hydrallantois in Japanese Black cattle"
 authors:
 - Shinji Sasaki

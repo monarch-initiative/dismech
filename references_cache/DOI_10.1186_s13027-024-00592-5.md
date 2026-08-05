@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13027-024-00592-5
+reference_id: "DOI:10.1186/s13027-024-00592-5"
 title: A SEER-based analysis of trends in HPV-associated oropharyngeal squamous cell carcinoma
 authors:
 - Su Il Kim

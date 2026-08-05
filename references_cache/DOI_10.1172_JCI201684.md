@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/JCI201684
+reference_id: "DOI:10.1172/JCI201684"
 title: Gut microbial trimethylamine N-oxide generation promotes risk of atrial fibrillation via muscarinic receptor-mediated autonomic dysfunction
 authors:
 - Selvam Arjunan

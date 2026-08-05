@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00296-022-05228-8
+reference_id: "DOI:10.1007/s00296-022-05228-8"
 title: "The effect of nasal Staphylococcus aureus colonization and antibiotic treatment on disease activity in ANCA-associated vasculitis: a retrospective cohort study in the Netherlands"
 authors:
 - Caroline M. Schaap

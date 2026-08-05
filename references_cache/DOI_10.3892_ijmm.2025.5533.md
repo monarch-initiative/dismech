@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/ijmm.2025.5533
+reference_id: "DOI:10.3892/ijmm.2025.5533"
 title: "Harnessing multi‑omics to revolutionize understanding and management of osteosarcoma: A pathway to precision medicine (Review)"
 authors:
 - Xuesong Chen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13052-024-01819-2
+reference_id: "DOI:10.1186/s13052-024-01819-2"
 title: "Intracranial hemorrhage in an infant leads to the diagnosis and treatment of severe hemophilia B: a case report"
 authors:
 - Giuseppe Lassandro

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1440643
+reference_id: "DOI:10.3389/fimmu.2024.1440643"
 title: Meta-analysis of natural killer cell cytotoxicity in myalgic encephalomyelitis/chronic fatigue syndrome
 authors:
 - James N. Baraniuk

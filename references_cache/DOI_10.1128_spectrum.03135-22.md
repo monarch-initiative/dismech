@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/spectrum.03135-22
+reference_id: "DOI:10.1128/spectrum.03135-22"
 title: "Use of an Integrated Multi-Omics Approach To Identify Molecular Mechanisms and Critical Factors Involved in the Pathogenesis of <i>Leptospira</i>"
 authors:
 - Sridhar Kavela

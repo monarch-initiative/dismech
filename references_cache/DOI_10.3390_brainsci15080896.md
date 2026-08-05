@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/brainsci15080896
+reference_id: "DOI:10.3390/brainsci15080896"
 title: "Advancing Medulloblastoma Therapy in Pediatrics: Integrative Molecular Classification and Emerging Treatments"
 authors:
 - David T. Kim

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-024-06276-8
+reference_id: "DOI:10.1186/s13071-024-06276-8"
 title: "Insecticidal activity of fluralaner (Exzolt®) administered to Gallus gallus domesticus against triatomines (Hemiptera, Reduviidae, Triatominae)"
 authors:
 - Luanderson Cardoso Pereira

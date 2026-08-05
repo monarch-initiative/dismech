@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1530/ec-24-0217
+reference_id: "DOI:10.1530/ec-24-0217"
 title: "Etiology of combined pituitary hormone deficiency: GNAO1 as a novel candidate gene"
 authors:
 - Lukas Plachy

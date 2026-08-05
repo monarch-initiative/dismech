@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/ajplung.00460.2021
+reference_id: "DOI:10.1152/ajplung.00460.2021"
 title: "T-cell dysregulation and inflammatory process in <i>Gcn2</i> (<i>Eif2ak4</i><sup>−/−</sup>)-deficient rats in basal and stress conditions"
 authors:
 - Juliette Bignard

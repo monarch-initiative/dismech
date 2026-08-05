@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12974-025-03537-w
+reference_id: "DOI:10.1186/s12974-025-03537-w"
 title: "Pathological mechanisms of motor dysfunction in familial Danish dementia: insights from a knock-in rat model"
 authors:
 - Arnab Choudhury

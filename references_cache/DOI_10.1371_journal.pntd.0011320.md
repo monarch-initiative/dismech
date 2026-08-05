@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011320
+reference_id: "DOI:10.1371/journal.pntd.0011320"
 title: "Onchocerciasis-associated epilepsy in Maridi, South Sudan: Modelling and exploring the impact of control measures against river blindness"
 authors:
 - Samit Bhattacharyya

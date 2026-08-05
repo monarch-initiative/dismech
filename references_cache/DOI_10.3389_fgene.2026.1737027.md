@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fgene.2026.1737027
+reference_id: "DOI:10.3389/fgene.2026.1737027"
 title: Delineating the trajectory of adult chronic diseases and healthcare use for 22q11.2 microdeletion in a general population context
 authors:
 - Sarah L. Malecki

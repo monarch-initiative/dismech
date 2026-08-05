@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.1005559
+reference_id: "DOI:10.5772/intechopen.1005559"
 title: Perspectives on the Drug Discovery of Intestinal Protozoan Parasites
 authors:
 - Sarika Thakur

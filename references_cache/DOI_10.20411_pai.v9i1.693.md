@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20411/pai.v9i1.693
+reference_id: "DOI:10.20411/pai.v9i1.693"
 title: "The Gut and the Translocated Microbiomes in HIV Infection:  Current Concepts and Future Avenues"
 authors:
 - Krystelle Nganou-Makamdop

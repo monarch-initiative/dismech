@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1056/nejmoa2302299
+reference_id: "DOI:10.1056/nejmoa2302299"
 title: "Repotrectinib in <i>ROS1</i> Fusion–Positive Non–Small-Cell Lung Cancer"
 authors:
 - Alexander Drilon

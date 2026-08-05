@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms241411732
+reference_id: "DOI:10.3390/ijms241411732"
 title: "Frontotemporal Dementia, Where Do We Stand? A Narrative Review"
 authors:
 - Annibale Antonioni

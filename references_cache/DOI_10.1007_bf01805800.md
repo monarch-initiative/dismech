@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/bf01805800
+reference_id: "DOI:10.1007/bf01805800"
 title: "Threonine dehydratase deficiency: A probable cause of non‐ketotic hyperglycinaemia"
 authors:
 - I. Krieger

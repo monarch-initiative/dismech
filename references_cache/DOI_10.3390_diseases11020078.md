@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diseases11020078
+reference_id: "DOI:10.3390/diseases11020078"
 title: "Scurvy: Rediscovering a Forgotten Disease"
 authors:
 - Mustafa Gandhi

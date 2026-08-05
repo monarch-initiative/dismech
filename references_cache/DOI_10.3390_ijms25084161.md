@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25084161
+reference_id: "DOI:10.3390/ijms25084161"
 title: "Neuroinflammation and Epilepsy: From Pathophysiology to Therapies Based on Repurposing Drugs"
 authors:
 - Pascual Sanz

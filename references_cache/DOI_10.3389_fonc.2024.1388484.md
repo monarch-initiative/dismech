@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1388484
+reference_id: "DOI:10.3389/fonc.2024.1388484"
 title: "Preclinical models for the study of pediatric solid tumors: focus on bone sarcomas"
 authors:
 - D. Isabel Petrescu

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25052734
+reference_id: "DOI:10.3390/ijms25052734"
 title: Hemodynamic and Clinical Profiles of Pulmonary Arterial Hypertension Patients with GDF2 and BMPR2 Variants
 authors:
 - Mei-Tzu Wang

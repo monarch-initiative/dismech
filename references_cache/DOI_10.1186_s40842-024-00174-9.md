@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40842-024-00174-9
+reference_id: "DOI:10.1186/s40842-024-00174-9"
 title: "Diabetic ketoacidosis in an adult with beta-ketothiolase deficiency (BKD) involving a novel ACAT1 variant : first report of established diabetes in BKD and a review of the literature"
 authors:
 - Xi May Zhen

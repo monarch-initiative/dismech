@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/erv.2582
+reference_id: "DOI:10.1002/erv.2582"
 title: Comorbid depressive symptoms and self‐esteem improve after either cognitive‐behavioural therapy or family‐based treatment for adolescent bulimia nervosa
 authors:
 - Fabiola Valenzuela

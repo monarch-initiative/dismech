@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/vaccines12111254
+reference_id: "DOI:10.3390/vaccines12111254"
 title: "Hepatitis B Virus-Related Cirrhosis and Hepatocellular Carcinoma Hospital Discharge Rates from 2005 to 2021 in Spain: Impact of Universal Vaccination"
 authors:
 - Angela Domínguez

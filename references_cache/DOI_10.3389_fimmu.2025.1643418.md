@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1643418
+reference_id: "DOI:10.3389/fimmu.2025.1643418"
 title: "Skin immune microenvironment in psoriasis: from bench to bedside"
 authors:
 - Yi Yao

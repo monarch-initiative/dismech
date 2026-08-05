@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12929-014-0068-0
+reference_id: "DOI:10.1186/s12929-014-0068-0"
 title: "Standardized, systemic phenotypic analysis of Slc12a1 I299F mutant mice"
 authors:
 - Elisabeth Kemter

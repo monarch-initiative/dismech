@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.59213/tp.2025.249
+reference_id: "DOI:10.59213/tp.2025.249"
 title: "The clinical and genetic spectrum of infantile osteopetrosis: a single-center experience including a novel TCIRG1 mutation"
 authors:
 - Esra Pekpak Şahinoğlu

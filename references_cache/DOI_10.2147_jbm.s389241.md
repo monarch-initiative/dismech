@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/jbm.s389241
+reference_id: "DOI:10.2147/jbm.s389241"
 title: "Von Willebrand Disease Epidemiology, Burden of Illness and Management: A Systematic Review"
 authors:
 - Ping Du

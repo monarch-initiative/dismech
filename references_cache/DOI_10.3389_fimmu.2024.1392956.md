@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1392956
+reference_id: "DOI:10.3389/fimmu.2024.1392956"
 title: "Immune checkpoints: new insights into the pathogenesis of thyroid eye disease"
 authors:
 - Xingyi Shu

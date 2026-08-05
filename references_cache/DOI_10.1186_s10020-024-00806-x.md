@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s10020-024-00806-x
+reference_id: "DOI:10.1186/s10020-024-00806-x"
 title: The plasma proteome differentiates the multisystem inflammatory syndrome in children (MIS-C) from children with SARS-CoV-2 negative sepsis
 authors:
 - Maitray A. Patel

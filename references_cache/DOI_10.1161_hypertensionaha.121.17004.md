@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1161/hypertensionaha.121.17004
+reference_id: "DOI:10.1161/hypertensionaha.121.17004"
 title: "Beyond Atherosclerosis and Fibromuscular Dysplasia: Rare Causes of Renovascular Hypertension"
 authors:
 - Alexandre Persu

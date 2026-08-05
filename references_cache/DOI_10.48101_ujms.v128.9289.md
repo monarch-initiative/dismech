@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.48101/ujms.v128.9289
+reference_id: "DOI:10.48101/ujms.v128.9289"
 title: "Stand-alone virtual reality exposure therapy as a treatment for social anxiety symptoms: a systematic review and meta-analysis"
 authors:
 - Christian Rejbrand

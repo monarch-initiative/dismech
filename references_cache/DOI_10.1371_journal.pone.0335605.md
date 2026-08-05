@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0335605
+reference_id: "DOI:10.1371/journal.pone.0335605"
 title: Decoding the distinct immune landscape and possible regulatory mechanisms of autoimmune hepatitis through integrated single-cell and bulk RNA sequencing
 authors:
 - Gang Chi

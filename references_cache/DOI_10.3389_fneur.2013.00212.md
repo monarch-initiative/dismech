@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2013.00212
+reference_id: "DOI:10.3389/fneur.2013.00212"
 title: White Matter Disease Correlates with Lexical Retrieval Deficits in Primary Progressive Aphasia
 authors:
 - John P. Powers

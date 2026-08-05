@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40779-024-00533-8
+reference_id: "DOI:10.1186/s40779-024-00533-8"
 title: P. gingivalis in oral-prostate axis exacerbates benign prostatic hyperplasia via IL-6/IL-6R pathway
 authors:
 - Shuang-Ying Wang

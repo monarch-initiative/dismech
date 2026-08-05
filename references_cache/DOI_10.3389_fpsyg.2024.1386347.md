@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyg.2024.1386347
+reference_id: "DOI:10.3389/fpsyg.2024.1386347"
 title: "Bulimia nervosa and treatment-related disparities: a review"
 authors:
 - Kim Wilson

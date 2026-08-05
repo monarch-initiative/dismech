@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1155751
+reference_id: "DOI:10.3389/fmed.2023.1155751"
 title: "Vibrio cholerae, classification, pathogenesis, immune response, and trends in vaccine development"
 authors:
 - David A. Montero

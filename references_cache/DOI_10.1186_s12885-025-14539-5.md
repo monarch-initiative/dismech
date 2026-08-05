@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-025-14539-5
+reference_id: "DOI:10.1186/s12885-025-14539-5"
 title: Diagnostic performance of EBV DNA load testing for nasopharyngeal carcinoma in nasopharyngeal swab outperforms the approach in other specimens
 authors:
 - Xue-Qi Li

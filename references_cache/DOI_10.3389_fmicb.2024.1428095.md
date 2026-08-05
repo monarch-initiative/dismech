@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1428095
+reference_id: "DOI:10.3389/fmicb.2024.1428095"
 title: "Real-world effectiveness and safety of Baloxavir Marboxil or Oseltamivir in outpatients with uncomplicated influenza A: an ambispective, observational, multi-center study"
 authors:
 - Jianpeng Cai

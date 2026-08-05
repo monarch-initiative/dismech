@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/mbio.03562-24
+reference_id: "DOI:10.1128/mbio.03562-24"
 title: "The interplay between host immunity and <i>Clostridioides difficile</i> infection"
 authors:
 - Danyang Li

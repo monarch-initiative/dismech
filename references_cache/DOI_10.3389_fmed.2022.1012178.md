@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2022.1012178
+reference_id: "DOI:10.3389/fmed.2022.1012178"
 title: Livedoid vasculopathy – A diagnostic and therapeutic challenge
 authors:
 - Maria Rosa Burg

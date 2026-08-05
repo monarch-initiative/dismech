@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12185861
+reference_id: "DOI:10.3390/jcm12185861"
 title: Serum Inflammatory and Oxidative Stress Markers in Patients with Vitiligo
 authors:
 - Asma Kassab

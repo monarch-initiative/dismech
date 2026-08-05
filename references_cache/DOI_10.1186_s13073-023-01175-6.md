@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13073-023-01175-6
+reference_id: "DOI:10.1186/s13073-023-01175-6"
 title: Stalled oligodendrocyte differentiation in IDH-mutant gliomas
 authors:
 - Yanfei Wei

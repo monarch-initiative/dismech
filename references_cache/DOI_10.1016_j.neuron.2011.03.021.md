@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.neuron.2011.03.021
+reference_id: "DOI:10.1016/j.neuron.2011.03.021"
 title: "An Antisense CAG Repeat Transcript at JPH3 Locus Mediates Expanded Polyglutamine Protein Toxicity in Huntington's Disease-like 2 Mice"
 authors:
 - Brian Wilburn

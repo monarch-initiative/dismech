@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1346211
+reference_id: "DOI:10.3389/fimmu.2024.1346211"
 title: Different evasion strategies in multiple myeloma
 authors:
 - Chaofan Wang

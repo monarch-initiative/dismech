@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/b978-0-444-62702-5.00008-1
+reference_id: "DOI:10.1016/b978-0-444-62702-5.00008-1"
 title: Basal cell nevus syndrome or Gorlin syndrome
 journal: Handbook of Clinical Neurology
 year: '2015'

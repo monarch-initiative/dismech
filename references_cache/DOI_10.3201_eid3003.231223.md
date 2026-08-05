@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3201/eid3003.231223
+reference_id: "DOI:10.3201/eid3003.231223"
 title: "Multimodal Surveillance Model for Enterovirus D68 Respiratory Disease and Acute Flaccid Myelitis among Children in Colorado, USA, 2022"
 authors:
 - Kevin Messacar

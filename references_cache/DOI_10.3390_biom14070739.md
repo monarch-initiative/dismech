@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14070739
+reference_id: "DOI:10.3390/biom14070739"
 title: "Exploring the Link between Varicella-Zoster Virus, Autoimmune Diseases, and the Role of Recombinant Zoster Vaccine"
 authors:
 - Ryuhei Ishihara

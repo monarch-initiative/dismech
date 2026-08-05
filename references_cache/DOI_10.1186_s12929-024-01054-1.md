@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12929-024-01054-1
+reference_id: "DOI:10.1186/s12929-024-01054-1"
 title: "The double whammy of ER-retention and dominant-negative effects in numerous autosomal dominant diseases: significance in disease mechanisms and therapy"
 authors:
 - Nesrin Gariballa

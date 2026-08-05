@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12933-025-02774-w
+reference_id: "DOI:10.1186/s12933-025-02774-w"
 title: "Cardiometabolic heart failure with preserved ejection fraction: from molecular signatures to personalized treatment"
 authors:
 - Era Gorica

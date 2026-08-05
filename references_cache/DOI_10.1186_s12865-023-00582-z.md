@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12865-023-00582-z
+reference_id: "DOI:10.1186/s12865-023-00582-z"
 title: Tacrolimus reverses pemphigus vulgaris serum-induced depletion of desmoglein in HaCaT cells via inhibition of heat shock protein 27 phosphorylation
 authors:
 - Zhimin Xie

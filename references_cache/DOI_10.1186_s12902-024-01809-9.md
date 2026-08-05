@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12902-024-01809-9
+reference_id: "DOI:10.1186/s12902-024-01809-9"
 title: "Best practices in the laboratory diagnosis, prognostication, prediction, and monitoring of Graves’ disease: role of TRAbs"
 authors:
 - Sanjay Kalra

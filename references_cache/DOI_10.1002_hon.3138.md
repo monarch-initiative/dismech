@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/hon.3138
+reference_id: "DOI:10.1002/hon.3138"
 title: Update on follicular lymphoma
 authors:
 - Jonathan W. Friedberg

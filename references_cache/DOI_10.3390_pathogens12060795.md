@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens12060795
+reference_id: "DOI:10.3390/pathogens12060795"
 title: Opisthorchis viverrini—Current Understanding of the Neglected Hepatobiliary Parasite
 authors:
 - Matthias Yi Quan Liau

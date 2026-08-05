@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06847399
+reference_id: "clinicaltrials:NCT06847399"
 title: "Efficacy and Safety of Tirzepatide Versus Placebo or Lisdexamfetamine Dimesylate for Binge-Eating Disorder: A Randomized Clinical Trial"
 content_type: summary
 full_text_attempted: true

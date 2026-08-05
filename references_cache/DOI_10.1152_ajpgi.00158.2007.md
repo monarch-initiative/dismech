@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1152/ajpgi.00158.2007
+reference_id: "DOI:10.1152/ajpgi.00158.2007"
 title: "Claudin-18: a dominant tight junction protein in Barrett's esophagus and likely contributor to its acid resistance"
 authors:
 - Biljana Jovov

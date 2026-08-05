@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43042-024-00506-5
+reference_id: "DOI:10.1186/s43042-024-00506-5"
 title: Germline variants in the Von Hippel-Lindau tumor suppressor gene in Cuban patients
 authors:
 - Antonio Alejandro Esperón Álvarez

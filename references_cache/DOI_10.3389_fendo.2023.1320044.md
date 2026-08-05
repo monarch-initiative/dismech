@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fendo.2023.1320044
+reference_id: "DOI:10.3389/fendo.2023.1320044"
 title: Pathogenesis and signaling pathways related to iodine-refractory differentiated thyroid cancer
 authors:
 - Simeng Zhao

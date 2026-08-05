@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/elife.96065.2
+reference_id: "DOI:10.7554/elife.96065.2"
 title: Neutralizing gut-derived lipopolysaccharide as a novel therapeutic strategy for severe leptospirosis
 authors:
 - Xufeng Xie

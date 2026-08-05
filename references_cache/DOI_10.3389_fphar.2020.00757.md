@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2020.00757
+reference_id: "DOI:10.3389/fphar.2020.00757"
 title: The Bone Extracellular Matrix in Bone Formation and Regeneration
 authors:
 - Xiao Lin

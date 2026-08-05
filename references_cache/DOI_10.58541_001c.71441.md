@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.58541/001c.71441
+reference_id: "DOI:10.58541/001c.71441"
 title: "A necrotic orofacial lesion presenting in an immunocompromised patient in the UK: case review with features of noma"
 authors:
 - Gagandip Singh Dhanjal

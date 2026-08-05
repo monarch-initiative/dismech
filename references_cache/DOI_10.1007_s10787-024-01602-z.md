@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s10787-024-01602-z
+reference_id: "DOI:10.1007/s10787-024-01602-z"
 title: Naturally derived bioactive compounds as precision modulators of immune and inflammatory mechanisms in psoriatic conditions
 authors:
 - Ada Radu

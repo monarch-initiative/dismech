@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3233/jnd-230205
+reference_id: "DOI:10.3233/jnd-230205"
 title: "Break Down of the Complexity and Inconsistency Between Levels of Matriglycan and Disease Phenotype in FKRP-Related Dystroglycanopathies: A Review and Model of Interpretation"
 authors:
 - Qi L. Lu

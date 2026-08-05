@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0306386
+reference_id: "DOI:10.1371/journal.pone.0306386"
 title: Characterization of somatic mutations in sporadic uveal melanoma and uveal melanoma in patients with germline BAP1 pathogenic variants
 authors:
 - Karin A. W. Wadt

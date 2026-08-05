@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1212/WNL.0b013e3181a92b52
+reference_id: "DOI:10.1212/WNL.0b013e3181a92b52"
 title: Efficacy of immunotherapy in seropositive and seronegative putative autoimmune autonomic ganglionopathy
 authors:
 - V. Iodice

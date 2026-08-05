@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom14080906
+reference_id: "DOI:10.3390/biom14080906"
 title: "What Remains to Be Discovered in Schizophrenia Therapeutics: Contributions by Advancing the Molecular Mechanisms of Drugs for Psychosis and Schizophrenia"
 authors:
 - Christoph U. Correll

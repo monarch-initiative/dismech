@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13052-017-0383-7
+reference_id: "DOI:10.1186/s13052-017-0383-7"
 title: A mild form of adenylosuccinate lyase deficiency in absence of typical brain MRI features diagnosed by whole exome sequencing
 authors:
 - Marina Macchiaiolo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2022.993515
+reference_id: "DOI:10.3389/fmed.2022.993515"
 title: "A comprehensive review on pathogenesis, associations, clinical findings, and treatment of livedoid vasculopathy"
 authors:
 - Mireia Seguí

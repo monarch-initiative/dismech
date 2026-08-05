@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2017.00062
+reference_id: "DOI:10.3389/fneur.2017.00062"
 title: Different Phenotypes at Onset in Neuromyelitis Optica Spectrum Disorder Patients with Aquaporin-4 Autoimmunity
 authors:
 - Youming Long

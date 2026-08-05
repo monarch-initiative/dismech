@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci176311
+reference_id: "DOI:10.1172/jci176311"
 title: "Proteogenomic analysis reveals cytoplasmic sequestration of RUNX1 by the acute myeloid leukemia–initiating CBFB::MYH11 oncofusion protein"
 authors:
 - Ryan B. Day

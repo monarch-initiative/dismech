@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1188098
+reference_id: "DOI:10.3389/fped.2023.1188098"
 title: "Sudden cardiac arrest in a child with Gitelman syndrome: a case report and literature review"
 authors:
 - Jakub Zieg

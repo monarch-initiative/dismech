@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13062-024-00504-y
+reference_id: "DOI:10.1186/s13062-024-00504-y"
 title: Phosphodiesterase type 5 inhibitor tadalafil reduces prostatic fibrosis via MiR-3126-3p/FGF9 axis in benign prostatic hyperplasia
 authors:
 - Tiewen Li

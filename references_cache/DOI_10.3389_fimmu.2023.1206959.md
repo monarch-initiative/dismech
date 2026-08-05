@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1206959
+reference_id: "DOI:10.3389/fimmu.2023.1206959"
 title: Advances in pathogenesis and treatment of ocular involvement in Behcet’s disease
 authors:
 - Suibin Lin

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12885-024-13155-z
+reference_id: "DOI:10.1186/s12885-024-13155-z"
 title: "Efficacy and safety of RET-TKI in advanced RET-rearranged non-small cell lung cancer in China: a real-world retrospective chart review"
 authors:
 - Siyu Lei

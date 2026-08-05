@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20944/preprints202408.1996.v1
+reference_id: "DOI:10.20944/preprints202408.1996.v1"
 title: "Understanding Hepatitis B Virus (HBV) Persistence: Mechanisms, Consequences and Implications for Cure"
 authors:
 - Christopher Georgi

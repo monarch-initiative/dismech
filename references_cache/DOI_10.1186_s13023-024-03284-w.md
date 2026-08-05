@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-024-03284-w
+reference_id: "DOI:10.1186/s13023-024-03284-w"
 title: "Long-term follow-up of givosiran treatment in patients with acute intermittent porphyria from a phase 1/2, 48-month open-label extension study"
 authors:
 - Eliane Sardh

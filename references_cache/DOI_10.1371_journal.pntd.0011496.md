@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011496
+reference_id: "DOI:10.1371/journal.pntd.0011496"
 title: "Soil-transmitted helminths: A critical review of the impact of co-infections and implications for control and elimination"
 authors:
 - Sarah Lebu

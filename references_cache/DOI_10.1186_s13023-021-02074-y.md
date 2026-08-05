@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-021-02074-y
+reference_id: "DOI:10.1186/s13023-021-02074-y"
 title: "Clinical features and health-related quality of life in adult patients with mucopolysaccharidosis IVA: the Spanish experience"
 authors:
 - Pilar Quijada-Fraile

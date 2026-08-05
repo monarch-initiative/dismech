@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/gastroent14030024
+reference_id: "DOI:10.3390/gastroent14030024"
 title: Diagnostic Approach and Pathophysiological Mechanisms of Anemia in Chronic Liver Disease—An Overview
 authors:
 - Cristina Maria Marginean

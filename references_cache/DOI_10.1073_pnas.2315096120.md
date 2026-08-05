@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.2315096120
+reference_id: "DOI:10.1073/pnas.2315096120"
 title: Epigenetic switch reshapes epithelial progenitor cell signatures and drives inflammatory pathogenesis in hidradenitis suppurativa
 authors:
 - Lin Jin

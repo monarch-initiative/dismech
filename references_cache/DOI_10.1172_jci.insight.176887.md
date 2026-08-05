@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.176887
+reference_id: "DOI:10.1172/jci.insight.176887"
 title: Mitochondrial bioenergetics and cardiolipin remodeling abnormalities in mitochondrial trifunctional protein deficiency
 authors:
 - Eduardo Vieira Neto

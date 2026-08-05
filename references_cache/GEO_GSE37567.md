@@ -1,5 +1,5 @@
 ---
-reference_id: GEO:GSE37567
+reference_id: "GEO:GSE37567"
 title: Methodoligies for identifying lead toxicity
 content_type: summary
 full_text_attempted: true

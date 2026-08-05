@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/lymphatics3030020
+reference_id: "DOI:10.3390/lymphatics3030020"
 title: A Review of KSHV/HHV8-Associated Neoplasms and Related Lymphoproliferative Lesions
 authors:
 - Jamie Rigney

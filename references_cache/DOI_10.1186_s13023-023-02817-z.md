@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-02817-z
+reference_id: "DOI:10.1186/s13023-023-02817-z"
 title: "Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study"
 authors:
 - Jemima E. Mellerio

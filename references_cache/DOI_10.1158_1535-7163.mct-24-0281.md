@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1158/1535-7163.mct-24-0281
+reference_id: "DOI:10.1158/1535-7163.mct-24-0281"
 title: "Advanced Human Papillomavirus–Negative Head and Neck Squamous Cell Carcinoma: Unmet Need and Emerging Therapies"
 authors:
 - Robin Park

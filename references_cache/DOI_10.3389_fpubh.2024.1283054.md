@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpubh.2024.1283054
+reference_id: "DOI:10.3389/fpubh.2024.1283054"
 title: "Prevalence and correlates of soil-transmitted helminths in schoolchildren aged 5 to 18 years in low- and middle-income countries: a systematic review and meta-analysis"
 authors:
 - Ritik Agrawal

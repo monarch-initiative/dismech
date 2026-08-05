@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/curroncol30100670
+reference_id: "DOI:10.3390/curroncol30100670"
 title: Genomic Profiling and Molecular Characterization of Clear Cell Renal Cell Carcinoma
 authors:
 - Gaetano Pezzicoli

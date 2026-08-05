@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s42003-023-04856-5
+reference_id: "DOI:10.1038/s42003-023-04856-5"
 title: Spatial transcriptomics reveal topological immune landscapes of Asian head and neck angiosarcoma
 authors:
 - Jui Wan Loh

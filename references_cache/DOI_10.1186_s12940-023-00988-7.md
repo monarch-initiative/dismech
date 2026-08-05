@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12940-023-00988-7
+reference_id: "DOI:10.1186/s12940-023-00988-7"
 title: "Carcinogenic effect of arsenic in digestive cancers: a systematic review"
 authors:
 - Sophie Kasmi

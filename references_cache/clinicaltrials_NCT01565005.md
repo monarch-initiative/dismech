@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT01565005
+reference_id: "clinicaltrials:NCT01565005"
 title: "Microcephaly Genetic Deficiency in Neural Progenitors: Genotyping, Phenotyping and Functional Neuro-anatomy and Neurobiology Comparative Primitive Microcephaly (MCPH) and the Fanconi Anemia (FA)"
 content_type: summary
 full_text_attempted: true

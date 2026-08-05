@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/cvr/cvad135
+reference_id: "DOI:10.1093/cvr/cvad135"
 title: "Stroke risk management in carotid atherosclerotic disease: a clinical consensus statement of the ESC Council on Stroke and the ESC Working Group on Aorta and Peripheral Vascular Diseases"
 authors:
 - Piotr Musialek

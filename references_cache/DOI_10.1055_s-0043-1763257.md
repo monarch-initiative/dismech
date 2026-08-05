@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0043-1763257
+reference_id: "DOI:10.1055/s-0043-1763257"
 title: "Fibrosis as a Risk Factor for Cutaneous Squamous Cell Carcinoma in Recessive Dystrophic Epidermolysis Bullosa: A Systematic Review"
 authors:
 - Brenda Lamônica Rodrigues de Azevedo

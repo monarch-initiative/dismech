@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12964-024-01644-4
+reference_id: "DOI:10.1186/s12964-024-01644-4"
 title: Aberrant activation of TGF-β/ROCK1 enhances stemness during prostatic stromal hyperplasia
 authors:
 - Youyou Li

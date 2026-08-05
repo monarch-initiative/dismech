@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25105278
+reference_id: "DOI:10.3390/ijms25105278"
 title: Pathogenesis of Pulmonary Manifestations in ANCA-Associated Vasculitis and Goodpasture Syndrome
 authors:
 - Evangelia Fouka

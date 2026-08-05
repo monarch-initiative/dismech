@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0060264
+reference_id: "DOI:10.1371/journal.pone.0060264"
 title: Activating Somatic FGFR2 Mutations in Breast Cancer
 authors:
 - Nadine Reintjes

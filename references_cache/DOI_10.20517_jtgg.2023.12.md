@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.20517/jtgg.2023.12
+reference_id: "DOI:10.20517/jtgg.2023.12"
 title: "Use of sodium D, L-3-hydroxybutyrate as adjunct therapy in two siblings with HMG-CoA lyase deficiency"
 authors:
 - Beena Devanapalli

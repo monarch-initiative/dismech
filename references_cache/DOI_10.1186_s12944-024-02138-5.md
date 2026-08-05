@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12944-024-02138-5
+reference_id: "DOI:10.1186/s12944-024-02138-5"
 title: "Association between metabolic syndrome and kidney cancer risk: a prospective cohort study"
 authors:
 - Lin Wang

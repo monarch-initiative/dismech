@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/zoonoticdis4020013
+reference_id: "DOI:10.3390/zoonoticdis4020013"
 title: "Prevalence and Risk Factors of Human Taenia solium Cysticercosis in Mbulu District, Northern Tanzania"
 authors:
 - Vedasto Bandi

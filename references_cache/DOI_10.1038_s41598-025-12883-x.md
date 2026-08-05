@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-025-12883-x
+reference_id: "DOI:10.1038/s41598-025-12883-x"
 title: Patterns and prognostic implications of distant metastasis in breast Cancer based on SEER population data
 authors:
 - Maoquan zhang

@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT06831058
+reference_id: "clinicaltrials:NCT06831058"
 title: A Pilot Study of Efgartigimod for Immune-mediated Thrombotic Thrombocytopenic Purpura (iTTP)
 content_type: summary
 full_text_attempted: true

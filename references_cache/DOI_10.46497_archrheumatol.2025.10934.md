@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.46497/archrheumatol.2025.10934
+reference_id: "DOI:10.46497/archrheumatol.2025.10934"
 title: "Immune response and cytokine pathways in psoriatic arthritis: A systematic review"
 authors:
 - Gamze Dilek

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.36502/2024/asjbccr.6384
+reference_id: "DOI:10.36502/2024/asjbccr.6384"
 title: Recent Advances in Understanding the Pathophysiology and Risk Stratification of Post-Intubation Hypotension
 authors:
 - E Pan

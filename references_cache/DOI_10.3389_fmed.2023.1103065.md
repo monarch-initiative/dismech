@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2023.1103065
+reference_id: "DOI:10.3389/fmed.2023.1103065"
 title: Pathophysiology and clinical manifestations of immune complex vasculitides
 authors:
 - Cord Sunderkötter

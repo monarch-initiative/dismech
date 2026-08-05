@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-024-01965-w
+reference_id: "DOI:10.1186/s12920-024-01965-w"
 title: Genomic landscape of hepatocellular carcinoma in Egyptian patients by whole exome sequencing
 authors:
 - Perihan Hamdy Kassem

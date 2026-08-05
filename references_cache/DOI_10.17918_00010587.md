@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.17918/00010587
+reference_id: "DOI:10.17918/00010587"
 title: Towards In-Vitro Reconstitution of Actin Comet Tail Formation and Septin Caging in Shigella
 authors:
 - Sarath Reghunathan

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2023.1222321
+reference_id: "DOI:10.3389/fnmol.2023.1222321"
 title: "The genotype–phenotype correlations of the CACNA1A-related neurodevelopmental disorders: a small case series and literature reviews"
 authors:
 - Miriam Kessi

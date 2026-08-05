@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12944-023-01993-y
+reference_id: "DOI:10.1186/s12944-023-01993-y"
 title: "Unlocking the mysteries of VLDL: exploring its production, intracellular trafficking, and metabolism as therapeutic targets"
 authors:
 - Jingfei Chen

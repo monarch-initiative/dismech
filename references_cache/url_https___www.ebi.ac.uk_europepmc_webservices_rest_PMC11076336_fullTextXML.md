@@ -1,5 +1,5 @@
 ---
-reference_id: url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11076336/fullTextXML
+reference_id: "url:https://www.ebi.ac.uk/europepmc/webservices/rest/PMC11076336/fullTextXML"
 title: Keywords
 content_type: url
 ---

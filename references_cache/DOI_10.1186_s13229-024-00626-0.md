@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13229-024-00626-0
+reference_id: "DOI:10.1186/s13229-024-00626-0"
 title: Auditory N1 event-related potential amplitude is predictive of serum concentration of BPN14770 in fragile X syndrome
 authors:
 - Jordan E. Norris

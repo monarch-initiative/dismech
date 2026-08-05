@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.32388/zvebpt
+reference_id: "DOI:10.32388/zvebpt"
 title: Mesial temporal lobe epilepsy with hippocampal sclerosis
 journal: Definitions
 year: '2020'

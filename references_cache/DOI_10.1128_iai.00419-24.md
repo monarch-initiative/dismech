@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/iai.00419-24
+reference_id: "DOI:10.1128/iai.00419-24"
 title: "Unveiling the impact of <i>Leptospira</i> TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential"
 authors:
 - Saswat Hota

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41416-024-02615-9
+reference_id: "DOI:10.1038/s41416-024-02615-9"
 title: Efficacy and safety of tepotinib in Asian patients with advanced NSCLC with MET exon 14 skipping enrolled in VISION
 authors:
 - Terufumi Kato

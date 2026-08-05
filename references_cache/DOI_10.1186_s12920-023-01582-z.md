@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12920-023-01582-z
+reference_id: "DOI:10.1186/s12920-023-01582-z"
 title: A non-coding variant in the Kozak sequence of RARS2 strongly decreases protein levels and causes pontocerebellar hypoplasia
 authors:
 - Romain Nicolle

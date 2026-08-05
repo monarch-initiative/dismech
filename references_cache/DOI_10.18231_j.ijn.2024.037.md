@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18231/j.ijn.2024.037
+reference_id: "DOI:10.18231/j.ijn.2024.037"
 title: "A rare case of radiologically diagnosed Pelizaeus-Merzbacher\\'s disease (PMD) in a female infant"
 authors:
 - Tania Dharni

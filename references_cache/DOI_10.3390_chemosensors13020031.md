@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/chemosensors13020031
+reference_id: "DOI:10.3390/chemosensors13020031"
 title: Current and Future Diagnostics for Hepatitis C Virus Infection
 authors:
 - Hussein Zilouchian

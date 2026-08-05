@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s40170-023-00305-3
+reference_id: "DOI:10.1186/s40170-023-00305-3"
 title: Normalization of hepatic ChREBP activity does not protect against liver disease progression in a mouse model for Glycogen Storage Disease type Ia
 authors:
 - Martijn G. S. Rutten

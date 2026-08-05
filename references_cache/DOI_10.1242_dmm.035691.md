@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1242/dmm.035691
+reference_id: "DOI:10.1242/dmm.035691"
 title: ENPP1 enzyme replacement therapy improves blood pressure and cardiovascular function in a mouse model of generalized arterial calcification of infancy
 authors:
 - Tayeba Khan

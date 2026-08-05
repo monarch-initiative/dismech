@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.36076/ppj.2021.24.e477
+reference_id: "DOI:10.36076/ppj.2021.24.e477"
 title: Percutaneous Vertebroplasty Using a Rotary Cutter for Treating Kümmell’s Disease with Intravertebral Vacuum Cleft
 journal: Pain Physician
 year: '2021'

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2018.00533
+reference_id: "DOI:10.3389/fonc.2018.00533"
 title: Role and Regulation of Pro-survival BCL-2 Proteins in Multiple Myeloma
 authors:
 - Anne Slomp

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12030682
+reference_id: "DOI:10.3390/biomedicines12030682"
 title: "Role of Genetics in Diagnosis and Management of Hypertrophic Cardiomyopathy: A Glimpse into the Future"
 authors:
 - Mohammed Tiseer Abbas

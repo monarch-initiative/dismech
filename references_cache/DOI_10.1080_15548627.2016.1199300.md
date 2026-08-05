@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1080/15548627.2016.1199300
+reference_id: "DOI:10.1080/15548627.2016.1199300"
 title: TBC1D20 mediates autophagy as a key regulator of autophagosome maturation
 authors:
 - D. J. Sidjanin

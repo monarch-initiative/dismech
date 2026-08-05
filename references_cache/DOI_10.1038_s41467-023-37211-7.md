@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-37211-7
+reference_id: "DOI:10.1038/s41467-023-37211-7"
 title: Epigenetic and transcriptomic characterization reveals progression markers and essential pathways in clear cell renal cell carcinoma
 authors:
 - Yige Wu

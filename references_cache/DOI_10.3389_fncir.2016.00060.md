@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fncir.2016.00060
+reference_id: "DOI:10.3389/fncir.2016.00060"
 title: Peripheral Sensory Neurons Expressing Melanopsin Respond to Light
 authors:
 - Anna Matynia

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21037/jgo-24-345
+reference_id: "DOI:10.21037/jgo-24-345"
 title: Development of a streamlined NGS-based TCGA classification scheme for gastric cancer and its implications for personalized therapy
 authors:
 - Pengda Guo

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/or.2025.1549416
+reference_id: "DOI:10.3389/or.2025.1549416"
 title: "A brief review of Lynch syndrome: understanding the dual cancer risk between endometrial and colorectal cancer"
 authors:
 - Sneha Pallatt

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.32498
+reference_id: "DOI:10.7759/cureus.32498"
 title: "Encephalocraniocutaneous Lipomatosis: A Case Report and Literature Review"
 authors:
 - Deivanai Subbiah

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1172-6-33
+reference_id: "DOI:10.1186/1750-1172-6-33"
 title: "Autosomal dominant cerebellar ataxia type I: A review of the phenotypic and genotypic characteristics"
 authors:
 - Nathaniel Robb Whaley

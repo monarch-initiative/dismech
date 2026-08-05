@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-024-09422-w
+reference_id: "DOI:10.1186/s12879-024-09422-w"
 title: "Estimating excess mortality and economic burden of Clostridioides difficile infections and recurrences during 2015–2019: the RECUR Germany study"
 authors:
 - Ana Antunes

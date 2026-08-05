@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15194860
+reference_id: "DOI:10.3390/cancers15194860"
 title: "Synovial Sarcoma in the Extremity: Diversity of Imaging Features for Diagnosis and Prognosis"
 authors:
 - Eun Byul Cho

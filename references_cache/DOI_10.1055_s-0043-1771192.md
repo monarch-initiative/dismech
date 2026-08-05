@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/s-0043-1771192
+reference_id: "DOI:10.1055/s-0043-1771192"
 title: "H3 K27M-Altered Diffuse Midline Gliomas: A Review"
 authors:
 - Karol Wiśniewski

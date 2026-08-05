@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s00535-026-02388-3
+reference_id: "DOI:10.1007/s00535-026-02388-3"
 title: Distinct phenotype of primary sclerosing cholangitis-associated inflammatory bowel disease
 authors:
 - Haruka Okada

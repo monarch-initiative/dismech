@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/jcp.20820
+reference_id: "DOI:10.1002/jcp.20820"
 title: "Galactosemia: The good, the bad, and the unknown"
 authors:
 - Judith L. Fridovich‐Keil

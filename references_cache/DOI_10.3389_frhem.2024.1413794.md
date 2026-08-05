@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/frhem.2024.1413794
+reference_id: "DOI:10.3389/frhem.2024.1413794"
 title: "Case report: Aggressive natural killer cell leukemia and refractory hemophagocytic lymphohistiocytosis in an adolescent"
 authors:
 - Caroline Spaner

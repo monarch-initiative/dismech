@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.23876/j.krcp.24.065
+reference_id: "DOI:10.23876/j.krcp.24.065"
 title: "A comprehensive review of Alport syndrome: definition, pathophysiology, clinical manifestations, and diagnostic considerations"
 authors:
 - Eunjeong Kang

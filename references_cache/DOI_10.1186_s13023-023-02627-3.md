@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-023-02627-3
+reference_id: "DOI:10.1186/s13023-023-02627-3"
 title: "The patient clinical journey and socioeconomic impact of osteogenesis imperfecta: a systematic scoping review"
 authors:
 - Maria Rapoport

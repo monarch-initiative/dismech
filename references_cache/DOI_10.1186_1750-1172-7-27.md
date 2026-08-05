@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/1750-1172-7-27
+reference_id: "DOI:10.1186/1750-1172-7-27"
 title: "A mutation in KIF7 is responsible for the autosomal recessive syndrome of macrocephaly, multiple epiphyseal dysplasia and distinctive facial appearance"
 authors:
 - Bassam R Ali

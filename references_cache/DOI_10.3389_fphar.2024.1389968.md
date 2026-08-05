@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1389968
+reference_id: "DOI:10.3389/fphar.2024.1389968"
 title: Genetic variation in UGT1A1 is not associated with altered liver biochemical parameters in healthy volunteers participating in bioequivalence trials
 authors:
 - Eva González-Iglesias

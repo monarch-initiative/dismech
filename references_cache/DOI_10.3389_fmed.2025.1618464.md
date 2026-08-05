@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmed.2025.1618464
+reference_id: "DOI:10.3389/fmed.2025.1618464"
 title: "Therapeutic advances in hemophilia: from molecular innovation to patient-centered global care"
 authors:
 - Zaure Dushimova

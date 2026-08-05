@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1136/gutjnl-2023-331773
+reference_id: "DOI:10.1136/gutjnl-2023-331773"
 title: Comprehensive single-cell analysis deciphered microenvironmental dynamics and immune regulator olfactomedin 4 in pathogenesis of gallbladder cancer
 authors:
 - Huisi He

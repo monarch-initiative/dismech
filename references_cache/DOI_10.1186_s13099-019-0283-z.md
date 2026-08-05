@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13099-019-0283-z
+reference_id: "DOI:10.1186/s13099-019-0283-z"
 title: Campylobacter jejuni enters gut epithelial cells and impairs intestinal barrier function through cleavage of occludin by serine protease HtrA
 authors:
 - Aileen Harrer

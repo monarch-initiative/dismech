@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.41445
+reference_id: "DOI:10.7759/cureus.41445"
 title: "Hyperostosis Fronto-Parieto-Occipitalis: A Cadaveric Case Report"
 authors:
 - Emily Otken

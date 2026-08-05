@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/elife.72290
+reference_id: "DOI:10.7554/elife.72290"
 title: Rescue of behavioral and electrophysiological phenotypes in a Pitt-Hopkins syndrome mouse model by genetic restoration of Tcf4 expression
 authors:
 - Hyojin Kim

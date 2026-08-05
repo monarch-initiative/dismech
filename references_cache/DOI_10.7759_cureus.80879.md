@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.80879
+reference_id: "DOI:10.7759/cureus.80879"
 title: "Cheilitis Granulomatosa: A Case Report of a Sarcoid Mimic"
 authors:
 - Stephanie Nagy

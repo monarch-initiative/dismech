@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fitd.2024.1466207
+reference_id: "DOI:10.3389/fitd.2024.1466207"
 title: "Excess mortality associated with chikungunya epidemic in Southeast Brazil, 2023"
 authors:
 - André Ricardo Ribas Freitas

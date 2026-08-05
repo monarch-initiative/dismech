@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43044-025-00652-0
+reference_id: "DOI:10.1186/s43044-025-00652-0"
 title: "Cardiac myosin inhibitors: Efficacy, safety and future directions of aficamten in hypertrophic obstructive cardiomyopathy"
 authors:
 - Ikponmwosa Jude Ogieuhi

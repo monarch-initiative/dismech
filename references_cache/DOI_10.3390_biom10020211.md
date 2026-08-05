@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biom10020211
+reference_id: "DOI:10.3390/biom10020211"
 title: "Mechanisms and Alterations of Cardiac Ion Channels Leading to Disease: Role of Ankyrin-B in Cardiac Function"
 authors:
 - Holly C. Sucharski

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcvm.2024.1363848
+reference_id: "DOI:10.3389/fcvm.2024.1363848"
 title: "Mechanisms of torsades de pointes: an update"
 authors:
 - Yukiomi Tsuji

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-023-37648-w
+reference_id: "DOI:10.1038/s41467-023-37648-w"
 title: Transcriptomic profiles and 5-year results from the randomized CLL14 study of venetoclax plus obinutuzumab versus chlorambucil plus obinutuzumab in chronic lymphocytic leukemia
 authors:
 - Othman Al-Sawaf

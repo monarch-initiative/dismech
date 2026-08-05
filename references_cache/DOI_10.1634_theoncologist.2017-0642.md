@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1634/theoncologist.2017-0642
+reference_id: "DOI:10.1634/theoncologist.2017-0642"
 title: "FDA Approval Summary: Dabrafenib and Trametinib for the Treatment of Metastatic Non-Small Cell Lung Cancers Harboring <i>BRAF V600E</i> Mutations"
 authors:
 - Lauretta Odogwu

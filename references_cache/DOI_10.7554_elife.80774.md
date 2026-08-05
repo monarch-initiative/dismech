@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7554/elife.80774
+reference_id: "DOI:10.7554/elife.80774"
 title: Hypoxia-inducible factor underlies von Hippel-Lindau disease stigmata
 authors:
 - Michael Ohh

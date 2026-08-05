@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0012696
+reference_id: "DOI:10.1371/journal.pntd.0012696"
 title: "Rapid assessment of noma: Reporting on forgotten and neglected disease in Ethiopia"
 authors:
 - Wendemagegn Enbiale

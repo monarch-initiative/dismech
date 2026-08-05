@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1258388
+reference_id: "DOI:10.3389/fimmu.2023.1258388"
 title: "Treatment approaches for FGFR-altered urothelial carcinoma: targeted therapies and immunotherapy"
 authors:
 - David J. Benjamin

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/0002-9394(86)90650-1
+reference_id: "DOI:10.1016/0002-9394(86)90650-1"
 title: "Leber's Congenital Amaurosis Associated with Hyperthreoninemia"
 authors:
 - Seiji Hayasaka

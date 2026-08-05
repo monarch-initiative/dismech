@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.23876/j.krcp.23.227
+reference_id: "DOI:10.23876/j.krcp.23.227"
 title: Precision medicine for focal segmental glomerulosclerosis
 authors:
 - Yi Xie

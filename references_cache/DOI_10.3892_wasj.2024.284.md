@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/wasj.2024.284
+reference_id: "DOI:10.3892/wasj.2024.284"
 title: "Beyond brittle bones: Genetic mechanisms underlying osteogenesis imperfecta (Review)"
 authors:
 - Hammal Khan

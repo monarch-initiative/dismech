@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12981-024-00663-y
+reference_id: "DOI:10.1186/s12981-024-00663-y"
 title: "Epidemic of multiple Treponema pallidum strains in men who have sex with men in Japan: efficient multi-locus sequence typing scheme and indicator biomarkers"
 authors:
 - Wakana Sato

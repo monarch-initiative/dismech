@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13148-024-01686-y
+reference_id: "DOI:10.1186/s13148-024-01686-y"
 title: Aortic disease and cardiomyopathy in patients with a novel DNMT3A gene variant causing Tatton-Brown–Rahman syndrome
 authors:
 - Dovile Zebrauskiene

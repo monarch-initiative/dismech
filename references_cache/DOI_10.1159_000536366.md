@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000536366
+reference_id: "DOI:10.1159/000536366"
 title: "Cross-Sectional Study on Autosomal Recessive Congenital Ichthyoses: Association of Genotype with Disease Severity, Phenotypic, and Ultrastructural Features in 74 Italian Patients"
 authors:
 - Andrea Diociaiuti

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diagnostics13132306
+reference_id: "DOI:10.3390/diagnostics13132306"
 title: "Performance Evaluation of VIDAS® Diagnostic Assays Detecting Anti-Chikungunya Virus IgM and IgG Antibodies: An International Study"
 authors:
 - Geovana M. Pereira

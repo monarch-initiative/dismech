@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41590-020-0705-6
+reference_id: "DOI:10.1038/s41590-020-0705-6"
 title: Ancient familial Mediterranean fever mutations in human pyrin and resistance to Yersinia pestis
 authors:
 - Yong Hwan Park

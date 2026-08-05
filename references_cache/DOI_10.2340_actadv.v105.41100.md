@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2340/actadv.v105.41100
+reference_id: "DOI:10.2340/actadv.v105.41100"
 title: "The Clinical Spectrum of Rare Inherited Ichthyosis in China: A Review of Thirty-five Cases"
 authors:
 - Ruiyu Xiang

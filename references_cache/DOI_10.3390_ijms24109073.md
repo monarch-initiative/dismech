@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24109073
+reference_id: "DOI:10.3390/ijms24109073"
 title: Clinical Characterization of Targetable Mutations (BRAF V600E and KRAS G12C) in Advanced Colorectal Cancer—A Nation-Wide Study
 authors:
 - Paweł M. Potocki

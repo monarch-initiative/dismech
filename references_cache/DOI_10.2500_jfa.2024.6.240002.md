@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2500/jfa.2024.6.240002
+reference_id: "DOI:10.2500/jfa.2024.6.240002"
 title: "Anaphylaxis: Definition and criteria"
 authors:
 - Marcus S. Shaker

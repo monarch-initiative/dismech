@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2478/rjr-2024-0018
+reference_id: "DOI:10.2478/rjr-2024-0018"
 title: The multidetector CT evaluation of diffuse hyperostosis frontalis interna
 authors:
 - Mikail Inal

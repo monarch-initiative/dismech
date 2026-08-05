@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1073/pnas.0402546101
+reference_id: "DOI:10.1073/pnas.0402546101"
 title: A cardiac arrhythmia syndrome caused by loss of ankyrin-B function
 authors:
 - Peter J. Mohler

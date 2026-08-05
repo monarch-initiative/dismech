@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2024.1371375
+reference_id: "DOI:10.3389/fneur.2024.1371375"
 title: "Frontier and hotspot evolution in cerebrotendinous xanthomatosis: a bibliometric analysis from 1993 to 2023"
 authors:
 - Fei Luo

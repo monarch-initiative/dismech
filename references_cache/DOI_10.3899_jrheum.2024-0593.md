@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3899/jrheum.2024-0593
+reference_id: "DOI:10.3899/jrheum.2024-0593"
 title: "GRAPPA 2023 Debate: Is Psoriatic Disease Really a Primary Enthesitis That Drives Joint Synovitis? The Enthesitis Hypothesis 25 Years On"
 authors:
 - Dennis McGonagle

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s11899-023-00699-3
+reference_id: "DOI:10.1007/s11899-023-00699-3"
 title: Sporadic and Familial Acute Myeloid Leukemia with CEBPA Mutations
 authors:
 - Ji Yuan

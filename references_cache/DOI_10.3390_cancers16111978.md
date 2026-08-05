@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16111978
+reference_id: "DOI:10.3390/cancers16111978"
 title: Surgical Management of High-Grade Meningiomas
 authors:
 - Mark A. Pacult

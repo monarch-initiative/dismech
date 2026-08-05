@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1055/a-2695-1376
+reference_id: "DOI:10.1055/a-2695-1376"
 title: Adherence to clinical practice guidelines for Management of epithelial precancerous conditions and lesions in the stomach in Europe
 authors:
 - Filipa Fontes

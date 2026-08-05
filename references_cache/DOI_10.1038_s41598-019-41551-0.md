@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-019-41551-0
+reference_id: "DOI:10.1038/s41598-019-41551-0"
 title: A genome-wide association study on photic sneeze reflex in the Chinese population
 authors:
 - Mengqiao Wang

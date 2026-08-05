@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4081/aiua.2023.11625
+reference_id: "DOI:10.4081/aiua.2023.11625"
 title: "Renal artery infarction in the SARS-Cov-2 era: A systematic review of case reports"
 authors:
 - Diomidis Kozyrakis

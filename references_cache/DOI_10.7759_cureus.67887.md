@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.67887
+reference_id: "DOI:10.7759/cureus.67887"
 title: Stiff Person Syndrome With Positive Anti-glutamic Acid Decarboxylase (GAD) Autoantibodies
 authors:
 - Najoua Maarad

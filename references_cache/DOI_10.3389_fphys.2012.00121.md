@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2012.00121
+reference_id: "DOI:10.3389/fphys.2012.00121"
 title: Loss-of-function of Gli3 in mice causes abnormal frontal bone morphology and premature synostosis of the interfrontal suture
 authors:
 - Lotta Veistinen

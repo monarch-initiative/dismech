@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13071-023-05989-6
+reference_id: "DOI:10.1186/s13071-023-05989-6"
 title: "Insights into the diagnosis, vaccines, and control of Taenia solium, a zoonotic, neglected parasite"
 authors:
 - Md. Shahadat Hossain

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1120331
+reference_id: "DOI:10.3389/fimmu.2023.1120331"
 title: Interactions of pathogenic Escherichia coli with CEACAMs
 authors:
 - Alaullah Sheikh

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.45765
+reference_id: "DOI:10.7759/cureus.45765"
 title: "FLT3 Mutations in Acute Myeloid Leukemia: Unraveling the Molecular Mechanisms and Implications for Targeted Therapies"
 authors:
 - Meryem Jalte

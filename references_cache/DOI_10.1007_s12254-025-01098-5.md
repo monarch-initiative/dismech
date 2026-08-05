@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s12254-025-01098-5
+reference_id: "DOI:10.1007/s12254-025-01098-5"
 title: Antiemetic therapy
 authors:
 - Georg Jeryczynski

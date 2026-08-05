@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24108632
+reference_id: "DOI:10.3390/ijms24108632"
 title: "Metabolic Cardiomyopathies and Cardiac Defects in Inherited Disorders of Carbohydrate Metabolism: A Systematic Review"
 authors:
 - Federica Conte

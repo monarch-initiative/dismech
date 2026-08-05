@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT04897516
+reference_id: "clinicaltrials:NCT04897516"
 title: "Phase III Randomized,Multicenter Non-inferiority Study to Evaluate the Efficacy and Safety of Shorter Benznidazole Regimens Compared to the Standard Regimen to Treat Adult Patients With Chronic Chagas Disease"
 content_type: summary
 full_text_attempted: true

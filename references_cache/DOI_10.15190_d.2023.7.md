@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.15190/d.2023.7
+reference_id: "DOI:10.15190/d.2023.7"
 title: "Diagnosis and Management of Marchiafava-Bignami Disease, a Rare Neurological Complication of Long-term Alcohol Abuse"
 authors:
 - Emad Singer

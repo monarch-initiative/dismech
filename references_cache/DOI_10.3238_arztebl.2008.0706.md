@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3238/arztebl.2008.0706
+reference_id: "DOI:10.3238/arztebl.2008.0706"
 title: Hereditary Cancer Syndromes
 authors:
 - Nils Rahner

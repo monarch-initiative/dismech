@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1159/000535407
+reference_id: "DOI:10.1159/000535407"
 title: Further Expanding the Mutational Spectrum of Gorlin Syndrome in Three Unrelated Families
 authors:
 - Abdulkerim Kolkiran

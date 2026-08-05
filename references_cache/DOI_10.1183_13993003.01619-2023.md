@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1183/13993003.01619-2023
+reference_id: "DOI:10.1183/13993003.01619-2023"
 title: "Airway remodelling in asthma and the epithelium: on the edge of a new era"
 authors:
 - Gilda Varricchi

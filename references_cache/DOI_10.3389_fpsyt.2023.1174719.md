@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fpsyt.2023.1174719
+reference_id: "DOI:10.3389/fpsyt.2023.1174719"
 title: Delayed sleep–wake phase disorder and its related sleep behaviors in the young generation
 authors:
 - Kunihiro Futenma

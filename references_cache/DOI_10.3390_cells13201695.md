@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cells13201695
+reference_id: "DOI:10.3390/cells13201695"
 title: Genetic and Molecular Heterogeneity of Synovial Sarcoma and Associated Challenges in Therapy
 authors:
 - Ekaterina A. Lesovaya

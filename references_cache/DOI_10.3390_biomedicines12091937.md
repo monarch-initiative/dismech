@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/biomedicines12091937
+reference_id: "DOI:10.3390/biomedicines12091937"
 title: "Animal Models of Retinopathy of Prematurity: Advances and Metabolic Regulators"
 authors:
 - Meenakshi Maurya

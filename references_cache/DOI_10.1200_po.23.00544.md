@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/po.23.00544
+reference_id: "DOI:10.1200/po.23.00544"
 title: "Comprehensive Immunogenomic Profiling of <i>IDH1-</i>/<i>2</i>-Altered Cholangiocarcinoma"
 authors:
 - Shalini Makawita

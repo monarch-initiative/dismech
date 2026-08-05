@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12891-023-06609-1
+reference_id: "DOI:10.1186/s12891-023-06609-1"
 title: Correlation analysis between morphologic characteristics of the thoracolumbar basivertebral foramen and Kummell’s disease in patients with osteoporosis using imaging techniques
 authors:
 - Guang bing Qin

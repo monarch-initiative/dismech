@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v16101616
+reference_id: "DOI:10.3390/v16101616"
 title: Current State of Therapeutics for HTLV-1
 authors:
 - Tiana T. Wang

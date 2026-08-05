@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41467-024-53193-6
+reference_id: "DOI:10.1038/s41467-024-53193-6"
 title: "Genomic landscape of adult testicular germ cell tumours in the 100,000 Genomes Project"
 authors:
 - Máire Ní Leathlobhair

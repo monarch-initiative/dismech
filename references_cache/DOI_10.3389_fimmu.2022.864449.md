@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2022.864449
+reference_id: "DOI:10.3389/fimmu.2022.864449"
 title: "Outcomes of Systemic Treatment in Children and Adults With Netherton Syndrome: A Systematic Review"
 authors:
 - Anouk E. M. Nouwen

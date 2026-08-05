@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02384-9
+reference_id: "DOI:10.1186/s13023-022-02384-9"
 title: "A deep phenotyping experience: up to date in management and diagnosis of Malan syndrome in a single center surveillance report"
 authors:
 - Marina Macchiaiolo

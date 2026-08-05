@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2024.1357583
+reference_id: "DOI:10.3389/fonc.2024.1357583"
 title: "TP53 co-mutations in advanced lung adenocarcinoma: comparative bioinformatic analyses suggest ambivalent character on overall survival alongside KRAS, STK11 and KEAP1 mutations"
 authors:
 - Armin Frille

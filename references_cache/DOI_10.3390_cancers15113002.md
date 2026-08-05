@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15113002
+reference_id: "DOI:10.3390/cancers15113002"
 title: Paradigm Shift in the Management of Acute Myeloid Leukemia—Approved Options in 2023
 authors:
 - Naveen Premnath

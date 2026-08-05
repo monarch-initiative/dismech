@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25147780
+reference_id: "DOI:10.3390/ijms25147780"
 title: Cellular and Molecular Biology of Mitochondria in Chronic Obstructive Pulmonary Disease
 authors:
 - Chin-Ling Li

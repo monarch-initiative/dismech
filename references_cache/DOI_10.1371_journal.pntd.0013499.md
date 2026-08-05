@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013499
+reference_id: "DOI:10.1371/journal.pntd.0013499"
 title: "Chromoblastomycosis and phaeohyphomycotic abscess-associated hospitalizations, United States, 2016–2021"
 authors:
 - Dallas J. Smith

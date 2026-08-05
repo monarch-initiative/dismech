@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0009661
+reference_id: "DOI:10.1371/journal.pntd.0009661"
 title: A framework for scabies control
 authors:
 - Daniel Engelman

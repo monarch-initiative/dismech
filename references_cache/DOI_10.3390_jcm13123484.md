@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13123484
+reference_id: "DOI:10.3390/jcm13123484"
 title: "Unraveling the Link of Altered TGFβ Signaling with Scoliotic Vertebral Malformations in Osteogenesis Imperfecta: A Comprehensive Review"
 authors:
 - Angelos Kaspiris

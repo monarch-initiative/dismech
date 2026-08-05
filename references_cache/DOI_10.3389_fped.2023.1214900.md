@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1214900
+reference_id: "DOI:10.3389/fped.2023.1214900"
 title: "Case report: A unique quadruple coexisting anomaly—scimitar syndrome, atrial septal defect, vascular ring, and pulmonary sequestration"
 authors:
 - Marcin Gładki

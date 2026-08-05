@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.31083/j.rcm2506217
+reference_id: "DOI:10.31083/j.rcm2506217"
 title: Roles of LncRNAs in the Pathogenesis of Pulmonary Hypertension
 authors:
 - Ting Liu

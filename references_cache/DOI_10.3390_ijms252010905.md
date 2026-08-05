@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms252010905
+reference_id: "DOI:10.3390/ijms252010905"
 title: Lymphocytes Change Their Phenotype and Function in Systemic Lupus Erythematosus and Lupus Nephritis
 authors:
 - Eleni Moysidou

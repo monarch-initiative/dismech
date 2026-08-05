@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13000-023-01406-9
+reference_id: "DOI:10.1186/s13000-023-01406-9"
 title: "Bilateral ovarian fibromas as the sole manifestation of Gorlin syndrome in a 22-year-old woman: a case report and literature review"
 authors:
 - Menghan Zhu

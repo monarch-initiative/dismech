@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12887-024-05246-4
+reference_id: "DOI:10.1186/s12887-024-05246-4"
 title: "Normal very long-chain fatty acids level in a patient with peroxisome biogenesis disorders: a case report"
 authors:
 - Bita Barazandeh Shirvan

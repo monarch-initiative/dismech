@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2025.1580274
+reference_id: "DOI:10.3389/fcell.2025.1580274"
 title: "Decoding clinical diversity in monogenic TGFBR1 and TGFBR2 mutations: insights into the interplay of molecular mechanisms and hypomorphicity"
 authors:
 - Fadia Abu-Sailik

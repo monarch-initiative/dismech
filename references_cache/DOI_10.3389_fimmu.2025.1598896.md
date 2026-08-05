@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1598896
+reference_id: "DOI:10.3389/fimmu.2025.1598896"
 title: "Cardiofaciocutaneous syndrome and immunodeficiency: data from an international multicenter cohort"
 authors:
 - Benedetta Elena Di Majo

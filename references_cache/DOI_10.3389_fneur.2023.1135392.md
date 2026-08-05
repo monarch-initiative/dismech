@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2023.1135392
+reference_id: "DOI:10.3389/fneur.2023.1135392"
 title: Differentiating neurosarcoidosis from multiple sclerosis using combined analysis of basic CSF parameters and MRZ reaction
 authors:
 - Benjamin Vlad

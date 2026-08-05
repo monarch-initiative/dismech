@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0013244
+reference_id: "DOI:10.1371/journal.pntd.0013244"
 title: "High epilepsy prevalence and excess mortality in onchocerciasis-endemic counties of South Sudan: A call for integrated interventions"
 authors:
 - Luís-Jorge Amaral

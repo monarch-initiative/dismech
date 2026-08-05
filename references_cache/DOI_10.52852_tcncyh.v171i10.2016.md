@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.52852/tcncyh.v171i10.2016
+reference_id: "DOI:10.52852/tcncyh.v171i10.2016"
 title: Đặc điểm hóa sinh của bệnh nhân thiếu beta-ketothiolase
 authors:
 - Mai Quỳnh Anh

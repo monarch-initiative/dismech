@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1182/asheducation-2018.1.318
+reference_id: "DOI:10.1182/asheducation-2018.1.318"
 title: Novel insights and therapeutic approaches in idiopathic multicentric Castleman disease
 authors:
 - David C. Fajgenbaum

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms24033019
+reference_id: "DOI:10.3390/ijms24033019"
 title: CRISPR-Cas9-Mediated Correction of SLC12A3 Gene Mutation Rescues the Gitelman’s Disease Phenotype in a Patient-Derived Kidney Organoid System
 authors:
 - Sun Woo Lim

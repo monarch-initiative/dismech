@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2023.1113696
+reference_id: "DOI:10.3389/fonc.2023.1113696"
 title: "Survival outcomes and prognostic factors of lung cancer patients with the MET exon 14 skipping mutation: A single-center real-world study"
 authors:
 - Chien-Hung Gow

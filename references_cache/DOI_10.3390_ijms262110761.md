@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms262110761
+reference_id: "DOI:10.3390/ijms262110761"
 title: "Arsenome, Arsenobolome, and Arsenobiolome"
 authors:
 - Fernando J. Pereira

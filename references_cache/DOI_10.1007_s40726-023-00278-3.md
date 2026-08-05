@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1007/s40726-023-00278-3
+reference_id: "DOI:10.1007/s40726-023-00278-3"
 title: "Arsenic and Human Health: New Molecular Mechanisms For Arsenic-Induced Cancers"
 authors:
 - Alexandra N. Nail

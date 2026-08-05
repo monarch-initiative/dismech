@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.18699/vjgb-23-46
+reference_id: "DOI:10.18699/vjgb-23-46"
 title: "Clinical, genetic aspects and molecular pathogenesis of osteopetrosis"
 authors:
 - D. D. Nadyrshina

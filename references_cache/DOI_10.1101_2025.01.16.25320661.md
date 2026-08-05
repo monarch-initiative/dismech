@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1101/2025.01.16.25320661
+reference_id: "DOI:10.1101/2025.01.16.25320661"
 title: Whole genome sequencing-based analysis of genetic predisposition to adult glioblastoma
 authors:
 - Mark P. van Opijnen

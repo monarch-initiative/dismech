@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2024.1459057
+reference_id: "DOI:10.3389/fphar.2024.1459057"
 title: "Cell cycle checkpoint revolution: targeted therapies in the fight against malignant tumors"
 authors:
 - Guangming Song

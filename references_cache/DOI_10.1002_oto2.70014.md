@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/oto2.70014
+reference_id: "DOI:10.1002/oto2.70014"
 title: "Diagnosis and Management of Retrograde Cricopharyngeal Dysfunction: A Systematic Review"
 authors:
 - Raj Malhotra

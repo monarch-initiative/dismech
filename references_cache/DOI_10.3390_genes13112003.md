@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes13112003
+reference_id: "DOI:10.3390/genes13112003"
 title: "Environmental Influences on the Relation between the 22q11.2 Deletion Syndrome and Mental Health: A Literature Review"
 authors:
 - Yelyzaveta Snihirova

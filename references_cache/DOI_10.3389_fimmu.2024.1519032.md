@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1519032
+reference_id: "DOI:10.3389/fimmu.2024.1519032"
 title: Extracorporeal photopheresis in stiff person syndrome
 authors:
 - Yandy Marx Castillo-Aleman

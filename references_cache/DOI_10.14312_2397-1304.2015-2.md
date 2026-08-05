@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.14312/2397-1304.2015-2
+reference_id: "DOI:10.14312/2397-1304.2015-2"
 title: "Neuromyelitis optica spectrum disorders with and without aquaporin 4 antibody: Characterization, differential diagnosis, and recent advances"
 authors:
 - Baranello RJ

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fcell.2021.664168
+reference_id: "DOI:10.3389/fcell.2021.664168"
 title: Molecular Mechanisms of Chondrocyte Proliferation and Differentiation
 authors:
 - Hui Chen

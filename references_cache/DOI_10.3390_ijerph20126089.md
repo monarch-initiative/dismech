@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijerph20126089
+reference_id: "DOI:10.3390/ijerph20126089"
 title: Clinical Challenges in the Management of Malignant Ovarian Germ Cell Tumours
 authors:
 - Iqra Saani

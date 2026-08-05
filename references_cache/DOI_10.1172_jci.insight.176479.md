@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1172/jci.insight.176479
+reference_id: "DOI:10.1172/jci.insight.176479"
 title: Spatial transcriptomics identifies candidate stromal drivers of benign prostatic hyperplasia
 authors:
 - Anna S. Pollack

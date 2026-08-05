@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5603/ahp.102458
+reference_id: "DOI:10.5603/ahp.102458"
 title: Recommendations of Polish Adult Leukemia Group concerning diagnostics and treatment of polycythemia vera
 authors:
 - Joanna Góra-Tybor

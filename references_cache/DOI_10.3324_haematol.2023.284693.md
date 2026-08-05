@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3324/haematol.2023.284693
+reference_id: "DOI:10.3324/haematol.2023.284693"
 title: The diversity of the microbiome impacts chronic lymphocytic leukemia development in mice and humans
 authors:
 - Tereza Faitova

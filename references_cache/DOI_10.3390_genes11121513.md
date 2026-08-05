@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes11121513
+reference_id: "DOI:10.3390/genes11121513"
 title: Exon-Trapping Assay Improves Clinical Interpretation of COL11A1 and COL11A2 Intronic Variants in Stickler Syndrome Type 2 and Otospondylomegaepiphyseal Dysplasia
 authors:
 - Lucia Micale

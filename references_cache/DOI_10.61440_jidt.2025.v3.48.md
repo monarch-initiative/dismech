@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.61440/jidt.2025.v3.48
+reference_id: "DOI:10.61440/jidt.2025.v3.48"
 title: An Exhaustive Update on Eradication of Hepatitis C Virus (HCV) with the Objective of Eradicating Chronic Hepatitis by 2030- A Narrative Review
 authors:
 - Kulvinder Kochar Kaur

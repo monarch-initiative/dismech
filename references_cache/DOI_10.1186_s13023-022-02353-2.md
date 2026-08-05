@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02353-2
+reference_id: "DOI:10.1186/s13023-022-02353-2"
 title: "Intravenous administration of a branched-chain amino-acid-free solution in children and adults with acute decompensation of maple syrup urine disease: a prospective multicentre observational study"
 authors:
 - Jean-Meidi Alili

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers15204947
+reference_id: "DOI:10.3390/cancers15204947"
 title: "Primary Sclerosing Cholangitis-Associated Cholangiocarcinoma: From Pathogenesis to Diagnostic and Surveillance Strategies"
 authors:
 - Elisa Catanzaro

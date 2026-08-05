@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.7759/cureus.73156
+reference_id: "DOI:10.7759/cureus.73156"
 title: "The Enigma of Idiopathic Multicentric Castleman Disease: An Elusive Diagnosis"
 authors:
 - Jessica Ohemeng-Dapaah

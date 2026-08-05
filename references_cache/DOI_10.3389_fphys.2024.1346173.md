@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphys.2024.1346173
+reference_id: "DOI:10.3389/fphys.2024.1346173"
 title: The interactions between ineffective erythropoiesis and ferroptosis in β-thalassemia
 authors:
 - Siyang Lin

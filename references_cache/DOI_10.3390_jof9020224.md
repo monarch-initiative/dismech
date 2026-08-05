@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jof9020224
+reference_id: "DOI:10.3390/jof9020224"
 title: "Expanding the Toolbox for Functional Genomics in Fonsecaea pedrosoi: The Use of Split-Marker and Biolistic Transformation for Inactivation of Tryptophan Synthase (trpB) Gene"
 authors:
 - Luísa Dan Favilla

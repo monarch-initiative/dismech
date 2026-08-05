@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1075834
+reference_id: "DOI:10.3389/fimmu.2023.1075834"
 title: "Inflammasome activation by Gram-positive bacteria: Mechanisms of activation and regulation"
 authors:
 - A. Marijke Keestra-Gounder

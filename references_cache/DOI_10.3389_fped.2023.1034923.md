@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fped.2023.1034923
+reference_id: "DOI:10.3389/fped.2023.1034923"
 title: "A mosaic mutation in the CLCNKB gene causing Bartter syndrome: A case report"
 authors:
 - Lan Zhou

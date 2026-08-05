@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s13023-022-02332-7
+reference_id: "DOI:10.1186/s13023-022-02332-7"
 title: Consensus statement on enzyme replacement therapy for mucopolysaccharidosis IVA in Central and South-Eastern European countries
 authors:
 - Martin Magner

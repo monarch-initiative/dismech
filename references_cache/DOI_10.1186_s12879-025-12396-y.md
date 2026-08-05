@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12879-025-12396-y
+reference_id: "DOI:10.1186/s12879-025-12396-y"
 title: "Global, regional, and National burden of hepatitis C from 1990 to 2021 and projections until 2030"
 authors:
 - Junzhu Bai

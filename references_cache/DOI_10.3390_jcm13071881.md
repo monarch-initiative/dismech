@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13071881
+reference_id: "DOI:10.3390/jcm13071881"
 title: "Fibrosis in Chronic Kidney Disease: Pathophysiology and Therapeutic Targets"
 authors:
 - Allison B. Reiss

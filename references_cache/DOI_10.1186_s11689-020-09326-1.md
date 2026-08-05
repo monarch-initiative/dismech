@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s11689-020-09326-1
+reference_id: "DOI:10.1186/s11689-020-09326-1"
 title: Properties of beta oscillations in Dup15q syndrome
 authors:
 - Vidya Saravanapandian

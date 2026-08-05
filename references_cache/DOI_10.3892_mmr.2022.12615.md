@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3892/mmr.2022.12615
+reference_id: "DOI:10.3892/mmr.2022.12615"
 title: "Cartilage tissue engineering: From proinflammatory and anti‑inflammatory cytokines to osteoarthritis treatments (Review)"
 authors:
 - Shuyu Liu

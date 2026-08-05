@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.26508/lsa.202101355
+reference_id: "DOI:10.26508/lsa.202101355"
 title: Endemic Burkitt lymphoma avatar mouse models for exploring inter-patient tumor variation and testing targeted therapies
 authors:
 - Priya Saikumar Lakshmi

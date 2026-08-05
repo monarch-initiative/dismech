@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12020697
+reference_id: "DOI:10.3390/jcm12020697"
 title: Viral Infections May Be Associated with Henoch–Schönlein Purpura
 authors:
 - Mariam Nikolaishvili

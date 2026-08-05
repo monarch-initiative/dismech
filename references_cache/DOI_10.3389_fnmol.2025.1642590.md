@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnmol.2025.1642590
+reference_id: "DOI:10.3389/fnmol.2025.1642590"
 title: Peroxisomes as emerging clinical targets in neuroinflammatory diseases
 authors:
 - Andrej Roczkowsky

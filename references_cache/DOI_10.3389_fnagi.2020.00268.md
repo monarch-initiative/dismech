@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fnagi.2020.00268
+reference_id: "DOI:10.3389/fnagi.2020.00268"
 title: Secreted Chaperones in Neurodegeneration
 authors:
 - Kriti Chaplot

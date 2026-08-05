@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12974-024-03178-5
+reference_id: "DOI:10.1186/s12974-024-03178-5"
 title: Aberrant copper metabolism and hepatic inflammation cause neurological manifestations in a mouse model of Wilson’s disease
 authors:
 - Jianjian Dong

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2025.1579945
+reference_id: "DOI:10.3389/fimmu.2025.1579945"
 title: "Unlocking hope: domino liver transplantation for maple syrup syndrome, a single center experience work carried out at the King Fahad Specialist Hospital"
 authors:
 - Mohammed Al Qahtani

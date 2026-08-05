@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1002/cncr.20296
+reference_id: "DOI:10.1002/cncr.20296"
 title: Therapy of meningeal melanocytomas
 authors:
 - Dirk Rades

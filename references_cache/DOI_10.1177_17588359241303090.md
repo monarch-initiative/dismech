@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1177/17588359241303090
+reference_id: "DOI:10.1177/17588359241303090"
 title: "Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with <i>EGFR</i> -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study"
 authors:
 - Ichidai Tanaka

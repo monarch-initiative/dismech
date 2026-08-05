@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms25137101
+reference_id: "DOI:10.3390/ijms25137101"
 title: Difficulties in the Diagnostics and Treatment of Hashimoto’s Encephalopathy—A Systematic and Critical Review
 authors:
 - Nikola Pempera

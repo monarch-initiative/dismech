@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.55563/clinexprheumatol/is29he
+reference_id: "DOI:10.55563/clinexprheumatol/is29he"
 title: "Systemic sclerosis: one year in review 2024"
 authors:
 - Gemma Lepri

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1016/j.biopsych.2019.01.008
+reference_id: "DOI:10.1016/j.biopsych.2019.01.008"
 title: Electrophysiological Phenotype in Angelman Syndrome Differs Between Genotypes
 authors:
 - Joel Frohlich

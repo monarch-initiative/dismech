@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/audiolres14010002
+reference_id: "DOI:10.3390/audiolres14010002"
 title: "Waardenburg Syndrome: The Contribution of Next-Generation Sequencing to the Identification of Novel Causative Variants"
 authors:
 - William Bertani-Torres

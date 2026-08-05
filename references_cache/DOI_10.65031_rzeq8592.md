@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.65031/rzeq8592
+reference_id: "DOI:10.65031/rzeq8592"
 title: "Epigenetics of eating disorders: from genetic and molecular pathways to therapeutic possibilities"
 authors:
 - Chloe Wong

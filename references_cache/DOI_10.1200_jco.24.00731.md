@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/jco.24.00731
+reference_id: "DOI:10.1200/jco.24.00731"
 title: "Efficacy and Safety of Taletrectinib in Chinese Patients With <i>ROS1+</i> Non–Small Cell Lung Cancer: The Phase II TRUST-I Study"
 authors:
 - Wei Li

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fonc.2013.00135
+reference_id: "DOI:10.3389/fonc.2013.00135"
 title: Epigenetic Therapy in Lung Cancer
 authors:
 - Stephen V. Liu

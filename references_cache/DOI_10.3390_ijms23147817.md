@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms23147817
+reference_id: "DOI:10.3390/ijms23147817"
 title: "Cranial Base Synchondrosis: Chondrocytes at the Hub"
 authors:
 - Shawn A. Hallett

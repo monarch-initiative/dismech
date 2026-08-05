@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/diagnostics14131448
+reference_id: "DOI:10.3390/diagnostics14131448"
 title: "The Role of Biomarkers in HPV-Positive Head and Neck Squamous Cell Carcinoma: Towards Precision Medicine"
 authors:
 - Antea Krsek

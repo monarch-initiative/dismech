@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fneur.2022.910054
+reference_id: "DOI:10.3389/fneur.2022.910054"
 title: The Role of Graph Theory in Evaluating Brain Network Alterations in Frontotemporal Dementia
 authors:
 - Salvatore Nigro

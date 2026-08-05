@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.4084/mjhid.2024.042
+reference_id: "DOI:10.4084/mjhid.2024.042"
 title: "EBV-RELATED LYMPHOPROLIFERATIVE DISEASES: A REVIEW IN LIGHT OF NEW CLASSIFICATIONS"
 authors:
 - Pietro Tralongo

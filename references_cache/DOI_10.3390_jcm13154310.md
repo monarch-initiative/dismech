@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13154310
+reference_id: "DOI:10.3390/jcm13154310"
 title: "Corticosteroid Treatment for Leptospirosis: A Systematic Review and Meta-Analysis"
 authors:
 - Pavlo Petakh

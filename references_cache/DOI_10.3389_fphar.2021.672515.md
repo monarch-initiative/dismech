@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fphar.2021.672515
+reference_id: "DOI:10.3389/fphar.2021.672515"
 title: "From Bed to Bench and Back: TNF-α, IL-23/IL-17A, and JAK-Dependent Inflammation in the Pathogenesis of Psoriatic Synovitis"
 authors:
 - Ettore Silvagni

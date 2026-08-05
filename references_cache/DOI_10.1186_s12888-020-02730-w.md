@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s12888-020-02730-w
+reference_id: "DOI:10.1186/s12888-020-02730-w"
 title: "The neuropsychiatric effects of vitamin C deficiency: a systematic review"
 authors:
 - David Plevin

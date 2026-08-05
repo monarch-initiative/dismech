@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/genes16111279
+reference_id: "DOI:10.3390/genes16111279"
 title: "PMP22-Related Neuropathies: A Systematic Review"
 authors:
 - Carlo Alberto Cesaroni

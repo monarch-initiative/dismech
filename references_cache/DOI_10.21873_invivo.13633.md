@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.21873/invivo.13633
+reference_id: "DOI:10.21873/invivo.13633"
 title: Iodine Plaque Brachytherapy a Customized Conservative Approach to the Management of Medium/Large-sized Uveal Melanoma
 authors:
 - CONCETTA LALISCIA

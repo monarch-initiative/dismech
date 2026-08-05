@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2196/46515
+reference_id: "DOI:10.2196/46515"
 title: "Prevalence of Body Dysmorphic Disorder in the Spanish Population: Cross-Sectional Web-Based Questionnaire Study"
 authors:
 - Álvaro Loewen

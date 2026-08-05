@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pgph.0003221
+reference_id: "DOI:10.1371/journal.pgph.0003221"
 title: "Community preferred drug delivery approaches for pilot roll-out of a potential novel paediatric schistosomiasis treatment option in two endemic counties of Kenya: A mixed methods study"
 authors:
 - Janet Masaku

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/medicina59050834
+reference_id: "DOI:10.3390/medicina59050834"
 title: "Prognostic Implication of EBV Infection in Gastric Carcinomas: A Systematic Review and Meta-Analysis"
 authors:
 - Jung-Soo Pyo

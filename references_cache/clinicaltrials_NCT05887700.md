@@ -1,5 +1,5 @@
 ---
-reference_id: clinicaltrials:NCT05887700
+reference_id: "clinicaltrials:NCT05887700"
 title: "A Multi-center, Single-arm, Real-world Registry Assessing the Clinical Use of the Lifetech CeraFlex™ ASD Closure System"
 content_type: summary
 full_text_attempted: true

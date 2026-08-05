@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/cancers16122197
+reference_id: "DOI:10.3390/cancers16122197"
 title: "Effects of Weight Loss on Key Obesity-Related Biomarkers Linked to the Risk of Endometrial Cancer: A Systematic Review and Meta-Analysis"
 authors:
 - Angela D. Clontz

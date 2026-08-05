@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2023.1326078
+reference_id: "DOI:10.3389/fimmu.2023.1326078"
 title: PD-1/PD-L1 immune checkpoint therapy demonstrates favorable safety profile in patients with autoimmune and cholestatic liver disease
 authors:
 - Lorenz Kocheise

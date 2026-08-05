@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/pathogens13040278
+reference_id: "DOI:10.3390/pathogens13040278"
 title: Lipid Profile and Cardiovascular Risk Modification after Hepatitis C Virus Eradication
 authors:
 - Andrea Pascual-Oliver

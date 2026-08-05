@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pntd.0011037
+reference_id: "DOI:10.1371/journal.pntd.0011037"
 title: "Clinical markers of post-Chikungunya chronic inflammatory joint disease: A Brazilian cohort"
 authors:
 - Carolina dos Santos Lázari

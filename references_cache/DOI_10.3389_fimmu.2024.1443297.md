@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fimmu.2024.1443297
+reference_id: "DOI:10.3389/fimmu.2024.1443297"
 title: "Immunological and homeostatic pathways of alpha -1 antitrypsin: a new therapeutic potential"
 authors:
 - Carmen Mazzuca

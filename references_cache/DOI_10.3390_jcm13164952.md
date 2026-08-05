@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13164952
+reference_id: "DOI:10.3390/jcm13164952"
 title: Impact of Phlebotomy on Quality of Life in Low-Risk Polycythemia Vera
 authors:
 - Nathan Visweshwar

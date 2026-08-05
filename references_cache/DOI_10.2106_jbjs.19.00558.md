@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2106/jbjs.19.00558
+reference_id: "DOI:10.2106/jbjs.19.00558"
 title: TCIRG1 Transgenic Rescue of Osteoclast Function Using Induced Pluripotent Stem Cells Derived from Patients with Infantile Malignant Autosomal Recessive Osteopetrosis
 authors:
 - Weili Chen

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/children11080897
+reference_id: "DOI:10.3390/children11080897"
 title: Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype–Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype
 authors:
 - Yinmo Jiang

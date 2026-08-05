@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.2147/pgpm.s108656
+reference_id: "DOI:10.2147/pgpm.s108656"
 title: "UGT1A1 polymorphisms in cancer: impact on irinotecan treatment"
 authors:
 - Masashi Takano

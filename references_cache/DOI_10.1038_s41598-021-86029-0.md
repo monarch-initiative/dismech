@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1038/s41598-021-86029-0
+reference_id: "DOI:10.1038/s41598-021-86029-0"
 title: Cardiothoracic imaging findings of Proteus syndrome
 authors:
 - S. Mojdeh Mirmomen

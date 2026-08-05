@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1128/mmbr.00161-23
+reference_id: "DOI:10.1128/mmbr.00161-23"
 title: "From soil to clinic: current advances in understanding <i>Coccidioides</i> and coccidioidomycosis"
 authors:
 - Katrina M. Jackson

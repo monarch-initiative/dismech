@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1186/s43044-024-00587-y
+reference_id: "DOI:10.1186/s43044-024-00587-y"
 title: "Obstructive hypertrophic cardiomyopathy: from genetic insights to a multimodal therapeutic approach with mavacamten, aficamten, and beyond"
 authors:
 - Khadija Sarwer

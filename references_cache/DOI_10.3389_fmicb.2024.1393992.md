@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3389/fmicb.2024.1393992
+reference_id: "DOI:10.3389/fmicb.2024.1393992"
 title: "In vitro diagnostic methods of Chagas disease in the clinical laboratory: a scoping review"
 authors:
 - Luis C. Ascanio

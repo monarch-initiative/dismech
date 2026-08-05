@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1371/journal.pone.0239176
+reference_id: "DOI:10.1371/journal.pone.0239176"
 title: "Apoptosis in idiopathic inflammatory myopathies with partial invasion; a role for CD8+ cytotoxic T cells?"
 authors:
 - Olof Danielsson

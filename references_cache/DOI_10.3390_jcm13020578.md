@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm13020578
+reference_id: "DOI:10.3390/jcm13020578"
 title: "Primary Lateral Sclerosis: An Overview"
 authors:
 - Veria Vacchiano

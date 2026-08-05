@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1093/jncics/pkad082
+reference_id: "DOI:10.1093/jncics/pkad082"
 title: "Systematic literature review and meta-analysis of HER2 amplification, overexpression, and positivity in colorectal cancer"
 authors:
 - Harshabad Singh

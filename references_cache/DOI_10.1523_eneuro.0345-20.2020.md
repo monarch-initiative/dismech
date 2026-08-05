@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1523/eneuro.0345-20.2020
+reference_id: "DOI:10.1523/eneuro.0345-20.2020"
 title: Early Developmental EEG and Seizure Phenotypes in a Full Gene Deletion of Ubiquitin Protein Ligase E3A Rat Model of Angelman Syndrome
 authors:
 - Heather A. Born

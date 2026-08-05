@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/ijms232415755
+reference_id: "DOI:10.3390/ijms232415755"
 title: "TDP-43 Proteinopathy and Tauopathy: Do They Have Pathomechanistic Links?"
 authors:
 - Yuichi Riku

@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5070/d3241037928
+reference_id: "DOI:10.5070/d3241037928"
 title: Unusually extensive scalp ulcerations manifested in pemphigus erythematosus
 authors:
 - Neha Chandan

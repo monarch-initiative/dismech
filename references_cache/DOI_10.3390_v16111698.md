@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/v16111698
+reference_id: "DOI:10.3390/v16111698"
 title: "Congenital and Perinatal Viral Infections: Consequences for the Mother and Fetus"
 authors:
 - Mariam Al Beloushi

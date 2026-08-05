@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1200/po.22.00675
+reference_id: "DOI:10.1200/po.22.00675"
 title: Prevalence and Clinical Implications of Mismatch Repair-Proficient Colorectal Cancer in Patients With Lynch Syndrome
 authors:
 - Megha Ranganathan

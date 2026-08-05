@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.36877/pmmb.a0000395
+reference_id: "DOI:10.36877/pmmb.a0000395"
 title: "Cutaneous Leishmaniasis: Physiopathology, Molecular Diagnostic, and Therapeutic Approaches"
 authors:
 - Abdelaali Balahbib

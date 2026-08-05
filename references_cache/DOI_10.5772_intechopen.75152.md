@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.5772/intechopen.75152
+reference_id: "DOI:10.5772/intechopen.75152"
 title: Cough Variant Asthma as a Phenotype of Classic Asthma
 authors:
 - Sanela Domuz Vujnović

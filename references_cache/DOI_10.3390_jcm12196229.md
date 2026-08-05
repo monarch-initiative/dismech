@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.3390/jcm12196229
+reference_id: "DOI:10.3390/jcm12196229"
 title: Updates on Emerging Interventions for Autosomal Recessive ABCA4-Associated Stargardt Disease
 authors:
 - Liang Wang
