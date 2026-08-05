@@ -113,10 +113,15 @@ def candidate_to_record(cand: dict, disease_name: str) -> dict:
         rec["publication"] = f"PMID:{cand['pubmed_ids'][0]}"
 
     today = dt.datetime.now(dt.UTC).date().isoformat()
+    verified_fields = "Title and sample count are GEO's own values."
+    if org:
+        verified_fields = "Title, sample count, and organism are GEO's own values."
+    elif cand.get("organism"):
+        verified_fields += f" GEO reported organism '{cand['organism']}', which was not ontology-mapped here."
     rec["notes"] = (
         f"Identified by GEO DataSets index search for {disease_name} "
         f"(scripts/discover_datasets.py); accession and metadata verified against "
-        f"NCBI E-utilities on {today}. Title, sample count, and organism are GEO's own values."
+        f"NCBI E-utilities on {today}. {verified_fields}"
     )
     return rec
 
