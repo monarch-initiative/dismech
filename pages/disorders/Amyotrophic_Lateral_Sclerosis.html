@@ -1082,6 +1082,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
@@ -2456,8 +2474,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2513,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2631,6 +2686,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2738,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2856,13 +2955,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +2973,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3244,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3277,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -7264,7 +7407,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphagia
 
@@ -7372,7 +7515,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drooling" data-dismech-node="Drooling" data-dismech-type="phenotype">
                     <div class="item-name">
                         Drooling
 
@@ -7451,7 +7594,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-xerostomia" data-dismech-node="Xerostomia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Xerostomia
 
@@ -7519,7 +7662,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-muscle-weakness" data-dismech-node="Generalized Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Muscle Weakness
 
@@ -7598,7 +7741,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spasticity
 
@@ -7677,7 +7820,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Insufficiency
 
@@ -7756,7 +7899,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-atrophy" data-dismech-node="Skeletal Muscle Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skeletal Muscle Atrophy
 
@@ -7835,7 +7978,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-spasm" data-dismech-node="Muscle Spasm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscle Spasm
 
@@ -7894,7 +8037,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-paraparesis" data-dismech-node="Spastic Paraparesis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spastic Paraparesis
 
@@ -7962,7 +8105,7 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fasciculations" data-dismech-node="Fasciculations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fasciculations
 
@@ -8041,7 +8184,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperreflexia
 
@@ -8120,7 +8263,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysarthria
 
@@ -8199,7 +8342,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paralysis" data-dismech-node="Paralysis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Paralysis
 
@@ -8258,7 +8401,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depression" data-dismech-node="Depression" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depression
 
@@ -8337,7 +8480,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anxiety
 
@@ -8416,7 +8559,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-behavior" data-dismech-node="Atypical Behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atypical Behavior
 
@@ -8495,7 +8638,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive Impairment
 
@@ -8574,7 +8717,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sleep Disturbance
 
@@ -8642,7 +8785,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnea
 
@@ -8701,7 +8844,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-orthopnea" data-dismech-node="Orthopnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Orthopnea
 
@@ -8769,7 +8912,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -8848,7 +8991,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pain" data-dismech-node="Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pain
 
@@ -8936,7 +9079,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Loss
 
@@ -9024,7 +9167,7 @@
                     <span class="cat-count">23</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neurodegeneration" data-dismech-node="Neurodegeneration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neurodegeneration
 
@@ -9103,7 +9246,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-neuron-atrophy" data-dismech-node="Motor Neuron Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor Neuron Atrophy
 
@@ -9162,7 +9305,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-babinski-sign" data-dismech-node="Babinski Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Babinski Sign
 
@@ -9241,7 +9384,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hoffmann-sign" data-dismech-node="Hoffmann Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hoffmann Sign
 
@@ -9300,7 +9443,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphonia
 
@@ -9359,7 +9502,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigable-weakness-of-bulbar-muscles" data-dismech-node="Fatigable Weakness of Bulbar Muscles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigable Weakness of Bulbar Muscles
 
@@ -9418,7 +9561,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigable-weakness-of-swallowing-muscles" data-dismech-node="Fatigable Weakness of Swallowing Muscles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigable Weakness of Swallowing Muscles
 
@@ -9477,7 +9620,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigable-weakness-of-respiratory-muscles" data-dismech-node="Fatigable Weakness of Respiratory Muscles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigable Weakness of Respiratory Muscles
 
@@ -9536,7 +9679,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-on-pulmonary-function-testing" data-dismech-node="Abnormality on Pulmonary Function Testing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormality on Pulmonary Function Testing
 
@@ -9595,7 +9738,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal Amyotrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Distal Amyotrophy
 
@@ -9654,7 +9797,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-distal-muscular-atrophy" data-dismech-node="Progressive Distal Muscular Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Distal Muscular Atrophy
 
@@ -9713,7 +9856,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-limb-muscle-weakness" data-dismech-node="Upper Limb Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Upper Limb Muscle Weakness
 
@@ -9792,7 +9935,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-muscle-weakness" data-dismech-node="Lower Limb Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lower Limb Muscle Weakness
 
@@ -9851,7 +9994,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-fasciculations" data-dismech-node="Tongue Fasciculations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tongue Fasciculations
 
@@ -9910,7 +10053,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tongue-atrophy" data-dismech-node="Tongue Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tongue Atrophy
 
@@ -9969,7 +10112,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foot-dorsiflexor-weakness" data-dismech-node="Foot Dorsiflexor Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Foot Dorsiflexor Weakness
 
@@ -10028,7 +10171,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-steppage-gait" data-dismech-node="Steppage Gait" data-dismech-type="phenotype">
                     <div class="item-name">
                         Steppage Gait
 
@@ -10087,7 +10230,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cachexia" data-dismech-node="Cachexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cachexia
 
@@ -10146,7 +10289,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-lability" data-dismech-node="Emotional Lability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Emotional Lability
 
@@ -10225,7 +10368,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-frontotemporal-dementia" data-dismech-node="Frontotemporal Dementia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Frontotemporal Dementia
 
@@ -10324,7 +10467,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-language-impairment" data-dismech-node="Language Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Language Impairment
 
@@ -10403,7 +10546,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-jaw-hyperreflexia" data-dismech-node="Jaw Hyperreflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Jaw Hyperreflexia
 
@@ -10462,7 +10605,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-laryngospasm" data-dismech-node="Laryngospasm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Laryngospasm
 
@@ -10560,7 +10703,7 @@
                 <span class="card-count">22</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-c9orf72-repeat-expansion" data-dismech-node="C9orf72 Repeat Expansion" data-dismech-type="genetic">
                 <div class="item-name">
                     C9orf72 Repeat Expansion
 
@@ -10654,7 +10797,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sod1-mutations" data-dismech-node="SOD1 Mutations" data-dismech-type="genetic">
                 <div class="item-name">
                     SOD1 Mutations
 
@@ -10724,7 +10867,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tardbp-mutations" data-dismech-node="TARDBP Mutations" data-dismech-type="genetic">
                 <div class="item-name">
                     TARDBP Mutations
 
@@ -10794,7 +10937,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-fus-mutations" data-dismech-node="FUS Mutations" data-dismech-type="genetic">
                 <div class="item-name">
                     FUS Mutations
 
@@ -10864,7 +11007,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nek1-variants" data-dismech-node="NEK1 Variants" data-dismech-type="genetic">
                 <div class="item-name">
                     NEK1 Variants
 
@@ -10928,7 +11071,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atxn2-intermediate-length-repeat-expansion" data-dismech-node="ATXN2 Intermediate-Length Repeat Expansion" data-dismech-type="genetic">
                 <div class="item-name">
                     ATXN2 Intermediate-Length Repeat Expansion
 
@@ -10991,7 +11134,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-arhgef28" data-dismech-node="ARHGEF28" data-dismech-type="genetic">
                 <div class="item-name">
                     ARHGEF28
 
@@ -11054,7 +11197,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-arpp21" data-dismech-node="ARPP21" data-dismech-type="genetic">
                 <div class="item-name">
                     ARPP21
 
@@ -11117,7 +11260,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cav1" data-dismech-node="CAV1" data-dismech-type="genetic">
                 <div class="item-name">
                     CAV1
 
@@ -11180,7 +11323,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cav2" data-dismech-node="CAV2" data-dismech-type="genetic">
                 <div class="item-name">
                     CAV2
 
@@ -11243,7 +11386,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cfap410" data-dismech-node="CFAP410" data-dismech-type="genetic">
                 <div class="item-name">
                     CFAP410
 
@@ -11306,7 +11449,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-dctn1" data-dismech-node="DCTN1" data-dismech-type="genetic">
                 <div class="item-name">
                     DCTN1
 
@@ -11369,7 +11512,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-dnajc7" data-dismech-node="DNAJC7" data-dismech-type="genetic">
                 <div class="item-name">
                     DNAJC7
 
@@ -11432,7 +11575,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gle1" data-dismech-node="GLE1" data-dismech-type="genetic">
                 <div class="item-name">
                     GLE1
 
@@ -11495,7 +11638,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-glt8d1" data-dismech-node="GLT8D1" data-dismech-type="genetic">
                 <div class="item-name">
                     GLT8D1
 
@@ -11558,7 +11701,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lgalsl" data-dismech-node="LGALSL" data-dismech-type="genetic">
                 <div class="item-name">
                     LGALSL
 
@@ -11621,7 +11764,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nefh" data-dismech-node="NEFH" data-dismech-type="genetic">
                 <div class="item-name">
                     NEFH
 
@@ -11684,7 +11827,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nup50" data-dismech-node="NUP50" data-dismech-type="genetic">
                 <div class="item-name">
                     NUP50
 
@@ -11747,7 +11890,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prph" data-dismech-node="PRPH" data-dismech-type="genetic">
                 <div class="item-name">
                     PRPH
 
@@ -11810,7 +11953,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sptlc2" data-dismech-node="SPTLC2" data-dismech-type="genetic">
                 <div class="item-name">
                     SPTLC2
 
@@ -11873,7 +12016,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ss18l1" data-dismech-node="SS18L1" data-dismech-type="genetic">
                 <div class="item-name">
                     SS18L1
 
@@ -11936,7 +12079,7 @@
 
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-taf15" data-dismech-node="TAF15" data-dismech-type="genetic">
                 <div class="item-name">
                     TAF15
 
@@ -12011,7 +12154,7 @@
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-riluzole" data-dismech-node="Riluzole" data-dismech-type="treatment">
                 <div class="item-name">
                     Riluzole
                 </div>
@@ -12122,7 +12265,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-edaravone" data-dismech-node="Edaravone" data-dismech-type="treatment">
                 <div class="item-name">
                     Edaravone
                 </div>
@@ -12253,7 +12396,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tofersen" data-dismech-node="Tofersen" data-dismech-type="treatment">
                 <div class="item-name">
                     Tofersen
                 </div>
@@ -12404,7 +12547,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-jacifusen-ion363" data-dismech-node="Jacifusen (ION363)" data-dismech-type="treatment">
                 <div class="item-name">
                     Jacifusen (ION363)
                 </div>
@@ -12561,7 +12704,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-triumeq" data-dismech-node="Triumeq" data-dismech-type="treatment">
                 <div class="item-name">
                     Triumeq
                 </div>
@@ -12742,7 +12885,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sodium-phenylbutyrate-taurursodiol-amx0035" data-dismech-node="Sodium Phenylbutyrate-Taurursodiol (AMX0035)" data-dismech-type="treatment">
                 <div class="item-name">
                     Sodium Phenylbutyrate-Taurursodiol (AMX0035)
                 </div>
@@ -12893,7 +13036,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-non-invasive-ventilation" data-dismech-node="Non-invasive Ventilation" data-dismech-type="treatment">
                 <div class="item-name">
                     Non-invasive Ventilation
                 </div>
@@ -12992,7 +13135,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy" data-dismech-node="Physical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy
                 </div>
@@ -13068,7 +13211,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-speech-therapy" data-dismech-node="Speech Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Speech Therapy
                 </div>
@@ -13145,7 +13288,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-percutaneous-endoscopic-gastrostomy" data-dismech-node="Percutaneous Endoscopic Gastrostomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Percutaneous Endoscopic Gastrostomy
                 </div>
@@ -13221,7 +13364,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-care" data-dismech-node="Multidisciplinary Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary Care
                 </div>
@@ -13310,7 +13453,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-heavy-metal-exposure" data-dismech-node="Heavy Metal Exposure" data-dismech-type="environmental">
                 <div class="item-name">Heavy Metal Exposure</div>
 
 
@@ -13376,7 +13519,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-pesticide-exposure" data-dismech-node="Pesticide Exposure" data-dismech-type="environmental">
                 <div class="item-name">Pesticide Exposure</div>
 
 
@@ -13418,7 +13561,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-military-service" data-dismech-node="Military Service" data-dismech-type="environmental">
                 <div class="item-name">Military Service</div>
 
 
@@ -13460,7 +13603,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
 
@@ -13526,7 +13669,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-repetitive-head-trauma-and-contact-sports" data-dismech-node="Repetitive Head Trauma and Contact Sports" data-dismech-type="environmental">
                 <div class="item-name">Repetitive Head Trauma and Contact Sports</div>
 
 
@@ -13604,7 +13747,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-neurofilament-light-chain-nfl" data-dismech-node="Neurofilament Light Chain (NfL)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Neurofilament Light Chain (NfL)
 
@@ -13675,7 +13818,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-phosphorylated-neurofilament-heavy-chain-pnfh" data-dismech-node="Phosphorylated Neurofilament Heavy Chain (pNfH)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Phosphorylated Neurofilament Heavy Chain (pNfH)
 

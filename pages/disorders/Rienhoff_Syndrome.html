@@ -1082,6 +1082,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
@@ -2456,8 +2474,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2513,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2631,6 +2686,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2738,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2856,13 +2955,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +2973,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3244,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3277,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -5714,7 +5857,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-dissection" data-dismech-node="Aortic Dissection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Dissection
 
@@ -5773,7 +5916,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-root-dilatation" data-dismech-node="Aortic Root Dilatation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Root Dilatation
 
@@ -5843,7 +5986,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertelorism" data-dismech-node="Hypertelorism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertelorism
 
@@ -5902,7 +6045,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-blue-sclerae" data-dismech-node="Blue Sclerae" data-dismech-type="phenotype">
                     <div class="item-name">
                         Blue Sclerae
 
@@ -5970,7 +6113,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-uvula" data-dismech-node="Bifid Uvula" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bifid Uvula
 
@@ -6051,7 +6194,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Palate
 
@@ -6132,7 +6275,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-high-palate" data-dismech-node="High Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         High Palate
 
@@ -6202,7 +6345,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-talipes-equinovarus" data-dismech-node="Talipes Equinovarus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Talipes Equinovarus
 
@@ -6261,7 +6404,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arachnodactyly" data-dismech-node="Arachnodactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arachnodactyly
 
@@ -6366,7 +6509,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes Planus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Planus
 
@@ -6434,7 +6577,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -6493,7 +6636,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Hypermobility
 
@@ -6576,7 +6719,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-excavatum" data-dismech-node="Pectus Excavatum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Excavatum
 
@@ -6635,7 +6778,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotonia
 
@@ -6703,7 +6846,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor Delay
 
@@ -6793,7 +6936,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Growth Delay
 
@@ -6852,7 +6995,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tall Stature
 
@@ -6920,7 +7063,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thoracic-aortic-aneurysm" data-dismech-node="Thoracic Aortic Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thoracic Aortic Aneurysm
 
@@ -6979,7 +7122,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-aortic-aneurysm" data-dismech-node="Abdominal Aortic Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal Aortic Aneurysm
 
@@ -7038,7 +7181,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-disease" data-dismech-node="Mitral Valve Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral Valve Disease
 
@@ -7121,7 +7264,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retrognathia" data-dismech-node="Retrognathia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retrognathia
 
@@ -7180,7 +7323,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-arthrogryposis" data-dismech-node="Distal Arthrogryposis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Distal Arthrogryposis
 
@@ -7239,7 +7382,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-muscle-mass" data-dismech-node="Decreased Muscle Mass" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased Muscle Mass
 
@@ -7320,7 +7463,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-instability" data-dismech-node="Cervical Spine Instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cervical Spine Instability
 
@@ -7379,7 +7522,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-deformity" data-dismech-node="Pectus Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Deformity
 
@@ -7479,7 +7622,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfb3" data-dismech-node="TGFB3" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFB3
 
@@ -7602,7 +7745,7 @@
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-arterial-tree-imaging-surveillance" data-dismech-node="Arterial-Tree Imaging Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Arterial-Tree Imaging Surveillance
                 </div>
@@ -7682,7 +7825,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-adrenergic-blocker-therapy" data-dismech-node="Beta-Adrenergic Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta-Adrenergic Blocker Therapy
                 </div>
@@ -7776,7 +7919,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-angiotensin-receptor-blocker-therapy" data-dismech-node="Angiotensin Receptor Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Angiotensin Receptor Blocker Therapy
                 </div>
@@ -7892,7 +8035,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prophylactic-aortic-surgery" data-dismech-node="Prophylactic Aortic Surgery" data-dismech-type="treatment">
                 <div class="item-name">
                     Prophylactic Aortic Surgery
                 </div>
@@ -7970,7 +8113,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-and-occupational-therapy" data-dismech-node="Physical and Occupational Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical and Occupational Therapy
                 </div>
@@ -8048,7 +8191,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-activity-restriction-and-avoidance-of-cardiovascular-stimulants" data-dismech-node="Activity Restriction and Avoidance of Cardiovascular Stimulants" data-dismech-type="treatment">
                 <div class="item-name">
                     Activity Restriction and Avoidance of Cardiovascular Stimulants
                 </div>
@@ -8126,7 +8269,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pregnancy-and-peripartum-aortic-surveillance" data-dismech-node="Pregnancy and Peripartum Aortic Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Pregnancy and Peripartum Aortic Surveillance
                 </div>
@@ -8206,7 +8349,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
