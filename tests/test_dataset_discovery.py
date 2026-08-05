@@ -16,7 +16,36 @@ def test_generic_copy_number_profiles_are_not_called_gwas():
 
 def test_paired_single_nucleus_and_atac_is_multi_omics():
     coarse = map_data_type("Expression profiling by high throughput sequencing")
-    assert refine_data_type("Expression profiling by high throughput sequencing", "paired snRNA-seq and snATAC-seq", coarse) == "MULTI_OMICS"
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing",
+            "paired snRNA-seq and snATAC-seq",
+            coarse,
+        )
+        == "MULTI_OMICS"
+    )
+
+
+def test_spatial_10x_platform_is_not_inferred_as_multi_omics():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    text = "Spatial transcriptomics with the 10x Genomics Xenium platform"
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing", text, coarse
+        )
+        == "SPATIAL_TRANSCRIPTOMICS"
+    )
+
+
+def test_comparison_to_single_cell_is_not_assay_evidence():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    text = "NETSseq profiles bulk nuclei. Compared to single-cell technologies, it detects lowly expressed genes."
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing", text, coarse
+        )
+        == "BULK_RNA_SEQ"
+    )
 
 
 def test_hyphenated_sibling_name_does_not_match():
