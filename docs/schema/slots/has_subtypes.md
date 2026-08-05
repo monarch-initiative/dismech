@@ -17,8 +17,8 @@ Alias: has_subtypes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [InfectiousAgent](../classes/InfectiousAgent.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [InfectiousAgent](../classes/InfectiousAgent.md) |  |  no  |
 
 
 

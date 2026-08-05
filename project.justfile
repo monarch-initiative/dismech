@@ -1054,13 +1054,27 @@ gen-nih-topics-page:
     uv run python scripts/gen_nih_topics_summary.py
 
 # Generate static schema docs site via MkDocs (served at /elements/)
+#
+# SOURCE_DATE_EPOCH pins the build clock (reproducible-builds.org). Without it
+# MkDocs stamps every page's `update_date` with *today*, which lands in
+# elements/sitemap.xml as ~2,950 <lastmod> lines. elements/ is committed and
+# `deploy-docs` fails the build unless a fresh render matches it byte for byte,
+# so a date-stamped sitemap makes that check fail on every push made on a
+# different day from the last regeneration — which is exactly what happened
+# (red on main from 2026-08-03 onward, 3013 insertions / 3013 deletions).
+#
+# The value is an arbitrary fixed constant, not a real modification time. That
+# loses nothing: MkDocs stamps every page with the *build* date, so `lastmod`
+# never carried per-page modification info to begin with — it was uniformly
+# wrong, and is now uniformly stable. Do not change it to something that varies
+# (git commit time, `date`), or the check starts failing again.
 [group('Pages')]
 gen-schema-docs:
     just gen-doc
     # Normalize LinkML-generated mermaid cardinalities (e.g., "* _recommended_")
     # that break Mermaid v11 parsing in class diagrams.
     uv run python scripts/fix_schema_mermaid.py
-    uv run mkdocs build --clean
+    SOURCE_DATE_EPOCH=1735689600 uv run mkdocs build --clean
     @echo "Generated schema docs in elements/"
 
 # Generate all pages and browser data
@@ -2252,6 +2266,17 @@ cron-profile-preview name:
 [group('Cron profiles')]
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
+
+# ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
+
+# Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
+# approved, unassigned, conflict-free, green, and older than `days`.
+# Example: just auto-merge-preview 3
+[group('Auto-merge')]
+auto-merge-preview days='3':
+    uv run --no-project python scripts/auto_merge_ready_prs.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
+        --min-age-days {{days}} --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============
 
