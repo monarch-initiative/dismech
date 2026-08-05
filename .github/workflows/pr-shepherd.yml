@@ -227,10 +227,12 @@ jobs:
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.
 
-      # The agent may check out a PR branch; restore the workflow ref so this
-      # local composite action is available from the workspace.
-      - name: Restore workflow checkout for step summary
-        if: ${{ !cancelled() && steps.pr-shepherd.outputs.execution_file != '' }}
+      # The agent may check out a PR branch; restore the workflow ref so the
+      # local composite action and scripts/ are available from the workspace.
+      # Unconditional (beyond cancellation) because the auto-merge step below
+      # runs even when the agent step failed.
+      - name: Restore workflow checkout
+        if: ${{ !cancelled() }}
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
@@ -241,3 +243,32 @@ jobs:
         with:
           execution-file: ${{ steps.pr-shepherd.outputs.execution_file }}
           title: "🐑 PR Shepherd Run"
+
+      # Deterministic closing sweep. The agent step above *judges* stuck PRs;
+      # this one judges nothing — it applies a fixed predicate to GitHub-reported
+      # state, so a run's outcome is reproducible from the API response alone.
+      # Merges a PR only when it is approved, unassigned, conflict-free, green
+      # (mergeStateStatus CLEAN plus a clean status-check rollup), and more than
+      # three days old.
+      #
+      # Scope note: unlike the agent step — whose guardrails deliberately forbid
+      # touching human-authored PRs, because its edits are judgement calls — this
+      # step applies to ALL authors, humans included. It never edits anything; it
+      # only merges work that a reviewer already approved and that nobody has
+      # claimed. Assigning a PR to yourself is the per-PR veto.
+      #
+      # Runs even if the agent step failed: the two are independent, and a
+      # failed agent run should not strand mergeable PRs.
+      - name: Auto-merge ready PRs (deterministic)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --min-age-days 3)
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          # Stdlib-only by design, so it still runs if `uv sync` above failed.
+          python3 scripts/auto_merge_ready_prs.py "${args[@]}"

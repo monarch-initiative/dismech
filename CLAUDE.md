@@ -1940,3 +1940,32 @@ them to facilitate.
 
 Note that sometimes it will appear that a review has stalled, but in fact this is usually because
 the PR is in conflict. Actively try and manage this, resolve conflicts carefully.
+
+### Deterministic auto-merge of ready PRs
+
+The `pr-shepherd` workflow ends with a **deterministic** sweep
+(`scripts/auto_merge_ready_prs.py`) that squash-merges any open PR — **by any
+author, human or agent** — once it is simultaneously:
+
+- reviewer **approved**, and **not** a draft
+- **unassigned** (no assignees)
+- **conflict-free** (`mergeable == MERGEABLE`)
+- **green** (`mergeStateStatus == CLEAN` *and* a status-check rollup with at
+  least one success and nothing failing, cancelled, or still running)
+- **more than 3 days old**, measured from PR creation
+- targeting `main`
+
+Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
+outcome is reproducible from the API response alone. This is separate from the
+LLM agent step earlier in the same workflow, whose guardrails still forbid it
+from *editing* human-authored PRs — the sweep only merges already-approved work.
+
+**To stop a PR being auto-merged, assign it to someone.** An assigned PR is
+treated as somebody's active work and is never swept. Converting to draft or
+leaving a CHANGES_REQUESTED review also blocks it.
+
+Preview what the next sweep would do (read-only):
+
+```bash
+just auto-merge-preview        # or: just auto-merge-preview 7  (age in days)
+```
