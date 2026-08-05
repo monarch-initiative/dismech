@@ -56,10 +56,10 @@ evidence merely to raise connectivity.
   causes of death from the 63-person international cohort. Mortality inference
   is marked `PARTIAL` where the study itself only suggests risk from an
   age-skewed sample.
-- Treated GeneReviews and consensus/systematic reviews as `OTHER`, not as
-  primary human clinical studies. Prospective screens, cohorts, and trials
-  remain `HUMAN_CLINICAL`; mouse and cell experiments use `MODEL_ORGANISM` and
-  `IN_VITRO`, respectively.
+- Treated GeneReviews and consensus guidance without pooled patient data as
+  `OTHER`. The data-bearing systematic review of 261 patients is
+  `HUMAN_CLINICAL`, as are prospective screens, cohorts, and trials; mouse and
+  cell experiments use `MODEL_ORGANISM` and `IN_VITRO`, respectively.
 - Added only direct biomarker readouts and retained screening limitations. DBS
   3-OMD is not represented as a definitive standalone diagnosis; urinary VLA
   is not represented as an exclusionary test.
