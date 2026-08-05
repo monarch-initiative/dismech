@@ -17,6 +17,7 @@ from dismech.export.utils import (
     count_groupings,
     count_research_reports,
     discover_disorder_files,
+    slugify,
 )
 from dismech.graph import build_causal_graph
 from dismech.yaml_io import safe_load
@@ -181,11 +182,6 @@ def count_mechanism_modules(module_dir: Path = Path("kb/modules")) -> int | None
         for path in module_dir.glob("*.yaml")
         if not path.name.endswith(".history.yaml")
     )
-
-
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug."""
-    return name.replace(' ', '_').replace('/', '_').replace('(', '').replace(')', '')
 
 
 class BrowserExporter:

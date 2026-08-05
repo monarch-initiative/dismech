@@ -15,6 +15,7 @@ Or via the wrapper script in scripts/run_reference_validator.sh.
 """
 
 import logging
+import re
 import time
 from functools import wraps
 
@@ -22,6 +23,9 @@ logger = logging.getLogger("linkml_reference_validator.patch")
 
 MAX_RETRIES = 3
 BACKOFF_BASE = 2  # seconds
+
+# A ClinicalTrials.gov registry id written without its ``clinicaltrials:`` prefix.
+_BARE_NCT_RE = re.compile(r"^NCT\d+$", re.IGNORECASE)
 
 
 def _coerce_author(author):
@@ -168,11 +172,22 @@ def apply_patch():
             if reference_id.upper().startswith("CLINICALTRIALS:"):
                 _, identifier = reference_id.split(":", 1)
                 reference_id = f"clinicaltrials:{identifier}"
+            elif _BARE_NCT_RE.match(reference_id.strip()):
+                # Upstream ``_parse_reference_id`` has no rule for a *bare* NCT id,
+                # so it falls through to ("UNKNOWN", id) and the lookup derives
+                # ``NCT….md``. The record is nevertheless *saved* under the
+                # ClinicalTrials source's canonical id (``clinicaltrials_NCT….md``),
+                # so read and write disagree and the reference is re-fetched from
+                # ClinicalTrials.gov on every run. Align the read with the write.
+                reference_id = f"clinicaltrials:{reference_id.strip().upper()}"
             return original_get_cache_path(self, reference_id)
 
         ReferenceFetcher.get_cache_path = get_cache_path_with_clinicaltrials_compat
         ReferenceFetcher._clinicaltrials_cache_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied ClinicalTrials.gov cache path compatibility patch")
+        logger.debug(
+            "Applied ClinicalTrials.gov cache path compatibility patch "
+            "(prefixed case variants and bare NCT ids)"
+        )
 
     if not getattr(ReferenceFetcher, "_author_coercion_patch_applied", False):
         original_save_to_disk = ReferenceFetcher._save_to_disk
