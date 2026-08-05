@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15153887"
+reference_id: DOI:10.3390/cancers15153887
 title: Innovative Breakthroughs for the Treatment of Advanced and Metastatic Synovial Sarcoma
 authors:
 - Lorena Landuzzi
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15153887
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Innovative Breakthroughs for the Treatment of Advanced and Metastatic Synovial Sarcoma

@@ -13,18 +13,7 @@ def test_lowercase_hgnc_curies_are_validated(tmp_path: Path) -> None:
     """Regression test for lowercase HGNC prefixes using the committed cache."""
     fixture = tmp_path / "hgnc_label_mismatch.yaml"
     fixture.write_text(
-        "\n".join(
-            [
-                "name: HGNC label mismatch fixture",
-                "pathophysiology:",
-                "- name: Gene term",
-                "  genes:",
-                "  - preferred_term: COL10A1",
-                "    term:",
-                "      id: hgnc:2206",
-                "      label: COL10A1",
-            ]
-        )
+        "name: HGNC label mismatch fixture\npathophysiology:\n- name: Gene term\n  genes:\n  - preferred_term: COL10A1\n    term:\n      id: hgnc:2206\n      label: COL10A1"
     )
 
     result = subprocess.run(

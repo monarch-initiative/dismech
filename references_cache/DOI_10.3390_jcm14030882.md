@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14030882"
+reference_id: DOI:10.3390/jcm14030882
 title: Exploring Anti-Inflammatory Treatment as Upstream Therapy in the Management of Atrial Fibrillation
 authors:
 - Edward Zheng
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14030882
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring Anti-Inflammatory Treatment as Upstream Therapy in the Management of Atrial Fibrillation

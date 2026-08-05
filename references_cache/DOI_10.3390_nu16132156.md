@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu16132156"
+reference_id: DOI:10.3390/nu16132156
 title: Effects of Lipoproteins on Metabolic Health
 authors:
 - Obaida Albitar
@@ -9,6 +9,7 @@ journal: Nutrients
 year: '2024'
 doi: 10.3390/nu16132156
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Effects of Lipoproteins on Metabolic Health

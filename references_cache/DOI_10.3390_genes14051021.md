@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes14051021"
+reference_id: DOI:10.3390/genes14051021
 title: The Genomic Landscape of Melanoma and Its Therapeutic Implications
 authors:
 - Ting-Ting Yang
@@ -10,6 +10,7 @@ journal: Genes
 year: '2023'
 doi: 10.3390/genes14051021
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Genomic Landscape of Melanoma and Its Therapeutic Implications

@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE30596"
+reference_id: GEO:GSE30596
 title: Isolation of Novel Multipotent Neural Crest-Derived Stem Cells from Adult Human Inferior Turbinate
 content_type: summary
+full_text_attempted: true
 ---
 
 # Isolation of Novel Multipotent Neural Crest-Derived Stem Cells from Adult Human Inferior Turbinate

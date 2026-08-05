@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25084329"
+reference_id: DOI:10.3390/ijms25084329
 title: "Shigella Vaccines: The Continuing Unmet Challenge"
 authors:
 - Ti Lu
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25084329
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Shigella Vaccines: The Continuing Unmet Challenge

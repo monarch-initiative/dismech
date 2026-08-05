@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/23120541.00260-2024"
+reference_id: DOI:10.1183/23120541.00260-2024
 title: "Could cough hypersensitivity symptom profile differentiate phenotypes of chronic cough?"
 authors:
 - Mi-Yeong Kim
@@ -30,6 +30,7 @@ journal: ERJ Open Research
 year: '2024'
 doi: 10.1183/23120541.00260-2024
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Could cough hypersensitivity symptom profile differentiate phenotypes of chronic cough?

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina60111820"
+reference_id: DOI:10.3390/medicina60111820
 title: "Advancements in Brain Aneurysm Management: Integrating Neuroanatomy, Physiopathology, and Neurosurgical Techniques"
 authors:
 - Ligia Gabriela Tataranu
@@ -11,6 +11,7 @@ journal: Medicina
 year: '2024'
 doi: 10.3390/medicina60111820
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advancements in Brain Aneurysm Management: Integrating Neuroanatomy, Physiopathology, and Neurosurgical Techniques
