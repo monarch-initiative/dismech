@@ -136,8 +136,10 @@ def test_variant_detail_fields_are_rendered(tmp_path: Path) -> None:
     assert "Functional effects" in html
     assert "chloride channel activity" in html
     assert "Misfolding blocks trafficking." in html
-    # external assertions
+    # external assertions -- the curator-written name disambiguates two
+    # assertions that otherwise render as an identical source/type tag pair
     assert "External assertions" in html
+    assert "Allele registry record" in html
     assert "ClinGen Allele Registry" in html
     assert "https://example.org/CA123456" in html
 
@@ -180,3 +182,56 @@ def test_variant_anchor_ids_are_unique(tmp_path: Path) -> None:
         i for i, c in Counter(re.findall(r'\sid="([^"]+)"', html)).items() if c > 1
     ]
     assert not duplicates, f"duplicate element IDs on the page: {duplicates}"
+
+
+def test_external_assertion_urls_are_scheme_guarded(tmp_path: Path) -> None:
+    """A curated non-http URL must not become a clickable link."""
+    disorder = dict(DISORDER)
+    disorder["variants"] = [
+        {
+            "name": "Suspicious allele",
+            "external_assertions": [
+                {
+                    "name": "Bad link",
+                    "external_id": "XX1",
+                    "url": "javascript:alert(1)",
+                }
+            ],
+        }
+    ]
+    html = _render(tmp_path, disorder)
+    assert "Bad link" in html
+    assert "XX1" in html
+    # The raw-YAML footer echoes the source, so assert on the rendered link only.
+    assert 'href="javascript:' not in html
+    assert 'curie-chip" href="javascript:' not in html
+
+
+def test_functional_effect_regulatory_fields_render(tmp_path: Path) -> None:
+    """The regulatory-variant slots on FunctionalEffect reach the page."""
+    disorder = dict(DISORDER)
+    disorder["variants"] = [
+        {
+            "name": "Enhancer allele",
+            "functional_effects": [
+                {
+                    "function": "enhancer activity",
+                    "regulatory_element_type": "ENHANCER",
+                    "regulatory_mechanism": "Loss of TF binding.",
+                    "affected_developmental_stage": "fetal liver",
+                    "affected_cell_types": [
+                        {
+                            "preferred_term": "hepatocyte",
+                            "term": {"id": "CL:0000182", "label": "hepatocyte"},
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
+    html = _render(tmp_path, disorder)
+    assert "ENHANCER" in html
+    assert "Loss of TF binding." in html
+    assert "Developmental stage:" in html
+    assert "fetal liver" in html
+    assert "hepatocyte" in html

@@ -3897,6 +3897,15 @@
             {% if effect.regulatory_mechanism %}
             <div class="item-desc"><strong>Mechanism:</strong> {{ effect.regulatory_mechanism }}</div>
             {% endif %}
+            {% if effect.affected_cell_types %}
+            <div class="item-meta">
+                <strong style="font-size: 0.8rem; color: #6b7280;">Affected cell types:</strong>
+                {{ render_descriptor_tags(effect.affected_cell_types, "tag-cell") }}
+            </div>
+            {% endif %}
+            {% if effect.affected_developmental_stage %}
+            <div class="item-desc"><strong>Developmental stage:</strong> {{ effect.affected_developmental_stage }}</div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -3906,6 +3915,9 @@
         <div class="crosslink-title">External assertions</div>
         {% for assertion in variant.external_assertions %}
         <div class="variant-effect">
+            {% if assertion.name %}
+            <div class="item-name">{{ assertion.name }}</div>
+            {% endif %}
             <div class="item-meta">
                 {% if assertion.source %}
                 <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
@@ -3914,8 +3926,9 @@
                 <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
                 {% endif %}
                 {% if assertion.external_id %}
-                {% if assertion.url %}
-                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
+                {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
+                {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
+                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
                 {% else %}
                 <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.external_id }}</span>
                 {% endif %}
@@ -3932,6 +3945,10 @@
     {{ render_evidence(variant.evidence) }}
     {% endmacro %}
 
+    {# A variant may share its name with its parent gene (or, rarely, another
+       variant). Gene cards render first, so findCardForNode's first-match-wins
+       lands on the enclosing gene card, which contains the variant anyway --
+       this is deliberate, not a collision to "fix". #}
     {% macro render_variant_card(variant, box_class="variant-box") %}
     <div class="item-box {{ box_class }} anchor-target"{% if variant._anchor_id %} id="{{ variant._anchor_id }}"{% endif %} data-dismech-node="{{ variant.name | e }}" data-dismech-type="genetic">
         {{ render_variant_body(variant) }}

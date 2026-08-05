@@ -21,10 +21,10 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
-    _iter_variant_items,
     build_causal_graph,
     generate_mermaid,
     graph_to_json,
+    iter_variant_items,
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
@@ -444,10 +444,10 @@ def _annotate_variant_anchors(disorder: dict) -> None:
     Variants are drawn as ``genetic`` pathograph nodes but live in their own
     blocks (disease-level ``variants:`` and per-gene ``genetic[].variants:``),
     so they take a ``variant-`` prefix that cannot collide with a gene's own
-    anchor. Iteration order matches ``graph._iter_variant_items``.
+    anchor. Iteration order matches ``graph.iter_variant_items``.
     """
     used: set[str] = set()
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         name = variant.get("name")
         if not name:
             continue
