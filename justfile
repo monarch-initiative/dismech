@@ -138,9 +138,18 @@ lint:
   uv run linkml-lint {{source_schema_dir}}
 
 # Generate md documentation for the schema
+#
+# PYTHONHASHSEED=0 is load-bearing, not hygiene. LinkML renders union/any_of
+# members by iterating a set, so their order follows Python's per-process hash
+# randomisation: two runs of this recipe on the same input emit e.g.
+#   "[Any] or [FrequencyQuantity] or [FrequencyEnum]"
+#   "[FrequencyEnum] or [FrequencyQuantity] or [Any]"
+# and ~129 of the generated files churn. elements/ is committed and CI requires
+# a fresh render to match it byte for byte, so without a fixed seed that check
+# can never pass. See the note on gen-schema-docs in project.justfile.
 [group('model development')]
 gen-doc: _gen-yaml
-  uv run gen-doc --subfolder-type-separation {{gen_doc_args}} -d {{docdir}} {{source_schema_path}}
+  PYTHONHASHSEED=0 uv run gen-doc --subfolder-type-separation {{gen_doc_args}} -d {{docdir}} {{source_schema_path}}
 
 # Build docs and run test server
 [group('model development')]
@@ -247,9 +256,25 @@ _test-examples: _ensure_examples_output
     --schema {{source_schema_path}} > examples/output/README.md
 
 # Generate merged model
+#
+# The merged schema is copied into elements/ and committed, so its
+# `generation_date:` (a wall-clock stamp LinkML writes unconditionally — it
+# honours neither --no-metadata nor SOURCE_DATE_EPOCH) would otherwise make a
+# fresh render differ from the committed copy on every single run. Pin it to
+# the same constant the MkDocs build uses. The stamp records when the file was
+# generated, which git already records more accurately.
+# Generated to a temp file and rewritten in place rather than piped through
+# sed: `just` runs recipes with `sh -cu`, where a pipeline's exit status is the
+# LAST command's, so `gen-yaml ... | sed > out` would report sed's success even
+# when gen-yaml crashed — silently publishing an empty merged schema. `set -o
+# pipefail` is NOT an option here: /bin/sh is dash on the CI runners, which
+# rejects it outright ("Illegal option -o pipefail").
 _gen-yaml:
   -mkdir -p docs/schema
-  uv run gen-yaml {{source_schema_path}} > {{merged_schema_path}}
+  PYTHONHASHSEED=0 uv run gen-yaml {{source_schema_path}} > {{merged_schema_path}}.tmp
+  sed "s/^generation_date: .*/generation_date: '2025-01-01T00:00:00'/" \
+    {{merged_schema_path}}.tmp > {{merged_schema_path}}
+  rm -f {{merged_schema_path}}.tmp
 
 # Run documentation server
 _serve:
