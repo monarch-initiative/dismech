@@ -20,7 +20,12 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
-from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+from dismech.graph import (
+    _iter_variant_items,
+    build_causal_graph,
+    generate_mermaid,
+    graph_to_json,
+)
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.yaml_io import safe_load, safe_load_path
@@ -381,6 +386,21 @@ def _make_anchor_id(prefix: str, value: str) -> str:
     return f"{prefix}-{slug or 'item'}"
 
 
+def _claim_anchor_id(base_id: str, used: set[str]) -> str:
+    """Return an unused anchor ID derived from base_id, recording the claim.
+
+    Probes past any suffix a differently-named sibling already took, so
+    "Foo", "Foo", and "Foo 2" cannot all land on the same ID.
+    """
+    anchor_id = base_id
+    occurrence = 1
+    while anchor_id in used:
+        occurrence += 1
+        anchor_id = f"{base_id}-{occurrence}"
+    used.add(anchor_id)
+    return anchor_id
+
+
 # Sections whose cards are reachable as pathograph nodes. The second element
 # must match the node_type emitted by dismech.graph (see graph.NODE_COLORS), so
 # the pathograph click handler can resolve a node to its card via the
@@ -413,16 +433,27 @@ def _annotate_card_anchors(disorder: dict) -> None:
             name = item.get("name")
             if not name:
                 continue
-            base_id = _make_anchor_id(node_type, str(name))
-            anchor_id = base_id
-            # Probe past any suffix a differently-named sibling already claimed,
-            # e.g. "Foo", "Foo", "Foo 2" must not all land on "phenotype-foo-2".
-            occurrence = 1
-            while anchor_id in used:
-                occurrence += 1
-                anchor_id = f"{base_id}-{occurrence}"
-            used.add(anchor_id)
-            item["_anchor_id"] = anchor_id
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(node_type, str(name)), used
+            )
+
+
+def _annotate_variant_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to variant entries so pathograph nodes can reach them.
+
+    Variants are drawn as ``genetic`` pathograph nodes but live in their own
+    blocks (disease-level ``variants:`` and per-gene ``genetic[].variants:``),
+    so they take a ``variant-`` prefix that cannot collide with a gene's own
+    anchor. Iteration order matches ``graph._iter_variant_items``.
+    """
+    used: set[str] = set()
+    for _parent_name, variant in _iter_variant_items(disorder):
+        name = variant.get("name")
+        if not name:
+            continue
+        variant["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("variant", str(name)), used
+        )
 
 
 def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
@@ -1907,6 +1938,7 @@ def render_disorder(
     )
     _annotate_model_links(disorder)
     _annotate_card_anchors(disorder)
+    _annotate_variant_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
