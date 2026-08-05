@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2631,6 +2745,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2797,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2856,13 +3014,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3032,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3303,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3336,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3449,11 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
 
 
 
@@ -3467,6 +3674,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3507,6 +3716,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -5177,7 +5395,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vomiting" data-dismech-node="Vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vomiting
 
@@ -5245,7 +5463,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-ketoacidosis" data-dismech-node="Episodic ketoacidosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Episodic ketoacidosis
 
@@ -5304,7 +5522,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-acidosis" data-dismech-node="Metabolic acidosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Metabolic acidosis
 
@@ -5363,7 +5581,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -5425,7 +5643,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperglycemia" data-dismech-node="Hyperglycemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperglycemia
 
@@ -5484,7 +5702,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoglycemia" data-dismech-node="Hypoglycemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoglycemia
 
@@ -5552,7 +5770,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscular-hypotonia" data-dismech-node="Muscular hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscular hypotonia
 
@@ -5620,7 +5838,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lethargy" data-dismech-node="Lethargy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lethargy
 
@@ -5701,7 +5919,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
@@ -5760,7 +5978,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coma" data-dismech-node="Coma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coma
 
@@ -5819,7 +6037,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-basal-ganglia-morphology" data-dismech-node="Abnormal basal ganglia morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal basal ganglia morphology
 
@@ -5900,7 +6118,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-psychomotor-delay" data-dismech-node="Psychomotor delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Psychomotor delay
 
@@ -5968,7 +6186,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tachypnea" data-dismech-node="Tachypnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tachypnea
 
@@ -6027,7 +6245,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnea
 
@@ -6086,7 +6304,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory failure
 
@@ -6154,7 +6372,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extrapyramidal-signs" data-dismech-node="Extrapyramidal signs" data-dismech-type="phenotype">
                     <div class="item-name">
                         Extrapyramidal signs
 
@@ -6252,7 +6470,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-acat1-pathogenic-variants" data-dismech-node="ACAT1 pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     ACAT1 pathogenic variants
 
@@ -6339,9 +6557,183 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-compound-heterozygous-acat1-variants" data-dismech-node="Compound heterozygous ACAT1 variants" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Compound heterozygous ACAT1 variants
+
+    </div>
+
+
+    <div class="item-desc">Compound heterozygosity for two different ACAT1 pathogenic variants is a common genotype. For example, ACAT1 c.481T&gt;C, p.(Tyr161His) was identified in compound heterozygosity in an adult patient presenting with diabetic ketoacidosis.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38853254" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38853254" target="_blank">PMID:38853254</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"genetically confirmed compound heterozygosity for variants in ACAT1, including a novel ACAT1 c.481T&gt;C, p.(Tyr161His) variant."</div>
+
+
+                <div class="evidence-explanation">Documents a specific novel ACAT1 variant in a BKD patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-founder-mutations-in-consanguineous-populations" data-dismech-node="Founder mutations in consanguineous populations" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Founder mutations in consanguineous populations
+
+    </div>
+
+
+    <div class="item-desc">Founder mutations have been identified in specific populations. In a Palestinian cohort, a founder mutation was found in six patients from three families. All affected patients were offspring of consanguineous marriages, increasing the likelihood of homozygous pathogenic variants.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40598206" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40598206" target="_blank">PMID:40598206</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a founder mutation was identified in six patients from three families."</div>
+
+
+                <div class="evidence-explanation">Documents a founder ACAT1 mutation in the Palestinian population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-missense-variants-affecting-buried-residues" data-dismech-node="Missense variants affecting buried residues" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Missense variants affecting buried residues
+
+    </div>
+
+
+    <div class="item-desc">Almost all of the 56 disease-associated missense ACAT1 variants affect residues that are completely or partially buried in the T2 structure, causing deficiency through lower in vivo T2 activity due to reduced folding efficiency or stability.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31268215" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31268215" target="_blank">PMID:31268215</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Almost all these missense variants concern residues that are completely or partially buried in the T2 structure. Such variants are expected to cause T2 deficiency by having lower in vivo T2 activity because of lower folding efficiency and/or stability."</div>
+
+
+                <div class="evidence-explanation">Structural analysis of ACAT1 missense variants mapped onto T2 crystal structure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6353,7 +6745,7 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-avoidance-of-catabolic-triggers" data-dismech-node="Avoidance of catabolic triggers" data-dismech-type="treatment">
                 <div class="item-name">
                     Avoidance of catabolic triggers
                 </div>
@@ -6454,7 +6846,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-dietary-management" data-dismech-node="Dietary management" data-dismech-type="treatment">
                 <div class="item-name">
                     Dietary management
                 </div>
@@ -6533,7 +6925,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-acute-crisis-management-with-intravenous-dextrose" data-dismech-node="Acute crisis management with intravenous dextrose" data-dismech-type="treatment">
                 <div class="item-name">
                     Acute crisis management with intravenous dextrose
                 </div>
@@ -6612,7 +7004,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-carnitine-supplementation" data-dismech-node="Carnitine supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Carnitine supplementation
                 </div>
@@ -6659,7 +7051,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-newborn-screening" data-dismech-node="Newborn screening" data-dismech-type="treatment">
                 <div class="item-name">
                     Newborn screening
                 </div>
@@ -6760,7 +7152,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic counseling
                 </div>
@@ -6860,7 +7252,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hba1c-monitoring-for-dysglycemia" data-dismech-node="HbA1c monitoring for dysglycemia" data-dismech-type="treatment">
                 <div class="item-name">
                     HbA1c monitoring for dysglycemia
                 </div>
@@ -6954,7 +7346,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-2-methyl-3-hydroxybutyrate-2m3hb" data-dismech-node="2-Methyl-3-hydroxybutyrate (2M3HB)" data-dismech-type="biochemical">
                 <div class="item-name">
                     2-Methyl-3-hydroxybutyrate (2M3HB)
 
@@ -7081,7 +7473,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-tiglylglycine-tig" data-dismech-node="Tiglylglycine (TIG)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Tiglylglycine (TIG)
 
@@ -7186,7 +7578,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-2-methylacetoacetate-2maa" data-dismech-node="2-Methylacetoacetate (2MAA)" data-dismech-type="biochemical">
                 <div class="item-name">
                     2-Methylacetoacetate (2MAA)
 
@@ -7291,7 +7683,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-tiglylcarnitine-c5-1" data-dismech-node="Tiglylcarnitine (C5:1)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Tiglylcarnitine (C5:1)
 
@@ -7418,7 +7810,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-2-methyl-3-hydroxybutyrylcarnitine-c5-oh" data-dismech-node="2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)" data-dismech-type="biochemical">
                 <div class="item-name">
                     2-Methyl-3-hydroxybutyrylcarnitine (C5-OH)
 
@@ -7523,7 +7915,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-3-hydroxybutyrylcarnitine-c4oh" data-dismech-node="3-Hydroxybutyrylcarnitine (C4OH)" data-dismech-type="biochemical">
                 <div class="item-name">
                     3-Hydroxybutyrylcarnitine (C4OH)
 

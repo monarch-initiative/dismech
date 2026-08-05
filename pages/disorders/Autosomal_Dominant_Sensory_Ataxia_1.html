@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2631,6 +2745,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2797,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2856,13 +3014,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3032,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3303,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3336,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3449,11 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
 
 
 
@@ -3474,6 +3681,8 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3546,6 +3755,15 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#variants">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -6855,7 +7073,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-neuropathy" data-dismech-node="Sensory Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensory Neuropathy
 
@@ -6938,7 +7156,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-pain-sensation" data-dismech-node="Impaired Pain Sensation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impaired Pain Sensation
 
@@ -7019,7 +7237,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysesthesia" data-dismech-node="Dysesthesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysesthesia
 
@@ -7087,7 +7305,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                     <span class="cat-count">11</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensory-ataxia" data-dismech-node="Sensory Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensory Ataxia
 
@@ -7148,7 +7366,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-gait-ataxia" data-dismech-node="Progressive Gait Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Gait Ataxia
 
@@ -7225,7 +7443,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-proprioception" data-dismech-node="Impaired Proprioception" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impaired Proprioception
 
@@ -7284,7 +7502,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-vibration-sensation-in-the-lower-limbs" data-dismech-node="Impaired Vibration Sensation in the Lower Limbs" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impaired Vibration Sensation in the Lower Limbs
 
@@ -7343,7 +7561,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-positive-romberg-sign" data-dismech-node="Positive Romberg Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Positive Romberg Sign
 
@@ -7424,7 +7642,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pseudoathetosis" data-dismech-node="Pseudoathetosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pseudoathetosis
 
@@ -7475,7 +7693,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-areflexia-of-lower-limbs" data-dismech-node="Areflexia of Lower Limbs" data-dismech-type="phenotype">
                     <div class="item-name">
                         Areflexia of Lower Limbs
 
@@ -7534,7 +7752,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-distal-sensory-nerve-action-potential" data-dismech-node="Decreased Distal Sensory Nerve Action Potential" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased Distal Sensory Nerve Action Potential
 
@@ -7595,7 +7813,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vestibular-areflexia" data-dismech-node="Vestibular Areflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vestibular Areflexia
 
@@ -7656,7 +7874,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pyramidal-signs" data-dismech-node="Pyramidal Signs" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pyramidal Signs
 
@@ -7717,7 +7935,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-smooth-pursuit" data-dismech-node="Impaired Smooth Pursuit" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impaired Smooth Pursuit
 
@@ -7817,7 +8035,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-rnf170" data-dismech-node="RNF170" data-dismech-type="genetic">
                 <div class="item-name">
                     RNF170
 
@@ -7924,7 +8142,221 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
     </details>
 
 
+
             </div>
+
+        </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+        <div class="card" id="variants">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🔬</div>
+                <h2 class="card-title">Variants</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+    <div class="item-box variant-box anchor-target" id="variant-rnf170-c-595c-t-p-arg199cys" data-dismech-node="RNF170 c.595C&gt;T p.Arg199Cys" data-dismech-type="genetic">
+
+    <div class="item-name">
+        RNF170 c.595C&gt;T p.Arg199Cys
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: RNF170
+
+
+    <a href="https://bioregistry.io/hgnc:25358" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25358">hgnc:25358</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense variant</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">The single recurrent ADSA allele. A rare non-synonymous substitution at a well-conserved residue, predicted deleterious by multiple in silico tools. Found on a shared founder haplotype in the two Maritime Canadian families and independently in a Belgian and an Ecuadorian family, showing it is not confined to the founder population. Arg199 is a charged residue in a transmembrane region, and functional work shows that ionic interactions between charged transmembrane residues are what maintain RNF170 stability, so the arginine-to-cysteine change destabilises the protein rather than abolishing its catalytic activity.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">RNF170 protein stability</span>
+
+
+
+
+            </div>
+
+
+            <div class="item-desc">Reduced steady-state RNF170 protein level through enhanced autoubiquitination and proteasomal degradation, demonstrated both in transfected cells and in ADSA patient lymphoblasts.</div>
+
+
+
+
+        </div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">IP3 receptor-mediated cytosolic calcium mobilisation</span>
+
+
+
+
+            </div>
+
+
+            <div class="item-desc">Impaired agonist-evoked (platelet-activating-factor-stimulated) calcium mobilisation in patient lymphoblasts, with normal store content, receptor level and IP3 production.</div>
+
+
+
+
+        </div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">ubiquitin ligase activity toward IP3 receptors</span>
+
+
+
+
+            </div>
+
+
+            <div class="item-desc">Preserved rather than abolished. Mutant RNF170 attaches the full normal complement of mono-, K48- and K63-linked ubiquitin conjugates to activated IP3 receptors, so the calcium defect is not explained by defective IP3 receptor ubiquitination.</div>
+
+
+
+
+        </div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">dominant developmental toxicity in zebrafish</span>
+
+
+
+
+            </div>
+
+
+            <div class="item-desc">Dose-dependent dominant disruption of embryonic development on microinjection of mutant orthologous mRNA, the principal evidence for an allele-specific toxic property.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25882839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25882839" target="_blank">PMID:25882839</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RNF170 is an endoplasmic reticulum membrane ubiquitin ligase that contributes to the ubiquitination of activated inositol 1,4,5-trisphosphate (IP3) receptors, and also, when point mutated (arginine to cysteine at position 199), causes autosomal dominant sensory ataxia (ADSA), a disease..."</div>
+
+
+                <div class="evidence-explanation">Names the exact variant and ties it to the posterior-column neurodegeneration phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21115467" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21115467" target="_blank">PMID:21115467</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This mutation is a rare non-synonymous change in a well-conserved residue and is predicted to be pathogenic by SIFT, PolyPhen, PANTHER and Align-GVD."</div>
+
+
+                <div class="evidence-explanation">In silico support for pathogenicity at gene discovery.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32943585" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32943585" target="_blank">PMID:32943585</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we performed focused exome sequencing in III-3 which identified a c.595C&gt;T, p.Arg199Cys variant in RNF170"</div>
+
+
+                <div class="evidence-explanation">Provides the cDNA-level description of the recurrent allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
 
         </div>
 
@@ -7938,7 +8370,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy-and-balance-rehabilitation" data-dismech-node="Physical Therapy and Balance Rehabilitation" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy and Balance Rehabilitation
                 </div>
@@ -7984,7 +8416,7 @@ ADSA sits at the dominant end of an RNF170 allelic series whose recessive end is
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
