@@ -472,6 +472,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         /* Mechanistic hypotheses */
         .hypothesis-box {
             background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
@@ -695,8 +713,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -726,6 +752,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -849,6 +904,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -860,6 +956,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -1030,19 +1129,39 @@
                 .text(label);
 
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
         });
 
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -1178,8 +1297,26 @@
                 html.push(readoutHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1192,6 +1329,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -1341,7 +1484,7 @@
             <div class="header-meta">
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">epilepsy_excitation_inhibition_imbalance</span>
-                <span class="badge badge-count">52 disorders</span>
+                <span class="badge badge-count">57 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1544,7 +1687,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">52</span>
+                <span class="card-count">57</span>
             </div>
             
             <div class="crosslink-list">
@@ -1708,6 +1851,26 @@
                         
                         
                         Focal Cortical Hyperexcitability and Focal-Onset Seizures → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Abnormal Frequency-Dependent Cortical Excitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Focal and Atypical Absence Seizures → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2095,6 +2258,41 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Altered Thalamic Low-Threshold Calcium Bursting → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Hypersynchronous Thalamocortical Oscillation → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Generalized Spike-Wave Discharges → Seizure Generation and Epileptogenesis
+                        
+                        
+                        , 
+                        
+                        Absence Seizures → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Juvenile_Myoclonic_Epilepsy.html">Juvenile Myoclonic Epilepsy</a>
                     
                     <span class="crosslink-desc">
@@ -2198,6 +2396,26 @@
                         , 
                         
                         Multiple Drug-Resistant Seizure Types → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cortical Neuronal Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Progressive Myoclonic Epilepsy → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2335,6 +2553,26 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Frontally Predominant Cortical Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Drug-Resistant Focal Epilepsy → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN2A-Related Developmental and Epileptic Encephalopathy</a>
                     
                     <span class="crosslink-desc">
@@ -2383,6 +2621,26 @@
                         , 
                         
                         Seizures and Developmental Encephalopathy → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Multifocal Cortical Epileptogenicity with Age-Shifting Foci → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Focal Autonomic Seizures → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2813,6 +3071,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Altered Thalamic Low-Threshold Calcium Bursting</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Juvenile_Myoclonic_Epilepsy.html">Juvenile Myoclonic Epilepsy</a>
                             
                             <span class="crosslink-desc">as Impaired GABAergic Cortical Inhibition</span>
@@ -3079,6 +3344,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/KCNB1-Related_Developmental_and_Epileptic_Encephalopathy.html">KCNB1-Related Developmental and Epileptic Encephalopathy</a>
                             
                         </div>
@@ -3268,6 +3540,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
+                            
+                            <span class="crosslink-desc">as Abnormal Frequency-Dependent Cortical Excitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/DNM1_Encephalopathy.html">DNM1 Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Reduced Neurotransmission and Cortical Hyperexcitability</span>
@@ -3313,6 +3592,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Hypersynchronous Thalamocortical Oscillation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Juvenile_Myoclonic_Epilepsy.html">Juvenile Myoclonic Epilepsy</a>
                             
                             <span class="crosslink-desc">as Cortical and Thalamocortical Hyperexcitability</span>
@@ -3335,6 +3621,13 @@
                             <a href="../disorders/KCNQ2_Developmental_and_Epileptic_Encephalopathy.html">KCNQ2 Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Cortical Neuronal Hyperexcitability</span>
                             
                         </div>
                         
@@ -3367,6 +3660,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Frontally Predominant Cortical Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN2A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability and Network Dysfunction</span>
@@ -3377,6 +3677,13 @@
                             <a href="../disorders/SCN8A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN8A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                            
+                            <span class="crosslink-desc">as Multifocal Cortical Epileptogenicity with Age-Shifting Foci</span>
                             
                         </div>
                         
@@ -3538,6 +3845,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Generalized Spike-Wave Discharges</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Post-Traumatic_Epilepsy.html">Post-Traumatic Epilepsy</a>
                             
                             <span class="crosslink-desc">as Epileptogenesis During the Latent Period</span>
@@ -3632,6 +3946,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
+                            
+                            <span class="crosslink-desc">as Focal and Atypical Absence Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Early-Infantile_Developmental_and_Epileptic_Encephalopathy.html">Early-Infantile Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Recurrent Drug-Resistant Seizures</span>
@@ -3681,6 +4002,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Absence Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Juvenile_Myoclonic_Epilepsy.html">Juvenile Myoclonic Epilepsy</a>
                             
                             <span class="crosslink-desc">as Myoclonic and Generalized Seizures</span>
@@ -3698,6 +4026,13 @@
                             <a href="../disorders/Lennox-Gastaut_Syndrome.html">Lennox-Gastaut Syndrome</a>
                             
                             <span class="crosslink-desc">as Multiple Drug-Resistant Seizure Types</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Progressive Myoclonic Epilepsy</span>
                             
                         </div>
                         
@@ -3737,6 +4072,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Drug-Resistant Focal Epilepsy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN2A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Seizures and Developmental Encephalopathy</span>
@@ -3747,6 +4089,13 @@
                             <a href="../disorders/SCN8A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN8A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Seizures and Developmental Encephalopathy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                            
+                            <span class="crosslink-desc">as Focal Autonomic Seizures</span>
                             
                         </div>
                         

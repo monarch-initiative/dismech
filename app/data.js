@@ -2814,6 +2814,93 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "AIPL1-Related Retinopathy",
+    "disease_id": "MONDO:0100438",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-07-22T16:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic LCA",
+      "Milder EOSRD"
+    ],
+    "description": "AIPL1-related retinopathy is an autosomal recessive inherited retinal disease caused by biallelic pathogenic variants in AIPL1, encoding aryl-hydrocarbon receptor interacting protein-like 1, a photoreceptor-specific molecular co-chaperone. Unlike the visual-cycle genes RDH5 and RLBP1, AIPL1 has no role in chromophore regeneration: its N-terminal FKBP-like domain binds the farnesylated PDE6 alpha subunit while its C-terminal tetratricopeptide repeat (TPR) domain mediates interaction with the chaperones HSP90 and HSP70, together enabling correct folding and assembly of the rod and cone phosphodiesterase-6 (PDE6) holoenzyme, the effector that hydrolyzes cGMP during phototransduction. Loss of AIPL1 function causes PDE6 misassembly and degradation, with divergent downstream consequences in rods (cGMP accumulation driving rapid degeneration) versus cones (reduced cGMP synthesis via RetGC1 loss). Biallelic null alleles cause classic Leber congenital amaurosis (LCA4), among the most severe forms of congenital blindness, while missense or hypomorphic alleles that retain partial chaperone function can cause a milder, later-onset early-onset severe retinal dystrophy (EOSRD), juvenile retinitis pigmentosa, or dominant cone-rod dystrophy phenotype. A first-in-human AAV gene therapy trial in young children with classic AIPL1-LCA has reported substantial visual improvement.",
+    "pathophysiology": [
+      "AIPL1 Chaperone Deficiency",
+      "Impaired PDE6 Holoenzyme Folding and Assembly",
+      "Rod PDE6 Loss and cGMP Accumulation",
+      "Cone PDE6 and RetGC1 Destabilization with Reduced cGMP Synthesis",
+      "Rapid Photoreceptor Apoptosis and Congenital Retinal Dystrophy"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "phototransduction"
+    ],
+    "phenotypes": [
+      "Congenital blindness",
+      "Nystagmus",
+      "Undetectable electroretinogram",
+      "Abnormal macular morphology",
+      "Keratoconus",
+      "Cataract",
+      "Cone dystrophy",
+      "Nyctalopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007875",
+      "HP:0000639",
+      "HP:0000550",
+      "HP:0001103",
+      "HP:0000563",
+      "HP:0000518",
+      "HP:0008020",
+      "HP:0000662"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "AIPL1 pathogenic variants"
+    ],
+    "treatments": [
+      "rAAV8.hRKp.AIPL1 Gene Therapy",
+      "PTC124 Translational Readthrough (Investigational)",
+      "Supportive care and monitoring",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "AIPL1-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/AIPL1-Related_Retinopathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "ALDH18A1-Related Autosomal Dominant Cutis Laxa Type 3",
     "disease_id": "MONDO:0014706",
     "category": "Mendelian",
@@ -19526,6 +19613,128 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Autism Spectrum Disorder-Epilepsy-Arthrogryposis Syndrome",
+    "disease_id": "MONDO:0014248",
+    "category": "Mendelian",
+    "parents": [
+      "congenital disorder of glycosylation",
+      "distal arthrogryposis"
+    ],
+    "creation_date": "2026-07-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autism spectrum disorder-epilepsy-arthrogryposis syndrome (SLC35A3-CDG) is a rare autosomal recessive congenital disorder of N-linked glycosylation caused by biallelic pathogenic variants in SLC35A3 (1p21), which encodes the major Golgi UDP-N-acetylglucosamine (UDP-GlcNAc) transporter. Loss of transporter activity reduces lumenal UDP-GlcNAc, the nucleotide-sugar donor for the N-acetylglucosaminyltransferases (GnTs) that build multiantennary N-glycans, producing a marked decrease in highly branched tri- and tetraantennary N-glycans and a reciprocal accumulation of lower-branched glycoforms at the cell surface (a type II CDG signature). The clinical spectrum is dominated by a neurodevelopmental triad of autism spectrum disorder, epilepsy (including early-onset epileptic encephalopathy with infantile spasms), and intellectual disability, combined with distal arthrogryposis and additional skeletal defects (vertebral anomalies, scoliosis, camptodactyly), acquired microcephaly, quadriplegia, and dysmorphic features. The human disease phenocopies the bovine SLC35A3 disorder Complex Vertebral Malformation syndrome. It is ultra-rare, reported in a small number of families since its 2013 description.",
+    "pathophysiology": [
+      "Impaired Golgi UDP-GlcNAc Transport",
+      "Reduced N-Glycan Branching",
+      "Neurodevelopmental Dysfunction",
+      "Impaired Somite Segmentation",
+      "Vertebral Malsegmentation",
+      "Impaired Glycosaminoglycan Biosynthesis",
+      "Growth Plate Cartilage ECM Deficiency",
+      "Skeletal and Joint Dysgenesis"
+    ],
+    "cell_types": [
+      "neuron",
+      "Presomitic (Paraxial) Mesoderm Cell",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0011007",
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "UDP-N-acetylglucosamine transmembrane transport",
+      "N-glycan processing",
+      "Segmentation",
+      "somitogenesis",
+      "glycosaminoglycan biosynthetic process"
+    ],
+    "phenotypes": [
+      "Autism spectrum disorder",
+      "Epilepsy",
+      "Epileptic encephalopathy",
+      "Infantile spasms",
+      "Suppression-burst EEG pattern",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Muscle hypotonia",
+      "Distal arthrogryposis",
+      "Acquired microcephaly",
+      "Scoliosis",
+      "Vertebral anomalies",
+      "Camptodactyly",
+      "Swan neck-like finger deformities",
+      "Micrognathia",
+      "Cleft palate",
+      "Quadriplegia",
+      "Facial dysmorphism",
+      "Short limbs",
+      "Talipes",
+      "Patent ductus arteriosus",
+      "Patent foramen ovale",
+      "Rocker-bottom feet",
+      "Posterior embryotoxon"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000717",
+      "HP:0001250",
+      "HP:0200134",
+      "HP:0012469",
+      "HP:0010851",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0005684",
+      "HP:0000252",
+      "HP:0002650",
+      "HP:0002937",
+      "HP:0012385",
+      "HP:0006150",
+      "HP:0000347",
+      "HP:0000175",
+      "HP:0002445",
+      "HP:0001999",
+      "HP:0009826",
+      "HP:0004684",
+      "HP:0001643",
+      "HP:0001655",
+      "HP:0001838",
+      "HP:0000627"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC35A3"
+    ],
+    "treatments": [
+      "Antiseizure medication therapy",
+      "Orthopedic and rehabilitative management",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Reduced highly branched N-glycans"
+    ],
+    "source_file": "Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Autism_Spectrum_Disorder-Epilepsy-Arthrogryposis_Syndrome.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Autism Spectrum Disorder",
     "disease_id": "MONDO:0005258",
     "category": "Complex",
@@ -33170,6 +33379,85 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "CERKL-Related Retinopathy",
+    "disease_id": "MONDO:0800401",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-07-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CERKL-related retinopathy is an autosomal recessive inherited retinal dystrophy caused by biallelic pathogenic variants in CERKL (ceramide kinase-like). CERKL shares sequence homology with the ceramide kinase (CERK) enzyme but has no demonstrated catalytic kinase activity toward ceramide or any other confirmed substrate; instead it protects photoreceptors from oxidative-stress-induced apoptosis and regulates mitochondrial dynamics and autophagy. Loss of CERKL function is historically also known as retinitis pigmentosa 26 (RP26), the original linkage-mapped designation, but the clinical spectrum is broader than classic rod-cone RP: it ranges from isolated macular disease to severe retina-wide involvement, with electroretinographic patterns that generally do not fit the classic rod-cone/cone-rod dichotomy. CERKL is an uncommon overall cause of autosomal recessive retinitis pigmentosa but is a significant contributor in several founder populations (Finnish, Yemenite Jewish, Spanish, and Tunisian).\n",
+    "pathophysiology": [
+      "CERKL Biallelic Loss-of-Function",
+      "Loss of CERKL-Mediated Protection Against Oxidative Stress",
+      "Mitochondrial Fragmentation and Bioenergetic Dysfunction",
+      "Dysregulated Autophagy",
+      "Combined Rod and Cone Photoreceptor Apoptosis",
+      "Macular and Peripheral Retinal Atrophy"
+    ],
+    "cell_types": [
+      "Retinal rod cell",
+      "Retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "response to oxidative stress",
+      "mitochondrial fission",
+      "autophagy",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Reduced visual acuity",
+      "Macular atrophy",
+      "Abnormal electroretinogram",
+      "Nyctalopia",
+      "Spicular pigmentation of the retina",
+      "Chorioretinal atrophy"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0007663",
+      "HP:0007401",
+      "HP:0000512",
+      "HP:0000662",
+      "HP:0007737",
+      "HP:0000533"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CERKL"
+    ],
+    "treatments": [
+      "Low Vision Rehabilitation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CERKL-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/CERKL-Related_Retinopathy.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "CFAP418-related retinal ciliopathy",
@@ -56193,6 +56481,93 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep",
+    "disease_id": "MONDO:0800501",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "DEE-SWAS",
+      "EE-SWAS"
+    ],
+    "description": "A childhood epilepsy syndrome whose defining lesion is not a seizure type but a sleep state. Epileptiform discharge that is sparse or absent while the child is awake becomes near-continuous once non-rapid-eye-movement sleep begins, and the child loses skills already acquired: language, attention, behaviour, or general cognition depending on which cortex is involved. Seizures are often mild and are not what does the damage. The syndrome is developmentally gated, appearing in mid-childhood and remitting spontaneously around adolescence whether or not it is treated, while the cognitive losses may not recover. Causes are heterogeneous, split roughly between genetic variants and early structural injury to the thalamus. The ILAE splits the syndrome by baseline development: DEE-SWAS in children already developmentally delayed, EE-SWAS in children whose development was normal until the regression.",
+    "pathophysiology": [
+      "Heterogeneous Genetic Etiology",
+      "Early Thalamic Injury",
+      "Selective Thalamocortical Disconnection",
+      "Abnormal Frequency-Dependent Cortical Excitability",
+      "Sleep-Potentiated Spike-Wave Activation",
+      "Disruption of Sleep-Dependent Synaptic Plasticity",
+      "Focal and Atypical Absence Seizures",
+      "Age-Dependent Remission of the Electrographic Pattern",
+      "Developmental Regression and Cognitive-Behavioural Encephalopathy"
+    ],
+    "cell_types": [
+      "pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "regulation of postsynaptic membrane potential",
+      "regulation of synaptic plasticity",
+      "sleep"
+    ],
+    "phenotypes": [
+      "Spike-wave activation in sleep",
+      "Developmental regression",
+      "Intellectual disability",
+      "Language regression",
+      "Behavioural disturbance and attentional impairment",
+      "Atypical absence seizure",
+      "Global developmental delay",
+      "Attention deficit hyperactivity disorder",
+      "Focal-onset seizure"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031491",
+      "HP:0002376",
+      "HP:0001249",
+      "HP:0002381",
+      "HP:0000708",
+      "HP:0007270",
+      "HP:0001263",
+      "HP:0007018",
+      "HP:0007359"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GRIN2A",
+      "Expanding gene set identified by cohort sequencing"
+    ],
+    "treatments": [
+      "Corticosteroids",
+      "Clobazam",
+      "Avoidance of sodium channel blocking antiseizure medications"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DEE_with_Spike-Wave_Activation_in_Sleep.yaml",
+    "page_url": "../pages/disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "DEPDC5-Related Epilepsy",
@@ -98679,6 +99054,93 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Juvenile Absence Epilepsy",
+    "disease_id": "MONDO:0800453",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Juvenile absence epilepsy (JAE) is one of the four idiopathic generalized epilepsy syndromes recognized by the ILAE, with onset around puberty. Absence seizures are the defining seizure type but occur far less frequently than in childhood absence epilepsy, and the great majority of patients also develop generalized tonic-clonic seizures; a minority have myoclonic jerks. The EEG signature is bilaterally synchronous generalized spike-wave activity. The mechanism is a heritable derangement of the thalamocortical loop that permits pathological hypersynchronous oscillation; where in that loop the seizure is actually initiated is an active controversy. Unlike childhood absence epilepsy, JAE seldom remits spontaneously and most patients need long-term antiseizure medication.",
+    "pathophysiology": [
+      "Polygenic Susceptibility to Generalized Absence Epilepsy",
+      "Altered Thalamic Low-Threshold Calcium Bursting",
+      "Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus",
+      "Corticothalamic Drive from Deep-Layer Cortical Neurons",
+      "Hypersynchronous Thalamocortical Oscillation",
+      "Generalized Spike-Wave Discharges",
+      "Absence Seizures",
+      "Generalized Tonic-Clonic Seizures"
+    ],
+    "cell_types": [
+      "thalamic relay neuron",
+      "GABAergic neuron of the thalamic reticular nucleus",
+      "layer VI corticothalamic projection neuron"
+    ],
+    "cell_type_ids": [
+      "CL:4023068",
+      "CL:0000617",
+      "CL:4023013"
+    ],
+    "biological_processes": [
+      "regulation of postsynaptic membrane potential",
+      "T-type calcium current in thalamic neurons",
+      "gamma-aminobutyric acid signaling pathway"
+    ],
+    "phenotypes": [
+      "Typical Absence Seizures",
+      "Generalized Tonic-Clonic Seizures",
+      "Myoclonic Jerks",
+      "Absence Status Epilepticus",
+      "Impaired School Performance",
+      "Generalized Spike-Wave on EEG",
+      "Attention and Cognitive Impairment"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011147",
+      "HP:0025190",
+      "HP:0032794",
+      "HP:0032863",
+      "HP:0001328",
+      "HP:0010850",
+      "HP:0007018"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GABRG2",
+      "CACNA1H"
+    ],
+    "treatments": [
+      "Valproate",
+      "Ethosuximide",
+      "Lamotrigine",
+      "Levetiracetam",
+      "Selective Sodium Channel Blockers (Seizure-Aggravating)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Juvenile_Absence_Epilepsy.yaml",
+    "page_url": "../pages/disorders/Juvenile_Absence_Epilepsy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Juvenile Idiopathic Arthritis",
     "disease_id": "MONDO:0011429",
     "category": "",
@@ -109994,6 +110456,162 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "MERRF Syndrome",
+    "disease_id": "MONDO:0010790",
+    "category": "Mendelian",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MERRF (myoclonic epilepsy with ragged red fibers) is a maternally inherited multisystem mitochondrial disease whose canonical tetrad is myoclonus, generalized epilepsy, cerebellar ataxia, and ragged red fibers on muscle biopsy. More than eight in ten typical cases carry the m.8344A>G point variant in MT-TK, the mitochondrial gene for transfer RNA-lysine. The variant strips a chemical tag from the part of the transfer RNA that reads lysine codons, so the mitochondrion can no longer build its own share of the respiratory chain. Energy production fails wherever the proportion of mutant mitochondrial genomes crosses a steep threshold, which is why the disease is patchy across tissues and highly variable between relatives who carry the same variant. Muscle answers the deficit by proliferating defective mitochondria, producing the ragged red fiber. In brain the deficit falls hardest on the dentate nucleus, cerebellar cortex, and brainstem nuclei, giving the progressive myoclonic epilepsy and ataxia that dominate the clinical picture.",
+    "pathophysiology": [
+      "MT-TK m.8344A>G Heteroplasmic Point Variant",
+      "Loss of Transfer RNA Lysine Wobble Taurine Modification",
+      "Mitotic Segregation and Tissue Heteroplasmy Threshold",
+      "Defective Mitochondrial Protein Synthesis",
+      "Respiratory Chain Deficiency and Loss of Mitochondrial Membrane Potential",
+      "Compensatory Mitochondrial Proliferation in Skeletal Muscle",
+      "Neuronal Energy Failure and Oxidative Stress",
+      "Cortical Neuronal Hyperexcitability",
+      "Degeneration of Dentate Nucleus and Cerebellar Circuitry",
+      "Skeletal Muscle Respiratory Failure",
+      "Progressive Myoclonic Epilepsy",
+      "Progressive Cerebellar Ataxia",
+      "Progressive Multisystem Involvement"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "neuron",
+      "pyramidal neuron",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000540",
+      "CL:0000598",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "tRNA wobble uridine modification",
+      "regulation of membrane potential",
+      "mitochondrial translation",
+      "mitochondrial ATP synthesis coupled electron transport",
+      "reactive oxygen species metabolic process",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Myoclonus",
+      "Action myoclonus",
+      "Generalized epilepsy",
+      "Cerebellar ataxia",
+      "Exercise intolerance",
+      "Muscle weakness",
+      "Peripheral neuropathy",
+      "Ragged-red muscle fibers",
+      "Migraine",
+      "Respiratory insufficiency",
+      "Dysphagia",
+      "Cerebellar atrophy on imaging",
+      "Sensorineural hearing impairment",
+      "Dementia",
+      "Ptosis",
+      "Optic atrophy",
+      "Pigmentary retinopathy",
+      "Cardiomyopathy",
+      "Wolff-Parkinson-White syndrome",
+      "Diabetes mellitus",
+      "Multiple symmetrical lipomas",
+      "Short stature",
+      "Elevated creatine kinase"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Laboratory",
+      "Respiratory",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Endocrine",
+      "Dermatologic",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001336",
+      "HP:0034360",
+      "HP:0002197",
+      "HP:0002073",
+      "HP:0003546",
+      "HP:0001324",
+      "HP:0009830",
+      "HP:0003200",
+      "HP:0002076",
+      "HP:0002093",
+      "HP:0002015",
+      "HP:0001272",
+      "HP:0000407",
+      "HP:0000726",
+      "HP:0000508",
+      "HP:0000648",
+      "HP:0000580",
+      "HP:0001638",
+      "HP:0001716",
+      "HP:0000819",
+      "HP:0001012",
+      "HP:0004322",
+      "HP:0003236"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "MT-TK m.8344A>G",
+      "MT-TF and other mitochondrial transfer RNA genes"
+    ],
+    "treatments": [
+      "Levetiracetam for myoclonus",
+      "Clonazepam for myoclonus",
+      "Avoidance of valproic acid",
+      "Avoidance of aminoglycosides, linezolid, tobacco, and alcohol",
+      "Mitochondrial cofactor and supplement therapy",
+      "Scheduled multisystem surveillance",
+      "Hearing aids or cochlear implantation",
+      "Standard pharmacotherapy for cardiac involvement",
+      "Pregnancy monitoring for diabetes and respiratory insufficiency",
+      "Genetic counselling for maternal transmission",
+      "Physical therapy and aerobic exercise"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Blood and cerebrospinal fluid lactate"
+    ],
+    "source_file": "MERRF_Syndrome.yaml",
+    "page_url": "../pages/disorders/MERRF_Syndrome.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 13,
+    "num_genes": 2,
+    "num_treatments": 11,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "MERTK-Related Retinopathy",
     "disease_id": "MONDO:0800394",
     "category": "Mendelian",
@@ -115772,6 +116390,109 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Metabolic Dysfunction-Associated Steatotic Liver Disease",
+    "disease_id": "MONDO:0013209",
+    "category": "Complex",
+    "parents": [
+      "Hepatic Disease"
+    ],
+    "creation_date": "2026-08-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "MASL",
+      "MASH"
+    ],
+    "description": "Metabolic dysfunction-associated steatotic liver disease (MASLD) is hepatic steatosis occurring in the presence of at least one cardiometabolic risk factor and in the absence of another identified cause of steatosis. It is the most prevalent chronic liver disease worldwide. Adipose-tissue insulin resistance and overnutrition deliver free fatty acids to the liver and drive de novo lipogenesis, so that hepatocyte lipid inflow exceeds the capacity for fatty acid oxidation and very-low-density lipoprotein export. Accumulating toxic lipid species, together with impaired mitochondrial quality control (mitophagy), provoke endoplasmic reticulum and oxidative stress, hepatocyte death, Kupffer-cell and macrophage inflammatory activation (metabolic dysfunction-associated steatohepatitis, MASH), hepatic stellate cell activation, and progressive fibrosis that can culminate in cirrhosis and hepatocellular carcinoma. Fibrosis stage, not steatosis or inflammation grade, is the histologic feature that tracks long-term outcome. Management centres on weight loss and cardiometabolic risk reduction, with resmetirom the first agent approved specifically for MASH with fibrosis.",
+    "pathophysiology": [
+      "Cardiometabolic Dysfunction and Adipose Insulin Resistance",
+      "Hepatocyte Lipid Overload",
+      "Impaired Hepatocyte Mitophagy",
+      "Lipotoxic Stress and Organelle Dysfunction",
+      "Hepatocyte Injury and Inflammatory Activation",
+      "Hepatic Stellate Cell Activation and Fibrosis",
+      "Hepatic Steatosis Progressing to Steatohepatitis and Fibrosis",
+      "PNPLA3 rs738409 Genetic Susceptibility",
+      "TM6SF2 p.Glu167Lys Genetic Susceptibility"
+    ],
+    "cell_types": [
+      "adipocyte",
+      "hepatocyte",
+      "Kupffer cell",
+      "macrophage",
+      "hepatic stellate cell",
+      "myofibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000136",
+      "CL:0000182",
+      "CL:0000091",
+      "CL:0000235",
+      "CL:0000632",
+      "CL:0000186"
+    ],
+    "biological_processes": [
+      "cellular response to insulin stimulus",
+      "triglyceride biosynthetic process",
+      "lipid storage",
+      "fatty acid beta-oxidation",
+      "mitophagy",
+      "response to endoplasmic reticulum stress",
+      "response to oxidative stress",
+      "apoptotic process",
+      "inflammatory response",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Hepatic steatosis",
+      "Elevated serum alanine aminotransferase",
+      "Insulin resistance",
+      "Obesity",
+      "Hepatic fibrosis",
+      "Cirrhosis"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Laboratory",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001397",
+      "HP:0031964",
+      "HP:0000855",
+      "HP:0001513",
+      "HP:0001395",
+      "HP:0001394"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PNPLA3 rs738409 susceptibility",
+      "TM6SF2 p.Glu167Lys susceptibility"
+    ],
+    "treatments": [
+      "Weight loss through lifestyle modification",
+      "Resmetirom",
+      "Semaglutide",
+      "Vitamin E",
+      "Pioglitazone",
+      "Bariatric surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.yaml",
+    "page_url": "../pages/disorders/Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Metachromatic Leukodystrophy",
@@ -156221,6 +156942,95 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Ring Chromosome 20 Syndrome",
+    "disease_id": "MONDO:0015436",
+    "category": "Genetic",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ring chromosome 20 syndrome is a rare chromosomal epilepsy syndrome in which the two ends of chromosome 20 fuse into a circle, usually in only a fraction of cells. It is unusual and mechanistically interesting because most patients lose no genetic material at all in the process, yet develop a severe, drug-resistant childhood-onset epilepsy dominated by prolonged confusional episodes that carry a distinctive long-lasting rhythmic slow-wave pattern on the electroencephalogram. Children typically develop normally until seizures begin, then decline cognitively and behaviourally. There is usually no dysmorphism, no brain lesion on imaging, and no abnormality on chromosomal microarray, so the diagnosis is missed unless someone orders an old-fashioned karyotype. How a ring that deletes nothing produces epilepsy is genuinely unresolved, and the two leading candidate explanations, loss of nearby genes and altered expression of genes near the fusion point, have each been tested and found wanting.",
+    "pathophysiology": [
+      "Telomere-Telomere Fusion Forming Ring Chromosome 20",
+      "Postzygotic Mosaic Ring Without Detectable Deletion",
+      "Meiotic Non-Mosaic Ring With Terminal Deletion",
+      "Mitotic Ring Instability and Dynamic Mosaicism",
+      "Ring Ratio-Dependent Cortical Network Dysfunction",
+      "Frontally Predominant Cortical Hyperexcitability",
+      "Nigrostriatal Seizure-Termination Failure",
+      "Prolonged Nonconvulsive Status Epilepticus",
+      "Drug-Resistant Focal Epilepsy",
+      "Cognitive Decline and Behavioural Disturbance"
+    ],
+    "cell_types": [
+      "pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "telomere maintenance",
+      "chromosome segregation",
+      "regulation of postsynaptic membrane potential"
+    ],
+    "phenotypes": [
+      "Drug-resistant focal epilepsy",
+      "Nonconvulsive status epilepticus",
+      "EEG abnormality with long-lasting rhythmic slow waves",
+      "Intellectual disability",
+      "Behavioural disturbance",
+      "Ictal fear",
+      "Hallucinations at seizure onset",
+      "Focal motor seizure",
+      "Eyelid myoclonia seizure"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002384",
+      "HP:0032671",
+      "HP:0002353",
+      "HP:0001249",
+      "HP:0000708",
+      "HP:0032739",
+      "HP:0000738",
+      "HP:0011153",
+      "HP:0032678"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Oral antiseizure medication",
+      "Home rescue medication for prolonged seizures",
+      "Ketogenic diet",
+      "Vagus nerve stimulation",
+      "Deep brain stimulation",
+      "Multidisciplinary allied health support",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ring_Chromosome_20_Syndrome.yaml",
+    "page_url": "../pages/disorders/Ring_Chromosome_20_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Ritscher-Schinzel Syndrome",
     "disease_id": "MONDO:0019078",
     "category": "Mendelian",
@@ -164243,6 +165053,81 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "5",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Self-Limited Epilepsy with Autonomic Seizures",
+    "disease_id": "MONDO:0020307",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Self-limited epilepsy with autonomic seizures, long known as Panayiotopoulos syndrome, is a childhood focal epilepsy whose seizures are made almost entirely of autonomic symptoms. The child typically retains awareness at onset while going pale and vomiting repeatedly, and the episode commonly runs past thirty minutes, which makes autonomic status epilepticus the rule rather than a complication. Two thirds of seizures happen in sleep. The EEG shows shifting multifocal spikes, classically occipital in the youngest children but migrating with age. Seizures are usually few, remission within a few years is the norm, and the adult epilepsy risk is not raised above the population. The clinical problem is not the epilepsy but the mimicry: prolonged vomiting with altered responsiveness in a young child is routinely mistaken for encephalitis, gastroenteritis, migraine, or syncope.",
+    "pathophysiology": [
+      "Maturational Seizure Susceptibility of the Developing Brain",
+      "Multifocal Cortical Epileptogenicity with Age-Shifting Foci",
+      "Age-Specific Vulnerability of Central Autonomic Networks",
+      "Focal Autonomic Seizures",
+      "Autonomic Status Epilepticus",
+      "Age-Dependent Remission"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Ictal Vomiting",
+      "Ictal Pallor",
+      "Ictal Pupillary Change",
+      "Ictal Syncope",
+      "Status Epilepticus",
+      "Focal to Bilateral Tonic-Clonic Seizures",
+      "Ictal Incontinence",
+      "Ictal Hypersalivation",
+      "Ictal Eye Deviation",
+      "Impaired Awareness During Seizure"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011159",
+      "HP:0032762",
+      "HP:0032763",
+      "HP:0032755",
+      "HP:0002133",
+      "HP:0007334",
+      "HP:0032765",
+      "HP:0003781",
+      "HP:0002384"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Education and Conservative Management",
+      "Benzodiazepine Rescue for Autonomic Status Epilepticus",
+      "Avoidance of Aggressive Acute Treatment"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Self-Limited_Epilepsy_with_Autonomic_Seizures.yaml",
+    "page_url": "../pages/disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Self-Limited Epilepsy with Centrotemporal Spikes",
@@ -188265,17 +189150,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1839,
-  "total_subtypes": 2805,
-  "total_disorders_and_subtypes": 4644,
-  "total_unique_evidence_sources": 27687,
-  "total_unique_publications": 25920,
+  "total_disorder_pages": 1848,
+  "total_subtypes": 2811,
+  "total_disorders_and_subtypes": 4659,
+  "total_unique_evidence_sources": 27796,
+  "total_unique_publications": 26028,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 237,
-  "total_pathographs": 1834,
-  "total_unique_pathological_events": 9724,
+  "total_pathographs": 1843,
+  "total_unique_pathological_events": 9792,
   "total_modules": 120,
-  "total_research_reports": 2102,
+  "total_research_reports": 2108,
   "total_classifications": 10,
   "total_comorbidities": 19,
   "total_groupings": 56

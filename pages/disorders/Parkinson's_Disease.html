@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2631,6 +2745,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2797,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2856,13 +3014,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3032,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3303,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3336,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3449,11 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
 
 
 
@@ -3470,6 +3677,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3536,6 +3745,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -10404,7 +10614,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-constipation" data-dismech-node="Constipation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Constipation
 
@@ -10474,7 +10684,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyposmia" data-dismech-node="Hyposmia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyposmia
 
@@ -10544,7 +10754,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rigidity" data-dismech-node="Rigidity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rigidity
 
@@ -10614,7 +10824,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-resting-tremor" data-dismech-node="Resting Tremor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Resting Tremor
 
@@ -10675,7 +10885,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bradykinesia" data-dismech-node="Bradykinesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bradykinesia
 
@@ -10736,7 +10946,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postural-instability" data-dismech-node="Postural Instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Postural Instability
 
@@ -10797,7 +11007,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depression" data-dismech-node="Depression" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depression
 
@@ -10856,7 +11066,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rem-sleep-behavior-disorder" data-dismech-node="REM Sleep Behavior Disorder" data-dismech-type="phenotype">
                     <div class="item-name">
                         REM Sleep Behavior Disorder
 
@@ -10917,7 +11127,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive Impairment
 
@@ -11020,7 +11230,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dystonia
 
@@ -11136,7 +11346,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Loss
 
@@ -11254,7 +11464,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-snca" data-dismech-node="SNCA" data-dismech-type="genetic">
                 <div class="item-name">
                     SNCA
 
@@ -11337,9 +11547,10 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lrrk2" data-dismech-node="LRRK2" data-dismech-type="genetic">
                 <div class="item-name">
                     LRRK2
 
@@ -11422,9 +11633,10 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pink1" data-dismech-node="PINK1" data-dismech-type="genetic">
                 <div class="item-name">
                     PINK1
 
@@ -11507,9 +11719,10 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gba1" data-dismech-node="GBA1" data-dismech-type="genetic">
                 <div class="item-name">
                     GBA1
 
@@ -11592,9 +11805,10 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-park7" data-dismech-node="PARK7" data-dismech-type="genetic">
                 <div class="item-name">
                     PARK7
 
@@ -11657,9 +11871,10 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prkn" data-dismech-node="PRKN" data-dismech-type="genetic">
                 <div class="item-name">
                     PRKN
 
@@ -11742,9 +11957,10 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-vps35" data-dismech-node="VPS35" data-dismech-type="genetic">
                 <div class="item-name">
                     VPS35
 
@@ -11807,9 +12023,13 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -11821,7 +12041,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-levodopa-carbidopa" data-dismech-node="Levodopa/Carbidopa" data-dismech-type="treatment">
                 <div class="item-name">
                     Levodopa/Carbidopa
                 </div>
@@ -11943,7 +12163,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-dopamine-agonists" data-dismech-node="Dopamine Agonists" data-dismech-type="treatment">
                 <div class="item-name">
                     Dopamine Agonists
                 </div>
@@ -12036,7 +12256,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mao-b-inhibitors" data-dismech-node="MAO-B Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     MAO-B Inhibitors
                 </div>
@@ -12129,7 +12349,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-comt-inhibitors" data-dismech-node="COMT Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     COMT Inhibitors
                 </div>
@@ -12222,7 +12442,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-deep-brain-stimulation" data-dismech-node="Deep Brain Stimulation" data-dismech-type="treatment">
                 <div class="item-name">
                     Deep Brain Stimulation
                 </div>
@@ -12316,7 +12536,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy" data-dismech-node="Physical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy
                 </div>
@@ -12409,7 +12629,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-botulinum-neurotoxin-a-bont-a-for-depression" data-dismech-node="Botulinum Neurotoxin A (BoNT/A) for Depression" data-dismech-type="treatment">
                 <div class="item-name">
                     Botulinum Neurotoxin A (BoNT/A) for Depression
                 </div>
@@ -12520,7 +12740,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-pesticide-exposure" data-dismech-node="Pesticide Exposure" data-dismech-type="environmental">
                 <div class="item-name">Pesticide Exposure</div>
 
 
@@ -12562,7 +12782,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-rural-living" data-dismech-node="Rural Living" data-dismech-type="environmental">
                 <div class="item-name">Rural Living</div>
 
 
@@ -12604,7 +12824,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-head-trauma" data-dismech-node="Head Trauma" data-dismech-type="environmental">
                 <div class="item-name">Head Trauma</div>
 
 
@@ -13417,7 +13637,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-alpha-synuclein-aggregation-bst-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-alpha-synuclein-aggregation-bst-model" data-dismech-node="Alpha-Synuclein Aggregation BST Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     Alpha-Synuclein Aggregation BST Model
 
@@ -13475,7 +13695,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-whole-dopaminergic-neuron-sbml-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-whole-dopaminergic-neuron-sbml-model" data-dismech-node="Whole Dopaminergic Neuron SBML Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     Whole Dopaminergic Neuron SBML Model
 
@@ -13545,7 +13765,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-basal-ganglia-spiking-neural-network">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-basal-ganglia-spiking-neural-network" data-dismech-node="Basal Ganglia Spiking Neural Network" data-dismech-type="computational_model">
                 <div class="item-name">
                     Basal Ganglia Spiking Neural Network
 
@@ -13601,7 +13821,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-alpha-synuclein-prion-like-spreading-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-alpha-synuclein-prion-like-spreading-model" data-dismech-node="Alpha-Synuclein Prion-like Spreading Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     Alpha-Synuclein Prion-like Spreading Model
 
