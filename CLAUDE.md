@@ -1587,10 +1587,14 @@ evidence:
 
 Each `## Selective dependency statistics` row (`| Context | Metric | Value |
 Effect size | N models |`) is a stable quotable substring; the leading/trailing
-pipes are optional. Build/refresh with `just depmap-refresh`,
-`just depmap-rebuild`, `just depmap-list`. The differential-dependency
-*derivation* from a DepMap release matrix is a tracked follow-up (see
-[`docs/depmap-source.md`](docs/depmap-source.md)).
+pipes are optional. The derived TSV is produced by
+`scripts/derive_depmap_synthetic_lethality.py` (streams the pinned DepMap
+release files, verifies md5, computes differential dependency); rebuild the
+cache with `just depmap-refresh`, `just depmap-rebuild`, `just depmap-list`. It
+currently ships one validated relationship (PARP1 selective dependency in
+BRCA1/BRCA2-LoF models, DepMap Public 24Q4); scaling to more relationships
+(MTAP→PRMT5, paralog SL, WRN/MSI) is the remaining work. See
+[`docs/depmap-source.md`](docs/depmap-source.md).
 
 **How the cache is built:**
 

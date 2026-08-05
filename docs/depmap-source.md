@@ -59,11 +59,33 @@ trailing pipes; both substring-match against the cached body.
 ## Building the cache
 
 ```bash
-just depmap-refresh                       # verify the pinned TSV checksum
+# (Re)derive the TSV from the pinned DepMap release (streams the release files,
+# verifies their md5, computes differential dependency). Networked, ~30-60s.
+uv run python scripts/derive_depmap_synthetic_lethality.py
+
+just depmap-refresh                        # verify the derived TSV checksum
 just depmap-rebuild                        # rebuild all references_cache/DEPMAP_*.md
-just depmap-rebuild --id DEPMAP:MTAP__PRMT5 # one relationship
+just depmap-rebuild --id DEPMAP:PARP1       # one relationship
 just depmap-list                           # list available identifiers
 ```
+
+## Worked example (real 24Q4 data)
+
+The shipped relationship is PARP1's selective dependency in BRCA1/BRCA2
+loss-of-function models, the functional-genomic counterpart of the
+literature-based PARP/BRCA synthetic lethality. From **DepMap Public 24Q4**,
+PARP1's Chronos gene-effect is stronger (more negative) in BRCA1/2-LoF lines
+than in wild-type lines — an honest, moderate pan-cancer effect:
+
+| Context | Metric | Value | Effect size | N |
+|---------|--------|-------|-------------|---|
+| BRCA1/BRCA2 LoF (mutant) | mean gene effect | −0.250 | — | 55 |
+| BRCA1/BRCA2 wild-type | mean gene effect | −0.180 | — | 1123 |
+| LoF vs wild-type | Welch *t* | −2.97 | Cohen *d* = −0.50 | 55 |
+
+The moderate effect size is expected and truthful: PARP1 is not a strong common
+essential, and a pan-cancer, zygosity- and HRD-agnostic two-group comparison
+dilutes the signal. It is corroborating IN_VITRO evidence, not clinical proof.
 
 ## Input format and the derivation follow-up
 
@@ -82,14 +104,27 @@ present → a gene-pair record (`DEPMAP:<A>__<B>`). Multiple rows sharing a
 reference id are aggregated into one cache file, mirroring how the ICEES source
 merges per-cohort chi-square rows.
 
-**Deliberately out of scope for this source:** *deriving* that TSV from a pinned
-DepMap release — computing differential dependency between a genomic-feature-
-positive and -negative group of models — is a separate, tracked follow-up (a
-`scripts/derive_depmap_synthetic_lethality.py`). This module is the
-ingestion/serialization half; it parses whatever the pinned TSV contains. A
-small illustrative fixture under `tests/data/depmap/` drives the unit tests
-(`tests/test_depmap_structured_source.py`); it is **not** real DepMap data and
-is never written into the committed `references_cache/`.
+The TSV is produced by `scripts/derive_depmap_synthetic_lethality.py`, which
+streams the pinned release files (`CRISPRGeneEffect.csv`,
+`OmicsSomaticMutations.csv` — pinned by figshare file id + md5 in
+`data/depmap/MANIFEST.yaml` under `derived_from`), never saving them whole to
+disk, and computes for each configured `dependency_gene × context` hypothesis
+the differential CRISPR gene-effect between context-positive and
+context-negative models. The BRCA context is defined by the `LikelyLoF`
+mutation flag on `BRCA1`/`BRCA2`. Statistics are deliberately simple — an
+unpaired, pan-cancer Welch two-group comparison, **not** corrected for lineage,
+zygosity, or HRD — and are stated as such in the emitted rows.
+
+**Scaling is the remaining work:** the script ships one validated relationship
+(PARP1/BRCA); adding entries to its `RELATIONSHIPS` list extends coverage
+(MTAP→PRMT5/MAT2A collateral lethality needs copy-number features; paralog SL
+like SMARCA4→SMARCA2 needs the partner-gene mutation context; WRN needs MSI
+status).
+
+A small illustrative fixture under `tests/data/depmap/` drives the unit tests
+(`tests/test_depmap_structured_source.py`) so the serialize path has coverage
+without a network fetch; it is **not** real DepMap data and is never written
+into the committed `references_cache/`.
 
 ## Related
 
