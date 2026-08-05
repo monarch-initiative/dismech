@@ -2258,9 +2258,10 @@ cron-profile name:
 # Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
 # approved, unassigned, conflict-free, green, and older than `days`.
 # Example: just auto-merge-preview 3
-[group('Cron profiles')]
+[group('Auto-merge')]
 auto-merge-preview days='3':
-    python3 scripts/auto_merge_ready_prs.py --repo monarch-initiative/dismech \
+    uv run --no-project python scripts/auto_merge_ready_prs.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
         --min-age-days {{days}} --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============

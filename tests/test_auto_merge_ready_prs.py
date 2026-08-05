@@ -6,8 +6,10 @@ predicate merges someone's unfinished work.
 """
 
 import importlib.util
+import json
+import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,7 @@ auto_merge = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = auto_merge
 _SPEC.loader.exec_module(auto_merge)
 
-NOW = datetime(2026, 8, 5, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 5, 12, 0, 0, tzinfo=UTC)
 
 
 def make_pr(**overrides):
@@ -79,6 +81,39 @@ def test_skipped_and_neutral_checks_do_not_block():
 def test_legacy_status_contexts_are_understood():
     pr = make_pr(statusCheckRollup=[{"context": "ci/legacy", "state": "SUCCESS"}])
     assert decide(pr).eligible
+
+
+def test_typename_discriminates_rollup_entries():
+    """gh tags each rollup entry; prefer that over guessing from shape."""
+    pr = make_pr(
+        statusCheckRollup=[
+            {
+                "__typename": "CheckRun",
+                "name": "test (3.13)",
+                "status": "COMPLETED",
+                "conclusion": "SUCCESS",
+            },
+            {"__typename": "StatusContext", "context": "ci/legacy", "state": "SUCCESS"},
+        ]
+    )
+    assert decide(pr).eligible
+
+
+def test_typename_wins_over_shape():
+    """A StatusContext that also carries a `status` key must still be read as a
+    StatusContext — this is the failure mode `__typename` guards against."""
+    decision = auto_merge.check_rollup_decision(
+        [
+            {
+                "__typename": "StatusContext",
+                "context": "ci/legacy",
+                "state": "FAILURE",
+                "status": "COMPLETED",
+            }
+        ]
+    )
+    assert not decision.eligible
+    assert "ci/legacy=failure" in decision.reason
 
 
 # --- one test per blocking criterion --------------------------------------
@@ -258,3 +293,118 @@ def test_summary_reports_merges_skips_and_failures():
 def test_summary_when_nothing_merged():
     report = auto_merge.render_summary(merged=[], skipped=[], failed=[])
     assert "Merged 0" in report
+
+
+def test_dry_run_summary_never_claims_a_merge_happened():
+    """A dry run writes to $GITHUB_STEP_SUMMARY too; it must not log
+    'Merged 1' into a permanent audit trail when nothing was merged."""
+    report = auto_merge.render_summary(
+        merged=[{"number": 1, "title": "feat: A"}],
+        skipped=[],
+        failed=[],
+        dry_run=True,
+    )
+    assert "Would merge 1" in report
+    assert "dry run" in report
+    assert "**Merged" not in report
+
+
+# --- fetching -------------------------------------------------------------
+
+
+def _stub_views(monkeypatch, payloads):
+    """Make view_pr return each payload in turn, and count the calls."""
+    calls = []
+
+    def fake_gh(args):
+        calls.append(args)
+        return json.dumps(payloads[min(len(calls) - 1, len(payloads) - 1)])
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    monkeypatch.setattr(auto_merge.time, "sleep", lambda _: None)
+    return calls
+
+
+def test_view_pr_retries_until_mergeability_resolves(monkeypatch):
+    calls = _stub_views(
+        monkeypatch,
+        [
+            {"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN"},
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+        ],
+    )
+    pr = auto_merge.view_pr("o/r", 7)
+    assert pr["mergeable"] == "MERGEABLE"
+    assert len(calls) == 2
+
+
+def test_view_pr_also_waits_on_merge_state_status(monkeypatch):
+    """Both fields come from the same background computation; waiting only on
+    `mergeable` skips PRs as 'merge state is unknown' for being asked early."""
+    calls = _stub_views(
+        monkeypatch,
+        [
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "UNKNOWN"},
+            {"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN"},
+        ],
+    )
+    pr = auto_merge.view_pr("o/r", 7)
+    assert pr["mergeStateStatus"] == "CLEAN"
+    assert len(calls) == 2
+
+
+def test_view_pr_gives_up_after_the_attempt_budget(monkeypatch):
+    calls = _stub_views(monkeypatch, [{"mergeable": "UNKNOWN"}])
+    pr = auto_merge.view_pr("o/r", 7, attempts=3)
+    assert len(calls) == 3
+    # Unresolved is returned, not merged — evaluate() rejects it.
+    assert not decide(make_pr(**pr)).eligible
+
+
+# --- merge invocation -----------------------------------------------------
+
+
+def test_merge_pins_the_verified_head_commit(monkeypatch):
+    """A push landing between verification and merge must abort the merge, not
+    silently merge an unreviewed commit."""
+    calls = []
+    monkeypatch.setattr(auto_merge, "_gh", lambda args: calls.append(args) or "")
+    auto_merge.merge_pr("o/r", 7, 3, "deadbeef")
+    merge_cmd = calls[0]
+    assert "--squash" in merge_cmd
+    assert merge_cmd[merge_cmd.index("--match-head-commit") + 1] == "deadbeef"
+
+
+def test_merge_omits_the_pin_when_the_sha_is_unavailable(monkeypatch):
+    calls = []
+    monkeypatch.setattr(auto_merge, "_gh", lambda args: calls.append(args) or "")
+    auto_merge.merge_pr("o/r", 7, 3, None)
+    assert "--match-head-commit" not in calls[0]
+
+
+def test_comment_failure_does_not_mask_a_successful_merge(monkeypatch):
+    """The merge already succeeded; a failed courtesy comment must not be
+    reported as a failed merge (which would also invite a retry)."""
+
+    def fake_gh(args):
+        if args[1] == "comment":
+            raise subprocess.CalledProcessError(1, "gh", stderr="rate limited")
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    auto_merge.merge_pr("o/r", 7, 3, "abc123")  # must not raise
+
+
+def test_merge_failure_still_propagates(monkeypatch):
+    def fake_gh(args):
+        raise subprocess.CalledProcessError(1, "gh", stderr="not mergeable")
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    with pytest.raises(subprocess.CalledProcessError):
+        auto_merge.merge_pr("o/r", 7, 3, "abc123")
+
+
+def test_gh_error_condenses_stderr():
+    exc = subprocess.CalledProcessError(1, "gh", stderr="line one\nfinal line\n")
+    assert auto_merge._gh_error(exc) == "final line"
+    assert "1" in auto_merge._gh_error(subprocess.CalledProcessError(1, "gh"))

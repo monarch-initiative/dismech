@@ -1960,6 +1960,19 @@ outcome is reproducible from the API response alone. This is separate from the
 LLM agent step earlier in the same workflow, whose guardrails still forbid it
 from *editing* human-authored PRs — the sweep only merges already-approved work.
 
+**"Approved" here usually means an agent approved it.** `claude-code-review.yml`
+has the `ai4c-reviewer` GitHub App submit `gh pr review --approve`, so for
+agent-authored curation PRs this closes an **author → approve → merge** loop with
+no human in it. That is deliberate at this repo's curation volume; the human
+controls are the 3-day delay and assignment, not a sign-off gate.
+
+**Approvals cannot go stale.** `main` is protected with `dismiss_stale_reviews`
+enabled, so any push to a PR drops its approval and `reviewDecision` reverts from
+APPROVED. A commit pushed after the review — including a fix pushed by the
+shepherd's own agent step — can never be swept up on the strength of that older
+review. If that protection setting is ever turned off, the sweep needs an explicit
+"approving review's commit == head SHA" check added.
+
 **To stop a PR being auto-merged, assign it to someone.** An assigned PR is
 treated as somebody's active work and is never swept. Converting to draft or
 leaving a CHANGES_REQUESTED review also blocks it.

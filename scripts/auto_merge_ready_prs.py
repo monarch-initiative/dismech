@@ -30,6 +30,21 @@ Escape hatch: **assign the PR to someone.** The unassigned criterion is the
 per-PR veto — an assigned PR is somebody's active work and is never merged
 here. Requesting changes and converting to draft also block the merge.
 
+Two things about "approved" that are load-bearing here:
+
+- **It usually is not a human.** ``.github/workflows/claude-code-review.yml``
+  has the ``ai4c-reviewer`` app submit ``gh pr review --approve``, so for
+  agent-authored curation PRs this closes an author → approve → merge loop
+  with no human in it. That is the intended operating mode for this repo at
+  its curation volume; the human controls are the 3-day delay and assignment.
+- **It cannot go stale.** ``main`` has branch protection with
+  ``dismiss_stale_reviews: true``, so any push to a PR drops the approval and
+  ``reviewDecision`` reverts from APPROVED. The sweep therefore cannot merge a
+  commit that was pushed after the review — including a fix pushed by the
+  shepherd's own agent step. This script does *not* re-derive that itself; if
+  stale-review dismissal is ever turned off, add an explicit check that the
+  approving review's commit equals ``headRefOid``.
+
 Eligibility is evaluated in two stages. The list stage applies the criteria
 that a bulk ``gh pr list`` can answer; the final stage re-applies all of them
 to a freshly fetched per-PR view immediately before merging, so a PR whose
@@ -47,7 +62,10 @@ Usage::
         --min-age-days 3 --summary-file "$GITHUB_STEP_SUMMARY"
 
 Requires the ``gh`` CLI authenticated with a token that can merge (``GH_TOKEN``).
-Stdlib only, so it runs even when the workflow's ``uv sync`` step has failed.
+Stdlib only, so it runs even when the workflow's ``uv sync`` step has failed —
+hence ``uv run --no-project python`` at both call sites, which skips the project
+environment but still guarantees an interpreter at the repo's 3.12 floor instead
+of trusting whatever ``python3`` happens to be on PATH.
 """
 
 from __future__ import annotations
@@ -59,14 +77,15 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 # Fields fetched for the initial scan; a superset is re-fetched per candidate.
 LIST_FIELDS = (
     "number,title,author,isDraft,createdAt,assignees,reviewDecision,"
     "mergeable,mergeStateStatus,baseRefName,headRefName,url"
 )
-VIEW_FIELDS = LIST_FIELDS + ",state,statusCheckRollup"
+# headRefOid pins the merge to the exact commit whose checks were evaluated.
+VIEW_FIELDS = LIST_FIELDS + ",state,statusCheckRollup,headRefOid"
 
 # Check conclusions that do not count as a failure. SKIPPED/NEUTRAL are how
 # conditional workflow jobs report "not applicable to this PR".
@@ -97,8 +116,12 @@ class Decision:
 
 
 def _parse_ts(value: str) -> datetime:
-    """Parse a GitHub ISO-8601 timestamp into an aware datetime."""
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    """Parse a GitHub ISO-8601 timestamp into an aware datetime.
+
+    ``fromisoformat`` handles the trailing ``Z`` natively on the Python this
+    project requires (>=3.12), so no offset rewriting is needed.
+    """
+    return datetime.fromisoformat(value)
 
 
 def check_rollup_decision(rollup: list[dict] | None) -> Decision:
@@ -116,7 +139,15 @@ def check_rollup_decision(rollup: list[dict] | None) -> Decision:
 
     for entry in rollup:
         name = entry.get("name") or entry.get("context") or "(unnamed check)"
-        if "conclusion" in entry or "status" in entry:
+        # Prefer GitHub's own type tag; fall back to shape for payloads that
+        # omit it (older gh versions, hand-built test fixtures).
+        typename = entry.get("__typename")
+        is_check_run = (
+            typename == "CheckRun"
+            if typename
+            else ("conclusion" in entry or "status" in entry)
+        )
+        if is_check_run:
             status = (entry.get("status") or "").upper()
             conclusion = (entry.get("conclusion") or "").upper()
             if status != "COMPLETED" or not conclusion:
@@ -216,7 +247,13 @@ def _gh(args: list[str]) -> str:
     return result.stdout
 
 
-def list_open_prs(repo: str, limit: int) -> list[dict]:
+def _gh_error(exc: subprocess.CalledProcessError) -> str:
+    """Condense a gh failure into one reportable line."""
+    stderr = (exc.stderr or "").strip()
+    return stderr.splitlines()[-1] if stderr else f"gh exited {exc.returncode}"
+
+
+def list_open_prs(repo: str, limit: int, base_branch: str) -> list[dict]:
     out = _gh(
         [
             "pr",
@@ -225,6 +262,8 @@ def list_open_prs(repo: str, limit: int) -> list[dict]:
             repo,
             "--state",
             "open",
+            "--base",
+            base_branch,
             "--limit",
             str(limit),
             "--json",
@@ -246,35 +285,77 @@ def view_pr(repo: str, number: int, *, attempts: int = 3, delay: float = 2.0) ->
         pr = json.loads(
             _gh(["pr", "view", str(number), "--repo", repo, "--json", VIEW_FIELDS])
         )
-        if (pr.get("mergeable") or "").upper() != "UNKNOWN":
+        # Both fields resolve from the same background computation and either
+        # can still read UNKNOWN while it runs, so wait for both — otherwise a
+        # PR is skipped as "merge state is unknown" purely for being asked early.
+        unresolved = {
+            (pr.get("mergeable") or "").upper(),
+            (pr.get("mergeStateStatus") or "").upper(),
+        }
+        if "UNKNOWN" not in unresolved:
             return pr
         if attempt < attempts - 1:
             time.sleep(delay)
     return pr
 
 
-def merge_pr(repo: str, number: int, min_age_days: int) -> None:
-    _gh(["pr", "merge", str(number), "--repo", repo, "--squash"])
-    _gh(
-        [
-            "pr",
-            "comment",
-            str(number),
-            "--repo",
-            repo,
-            "--body",
-            MERGE_COMMENT.format(days=min_age_days),
-        ]
-    )
+def merge_pr(repo: str, number: int, min_age_days: int, head_sha: str | None) -> None:
+    """Squash-merge one PR, then announce it.
+
+    ``--match-head-commit`` makes GitHub reject the merge if a push landed
+    after the verification read, so the commit merged is provably the commit
+    whose checks and review state were evaluated.
+    """
+    merge_cmd = ["pr", "merge", str(number), "--repo", repo, "--squash"]
+    if head_sha:
+        merge_cmd += ["--match-head-commit", head_sha]
+    _gh(merge_cmd)
+
+    # The merge is the operation that matters and it has already succeeded;
+    # a failure to post the courtesy comment must not be reported as — or
+    # retried as — a failed merge.
+    try:
+        _gh(
+            [
+                "pr",
+                "comment",
+                str(number),
+                "--repo",
+                repo,
+                "--body",
+                MERGE_COMMENT.format(days=min_age_days),
+            ]
+        )
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"WARN  #{number}: merged, but posting the comment failed: "
+            f"{_gh_error(exc)}",
+            file=sys.stderr,
+        )
 
 
-def render_summary(merged: list[dict], skipped: list[dict], failed: list[dict]) -> str:
-    lines = ["## 🐑 Deterministic auto-merge sweep", ""]
+def render_summary(
+    merged: list[dict],
+    skipped: list[dict],
+    failed: list[dict],
+    *,
+    dry_run: bool = False,
+) -> str:
+    """Render the run report.
+
+    ``dry_run`` retitles the merged section: a dry run that logs "Merged 3"
+    into the step summary leaves a permanent, false audit trail.
+    """
+    title = "## 🐑 Deterministic auto-merge sweep"
+    if dry_run:
+        title += " (dry run — nothing was merged)"
+    lines = [title, ""]
+    verb = "Would merge" if dry_run else "Merged"
     if merged:
-        lines.append(f"**Merged {len(merged)}:**")
+        lines.append(f"**{verb} {len(merged)}:**")
         lines += [f"- #{r['number']} — {r['title']}" for r in merged]
     else:
-        lines.append("**Merged 0** — nothing met every criterion.")
+        lines.append(f"**{verb} 0** — nothing met every criterion.")
     lines.append("")
     if failed:
         lines.append(f"**Failed to merge {len(failed)}:**")
@@ -320,8 +401,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    now = datetime.now(timezone.utc)
-    prs = list_open_prs(args.repo, args.limit)
+    now = datetime.now(UTC)
+    prs = list_open_prs(args.repo, args.limit, args.base_branch)
+    if len(prs) >= args.limit:
+        # Silent truncation would look identical to "nothing else was eligible".
+        print(
+            f"WARNING: hit the --limit of {args.limit} open PRs; older PRs were "
+            f"not scanned. Raise --limit.",
+            file=sys.stderr,
+        )
 
     candidates: list[dict] = []
     skipped: list[dict] = []
@@ -350,10 +438,17 @@ def main(argv: list[str] | None = None) -> int:
     failed: list[dict] = []
     for pr in candidates:
         number = pr["number"]
-        fresh = view_pr(args.repo, number)
+        try:
+            fresh = view_pr(args.repo, number)
+        except subprocess.CalledProcessError as exc:
+            # One unreadable PR must not abandon the candidates behind it.
+            reason = f"could not re-verify: {_gh_error(exc)}"
+            print(f"SKIP  #{number}: {reason}", file=sys.stderr)
+            skipped.append({"number": number, "reason": reason})
+            continue
         decision = evaluate(
             fresh,
-            now=datetime.now(timezone.utc),
+            now=datetime.now(UTC),
             min_age_days=args.min_age_days,
             base_branch=args.base_branch,
         )
@@ -368,20 +463,16 @@ def main(argv: list[str] | None = None) -> int:
             merged.append({"number": number, "title": fresh["title"]})
             continue
         try:
-            merge_pr(args.repo, number, args.min_age_days)
+            merge_pr(args.repo, number, args.min_age_days, fresh.get("headRefOid"))
         except subprocess.CalledProcessError as exc:
-            reason = (
-                (exc.stderr or "").strip().splitlines()[-1]
-                if exc.stderr
-                else "gh error"
-            )
+            reason = _gh_error(exc)
             print(f"FAIL  #{number}: {reason}", file=sys.stderr)
             failed.append({"number": number, "reason": reason})
             continue
         print(f"MERGED #{number}: {fresh['title']}")
         merged.append({"number": number, "title": fresh["title"]})
 
-    report = render_summary(merged, skipped, failed)
+    report = render_summary(merged, skipped, failed, dry_run=args.dry_run)
     print()
     print(report)
     if args.summary_file:
