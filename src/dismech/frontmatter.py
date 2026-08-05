@@ -53,8 +53,14 @@ __all__ = [
 # A leading ``---`` line, the frontmatter, then a closing ``---`` line. Both
 # delimiters must own their line (trailing spaces/tabs and CRLF tolerated); the
 # closing one may end the file without a trailing newline.
+#
+# The frontmatter and the newline ending it are optional *as a unit*, so an empty
+# block (``---\n---\n``) matches. Note they have to be optional together: making
+# only the newline optional would let the closing delimiter match a ``---`` that
+# merely *ends* a value line, reintroducing exactly the bug this module exists to
+# fix (``title: a---\nmore: b\n---``).
 FRONTMATTER_RE = re.compile(
-    r"\A---[ \t]*\r?\n(?P<frontmatter>.*?)(?:\r?\n)---[ \t]*(?:\r?\n|\Z)",
+    r"\A---[ \t]*\r?\n(?:(?P<frontmatter>.*?)(?:\r?\n))?---[ \t]*(?:\r?\n|\Z)",
     re.DOTALL,
 )
 
@@ -82,7 +88,9 @@ def split_frontmatter(text: str) -> SplitDocument | None:
     if match is None:
         return None
     return SplitDocument(
-        frontmatter=match.group("frontmatter"),
+        # ``None`` when the block is empty (``---\n---``), which is an empty
+        # block rather than a missing one.
+        frontmatter=match.group("frontmatter") or "",
         body=text[match.end() :],
     )
 

@@ -153,6 +153,25 @@ def _dump_frontmatter(data) -> str:
     return buffer.getvalue()
 
 
+# Frontmatter keys upstream ``_load_markdown_format`` does not pass through
+# verbatim: it wraps a scalar into a list, or stringifies it. A held-back value
+# has to be normalized the same way, or restoring it would hand callers a bare
+# ``str`` where upstream guarantees ``list[str]``.
+_LIST_WRAPPED_KEYS = frozenset({"authors", "keywords"})
+_STRINGIFIED_KEYS = frozenset({"year"})
+
+
+def _normalize_deferred_value(key, value):
+    """Apply upstream's own field normalization to a held-back value."""
+    if key in _LIST_WRAPPED_KEYS:
+        if not value:
+            return None
+        return value if isinstance(value, list) else [value]
+    if key in _STRINGIFIED_KEYS:
+        return str(value) if value else None
+    return value
+
+
 def _wrap_load_markdown_format(original):
     """Make the cache loader's frontmatter split delimiter-aware (issue #7697).
 
@@ -228,7 +247,7 @@ def _wrap_load_markdown_format(original):
             if not isinstance(key, str) or not hasattr(result, key):
                 continue
             try:
-                setattr(result, key, value)
+                setattr(result, key, _normalize_deferred_value(key, value))
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug("Could not restore %r on %s: %s", key, reference_id, exc)
                 continue

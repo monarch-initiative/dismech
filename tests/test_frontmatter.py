@@ -121,6 +121,26 @@ def test_split_frontmatter_handles_closing_delimiter_at_eof():
     assert split.body == ""
 
 
+def test_split_frontmatter_handles_empty_block():
+    split = split_frontmatter("---\n---\nbody\n")
+    assert split is not None
+    assert split.frontmatter == ""
+    assert split.body == "body\n"
+
+
+def test_split_frontmatter_does_not_close_on_a_value_ending_in_hyphens():
+    """The empty-block allowance must not let a trailing ``---`` close the block.
+
+    ``title: a---`` ends a *line* with the delimiter text. A regex that merely
+    made the newline optional would accept that as the closing delimiter and
+    drop every field after it -- the original bug, reintroduced.
+    """
+    split = split_frontmatter("---\ntitle: a---\nyear: '1991'\n---\nbody\n")
+    assert split is not None
+    assert split.frontmatter == "title: a---\nyear: '1991'"
+    assert split.body == "body\n"
+
+
 def test_contains_frontmatter_delimiter_walks_containers():
     assert contains_frontmatter_delimiter("A----G")
     assert not contains_frontmatter_delimiter("A--G")

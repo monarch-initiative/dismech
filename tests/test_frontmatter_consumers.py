@@ -62,7 +62,7 @@ def test_warm_cache_sees_content_type_in_committed_record():
 # --- src/dismech/reference_snippet_audit.py -----------------------------------
 
 
-def test_snippet_audit_body_excludes_frontmatter(tmp_path: Path):
+def test_snippet_audit_body_excludes_frontmatter():
     """Leaked frontmatter would let a snippet quoting the *title* verify."""
     body = CachedReferenceIndex._extract_body(MMWR_CACHE)
 

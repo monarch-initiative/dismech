@@ -88,6 +88,34 @@ def test_ordinary_cache_file_is_unaffected(fetcher):
     assert "Body text." in content.content
 
 
+def test_restored_scalar_authors_are_list_wrapped_like_upstream(fetcher):
+    """A held-back field must come back shaped the way upstream would shape it.
+
+    Upstream wraps a scalar ``authors``/``keywords`` into a list and stringifies
+    ``year``. Restoring the raw parsed value would hand callers a bare ``str``
+    where the rest of the codebase is promised ``list[str]``.
+    """
+    text = (
+        "---\n"
+        'reference_id: "PMID:1899320"\n'
+        "title: A----G(8344) arrow title.\n"
+        "authors: Zeviani M---Amati P\n"
+        "keywords: 5'----3'\n"
+        "journal: Am J Hum Genet\n"
+        "---\n"
+        "\n"
+        "## Content\n"
+        "\n"
+        "Body text.\n"
+    )
+    content = fetcher._load_markdown_format(text, "PMID:1899320")
+
+    assert content is not None
+    assert content.authors == ["Zeviani M---Amati P"]
+    assert content.keywords == ["5'----3'"]
+    assert content.title == "A----G(8344) arrow title."
+
+
 def test_committed_cache_record_round_trips(fetcher):
     """The real file on main loads with its full title and metadata."""
     from pathlib import Path
