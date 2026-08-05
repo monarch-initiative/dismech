@@ -1227,15 +1227,6 @@ discover-datasets disorder *args="":
 datasets-coverage *args="":
     @uv run python scripts/discover_datasets.py --coverage {{args}}
 
-# Find phenopacket-store cohorts for an entry, matched on disease IDENTITY
-# (the cohort's coded disease vs the entry's MONDO xrefs) rather than by name.
-# Best source for rare monogenic disease.
-#   just discover-phenopackets --refresh
-#   just discover-phenopackets Achondroplasia
-[group('Research')]
-discover-phenopackets *args="":
-    @uv run python scripts/discover_phenopackets.py {{args}}
-
 # Find EGA studies naming the disease in their own title. EGA holds the
 # controlled-access human cohorts GEO cannot index.
 #   just discover-ega --refresh

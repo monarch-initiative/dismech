@@ -114,7 +114,6 @@ def to_record(acc: str, s: dict, matched: str, retrieved: str) -> dict:
     return {
         "accession": f"arrayexpress:{acc}",
         "title": s["title"],
-        "organism": {"preferred_term": "human", "term": {"id": "NCBITaxon:9606", "label": "Homo sapiens"}},
         "notes": (
             f"ArrayExpress native submission (BioStudies), matched because the disease is named in "
             f"the study's own title (\"{matched}\"). GEO-imported E-GEOD records are excluded from "

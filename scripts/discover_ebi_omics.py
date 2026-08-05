@@ -118,7 +118,6 @@ def to_record(hit: dict, matched: str, today: str) -> dict:
     desc = " ".join((hit.get("description") or "").split())
     if desc:
         rec["description"] = desc[:600]
-    rec["organism"] = {"preferred_term": "human", "term": {"id": "NCBITaxon:9606", "label": "Homo sapiens"}}
     rec["data_type"] = hit["data_type"]
     rec["notes"] = (
         f"{hit['source']} dataset, matched because the disease is named in the dataset's own title "

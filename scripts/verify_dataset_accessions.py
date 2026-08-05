@@ -25,8 +25,8 @@ Prefix                  Resolver
 ======================  =============================================
 
 Accessions whose prefix is a literature identifier (``PMID``, ``DOI``) or a
-resource with no public per-record API (``cellxgene``, ``morphic``,
-``phenopacket-store``) are reported as ``UNSUPPORTED`` rather than failed --
+resource with no public per-record API (``cellxgene``, ``morphic``) are
+reported as ``UNSUPPORTED`` rather than failed --
 they are not verifiable here and need a human or a different check.
 
 Usage
@@ -120,13 +120,11 @@ SHAPE = {
     "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
     "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
     "metabolomics_workbench": re.compile(r"^ST\d+$", re.IGNORECASE),
-    # phenopacket-store cohorts are gene symbols or descriptive slugs
-    "phenopacket-store": re.compile(r"^[A-Za-z0-9_.\-]{2,40}$"),
 }
 
 # Prefixes whose accession pattern is too permissive to serve as a fallback
 # when another prefix's shape check fails (see verify_one).
-NON_FALLBACK_PREFIXES = {"phenopacket-store"}
+NON_FALLBACK_PREFIXES: set[str] = set()
 
 # Alternate spellings seen in the KB -> canonical prefix
 PREFIX_ALIASES = {
@@ -344,35 +342,6 @@ def resolve_metabolomics_workbench(local_id: str, throttle: Throttle, api_key: s
     return OK, data.get("study_title", ""), "", extra
 
 
-PPS_INDEX = REPO_ROOT / "data" / "phenopacket-store" / "cohort_index.json"
-_pps_cache: dict | None = None
-
-
-def resolve_phenopacket_store(local_id: str, throttle: Throttle, api_key: str | None):
-    """Resolve a phenopacket-store cohort against the committed release index.
-
-    Offline by design. The index is built from the pinned bulk release, so
-    verification needs no GitHub API call -- that endpoint is rate-limited to
-    60/hour unauthenticated and would throttle a whole-KB audit.
-    """
-    global _pps_cache
-    if _pps_cache is None:
-        try:
-            _pps_cache = json.loads(PPS_INDEX.read_text())
-        except (OSError, json.JSONDecodeError):
-            _pps_cache = {}
-    if not _pps_cache:
-        return UNSUPPORTED, "", "no local phenopacket-store index; run discover_phenopackets.py --refresh", {}
-    hit = _pps_cache.get(local_id)
-    if not hit:
-        return NOT_FOUND, "", f"no phenopacket-store cohort '{local_id}' in the indexed release", {}
-    diseases = hit.get("diseases") or {}
-    top = max(diseases.items(), key=lambda kv: kv[1])[0] if diseases else ""
-    label = (hit.get("labels") or {}).get(top, "")
-    title = f"{local_id} cohort: {label}" if label else f"{local_id} cohort"
-    return OK, title, "", {"n_cases": hit.get("n_cases"), "disease_ids": sorted(diseases)}
-
-
 RESOLVERS = {
     "geo": resolve_geo,
     "sra": resolve_sra,
@@ -385,7 +354,6 @@ RESOLVERS = {
     "osdr": resolve_osdr,
     "massive": resolve_massive,
     "mgnify": resolve_mgnify,
-    "phenopacket-store": resolve_phenopacket_store,
     "metabolomics_workbench": resolve_metabolomics_workbench,
 }
 
@@ -435,10 +403,6 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
         # accession filed as `sra:`). Re-resolve against the repository whose
         # shape it actually matches, and report the correction.
         #
-        # phenopacket-store is excluded as a fallback target: its cohorts are
-        # gene symbols and free-form slugs, so its pattern matches almost any
-        # string and it would capture every mis-shaped accession. A legacy
-        # `pride:PAD000024` was being reported as a missing phenopacket cohort.
         actual = next(
             (p for p, pat in SHAPE.items()
              if p not in NON_FALLBACK_PREFIXES and pat.match(local_id) and p in RESOLVERS),
