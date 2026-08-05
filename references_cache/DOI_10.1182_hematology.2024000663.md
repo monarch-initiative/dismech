@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/hematology.2024000663"
+reference_id: DOI:10.1182/hematology.2024000663
 title: "Givosiran: a targeted treatment for acute intermittent porphyria"
 authors:
 - Amy K. Dickey
@@ -8,6 +8,7 @@ journal: Hematology
 year: '2024'
 doi: 10.1182/hematology.2024000663
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Givosiran: a targeted treatment for acute intermittent porphyria

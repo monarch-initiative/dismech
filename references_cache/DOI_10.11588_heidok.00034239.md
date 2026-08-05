@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.11588/heidok.00034239"
+reference_id: DOI:10.11588/heidok.00034239
 title: "ITCC-P4: Molecular characterization and multi-omics analysis of pediatric patient tumor and Patient-Derived Xenograft (PDX) models for preclinical model selection"
 authors:
 - "Gopisetty, Apurva"
@@ -11,6 +11,7 @@ keywords:
 - 500 Natural sciences and mathematics
 - 570 Life sciences
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # ITCC-P4: Molecular characterization and multi-omics analysis of pediatric patient tumor and Patient-Derived Xenograft (PDX) models for preclinical model selection

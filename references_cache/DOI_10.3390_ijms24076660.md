@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24076660"
+reference_id: DOI:10.3390/ijms24076660
 title: "Role of the Gut–Liver Axis in the Pathobiology of Cholangiopathies: Basic and Clinical Evidence"
 authors:
 - Maria Consiglia Bragazzi
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24076660
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Role of the Gut–Liver Axis in the Pathobiology of Cholangiopathies: Basic and Clinical Evidence

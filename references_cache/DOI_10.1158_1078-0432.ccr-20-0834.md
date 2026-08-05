@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-20-0834"
+reference_id: DOI:10.1158/1078-0432.ccr-20-0834
 title: "Differentiation Syndrome with Ivosidenib and Enasidenib Treatment in Patients with Relapsed or Refractory IDH-Mutated AML: A U.S. Food and Drug Administration Systematic Analysis"
 authors:
 - Kelly J. Norsworthy
@@ -20,6 +20,7 @@ journal: Clinical Cancer Research
 year: '2020'
 doi: 10.1158/1078-0432.ccr-20-0834
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Differentiation Syndrome with Ivosidenib and Enasidenib Treatment in Patients with Relapsed or Refractory IDH-Mutated AML: A U.S. Food and Drug Administration Systematic Analysis

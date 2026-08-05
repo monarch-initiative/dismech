@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15174403"
+reference_id: DOI:10.3390/cancers15174403
 title: "Burden of Illness in Follicular Lymphoma with Multiple Lines of Treatment, Italian RWE Analysis"
 authors:
 - Andrés J. M. Ferreri
@@ -16,6 +16,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15174403
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Burden of Illness in Follicular Lymphoma with Multiple Lines of Treatment, Italian RWE Analysis

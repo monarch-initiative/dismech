@@ -1,6 +1,8 @@
 name: Discussion Scanner
 
 on:
+  schedule:
+    - cron: "30 */6 * * *"  # every 6h
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -96,7 +98,12 @@ jobs:
           GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
+          # cap); fall back to the OAuth token only when no API key is set. The
+          # conditional keeps exactly one non-empty, so the action never has to
+          # arbitrate. Rationale in full: claude-code-review.yml.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           github_token: ${{ steps.ai4c-token.outputs.token }}
           show_full_output: true
           claude_args: |
@@ -162,3 +169,10 @@ jobs:
             - Never create or hand-edit `references_cache/*.md`.
             - Do not invoke `@dragon-ai-agent please`.
             - Do not mention automation unless it helps explain the handoff.
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.discussion-scanner.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.discussion-scanner.outputs.execution_file }}
+          title: "💬 Discussion Scanner Run"

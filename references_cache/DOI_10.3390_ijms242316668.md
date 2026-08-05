@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms242316668"
+reference_id: DOI:10.3390/ijms242316668
 title: "Polyarteritis Nodosa: Old Disease, New Etiologies"
 authors:
 - Louis Wolff
@@ -11,6 +11,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms242316668
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Polyarteritis Nodosa: Old Disease, New Etiologies
