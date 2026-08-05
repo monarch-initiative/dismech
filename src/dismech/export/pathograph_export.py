@@ -26,13 +26,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from dismech.export.utils import slugify
 from dismech.graph import build_causal_graph, graph_to_json
 from dismech.yaml_io import safe_load
-
-
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug (matches browser_export)."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
 
 
 def _disorder_term_id(disorder: dict[str, Any]) -> str | None:

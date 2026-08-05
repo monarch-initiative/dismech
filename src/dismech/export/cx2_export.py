@@ -26,10 +26,10 @@ from dismech.graph import (
     _build_section_lookup,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
-    _iter_variant_items,
     _resolve_descriptor_target,
     build_causal_graph,
     graph_to_json,
+    iter_variant_items,
 )
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -1065,7 +1065,7 @@ def _build_edge_detail_lookup(
                 },
             )
 
-    for parent_name, variant in _iter_variant_items(disorder):
+    for parent_name, variant in iter_variant_items(disorder):
         source_name = variant.get("name")
         if not source_name:
             continue
@@ -1596,7 +1596,7 @@ def disorder_to_cx2(
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and item.get("name"):
                 item_lookup[str(item["name"])] = item
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         if isinstance(variant, dict) and variant.get("name"):
             item_lookup[str(variant["name"])] = variant
 
