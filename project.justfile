@@ -1227,6 +1227,34 @@ discover-datasets disorder *args="":
 datasets-coverage *args="":
     @uv run python scripts/discover_datasets.py --coverage {{args}}
 
+# Find EGA studies naming the disease in their own title. EGA holds the
+# controlled-access human cohorts GEO cannot index.
+#   just discover-ega --refresh
+#   just discover-ega Cystic_Fibrosis
+[group('Research')]
+discover-ega *args="":
+    @uv run python scripts/discover_ega.py {{args}}
+
+# Find ArrayExpress NATIVE submissions (E-GEOD GEO re-imports are excluded:
+# 73.6% of the collection, and curating them duplicates GEO accessions).
+[group('Research')]
+discover-arrayexpress *args="":
+    @uv run python scripts/discover_arrayexpress.py {{args}}
+
+# Find datasets via OmicsDI, restricted to repositories with no other route
+# here (Metabolomics Workbench, MassIVE, dbGaP). 89% of OmicsDI duplicates
+# sources already covered and is filtered out.
+[group('Research')]
+discover-omicsdi *args="":
+    @uv run python scripts/discover_omicsdi.py {{args}}
+
+# Find PRIDE (proteomics) and MetaboLights (metabolomics) datasets naming the
+# disease in their own title. These assay types matter most for metabolic and
+# rare disease, which transcriptomic archives cover poorly.
+[group('Research')]
+discover-ebi-omics *args="":
+    @uv run python scripts/discover_ebi_omics.py {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
