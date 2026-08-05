@@ -5,6 +5,7 @@ every criterion gets an explicit negative test: a bug that loosens the
 predicate merges someone's unfinished work.
 """
 
+import argparse
 import importlib.util
 import json
 import subprocess
@@ -174,6 +175,35 @@ def test_pr_just_over_three_days_is_eligible():
         .replace("+00:00", "Z")
     )
     assert decide(pr).eligible
+
+
+@pytest.mark.parametrize("value,expected", [("0", 0), ("3", 3), ("14", 14)])
+def test_non_negative_int_accepts_valid_thresholds(value, expected):
+    assert auto_merge.non_negative_int(value) == expected
+
+
+@pytest.mark.parametrize("value", ["-1", "-3"])
+def test_non_negative_int_rejects_negatives(value):
+    """A negative threshold makes every PR pass the age check — i.e. silently
+    merges regardless of age. Settable from a workflow input, so it must fail
+    loudly rather than widen the merge criteria."""
+    with pytest.raises(argparse.ArgumentTypeError, match="zero or positive"):
+        auto_merge.non_negative_int(value)
+
+
+@pytest.mark.parametrize("value", ["", "three", "3.5", "1e3"])
+def test_non_negative_int_rejects_non_integers(value):
+    with pytest.raises(ValueError):
+        auto_merge.non_negative_int(value)
+
+
+def test_zero_threshold_merges_a_brand_new_pr():
+    """0 is explicitly allowed: it means 'no age requirement'."""
+    pr = make_pr(
+        createdAt=(NOW - timedelta(minutes=1)).isoformat().replace("+00:00", "Z")
+    )
+    assert not decide(pr).eligible
+    assert decide(pr, min_age_days=0).eligible
 
 
 def test_min_age_days_is_configurable():

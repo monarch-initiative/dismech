@@ -1952,7 +1952,10 @@ author, human or agent** — once it is simultaneously:
 - **conflict-free** (`mergeable == MERGEABLE`)
 - **green** (`mergeStateStatus == CLEAN` *and* a status-check rollup with at
   least one success and nothing failing, cancelled, or still running)
-- **more than 3 days old**, measured from PR creation
+- **more than 3 days old**, measured from PR creation — the default; a manual
+  `workflow_dispatch` run can override it with the `min_age_days` input (`0`
+  drops the age requirement entirely, negatives are rejected). Scheduled runs
+  always use 3.
 - targeting `main`
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
