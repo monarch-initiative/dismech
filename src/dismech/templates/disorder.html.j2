@@ -947,6 +947,65 @@
             border-top: 1px solid rgba(148, 163, 184, 0.25);
         }
 
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
+        }
+
         .crosslink-title {
             font-size: 0.75rem;
             font-weight: 600;
@@ -3765,6 +3824,137 @@
     {% endif %}
     {% endmacro %}
 
+    {% macro render_variant_body(variant) %}
+    <div class="item-name">
+        {{ variant.name }}
+        {% if variant.clinical_significance %}
+        <span class="variant-significance variant-significance-{{ variant.clinical_significance | lower | replace('_', '-') }}">{{ variant.clinical_significance | replace('_', ' ') | title }}</span>
+        {% endif %}
+    </div>
+    {% if variant.gene or variant.type or variant.regulatory_category or variant.sequence_length %}
+    <div class="item-meta">
+        {% if variant.gene %}
+        {% set variant_gene_label = variant.gene.preferred_term or (variant.gene.term.label if variant.gene.term else '') %}
+        {% set variant_gene_id = variant.gene.term.id if variant.gene.term else none %}
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: {{ variant_gene_label }}{% if variant_gene_id %} {{ render_curie_link(variant_gene_id) }}{% endif %}
+        </span>
+        {% endif %}
+        {% if variant.type %}
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">{{ variant.type | replace('_', ' ') }}</span>
+        {% endif %}
+        {% if variant.regulatory_category %}
+        <span class="tag" style="background: #fef3c7; color: #92400e;">{{ variant.regulatory_category | replace('_', ' ') }}</span>
+        {% endif %}
+        {% if variant.sequence_length %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ variant.sequence_length }} bp</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if variant.description %}
+    <div class="item-desc">{{ variant.description }}</div>
+    {% endif %}
+    {% if variant.synonyms %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Also known as:</strong>
+        {% for synonym in variant.synonyms %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ synonym }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if variant.identifiers %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Identifiers:</strong>
+        {% for identifier in variant.identifiers %}
+        {{ render_curie_link(identifier) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if variant.functional_effects %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+        {% for effect in variant.functional_effects %}
+        <div class="variant-effect">
+            {% if effect.function or effect.type or effect.regulatory_category or effect.regulatory_element_type %}
+            <div class="item-meta">
+                {% if effect.function %}
+                <span class="tag" style="background: #dcfce7; color: #166534;">{{ effect.function }}</span>
+                {% endif %}
+                {% if effect.type %}
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">{{ effect.type | replace('_', ' ') }}</span>
+                {% endif %}
+                {% if effect.regulatory_category %}
+                <span class="tag" style="background: #fef3c7; color: #92400e;">{{ effect.regulatory_category | replace('_', ' ') }}</span>
+                {% endif %}
+                {% if effect.regulatory_element_type %}
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">{{ effect.regulatory_element_type | replace('_', ' ') }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% if effect.description %}
+            <div class="item-desc">{{ effect.description }}</div>
+            {% endif %}
+            {% if effect.regulatory_mechanism %}
+            <div class="item-desc"><strong>Mechanism:</strong> {{ effect.regulatory_mechanism }}</div>
+            {% endif %}
+            {% if effect.affected_cell_types %}
+            <div class="item-meta">
+                <strong style="font-size: 0.8rem; color: #6b7280;">Affected cell types:</strong>
+                {{ render_descriptor_tags(effect.affected_cell_types, "tag-cell") }}
+            </div>
+            {% endif %}
+            {% if effect.affected_developmental_stage %}
+            <div class="item-desc"><strong>Developmental stage:</strong> {{ effect.affected_developmental_stage }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if variant.external_assertions %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">External assertions</div>
+        {% for assertion in variant.external_assertions %}
+        <div class="variant-effect">
+            {% if assertion.name %}
+            <div class="item-name">{{ assertion.name }}</div>
+            {% endif %}
+            <div class="item-meta">
+                {% if assertion.source %}
+                <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
+                {% endif %}
+                {% if assertion.assertion_type %}
+                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
+                {% endif %}
+                {% if assertion.external_id %}
+                {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
+                {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
+                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
+                {% else %}
+                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.external_id }}</span>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% if assertion.description %}
+            <div class="item-desc">{{ assertion.description }}</div>
+            {% endif %}
+            {{ render_evidence(assertion.evidence) }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {{ render_evidence(variant.evidence) }}
+    {% endmacro %}
+
+    {# A variant may share its name with its parent gene (or, rarely, another
+       variant). Gene cards render first, so findCardForNode's first-match-wins
+       lands on the enclosing gene card, which contains the variant anyway --
+       this is deliberate, not a collision to "fix". #}
+    {% macro render_variant_card(variant, box_class="variant-box") %}
+    <div class="item-box {{ box_class }} anchor-target"{% if variant._anchor_id %} id="{{ variant._anchor_id }}"{% endif %} data-dismech-node="{{ variant.name | e }}" data-dismech-type="genetic">
+        {{ render_variant_body(variant) }}
+    </div>
+    {% endmacro %}
+
     {# ========== PAGE CONTENT ========== #}
 
     <nav class="site-nav">
@@ -3917,6 +4107,8 @@
         {% set phenotypes_count = (disorder.phenotypes or []) | length %}
         {% set genetic_count = (disorder.genetic or []) | length %}
         {% set treatments_count = (disorder.treatments or []) | length %}
+        {% set nested_variants_count = (disorder.genetic or []) | selectattr('variants') | map(attribute='variants') | map('length') | sum %}
+        {% set variants_count = ((disorder.variants or []) | length) + nested_variants_count %}
         {% set mechanistic_hypotheses_count = (disorder.mechanistic_hypotheses or []) | length %}
         {% set discussions_count = (disorder.discussions or []) | length %}
         {% set pathograph_nodes_count = pathograph_node_count or 0 %}
@@ -4028,6 +4220,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">{{ genetic_count }}</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+            {% endif %}
+            {% if variants_count %}
+            <a class="stat-link" href="{{ '#variants' if disorder.variants else '#genetic' }}">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">{{ variants_count }}</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
             {% endif %}
@@ -5246,7 +5447,29 @@
                 </div>
                 {% endif %}
                 {{ render_evidence(gene.evidence) }}
+                {% if gene.variants %}
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants ({{ gene.variants | length }})</summary>
+                    {% for variant in gene.variants %}
+                    {{ render_variant_card(variant, "variant-box variant-box-nested") }}
+                    {% endfor %}
+                </details>
+                {% endif %}
             </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Variants recorded at the disease level -->
+        {% if disorder.variants %}
+        <div class="card" id="variants">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🔬</div>
+                <h2 class="card-title">Variants</h2>
+                <span class="card-count">{{ disorder.variants | length }}</span>
+            </div>
+            {% for variant in disorder.variants %}
+            {{ render_variant_card(variant) }}
             {% endfor %}
         </div>
         {% endif %}
