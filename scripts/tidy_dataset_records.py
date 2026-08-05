@@ -77,7 +77,7 @@ def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int,
         if pub:
             by_pub.setdefault(str(pub), []).append(r)
     drop: set[str] = set()
-    for _pub, group in by_pub.items():
+    for group in by_pub.values():
         if len(group) < 2 or not all(
             str(r.get("accession", "")).startswith("geo:") for r in group
         ):
