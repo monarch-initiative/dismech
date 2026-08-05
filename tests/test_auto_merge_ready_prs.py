@@ -277,6 +277,40 @@ def test_list_stage_rejects_criteria_it_can_answer(overrides):
 
 # --- benign vs real merge failures ----------------------------------------
 
+# Verbatim stderr from `gh pr merge --squash --match-head-commit <wrong sha>`
+# against a blocked PR (gh 2.x). The shape is what matters: the actionable
+# sentence is FIRST and two hint lines follow, so anything that classifies or
+# reports on the last line reads the advice instead of the diagnosis.
+GH_REFUSAL_STDERR = (
+    "X Pull request monarch-initiative/dismech#8018 is not mergeable: "
+    "the base branch policy prohibits the merge.\n"
+    "To have the pull request merged after all the requirements have been met, "
+    "add the `--auto` flag.\n"
+    "To use administrator privileges to immediately merge the pull request, "
+    "add the `--admin` flag.\n"
+)
+
+
+def test_real_gh_refusal_is_classified_benign():
+    """Regression: classifying on the last line saw only the `--admin` hint,
+    so this race was reported as a hard failure and turned the workflow red."""
+    assert auto_merge.is_benign_merge_failure(GH_REFUSAL_STDERR)
+    # The old last-line-only behaviour, pinned so it cannot silently return.
+    assert not auto_merge.is_benign_merge_failure(GH_REFUSAL_STDERR.splitlines()[-1])
+
+
+def test_real_gh_refusal_reports_the_diagnosis_not_the_hint():
+    exc = subprocess.CalledProcessError(1, "gh", stderr=GH_REFUSAL_STDERR)
+    reported = auto_merge._gh_error(exc)
+    assert reported.startswith("Pull request")
+    assert "is not mergeable" in reported
+    assert "--admin" not in reported
+
+
+def test_gh_error_strips_status_markers():
+    exc = subprocess.CalledProcessError(1, "gh", stderr="! something happened\n")
+    assert auto_merge._gh_error(exc) == "something happened"
+
 
 @pytest.mark.parametrize(
     "message",
@@ -396,9 +430,7 @@ def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
         if args[:2] == ["pr", "view"]:
             return json.dumps(make_pr(number=42, headRefOid="cafe1234"))
         if args[:2] == ["pr", "merge"]:
-            raise subprocess.CalledProcessError(
-                1, "gh", stderr="Head branch was modified. Review and try again."
-            )
+            raise subprocess.CalledProcessError(1, "gh", stderr=GH_REFUSAL_STDERR)
         return ""
 
     monkeypatch.setattr(auto_merge, "_gh", fake_gh)
@@ -406,6 +438,9 @@ def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
     summary = (tmp_path / "s.md").read_text()
     assert code == 0
     assert "Failed to merge" not in summary
+    # ...and the skip line states the diagnosis rather than suggesting --admin.
+    assert "is not mergeable" in summary
+    assert "--admin" not in summary
 
 
 def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
@@ -556,6 +591,10 @@ def test_merge_failure_still_propagates(monkeypatch):
 
 
 def test_gh_error_condenses_stderr():
+    # First non-empty line, not last: gh puts the diagnosis first and appends
+    # `--auto`/`--admin` hints (see GH_REFUSAL_STDERR).
     exc = subprocess.CalledProcessError(1, "gh", stderr="line one\nfinal line\n")
-    assert auto_merge._gh_error(exc) == "final line"
-    assert "1" in auto_merge._gh_error(subprocess.CalledProcessError(1, "gh"))
+    assert auto_merge._gh_error(exc) == "line one"
+    assert auto_merge._gh_error(subprocess.CalledProcessError(1, "gh", stderr="")) == (
+        "gh exited 1"
+    )
