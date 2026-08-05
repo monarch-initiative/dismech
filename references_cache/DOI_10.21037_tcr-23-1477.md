@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/tcr-23-1477"
+reference_id: DOI:10.21037/tcr-23-1477
 title: "CodeBreak 200: study limitations, and future directions"
 authors:
 - Malak Alharbi
@@ -9,6 +9,7 @@ journal: Translational Cancer Research
 year: '2024'
 doi: 10.21037/tcr-23-1477
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # CodeBreak 200: study limitations, and future directions

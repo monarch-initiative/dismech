@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1289/ehp.1205381"
+reference_id: DOI:10.1289/ehp.1205381
 title: "Arsenic Reduction in Drinking Water and Improvement in Skin Lesions: A Follow-Up Study in Bangladesh"
 authors:
 - Wei Jie Seow
@@ -16,6 +16,7 @@ journal: Environmental Health Perspectives
 year: '2012'
 doi: 10.1289/ehp.1205381
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Arsenic Reduction in Drinking Water and Improvement in Skin Lesions: A Follow-Up Study in Bangladesh

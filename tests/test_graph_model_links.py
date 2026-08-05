@@ -295,6 +295,76 @@ def test_build_causal_graph_includes_biomarker_readout_links() -> None:
     ]
 
 
+def test_build_causal_graph_includes_phenotype_readout_links() -> None:
+    """Investigation-readout phenotypes should link to the mechanism they report on.
+
+    An abnormal-test phenotype (e.g. an abnormal electroretinogram) that carries
+    ``reports_on`` should add an observational (dashed) edge from the target
+    mechanism to the phenotype, rather than floating as a disconnected node — and
+    without asserting a causal ``downstream`` relationship.
+    """
+    disorder = {
+        "name": "Example Retinopathy",
+        "pathophysiology": [{"name": "Photoreceptor Degeneration"}],
+        "phenotypes": [
+            {
+                "name": "Abnormal electroretinogram",
+                "phenotype_term": {
+                    "preferred_term": "Abnormal electroretinogram",
+                    "term": {"id": "HP:0000512", "label": "Abnormal electroretinogram"},
+                },
+                "reports_on": [
+                    {
+                        "target": "Photoreceptor Degeneration",
+                        "relationship": "READOUT_OF",
+                        "direction": "NEGATIVE",
+                        "endpoint_context": "DIAGNOSTIC",
+                        "interpretation": "Reduced ERG responses track photoreceptor loss.",
+                    }
+                ],
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    # Observational readout edge: mechanism -.-> readout phenotype.
+    assert (
+        "Photoreceptor Degeneration",
+        "Abnormal electroretinogram",
+        "readout",
+    ) in edges
+    # The phenotype is not an orphan and carries no causal downstream edge.
+    assert "Abnormal electroretinogram" not in graph.orphan_targets
+
+    data = json.loads(graph_to_json(graph, disorder))
+    edge = next(
+        edge
+        for edge in data["edges"]
+        if edge["source"] == "Photoreceptor Degeneration"
+        and edge["target"] == "Abnormal electroretinogram"
+    )
+    assert edge["predicate"] == "readout"
+    assert edge["relationship"] == "READOUT_OF"
+    assert edge["direction"] == "NEGATIVE"
+    assert edge["endpoint_context"] == "DIAGNOSTIC"
+
+    node = next(
+        node for node in data["nodes"] if node["id"] == "Abnormal electroretinogram"
+    )
+    assert node["node_type"] == "phenotype"
+    assert node["meta"]["reports_on"] == [
+        {
+            "target": "Photoreceptor Degeneration",
+            "relationship": "READOUT_OF",
+            "direction": "NEGATIVE",
+            "endpoint_context": "DIAGNOSTIC",
+            "interpretation": "Reduced ERG responses track photoreceptor loss.",
+        }
+    ]
+
+
 def test_graph_to_json_includes_hypothesis_group_edge_metadata() -> None:
     """Pathograph edges should preserve curated hypothesis group links."""
     disorder = {

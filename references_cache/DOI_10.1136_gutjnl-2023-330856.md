@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/gutjnl-2023-330856"
+reference_id: DOI:10.1136/gutjnl-2023-330856
 title: Protective function of sclerosing cholangitis on IBD
 authors:
 - Tanja Bedke
@@ -28,6 +28,7 @@ journal: Gut
 year: '2024'
 doi: 10.1136/gutjnl-2023-330856
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Protective function of sclerosing cholangitis on IBD
