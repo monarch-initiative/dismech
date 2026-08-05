@@ -2253,6 +2253,17 @@ cron-profile-preview name:
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
 
+# ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
+
+# Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
+# approved, unassigned, conflict-free, green, and older than `days`.
+# Example: just auto-merge-preview 3
+[group('Auto-merge')]
+auto-merge-preview days='3':
+    uv run --no-project python scripts/auto_merge_ready_prs.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
+        --min-age-days {{days}} --dry-run
+
 # ============== Phenoagent: case-to-disease matching ==============
 
 # Step 1 - Deterministic init: build an initial matching YAML from a phenopacket

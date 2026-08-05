@@ -381,6 +381,50 @@ def _make_anchor_id(prefix: str, value: str) -> str:
     return f"{prefix}-{slug or 'item'}"
 
 
+# Sections whose cards are reachable as pathograph nodes. The second element
+# must match the node_type emitted by dismech.graph (see graph.NODE_COLORS), so
+# the pathograph click handler can resolve a node to its card via the
+# data-dismech-node / data-dismech-type attribute pair.
+_CARD_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("phenotypes", "phenotype"),
+    ("environmental", "environmental"),
+    ("genetic", "genetic"),
+    ("treatments", "treatment"),
+    ("biochemical", "biochemical"),
+)
+
+
+def _annotate_card_anchors(disorder: dict) -> None:
+    """Attach in-page anchor IDs to the cards a pathograph node can point at.
+
+    Pathophysiology, hypothesis, and model cards already get anchors elsewhere;
+    this fills the remaining sections so every pathograph node type has a
+    jump target. IDs are de-duplicated within a section because two items may
+    slugify to the same value.
+    """
+    for section_key, node_type in _CARD_ANCHOR_SECTIONS:
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not name:
+                continue
+            base_id = _make_anchor_id(node_type, str(name))
+            anchor_id = base_id
+            # Probe past any suffix a differently-named sibling already claimed,
+            # e.g. "Foo", "Foo", "Foo 2" must not all land on "phenotype-foo-2".
+            occurrence = 1
+            while anchor_id in used:
+                occurrence += 1
+                anchor_id = f"{base_id}-{occurrence}"
+            used.add(anchor_id)
+            item["_anchor_id"] = anchor_id
+
+
 def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
     """Resolve YAML semantic refs to in-page HTML fragment links."""
     ref_index: dict[str, str] = {}
@@ -1862,6 +1906,7 @@ def render_disorder(
         disorders_dir=yaml_path.parent,
     )
     _annotate_model_links(disorder)
+    _annotate_card_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
