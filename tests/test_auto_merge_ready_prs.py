@@ -312,6 +312,29 @@ def test_gh_error_strips_status_markers():
     assert auto_merge._gh_error(exc) == "something happened"
 
 
+def test_gh_error_strips_a_prefix_not_a_character_set():
+    """`lstrip("X!  ")` would eat the leading `X` *and* `-` here."""
+    exc = subprocess.CalledProcessError(1, "gh", stderr="X-Ratelimit is 0\n")
+    assert auto_merge._gh_error(exc) == "X-Ratelimit is 0"
+
+
+def test_gh_upgrade_banner_is_not_reported_as_the_failure():
+    """gh appends its release banner to stderr last, so a last-line rule would
+    report a version notice as the reason the merge failed."""
+    exc = subprocess.CalledProcessError(
+        1,
+        "gh",
+        stderr=(
+            "X Pull request #42 is not mergeable: head branch was modified.\n"
+            "\n"
+            "A new release of gh is available: 2.40.0 → 2.62.0\n"
+        ),
+    )
+    assert "not mergeable" in auto_merge._gh_error(exc)
+    assert "new release" not in auto_merge._gh_error(exc)
+    assert auto_merge.is_benign_merge_failure(exc.stderr)
+
+
 @pytest.mark.parametrize(
     "message",
     [

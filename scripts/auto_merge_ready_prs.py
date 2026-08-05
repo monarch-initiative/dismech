@@ -123,6 +123,9 @@ BENIGN_MERGE_FAILURES = (
     "no commits between",
 )
 
+# Status glyphs gh prefixes to its stderr lines, stripped for readability.
+GH_STATUS_MARKERS = ("X ", "! ", "✓ ")
+
 MERGE_COMMENT = (
     "🐑 **PR Shepherd** (deterministic sweep) — Squash-merged: approved, "
     "unassigned, no conflicts, all checks green, and open longer than "
@@ -290,7 +293,12 @@ def _gh_error(exc: subprocess.CalledProcessError) -> str:
     ``--admin`` hint lines, so the last line is advice rather than a diagnosis.
     """
     for line in (exc.stderr or "").splitlines():
-        cleaned = line.strip().lstrip("X!✓ ").strip()
+        cleaned = line.strip()
+        # removeprefix, not lstrip: lstrip takes a character *set*, so it would
+        # eat the leading "X" and "-" of a line like "X-Ratelimit is 0".
+        for marker in GH_STATUS_MARKERS:
+            cleaned = cleaned.removeprefix(marker)
+        cleaned = cleaned.strip()
         if cleaned:
             return cleaned
     return f"gh exited {exc.returncode}"
