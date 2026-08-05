@@ -25,8 +25,8 @@ Prefix                  Resolver
 ======================  =============================================
 
 Accessions whose prefix is a literature identifier (``PMID``, ``DOI``) or a
-resource with no public per-record API (``cellxgene``, ``morphic``,
-``phenopacket-store``) are reported as ``UNSUPPORTED`` rather than failed --
+resource with no public per-record API (``cellxgene``, ``morphic``) are
+reported as ``UNSUPPORTED`` rather than failed --
 they are not verifiable here and need a human or a different check.
 
 Usage
@@ -102,7 +102,6 @@ UNSUPPORTED_PREFIXES = {
     "synapse": "Synapse entity pointer; access-controlled, no open metadata API",
     "clinvar": "variant database pointer, not a dataset accession",
     "morphic": "MorPhiC gene-level pointer, not a repository accession",
-    "phenopacket-store": "GitHub-hosted collection, no accession API",
     "https": "bare URL; replace with a repository CURIE",
     "http": "bare URL; replace with a repository CURIE",
 }
@@ -120,7 +119,12 @@ SHAPE = {
     "osdr": re.compile(r"^OSD-\d+$", re.IGNORECASE),
     "massive": re.compile(r"^MSV\d+$", re.IGNORECASE),
     "mgnify": re.compile(r"^MGYS\d+$", re.IGNORECASE),
+    "metabolomics_workbench": re.compile(r"^ST\d+$", re.IGNORECASE),
 }
+
+# Prefixes whose accession pattern is too permissive to serve as a fallback
+# when another prefix's shape check fails (see verify_one).
+NON_FALLBACK_PREFIXES: set[str] = set()
 
 # Alternate spellings seen in the KB -> canonical prefix
 PREFIX_ALIASES = {
@@ -322,6 +326,22 @@ def resolve_mgnify(local_id: str, throttle: Throttle, api_key: str | None):
     return OK, attrs.get("study-name", ""), "", {}
 
 
+def resolve_metabolomics_workbench(local_id: str, throttle: Throttle, api_key: str | None):
+    """Resolve a Metabolomics Workbench study (ST######) via its REST API."""
+    data = http_json(
+        f"https://www.metabolomicsworkbench.org/rest/study/study_id/"
+        f"{urllib.parse.quote(local_id)}/summary"
+    )
+    if not data or not isinstance(data, dict) or not data.get("study_id"):
+        return NOT_FOUND, "", f"no Metabolomics Workbench study {local_id}", {}
+    extra = {}
+    for src, dst in (("number_of_samples", "sample_count"), ("analysis_type", "analysis_type"),
+                     ("species", "organism")):
+        if data.get(src):
+            extra[dst] = data[src]
+    return OK, data.get("study_title", ""), "", extra
+
+
 RESOLVERS = {
     "geo": resolve_geo,
     "sra": resolve_sra,
@@ -334,6 +354,7 @@ RESOLVERS = {
     "osdr": resolve_osdr,
     "massive": resolve_massive,
     "mgnify": resolve_mgnify,
+    "metabolomics_workbench": resolve_metabolomics_workbench,
 }
 
 
@@ -381,7 +402,12 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
         # record in a sibling repository (the common case is a BioProject
         # accession filed as `sra:`). Re-resolve against the repository whose
         # shape it actually matches, and report the correction.
-        actual = next((p for p, pat in SHAPE.items() if pat.match(local_id) and p in RESOLVERS), "")
+        #
+        actual = next(
+            (p for p, pat in SHAPE.items()
+             if p not in NON_FALLBACK_PREFIXES and pat.match(local_id) and p in RESOLVERS),
+            "",
+        )
         if not actual:
             res.status = MALFORMED
             res.detail = f"'{local_id}' does not match the {prefix} accession pattern"
