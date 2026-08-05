@@ -134,8 +134,31 @@ jobs:
         if: steps.scope.outputs.mode == 'incremental'
         run: just gen-pages-changed-from "${{ runner.temp }}/changed_disorders.txt"
 
+      # An incremental render only covers THIS push's range. The concurrency group
+      # above collapses queued runs, so disorder YAMLs from a collapsed push are
+      # never rendered — while app/data.js (always rebuilt in full, below) links to
+      # them anyway. That is how PR #7903 shipped 205 dead links. Compare the page
+      # count with the KB count *after* rendering (before it, every disorder-adding
+      # push looks drifted) and escalate to a full rebuild when they disagree.
+      - name: Detect page/KB drift after incremental build
+        id: drift
+        if: steps.scope.outputs.mode == 'incremental'
+        run: uv run python scripts/classify_page_build.py --check-page-drift --github-output
+
+      - name: Heal page/KB drift (full rebuild)
+        if: steps.drift.outputs.drift == 'true'
+        run: just gen-pages
+
       - name: Generate browser data
         run: just gen-browser-data
+
+      # Hard gate: data.js is rebuilt from the whole KB, so any page the render
+      # step skipped becomes a dead link in the browser UI. Fail the run rather
+      # than publish it. The drift check above should already have healed this;
+      # this catches what a count comparison cannot see (e.g. a rename that keeps
+      # the counts equal but changes a slug).
+      - name: Verify browser data links resolve to rendered pages
+        run: just check-browser-links
 
       - name: Generate pathograph artifact
         run: just gen-pathographs

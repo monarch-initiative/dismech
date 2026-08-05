@@ -17,17 +17,17 @@ Alias: review_notes
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  no  |
-| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
-| [Subtype](../classes/Subtype.md) |  |  no  |
-| [Genetic](../classes/Genetic.md) |  |  no  |
 | [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
-| [Stage](../classes/Stage.md) |  |  no  |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
-| [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |  |  no  |
-| [Treatment](../classes/Treatment.md) |  |  no  |
 | [AgentLifeCycle](../classes/AgentLifeCycle.md) |  |  no  |
+| [Genetic](../classes/Genetic.md) |  |  no  |
+| [AgentLifeCycleStage](../classes/AgentLifeCycleStage.md) |  |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
+| [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  no  |
+| [Stage](../classes/Stage.md) |  |  no  |
+| [Treatment](../classes/Treatment.md) |  |  no  |
 
 
 
