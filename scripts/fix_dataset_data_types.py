@@ -37,13 +37,15 @@ KB_DIR = REPO_ROOT / "kb" / "disorders"
 def wanted_type(record: dict) -> str:
     """The assay the record's own title/description names, if any."""
     text = f"{record.get('title', '')} {record.get('description', '')}"
-    for pattern, enum in ASSAY_PATTERNS:
-        if pattern.search(text):
-            return enum
-    return ""
+    matches = {enum for pattern, enum in ASSAY_PATTERNS if pattern.search(text)}
+    if len(matches) > 1:
+        return "MULTI_OMICS"
+    return matches.pop() if matches else ""
 
 
-def fix_file(path: Path, dry_run: bool, allowed: set[str] | None = None) -> list[tuple[str, str, str]]:
+def fix_file(
+    path: Path, dry_run: bool, allowed: set[str] | None = None
+) -> list[tuple[str, str, str]]:
     text = path.read_text(newline="")
     doc = yaml.safe_load(text) or {}
     changes: list[tuple[str, str, str]] = []
@@ -67,35 +69,55 @@ def fix_file(path: Path, dry_run: bool, allowed: set[str] | None = None) -> list
     lines = text.splitlines(keepends=True)
     nl = "\r\n" if "\r\n" in text else "\n"
     for acc, _old, want in changes:
-        start = next((i for i, ln in enumerate(lines)
-                      if ln.strip() in (f"- accession: {acc}", f"-   accession: {acc}")), None)
+        start = next(
+            (
+                i
+                for i, ln in enumerate(lines)
+                if ln.strip() in (f"- accession: {acc}", f"-   accession: {acc}")
+            ),
+            None,
+        )
         if start is None:
             continue
-        end = next((j for j in range(start + 1, len(lines))
-                    if lines[j].lstrip().startswith("- ") or
-                    (lines[j].strip() and not lines[j].startswith((" ", "\t")))), len(lines))
-        dt_line = next((j for j in range(start, end)
-                        if re.match(r"\s*data_type:", lines[j])), None)
+        end = next(
+            (
+                j
+                for j in range(start + 1, len(lines))
+                if lines[j].lstrip().startswith("- ")
+                or (lines[j].strip() and not lines[j].startswith((" ", "\t")))
+            ),
+            len(lines),
+        )
+        dt_line = next(
+            (j for j in range(start, end) if re.match(r"\s*data_type:", lines[j])), None
+        )
         if dt_line is not None:
             indent = re.match(r"(\s*)", lines[dt_line]).group(1)
             lines[dt_line] = f"{indent}data_type: {want}{nl}"
         else:
             # Insert after `title:` so field order matches generated records.
-            anchor = next((j for j in range(start, end)
-                           if re.match(r"\s*title:", lines[j])), start)
-            indent = re.match(r"(\s*)", lines[anchor]).group(1) if anchor != start else "  "
+            anchor = next(
+                (j for j in range(start, end) if re.match(r"\s*title:", lines[j])),
+                start,
+            )
+            indent = (
+                re.match(r"(\s*)", lines[anchor]).group(1) if anchor != start else "  "
+            )
             lines.insert(anchor + 1, f"{indent}data_type: {want}{nl}")
 
     updated = "".join(lines)
     before, after = yaml.safe_load(text) or {}, yaml.safe_load(updated) or {}
-    if [d.get("accession") for d in before.get("datasets") or []] != \
-       [d.get("accession") for d in after.get("datasets") or []]:
+    if [d.get("accession") for d in before.get("datasets") or []] != [
+        d.get("accession") for d in after.get("datasets") or []
+    ]:
         print(f"  !! {path.name}: accession list changed, skipping", file=sys.stderr)
         return []
     before.pop("datasets", None)
     after_ds = after.pop("datasets", None)
     if before != after:
-        print(f"  !! {path.name}: edit touched other content, skipping", file=sys.stderr)
+        print(
+            f"  !! {path.name}: edit touched other content, skipping", file=sys.stderr
+        )
         return []
     for rec in after_ds or []:
         acc = str(rec.get("accession", ""))
@@ -109,16 +131,25 @@ def fix_file(path: Path, dry_run: bool, allowed: set[str] | None = None) -> list
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--accessions-file", type=Path,
-                    help="restrict to these accessions (one per line), so a batch branch "
-                         "corrects only the records it introduced")
+    ap.add_argument(
+        "--accessions-file",
+        type=Path,
+        help="restrict to these accessions (one per line), so a batch branch "
+        "corrects only the records it introduced",
+    )
     args = ap.parse_args()
 
     allowed = None
     if args.accessions_file:
-        allowed = {ln.strip() for ln in args.accessions_file.read_text().splitlines() if ln.strip()}
+        allowed = {
+            ln.strip()
+            for ln in args.accessions_file.read_text().splitlines()
+            if ln.strip()
+        }
 
     total = 0
     by_type: dict[str, int] = {}

@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Apply the three record-quality follow-ups raised in review of #7609.
 
-1. **De-duplicate by publication.** Several entries spend multiple dataset
-   slots on one study, because GEO SuperSeries and their SubSeries -- or the
-   RNA-seq and ChIP-seq arms of one experiment -- are separate accessions with
-   the same PMID. `Castleman_Disease` used all three of its records on
-   PMID:40181993. Keeps one record per publication (the largest by
-   `sample_count`, which prefers the SuperSeries over a SubSeries) and drops
-   the rest, so the remaining slots describe distinct studies.
+1. **Drop redundant GEO SuperSeries shells.** When a placeholder SuperSeries
+   and an informative SubSeries share a publication, drop only the placeholder.
+   Distinct assay arms and non-GEO cohort studies are preserved even when they
+   share a paper.
 
 2. **Drop boilerplate descriptions.** GEO's own text for a SuperSeries is
    "This SuperSeries is composed of the SubSeries listed below.", which carries
@@ -16,7 +13,8 @@
 3. **Link history records to their PR**, so the audit trail is traversable
    from `history/` back to the review.
 
-Records are only ever removed, never rewritten, and the file is re-parsed to
+Dataset records are only ever removed or stripped of boilerplate, never
+otherwise rewritten, and the file is re-parsed to
 confirm nothing outside `datasets:` moved.
 
     uv run python scripts/tidy_dataset_records.py --pr 7609 --accessions-file accs.txt --dry-run
@@ -35,16 +33,26 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
 HISTORY_DIR = REPO_ROOT / "history" / "disorders"
 
-BOILERPLATE = re.compile(r"^This SuperSeries is composed of the SubSeries listed below\.?$", re.IGNORECASE)
+BOILERPLATE = re.compile(
+    r"^This SuperSeries is composed of the SubSeries listed below\.?$", re.IGNORECASE
+)
 
 
 def record_span(lines: list[str], acc: str) -> tuple[int, int] | None:
-    start = next((i for i, ln in enumerate(lines) if ln.strip() == f"- accession: {acc}"), None)
+    start = next(
+        (i for i, ln in enumerate(lines) if ln.strip() == f"- accession: {acc}"), None
+    )
     if start is None:
         return None
-    end = next((j for j in range(start + 1, len(lines))
-                if lines[j].lstrip().startswith("- ") or
-                (lines[j].strip() and not lines[j].startswith((" ", "\t")))), len(lines))
+    end = next(
+        (
+            j
+            for j in range(start + 1, len(lines))
+            if lines[j].lstrip().startswith("- ")
+            or (lines[j].strip() and not lines[j].startswith((" ", "\t")))
+        ),
+        len(lines),
+    )
     return start, end
 
 
@@ -55,10 +63,13 @@ def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int,
     if not records:
         return 0, 0
 
-    scoped = [r for r in records
-              if allowed is None or str(r.get("accession", "")) in allowed]
+    scoped = [
+        r for r in records if allowed is None or str(r.get("accession", "")) in allowed
+    ]
 
-    # 1. one record per publication, keeping the largest (SuperSeries over SubSeries)
+    # 1. Drop only placeholder GEO SuperSeries when an informative sibling
+    # shares the publication. Publication identity alone is not duplication:
+    # one paper can contain distinct assay arms or controlled-access cohorts.
     by_pub: dict[str, list[dict]] = {}
     for r in scoped:
         pub = r.get("publication")
@@ -66,17 +77,27 @@ def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int,
             by_pub.setdefault(str(pub), []).append(r)
     drop: set[str] = set()
     for _pub, group in by_pub.items():
-        if len(group) < 2:
+        if len(group) < 2 or not all(
+            str(r.get("accession", "")).startswith("geo:") for r in group
+        ):
             continue
-        keep = max(group, key=lambda r: (r.get("sample_count") or 0, str(r.get("accession"))))
-        for r in group:
-            if r is not keep:
-                drop.add(str(r["accession"]))
+        informative = [
+            r
+            for r in group
+            if not BOILERPLATE.match(" ".join(str(r.get("description") or "").split()))
+        ]
+        if informative:
+            for r in group:
+                if BOILERPLATE.match(" ".join(str(r.get("description") or "").split())):
+                    drop.add(str(r["accession"]))
 
     # 2. boilerplate descriptions
-    strip_desc = {str(r["accession"]) for r in scoped
-                  if BOILERPLATE.match(" ".join(str(r.get("description") or "").split()))
-                  and str(r["accession"]) not in drop}
+    strip_desc = {
+        str(r["accession"])
+        for r in scoped
+        if BOILERPLATE.match(" ".join(str(r.get("description") or "").split()))
+        and str(r["accession"]) not in drop
+    }
 
     if not drop and not strip_desc:
         return 0, 0
@@ -84,7 +105,9 @@ def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int,
         return len(drop), len(strip_desc)
 
     lines = text.splitlines(keepends=True)
-    for acc in sorted(drop | strip_desc, key=lambda a: -(record_span(lines, a) or (0, 0))[0]):
+    for acc in sorted(
+        drop | strip_desc, key=lambda a: -(record_span(lines, a) or (0, 0))[0]
+    ):
         span = record_span(lines, acc)
         if not span:
             continue
@@ -95,8 +118,11 @@ def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int,
             for j in range(start, end):
                 if lines[j].lstrip().startswith("description:"):
                     k = j + 1
-                    while k < end and lines[k].startswith(" " * 4) and \
-                            not re.match(r"\s{2}\w+:", lines[k]):
+                    while (
+                        k < end
+                        and lines[k].startswith(" " * 4)
+                        and not re.match(r"\s{2}\w+:", lines[k])
+                    ):
                         k += 1
                     del lines[j:k]
                     break
@@ -104,11 +130,15 @@ def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int,
     updated = "".join(lines)
     before, after = yaml.safe_load(text) or {}, yaml.safe_load(updated) or {}
     kept = [str(r.get("accession")) for r in (after.get("datasets") or [])]
-    expected = [str(r.get("accession")) for r in records if str(r.get("accession")) not in drop]
+    expected = [
+        str(r.get("accession")) for r in records if str(r.get("accession")) not in drop
+    ]
     before.pop("datasets", None)
     after.pop("datasets", None)
     if before != after or kept != expected:
-        print(f"  !! {path.name}: edit altered other content, skipping", file=sys.stderr)
+        print(
+            f"  !! {path.name}: edit altered other content, skipping", file=sys.stderr
+        )
         return 0, 0
 
     path.write_text(updated, newline="")
@@ -119,7 +149,10 @@ def link_history(pr: int, added_only: set[str] | None, dry_run: bool) -> int:
     """Populate links.prs on history records that have none."""
     n = 0
     for path in sorted(HISTORY_DIR.glob("*/*.yaml")):
-        if added_only is not None and str(path.relative_to(REPO_ROOT)) not in added_only:
+        if (
+            added_only is not None
+            and str(path.relative_to(REPO_ROOT)) not in added_only
+        ):
             continue
         text = path.read_text()
         doc = yaml.safe_load(text) or {}
@@ -139,21 +172,37 @@ def link_history(pr: int, added_only: set[str] | None, dry_run: bool) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--pr", type=int, required=True)
-    ap.add_argument("--accessions-file", type=Path,
-                    help="restrict dataset tidying to accessions this branch introduced")
-    ap.add_argument("--history-file", type=Path,
-                    help="restrict history linking to records this branch added")
+    ap.add_argument(
+        "--accessions-file",
+        type=Path,
+        help="restrict dataset tidying to accessions this branch introduced",
+    )
+    ap.add_argument(
+        "--history-file",
+        type=Path,
+        help="restrict history linking to records this branch added",
+    )
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     allowed = None
     if args.accessions_file and args.accessions_file.exists():
-        allowed = {ln.strip() for ln in args.accessions_file.read_text().splitlines() if ln.strip()}
+        allowed = {
+            ln.strip()
+            for ln in args.accessions_file.read_text().splitlines()
+            if ln.strip()
+        }
     hist = None
     if args.history_file and args.history_file.exists():
-        hist = {ln.strip() for ln in args.history_file.read_text().splitlines() if ln.strip()}
+        hist = {
+            ln.strip()
+            for ln in args.history_file.read_text().splitlines()
+            if ln.strip()
+        }
 
     dropped = stripped = 0
     for path in sorted(KB_DIR.glob("*.yaml")):
@@ -165,8 +214,10 @@ def main() -> int:
 
     linked = link_history(args.pr, hist, args.dry_run)
     verb = "would" if args.dry_run else ""
-    print(f"\n{verb} drop {dropped} duplicate-publication records, "
-          f"strip {stripped} boilerplate descriptions, link {linked} history records to PR #{args.pr}")
+    print(
+        f"\n{verb} drop {dropped} duplicate-publication records, "
+        f"strip {stripped} boilerplate descriptions, link {linked} history records to PR #{args.pr}"
+    )
     return 0
 
 
