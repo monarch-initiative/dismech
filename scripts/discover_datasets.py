@@ -55,9 +55,16 @@ USER_AGENT = "dismech-dataset-discovery (https://github.com/monarch-initiative/d
 
 # GEO's free-text "gdstype" -> the schema's DatasetTypeEnum. Order matters: the
 # first match wins, so put the more specific assay first.
+#
+# IMPORTANT: `gdstype` is a small controlled vocabulary and it does NOT
+# distinguish assay resolution. Every single-cell, single-nucleus and spatial
+# series is labelled "Expression profiling by high throughput sequencing", and
+# ATAC-seq is labelled "Genome binding/occupancy profiling by high throughput
+# sequencing" -- the same value as ChIP-seq. So `gdstype` alone cannot yield
+# SINGLE_CELL_RNA_SEQ, SPATIAL_TRANSCRIPTOMICS or ATAC_SEQ, and an earlier
+# version of this table silently mapped 156 such series to BULK_RNA_SEQ or
+# CHIP_SEQ. `refine_data_type` below recovers them from the series text.
 GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
-    ("single cell", "SINGLE_CELL_RNA_SEQ"),
-    ("spatial", "SPATIAL_TRANSCRIPTOMICS"),
     ("methylation profiling", "METHYLATION"),
     ("genome methylation", "METHYLATION"),
     ("genome binding/occupancy", "CHIP_SEQ"),
@@ -65,14 +72,46 @@ GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
     ("atac", "ATAC_SEQ"),
     ("protein profiling", "PROTEOMICS"),
     ("metabolomic", "METABOLOMICS"),
-    ("snp genotyping", "GWAS"),
-    ("genome variation profiling", "GWAS"),
     ("expression profiling by high throughput sequencing", "BULK_RNA_SEQ"),
     ("expression profiling by array", "MICROARRAY"),
     ("non-coding rna profiling by array", "MICROARRAY"),
     ("non-coding rna profiling by high throughput sequencing", "BULK_RNA_SEQ"),
     ("genome variation profiling by high throughput sequencing", "WGS"),
 ]
+
+# Assay signatures GEO's `gdstype` cannot express, recovered from the series
+# title and summary. Order matters: a spatial single-cell study is spatial.
+ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(spatial(ly)?[- ]?(resolved|transcriptom\w*)?|visium|geomx|merfish|"
+                r"xenium|cosmx|slide[- ]?seq|stereo[- ]?seq)\b", re.IGNORECASE), "SPATIAL_TRANSCRIPTOMICS"),
+    (re.compile(r"\b(atac[- ]?seq|(?:sc|sn)atac[- ]?seq|cut&tag|cut ?& ?run|cut&run)\b", re.IGNORECASE), "ATAC_SEQ"),
+    (re.compile(r"\b(single[- ]cell|single[- ]nucleus|single[- ]nuclei|sc ?rna[- ]?seq|"
+                r"sn ?rna[- ]?seq|scrna|snrna|cite[- ]?seq|10x genomics|droplet[- ]based)\b",
+                re.IGNORECASE), "SINGLE_CELL_RNA_SEQ"),
+]
+
+# `gdstype` values that describe only the broad modality, so the series text is
+# the better authority when it names a specific assay.
+UNSPECIFIC_GDSTYPES = ("expression profiling", "genome binding/occupancy", "other")
+
+
+def refine_data_type(gds_type: str, text: str, mapped: str) -> str:
+    """Upgrade a coarse `gdstype` mapping using the series' own title/summary.
+
+    Only fires when `gdstype` is one of the broad values that cannot express
+    assay resolution, so an explicit GEO label (methylation, proteomics, GWAS)
+    is never overridden by a stray word in a summary.
+    """
+    low = (gds_type or "").lower()
+    if not any(u in low for u in UNSPECIFIC_GDSTYPES):
+        return mapped
+    matches = {enum for pattern, enum in ASSAY_PATTERNS if pattern.search(text or "")}
+    if len(matches) > 1:
+        return "MULTI_OMICS"
+    if matches:
+        return matches.pop()
+    return mapped
+
 
 # Words that indicate the samples are patient material rather than a cell line.
 PRIMARY_TISSUE_HINTS = (
@@ -199,22 +238,34 @@ def qualifier_group(word: str) -> frozenset[str] | None:
     return None
 
 
+# How many words before the core term to scan for a qualifying adjective.
+QUALIFIER_WINDOW = 3
+
+
 def has_qualifier_conflict(text: str, entry_qualifier: str, core: str) -> str:
-    """Return the competing qualifier if `text` applies one to `core`, else ""."""
+    """Return the competing qualifier if `text` applies one to `core`, else "".
+
+    Scans the words immediately preceding each occurrence of the core term and
+    takes the *nearest* qualifier found. An earlier single-regex version tried
+    to capture the qualifier positionally and silently missed cases: in
+    "causes of hereditary angioedema" the optional-intervening-word branch let
+    "of" claim the match, so "hereditary" was never examined and the sibling
+    disease slipped through.
+    """
     if not core:
         return ""
-    pattern = re.compile(
-        r"\b([a-z]+)\s+(?:\w+\s+){0,1}?" + re.escape(core.lower()), re.IGNORECASE
-    )
     own = qualifier_group(entry_qualifier) or frozenset({entry_qualifier.lower()})
-    for m in pattern.finditer(text.lower()):
-        word = m.group(1)
-        grp = qualifier_group(word)
-        if grp is None:
-            continue
-        if word.lower() == entry_qualifier.lower() or grp == own:
-            continue
-        return word
+    low, core_l = text.lower(), core.lower()
+
+    for m in re.finditer(re.escape(core_l), low):
+        preceding = re.findall(r"[a-z]+", low[: m.start()])[-QUALIFIER_WINDOW:]
+        for word in reversed(preceding):  # nearest qualifier wins
+            grp = qualifier_group(word)
+            if grp is None:
+                continue
+            if word == entry_qualifier.lower() or grp == own:
+                break  # the entry's own qualifier is the closest one: not a conflict
+            return word
     return ""
 
 
@@ -462,7 +513,9 @@ def discover(slug: str, limit: int, per_query: int, use_synonyms: bool) -> list[
                 release_date=doc.get("pdat") or "",
                 matched_query=label,
             )
-            cand.data_type = map_data_type(cand.gds_type)
+            cand.data_type = refine_data_type(
+                cand.gds_type, f"{cand.title} {cand.summary}", map_data_type(cand.gds_type)
+            )
             score_candidate(cand, phrases, wordsets, cores)
             seen[acc] = cand
 
