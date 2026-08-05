@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41569-023-00946-3"
+reference_id: DOI:10.1038/s41569-023-00946-3
 title: The role of the NLRP3 inflammasome and pyroptosis in cardiovascular diseases
 authors:
 - Stefano Toldo
@@ -8,6 +8,7 @@ journal: Nature Reviews Cardiology
 year: '2024'
 doi: 10.1038/s41569-023-00946-3
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The role of the NLRP3 inflammasome and pyroptosis in cardiovascular diseases

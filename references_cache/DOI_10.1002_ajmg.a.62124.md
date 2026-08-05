@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.62124"
+reference_id: DOI:10.1002/ajmg.a.62124
 title: Expanding the genotypic and phenotypic spectrum in a diverse cohort of 104 individuals with Wiedemann‐Steiner syndrome
 authors:
 - Sarah E. Sheppard
@@ -109,6 +109,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2021'
 doi: 10.1002/ajmg.a.62124
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Expanding the genotypic and phenotypic spectrum in a diverse cohort of 104 individuals with Wiedemann‐Steiner syndrome

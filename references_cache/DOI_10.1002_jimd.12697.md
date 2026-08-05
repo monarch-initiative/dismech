@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jimd.12697"
+reference_id: DOI:10.1002/jimd.12697
 title: Gene therapy for neurotransmitter‐related disorders
 authors:
 - Wing Sum Chu
@@ -10,6 +10,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2024'
 doi: 10.1002/jimd.12697
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene therapy for neurotransmitter‐related disorders

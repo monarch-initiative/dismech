@@ -22,6 +22,7 @@ Alias: attaches_to
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
+| [Definition](../classes/Definition.md) | A diagnostic or phenotype definition for the disease |  yes  |
 | [Discussion](../classes/Discussion.md) | A thread-like record of an open question, controversy, curation todo, emergin... |  no  |
 
 
@@ -36,7 +37,7 @@ Alias: attaches_to
 | Property | Value |
 | --- | --- |
 | Range | [String](../types/String.md) |
-| Domain Of | [Discussion](../classes/Discussion.md) |
+| Domain Of | [Definition](../classes/Definition.md), [Discussion](../classes/Discussion.md) |
 
 ### Cardinality and Requirements
 
@@ -92,6 +93,7 @@ from_schema: https://w3id.org/monarch-initiative/dismech
 rank: 1000
 alias: attaches_to
 domain_of:
+- Definition
 - Discussion
 range: string
 multivalued: true

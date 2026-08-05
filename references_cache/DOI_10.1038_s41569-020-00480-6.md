@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41569-020-00480-6"
+reference_id: DOI:10.1038/s41569-020-00480-6
 title: Cellular and molecular pathobiology of heart failure with preserved ejection fraction
 authors:
 - Sumita Mishra
@@ -8,6 +8,7 @@ journal: Nature Reviews Cardiology
 year: '2021'
 doi: 10.1038/s41569-020-00480-6
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Cellular and molecular pathobiology of heart failure with preserved ejection fraction

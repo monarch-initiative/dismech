@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyae180"
+reference_id: DOI:10.1093/oncolo/oyae180
 title: Association of circulating tumor DNA with patient prognosis in surgically resected renal cell carcinoma
 authors:
 - Andres F Correa
@@ -20,6 +20,7 @@ journal: The Oncologist
 year: '2024'
 doi: 10.1093/oncolo/oyae180
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Association of circulating tumor DNA with patient prognosis in surgically resected renal cell carcinoma

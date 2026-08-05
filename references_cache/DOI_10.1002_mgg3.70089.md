@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.70089"
+reference_id: DOI:10.1002/mgg3.70089
 title: "Novel Compound Heterozygous Variants in <scp><i>ZNF526</i></scp> Causing Dentici‐Novelli Neurodevelopmental Syndrome: A Case Report and Literature Review"
 authors:
 - Shaoxin Li
@@ -14,6 +14,7 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2025'
 doi: 10.1002/mgg3.70089
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel Compound Heterozygous Variants in <scp><i>ZNF526</i></scp> Causing Dentici‐Novelli Neurodevelopmental Syndrome: A Case Report and Literature Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjh.19860"
+reference_id: DOI:10.1111/bjh.19860
 title: Sequencing of therapy for patients with diffuse large B‐cell lymphoma in the era of novel drugs
 authors:
 - Imke E. Karsten
@@ -10,6 +10,7 @@ journal: British Journal of Haematology
 year: '2024'
 doi: 10.1111/bjh.19860
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Sequencing of therapy for patients with diffuse large B‐cell lymphoma in the era of novel drugs

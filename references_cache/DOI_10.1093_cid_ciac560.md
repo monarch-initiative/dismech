@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/cid/ciac560"
+reference_id: DOI:10.1093/cid/ciac560
 title: Retrospective Multicenter Study Comparing Infectious and Noninfectious Aortitis
 authors:
 - Mathilde Carrer
@@ -31,6 +31,7 @@ journal: Clinical Infectious Diseases
 year: '2023'
 doi: 10.1093/cid/ciac560
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Retrospective Multicenter Study Comparing Infectious and Noninfectious Aortitis

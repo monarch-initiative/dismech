@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ceo.14507"
+reference_id: DOI:10.1111/ceo.14507
 title: "Strabismus in Genetic Syndromes: A Review"
 authors:
 - Seyda Kilic
@@ -10,6 +10,7 @@ journal: "Clinical &amp; Experimental Ophthalmology"
 year: '2025'
 doi: 10.1111/ceo.14507
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Strabismus in Genetic Syndromes: A Review

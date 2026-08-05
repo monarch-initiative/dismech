@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.04.11.487861"
+reference_id: DOI:10.1101/2022.04.11.487861
 title: Quantitation of FGFR3 signaling via GRB2 recruitment on micropatterned surfaces
 authors:
 - Ingrid Hartl
@@ -12,6 +12,7 @@ authors:
 year: '2022'
 doi: 10.1101/2022.04.11.487861
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Quantitation of FGFR3 signaling via GRB2 recruitment on micropatterned surfaces

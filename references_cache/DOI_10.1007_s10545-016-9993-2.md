@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s10545-016-9993-2"
+reference_id: DOI:10.1007/s10545-016-9993-2
 title: Assessment of ataxia phenotype in a new mouse model of galactose‐1 phosphate uridylyltransferase (GALT) deficiency
 authors:
 - Wyman Chen
@@ -14,6 +14,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2017'
 doi: 10.1007/s10545-016-9993-2
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Assessment of ataxia phenotype in a new mouse model of galactose‐1 phosphate uridylyltransferase (GALT) deficiency

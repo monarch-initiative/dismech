@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/14712598.2020.1749259"
+reference_id: DOI:10.1080/14712598.2020.1749259
 title: Current and emerging biologics for the treatment of neuromyelitis optica spectrum disorders
 authors:
 - Ankelien Duchow
@@ -9,6 +9,7 @@ journal: Expert Opinion on Biological Therapy
 year: '2020'
 doi: 10.1080/14712598.2020.1749259
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Current and emerging biologics for the treatment of neuromyelitis optica spectrum disorders

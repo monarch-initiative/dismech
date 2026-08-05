@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/md.0000000000040254"
+reference_id: DOI:10.1097/md.0000000000040254
 title: "Causality between immunocytes and polymyositis: A Mendelian randomization analysis"
 authors:
 - Ni Yang
@@ -11,6 +11,7 @@ journal: Medicine
 year: '2024'
 doi: 10.1097/md.0000000000040254
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Causality between immunocytes and polymyositis: A Mendelian randomization analysis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/pnasnexus/pgac162"
+reference_id: DOI:10.1093/pnasnexus/pgac162
 title: "Second hit impels oncogenesis of retinoblastoma in patient-induced pluripotent stem cell-derived retinal organoids: direct evidence for Knudson's theory"
 authors:
 - Yan-Ping Li
@@ -14,6 +14,7 @@ journal: PNAS Nexus
 year: '2022'
 doi: 10.1093/pnasnexus/pgac162
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Second hit impels oncogenesis of retinoblastoma in patient-induced pluripotent stem cell-derived retinal organoids: direct evidence for Knudson's theory

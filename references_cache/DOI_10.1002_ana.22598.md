@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ana.22598"
+reference_id: DOI:10.1002/ana.22598
 title: Loss of junctophilin‐3 contributes to huntington disease‐like 2 pathogenesis
 authors:
 - Ana I. Seixas
@@ -16,6 +16,7 @@ journal: Annals of Neurology
 year: '2012'
 doi: 10.1002/ana.22598
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Loss of junctophilin‐3 contributes to huntington disease‐like 2 pathogenesis

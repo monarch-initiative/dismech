@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph17121724"
+reference_id: DOI:10.3390/ph17121724
 title: "Pharmacotherapy of Liver Fibrosis and Hepatitis: Recent Advances"
 authors:
 - Liangtao Zhao
@@ -9,6 +9,7 @@ journal: Pharmaceuticals
 year: '2024'
 doi: 10.3390/ph17121724
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pharmacotherapy of Liver Fibrosis and Hepatitis: Recent Advances

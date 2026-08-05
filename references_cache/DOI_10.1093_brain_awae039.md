@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awae039"
+reference_id: DOI:10.1093/brain/awae039
 title: "How do we get from hyperexcitability to excitotoxicity in amyotrophic lateral sclerosis?"
 authors:
 - G Lorenzo Odierna
@@ -12,6 +12,7 @@ journal: Brain
 year: '2024'
 doi: 10.1093/brain/awae039
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # How do we get from hyperexcitability to excitotoxicity in amyotrophic lateral sclerosis?

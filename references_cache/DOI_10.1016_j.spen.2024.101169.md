@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.spen.2024.101169"
+reference_id: DOI:10.1016/j.spen.2024.101169
 title: Ataxia telangiectasia
 authors:
 - John Collyer
@@ -8,6 +8,7 @@ journal: Seminars in Pediatric Neurology
 year: '2024'
 doi: 10.1016/j.spen.2024.101169
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Ataxia telangiectasia

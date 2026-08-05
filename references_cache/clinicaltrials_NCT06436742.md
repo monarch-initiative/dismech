@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT06436742"
+reference_id: clinicaltrials:NCT06436742
 title: "A Phase 1b, Double-Blinded, Randomized, Placebo-Controlled Study to Assess the Safety, Tolerability, Pharmacokinetics, Immunogenicity, and Efficacy of ARGX-119 in Adult Participants With DOK7-Congenital Myasthenic Syndromes"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 1b, Double-Blinded, Randomized, Placebo-Controlled Study to Assess the Safety, Tolerability, Pharmacokinetics, Immunogenicity, and Efficacy of ARGX-119 in Adult Participants With DOK7-Congenital Myasthenic Syndromes

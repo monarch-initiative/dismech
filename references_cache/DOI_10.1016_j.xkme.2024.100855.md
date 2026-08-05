@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.xkme.2024.100855"
+reference_id: DOI:10.1016/j.xkme.2024.100855
 title: "Ravulizumab in Atypical Hemolytic Uremic Syndrome: An Analysis of 2-Year Efficacy and Safety Outcomes in 2 Phase 3 Trials"
 authors:
 - Bradley P. Dixon
@@ -25,6 +25,7 @@ journal: Kidney Medicine
 year: '2024'
 doi: 10.1016/j.xkme.2024.100855
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Ravulizumab in Atypical Hemolytic Uremic Syndrome: An Analysis of 2-Year Efficacy and Safety Outcomes in 2 Phase 3 Trials

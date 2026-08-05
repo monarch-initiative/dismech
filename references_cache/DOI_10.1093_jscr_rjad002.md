@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jscr/rjad002"
+reference_id: DOI:10.1093/jscr/rjad002
 title: "Intradural extramedullary meningeal melanocytoma: a case report and literature review"
 authors:
 - Rabeeia Parwez
@@ -14,6 +14,7 @@ journal: Journal of Surgical Case Reports
 year: '2023'
 doi: 10.1093/jscr/rjad002
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Intradural extramedullary meningeal melanocytoma: a case report and literature review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddq507"
+reference_id: DOI:10.1093/hmg/ddq507
 title: Phenylbutyrate therapy for maple syrup urine disease
 authors:
 - Nicola Brunetti-Pierri
@@ -20,6 +20,7 @@ journal: Human Molecular Genetics
 year: '2011'
 doi: 10.1093/hmg/ddq507
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Phenylbutyrate therapy for maple syrup urine disease

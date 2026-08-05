@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/pr9.0000000000001220"
+reference_id: DOI:10.1097/pr9.0000000000001220
 title: Small fiber pathology in fibromyalgia syndrome
 authors:
 - Claudia Sommer
@@ -8,6 +8,7 @@ journal: PAIN Reports
 year: '2025'
 doi: 10.1097/pr9.0000000000001220
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Small fiber pathology in fibromyalgia syndrome

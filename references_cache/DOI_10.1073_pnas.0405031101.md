@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.0405031101"
-title: "A gain-of-function mutation of
-            <i>Fgfr2c</i>
-            demonstrates the roles of this receptor variant in osteogenesis"
+reference_id: DOI:10.1073/pnas.0405031101
+title: "A gain-of-function mutation of <i>Fgfr2c</i> demonstrates the roles of this receptor variant in osteogenesis"
 authors:
 - Veraragavan P. Eswarakumar
 - Mark C. Horowitz
@@ -13,11 +11,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2004'
 doi: 10.1073/pnas.0405031101
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# A gain-of-function mutation of
-            <i>Fgfr2c</i>
-            demonstrates the roles of this receptor variant in osteogenesis
+# A gain-of-function mutation of <i>Fgfr2c</i> demonstrates the roles of this receptor variant in osteogenesis
 **Authors:** Veraragavan P. Eswarakumar, Mark C. Horowitz, Rachel Locklin, Gillian M. Morriss-Kay, Peter Lonai
 **Journal:** Proceedings of the National Academy of Sciences (2004)
 **DOI:** [10.1073/pnas.0405031101](https://doi.org/10.1073/pnas.0405031101)

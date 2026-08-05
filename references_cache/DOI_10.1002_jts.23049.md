@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jts.23049"
+reference_id: DOI:10.1002/jts.23049
 title: "State of the Science: Treatment of comorbid posttraumatic stress disorder and substance use disorders"
 authors:
 - Sudie E. Back
@@ -11,6 +11,7 @@ journal: Journal of Traumatic Stress
 year: '2024'
 doi: 10.1002/jts.23049
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # State of the Science: Treatment of comorbid posttraumatic stress disorder and substance use disorders

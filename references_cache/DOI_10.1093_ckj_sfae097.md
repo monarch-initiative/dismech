@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/ckj/sfae097"
+reference_id: DOI:10.1093/ckj/sfae097
 title: The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients
 authors:
 - Ursula Thiem
@@ -12,6 +12,7 @@ journal: Clinical Kidney Journal
 year: '2024'
 doi: 10.1093/ckj/sfae097
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The effect of parathyroid hormone lowering by etelcalcetide therapy on calcification propensity and calciprotein particles in hemodialysis patients

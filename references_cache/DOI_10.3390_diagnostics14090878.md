@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14090878"
+reference_id: DOI:10.3390/diagnostics14090878
 title: "Optical Coherence Tomography in Inherited Macular Dystrophies: A Review"
 authors:
 - Alba Gómez-Benlloch
@@ -15,6 +15,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14090878
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Optical Coherence Tomography in Inherited Macular Dystrophies: A Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/nar/gkac941"
+reference_id: DOI:10.1093/nar/gkac941
 title: Vitamin C enhances NF-κB-driven epigenomic reprogramming and boosts the immunogenic properties of dendritic cells
 authors:
 - Octavio Morante-Palacios
@@ -13,6 +13,7 @@ journal: Nucleic Acids Research
 year: '2022'
 doi: 10.1093/nar/gkac941
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Vitamin C enhances NF-κB-driven epigenomic reprogramming and boosts the immunogenic properties of dendritic cells

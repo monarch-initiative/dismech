@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.10.20.24315825"
+reference_id: DOI:10.1101/2024.10.20.24315825
 title: "Shared Genetic Architecture Between Eating Disorders, Mental Health Conditions, and Cardiometabolic Diseases: A Comprehensive Population-Wide Study Across Two Countries"
 authors:
 - Joeri Meijsen
@@ -20,6 +20,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.10.20.24315825
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Shared Genetic Architecture Between Eating Disorders, Mental Health Conditions, and Cardiometabolic Diseases: A Comprehensive Population-Wide Study Across Two Countries

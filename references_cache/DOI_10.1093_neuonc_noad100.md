@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noad100"
+reference_id: DOI:10.1093/neuonc/noad100
 title: "Molecular diagnostic tools for the World Health Organization (WHO) 2021 classification of gliomas, glioneuronal and neuronal tumors; an EANO guideline"
 authors:
 - Felix Sahm
@@ -23,6 +23,7 @@ journal: Neuro-Oncology
 year: '2023'
 doi: 10.1093/neuonc/noad100
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular diagnostic tools for the World Health Organization (WHO) 2021 classification of gliomas, glioneuronal and neuronal tumors; an EANO guideline

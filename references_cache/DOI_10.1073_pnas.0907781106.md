@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.0907781106"
+reference_id: DOI:10.1073/pnas.0907781106
 title: Alterations of the Notch pathway in lung cancer
 authors:
 - Britta Westhoff
@@ -18,6 +18,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2009'
 doi: 10.1073/pnas.0907781106
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Alterations of the Notch pathway in lung cancer

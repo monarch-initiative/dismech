@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT01091909"
 title: Post-extraction Wound Healing in Patients With Type 2 Diabetes
 content_type: summary
+full_text_attempted: true
 ---
 
 # Post-extraction Wound Healing in Patients With Type 2 Diabetes

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/braincomms/fcaf298"
+reference_id: DOI:10.1093/braincomms/fcaf298
 title: "Pontocerebellar hypoplasia: a review from 1912 to 2022"
 authors:
 - Natalie A Kukulka
@@ -12,6 +12,7 @@ journal: Brain Communications
 year: '2025'
 doi: 10.1093/braincomms/fcaf298
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pontocerebellar hypoplasia: a review from 1912 to 2022

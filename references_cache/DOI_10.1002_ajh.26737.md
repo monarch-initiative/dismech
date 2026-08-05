@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajh.26737"
+reference_id: DOI:10.1002/ajh.26737
 title: "Follicular lymphoma: 2023 update on diagnosis and management"
 authors:
 - Eric Jacobsen
@@ -7,6 +7,7 @@ journal: American Journal of Hematology
 year: '2022'
 doi: 10.1002/ajh.26737
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Follicular lymphoma: 2023 update on diagnosis and management

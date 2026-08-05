@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/gad.300384.117"
+reference_id: DOI:10.1101/gad.300384.117
 title: STAT1 modulates tissue wasting or overgrowth downstream from PDGFRβ
 authors:
 - Chaoyong He
@@ -19,6 +19,7 @@ journal: "Genes &amp; Development"
 year: '2017'
 doi: 10.1101/gad.300384.117
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # STAT1 modulates tissue wasting or overgrowth downstream from PDGFRβ

@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06183788"
 title: "Antibody-mediated NMDA Receptor Encephalitis: Symptoms, Biomarkers, and Mechanisms of the Prolonged Recovery Stage"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Antibody-mediated NMDA Receptor Encephalitis: Symptoms, Biomarkers, and Mechanisms of the Prolonged Recovery Stage

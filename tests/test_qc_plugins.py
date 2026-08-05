@@ -4,9 +4,11 @@ from linkml_data_qc.config import PathQCConfig, QCConfig
 from linkml_data_qc.models import AggregatedPathScore, ComplianceReport
 
 from dismech.qc_plugins import (
+    GeneMechanismWiringPlugin,
     PhenotypeConnectivityPlugin,
     augment_report,
     causal_inlink_coverage,
+    gene_mechanism_wiring_coverage,
 )
 
 
@@ -81,6 +83,75 @@ def test_plugin_emits_graded_aggregated_score() -> None:
 
 def test_plugin_returns_no_score_when_no_phenotypes() -> None:
     assert PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+
+
+def _mendelian() -> dict:
+    """One gene wired into a mechanism, one gene floating (no matching node)."""
+    return {
+        "name": "Test Mendelian Disorder",
+        "genetic": [
+            {
+                "name": "COL1A1 pathogenic variant",
+                "gene_term": {"term": {"id": "hgnc:2197", "label": "COL1A1"}},
+                "relationship_type": "CAUSAL",
+            },
+            {
+                "name": "Floating Gene",
+                "gene_term": {"term": {"id": "hgnc:9999", "label": "FLOAT1"}},
+                "relationship_type": "CAUSAL",
+            },
+        ],
+        "pathophysiology": [
+            {
+                "name": "Defective Collagen Synthesis",
+                "gene": {"term": {"id": "hgnc:2197", "label": "COL1A1"}},
+            }
+        ],
+    }
+
+
+def test_gene_wiring_coverage_identifies_floating_gene() -> None:
+    wired, total, unwired = gene_mechanism_wiring_coverage(_mendelian())
+    assert (wired, total) == (1, 2)
+    assert unwired == ["Floating Gene"]
+
+
+def test_biomarker_gene_excluded_from_denominator() -> None:
+    """A non-causal (BIOMARKER) genetic item is not expected to wire in."""
+    data = {
+        "genetic": [
+            {
+                "name": "Prognostic Marker",
+                "gene_term": {"term": {"id": "hgnc:1234", "label": "MARK1"}},
+                "relationship_type": "BIOMARKER",
+            }
+        ],
+        "pathophysiology": [{"name": "Some Mechanism"}],
+    }
+    wired, total, unwired = gene_mechanism_wiring_coverage(data)
+    assert (wired, total) == (0, 0)
+    assert unwired == []
+
+
+def test_gene_wiring_plugin_emits_graded_score() -> None:
+    config = QCConfig(
+        paths={
+            "genetic[].mechanism_outlink": PathQCConfig(weight=1.5, min_compliance=None)
+        }
+    )
+    scores = GeneMechanismWiringPlugin().evaluate(_mendelian(), config)
+    assert len(scores) == 1
+    score = scores[0]
+    assert isinstance(score, AggregatedPathScore)
+    assert score.path == "genetic[]"
+    assert score.slot_name == "mechanism_outlink"
+    assert (score.populated, score.total) == (1, 2)
+    assert score.percentage == 50.0
+    assert score.weight == 1.5
+
+
+def test_gene_wiring_plugin_returns_no_score_without_genes() -> None:
+    assert GeneMechanismWiringPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
 
 
 def test_augment_report_folds_in_connectivity_and_recomputes() -> None:

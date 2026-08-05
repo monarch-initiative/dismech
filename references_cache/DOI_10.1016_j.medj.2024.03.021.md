@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.medj.2024.03.021"
+reference_id: DOI:10.1016/j.medj.2024.03.021
 title: Multimodal single-cell analyses reveal mechanisms of perianal fistula in diverse patients with Crohn’s disease
 authors:
 - Rachel M. Levantovsky
@@ -25,6 +25,7 @@ journal: Med
 year: '2024'
 doi: 10.1016/j.medj.2024.03.021
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Multimodal single-cell analyses reveal mechanisms of perianal fistula in diverse patients with Crohn’s disease

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/ni.3457"
+reference_id: DOI:10.1038/ni.3457
 title: Pyrin inflammasome activation and RhoA signaling in the autoinflammatory diseases FMF and HIDS
 authors:
 - Yong Hwan Park
@@ -10,6 +10,7 @@ journal: Nature Immunology
 year: '2016'
 doi: 10.1038/ni.3457
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pyrin inflammasome activation and RhoA signaling in the autoinflammatory diseases FMF and HIDS

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.35843"
+reference_id: DOI:10.1002/ajmg.a.35843
 title: "Analysis of De Novo <scp><i>HOXA</i></scp><i>13</i> Polyalanine Expansions Supports Replication Slippage Without Repair in Their Generation"
 authors:
 - Kailey M. Owens
@@ -15,6 +15,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2013'
 doi: 10.1002/ajmg.a.35843
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Analysis of De Novo <scp><i>HOXA</i></scp><i>13</i> Polyalanine Expansions Supports Replication Slippage Without Repair in Their Generation

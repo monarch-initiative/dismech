@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41416-024-02711-w"
+reference_id: DOI:10.1038/s41416-024-02711-w
 title: Efficacy-effectiveness analysis on survival in a population-based real-world study of BRAF-mutated metastatic colorectal cancer patients treated with encorafenib-cetuximab
 authors:
 - Koen Zwart
@@ -14,6 +14,7 @@ journal: British Journal of Cancer
 year: '2024'
 doi: 10.1038/s41416-024-02711-w
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Efficacy-effectiveness analysis on survival in a population-based real-world study of BRAF-mutated metastatic colorectal cancer patients treated with encorafenib-cetuximab

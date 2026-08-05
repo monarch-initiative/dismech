@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/bib/bbae502"
+reference_id: DOI:10.1093/bib/bbae502
 title: A multi-omics study of brain tissue transcription and DNA methylation revealing the genetic pathogenesis of ADHD
 authors:
 - Jingkai Wang
@@ -13,6 +13,7 @@ journal: Briefings in Bioinformatics
 year: '2024'
 doi: 10.1093/bib/bbae502
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A multi-omics study of brain tissue transcription and DNA methylation revealing the genetic pathogenesis of ADHD

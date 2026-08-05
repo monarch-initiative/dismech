@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.ade7753"
+reference_id: DOI:10.1126/sciadv.ade7753
 title: Rab1b facilitates lipid droplet growth by ER–to–lipid droplet targeting of DGAT2
 authors:
 - Yehonathan Malis
@@ -12,6 +12,7 @@ journal: Science Advances
 year: '2024'
 doi: 10.1126/sciadv.ade7753
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Rab1b facilitates lipid droplet growth by ER–to–lipid droplet targeting of DGAT2

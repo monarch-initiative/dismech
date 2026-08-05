@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/cmr.15.2.223-246.2002"
+reference_id: DOI:10.1128/cmr.15.2.223-246.2002
 title: Dracunculiasis (Guinea Worm Disease) and the Eradication Initiative
 authors:
 - Sandy Cairncross
@@ -9,6 +9,7 @@ journal: Clinical Microbiology Reviews
 year: '2002'
 doi: 10.1128/cmr.15.2.223-246.2002
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dracunculiasis (Guinea Worm Disease) and the Eradication Initiative

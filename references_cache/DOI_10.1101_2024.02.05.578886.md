@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2024.02.05.578886"
+reference_id: DOI:10.1101/2024.02.05.578886
 title: Spatial transcriptomic profiling of human retinoblastoma
 authors:
 - Luozixian Wang
@@ -15,6 +15,7 @@ authors:
 year: '2024'
 doi: 10.1101/2024.02.05.578886
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Spatial transcriptomic profiling of human retinoblastoma

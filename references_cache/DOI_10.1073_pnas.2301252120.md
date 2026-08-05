@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.2301252120"
-title: "Intestinal bile acids provide a surmountable barrier against
-            <i>C. difficile</i>
-            TcdB-induced disease pathogenesis"
+reference_id: DOI:10.1073/pnas.2301252120
+title: "Intestinal bile acids provide a surmountable barrier against <i>C. difficile</i> TcdB-induced disease pathogenesis"
 authors:
 - Simoun Icho
 - Jennifer S. Ward
@@ -14,11 +12,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2023'
 doi: 10.1073/pnas.2301252120
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Intestinal bile acids provide a surmountable barrier against
-            <i>C. difficile</i>
-            TcdB-induced disease pathogenesis
+# Intestinal bile acids provide a surmountable barrier against <i>C. difficile</i> TcdB-induced disease pathogenesis
 **Authors:** Simoun Icho, Jennifer S. Ward, John Tam, Larry K. Kociolek, Casey M. Theriot, Roman A. Melnyk
 **Journal:** Proceedings of the National Academy of Sciences (2023)
 **DOI:** [10.1073/pnas.2301252120](https://doi.org/10.1073/pnas.2301252120)

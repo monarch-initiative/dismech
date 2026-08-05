@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/brain/awt233"
+reference_id: DOI:10.1093/brain/awt233
 title: "Epilepsy, hippocampal sclerosis and febrile seizures linked by common genetic variation around SCN1A"
 authors:
 - Dalia Kasperavičiūtė
@@ -77,6 +77,7 @@ journal: Brain
 year: '2013'
 doi: 10.1093/brain/awt233
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Epilepsy, hippocampal sclerosis and febrile seizures linked by common genetic variation around SCN1A

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyae227"
+reference_id: DOI:10.1093/oncolo/oyae227
 title: Recent advances in Tumor Treating Fields (TTFields) therapy for glioblastoma
 authors:
 - Simon Khagi
@@ -16,6 +16,7 @@ journal: The Oncologist
 year: '2025'
 doi: 10.1093/oncolo/oyae227
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent advances in Tumor Treating Fields (TTFields) therapy for glioblastoma

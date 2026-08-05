@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63363"
+reference_id: DOI:10.1002/ajmg.a.63363
 title: "Novel association of Dandy–Walker malformation with <scp><i>CAPN15</i></scp> variants expands the phenotype of oculogastrointestinal neurodevelopmental syndrome"
 authors:
 - M. Makenzie Beaman
@@ -20,6 +20,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2023'
 doi: 10.1002/ajmg.a.63363
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel association of Dandy–Walker malformation with <scp><i>CAPN15</i></scp> variants expands the phenotype of oculogastrointestinal neurodevelopmental syndrome

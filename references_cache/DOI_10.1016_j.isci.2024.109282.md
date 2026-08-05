@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.isci.2024.109282"
+reference_id: DOI:10.1016/j.isci.2024.109282
 title: Global burden of head and neck cancers from 1990 to 2019
 authors:
 - Tianjiao Zhou
@@ -16,6 +16,7 @@ journal: iScience
 year: '2024'
 doi: 10.1016/j.isci.2024.109282
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Global burden of head and neck cancers from 1990 to 2019

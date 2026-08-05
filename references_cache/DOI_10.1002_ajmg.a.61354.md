@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.61354"
+reference_id: DOI:10.1002/ajmg.a.61354
 title: Novel synonymous and missense variants in FGFR1 causing Hartsfield syndrome
 authors:
 - Carolina Courage
@@ -17,6 +17,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2019'
 doi: 10.1002/ajmg.a.61354
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel synonymous and missense variants in FGFR1 causing Hartsfield syndrome

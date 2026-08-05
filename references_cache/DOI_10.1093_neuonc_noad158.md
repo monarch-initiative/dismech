@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noad158"
+reference_id: DOI:10.1093/neuonc/noad158
 title: Epidemiology and survival of adult-type diffuse glioma in Belgium during the molecular era
 authors:
 - Harry Pinson
@@ -14,6 +14,7 @@ journal: Neuro-Oncology
 year: '2024'
 doi: 10.1093/neuonc/noad158
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Epidemiology and survival of adult-type diffuse glioma in Belgium during the molecular era

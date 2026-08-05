@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ddg.15424"
+reference_id: DOI:10.1111/ddg.15424
 title: Treatment of mucocutaneous leishmaniasis – A systematic review
 authors:
 - Theresa Fischer
@@ -10,6 +10,7 @@ journal: "JDDG: Journal der Deutschen Dermatologischen Gesellschaft"
 year: '2024'
 doi: 10.1111/ddg.15424
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment of mucocutaneous leishmaniasis – A systematic review

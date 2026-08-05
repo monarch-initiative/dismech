@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1084/jem.20181522"
-title: "Use of extracellular vesicles from lymphatic drainage as surrogate markers of melanoma progression and <i>BRAF</i>
-                  <i>V600E</i> mutation"
+reference_id: DOI:10.1084/jem.20181522
+title: "Use of extracellular vesicles from lymphatic drainage as surrogate markers of melanoma progression and <i>BRAF</i> <i>V600E</i> mutation"
 authors:
 - Susana García-Silva
 - Alberto Benito-Martín
@@ -35,10 +34,10 @@ journal: Journal of Experimental Medicine
 year: '2019'
 doi: 10.1084/jem.20181522
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Use of extracellular vesicles from lymphatic drainage as surrogate markers of melanoma progression and <i>BRAF</i>
-                  <i>V600E</i> mutation
+# Use of extracellular vesicles from lymphatic drainage as surrogate markers of melanoma progression and <i>BRAF</i> <i>V600E</i> mutation
 **Authors:** Susana García-Silva, Alberto Benito-Martín, Sara Sánchez-Redondo, Alberto Hernández-Barranco, Pilar Ximénez-Embún, Laura Nogués, Marina S. Mazariegos, Kay Brinkmann, Ana Amor López, Lisa Meyer, Carlos Rodríguez, Carmen García-Martín, Jasminka Boskovic, Rocío Letón, Cristina Montero, Mercedes Robledo, Laura Santambrogio, Mary Sue Brady, Anna Szumera-Ciećkiewicz, Iwona Kalinowska, Johan Skog, Mikkel Noerholm, Javier Muñoz, Pablo L. Ortiz-Romero, Yolanda Ruano, José L. Rodríguez-Peralto, Piotr Rutkowski, Héctor Peinado
 **Journal:** Journal of Experimental Medicine (2019)
 **DOI:** [10.1084/jem.20181522](https://doi.org/10.1084/jem.20181522)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/moo.0000000000000544"
+reference_id: DOI:10.1097/moo.0000000000000544
 title: "Update on empty nose syndrome: disease mechanisms, diagnostic tools, and treatment strategies"
 authors:
 - Amarbir S. Gill
@@ -10,6 +10,7 @@ journal: "Current Opinion in Otolaryngology &amp; Head &amp; Neck Surgery"
 year: '2019'
 doi: 10.1097/moo.0000000000000544
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on empty nose syndrome: disease mechanisms, diagnostic tools, and treatment strategies

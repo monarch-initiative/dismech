@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.eururo.2023.04.003"
+reference_id: DOI:10.1016/j.eururo.2023.04.003
 title: Current Landscape of Genomic Biomarkers in Clear Cell Renal Cell Carcinoma
 authors:
 - Brittney H. Cotta
@@ -18,6 +18,7 @@ journal: European Urology
 year: '2023'
 doi: 10.1016/j.eururo.2023.04.003
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Current Landscape of Genomic Biomarkers in Clear Cell Renal Cell Carcinoma

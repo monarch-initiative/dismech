@@ -13,7 +13,7 @@ and a curation gap list.
 from collections import Counter, defaultdict
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load
 
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_DIR = SCRIPT_DIR.parent
@@ -26,7 +26,7 @@ PROGRAM_FILE = VALIDATION_DIR / "program_go_mapping.yaml"
 def load_trait_mapping() -> dict:
     """Load the trait-to-HPO/disorder mapping."""
     with open(TRAIT_FILE) as f:
-        raw = yaml.safe_load(f)
+        raw = safe_load(f)
     # Filter out comment-only entries
     return {k: v for k, v in raw.items() if isinstance(v, dict)}
 
@@ -34,14 +34,14 @@ def load_trait_mapping() -> dict:
 def load_program_mapping() -> dict:
     """Load the program-to-GO mapping."""
     with open(PROGRAM_FILE) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
     return data["programs"]
 
 
 def extract_genes_from_disorder(filepath: Path) -> set[str]:
     """Extract all gene names from a disorder YAML file."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     genes = set()
     for entry in data.get("genetic", []) or []:
@@ -69,7 +69,7 @@ def extract_go_terms_from_disorder(filepath: Path) -> dict[str, str]:
     Returns dict of go_id -> go_label.
     """
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     go_terms = {}
     for entry in data.get("pathophysiology", []) or []:
@@ -144,7 +144,6 @@ def validate():
 
     trait_results = {}
     all_confirmed_genes = Counter()
-    all_novel_programs = []  # noqa: F841
 
     # Process RBC traits first, then others
     trait_order = list(rbc_traits.keys()) + list(other_traits.keys())

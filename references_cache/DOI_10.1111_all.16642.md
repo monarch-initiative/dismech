@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/all.16642"
+reference_id: DOI:10.1111/all.16642
 title: "Transcriptomic Analysis of Allergic Patch Test Reactions in Non‐Atopic Patients: A Comparative Study Across Multiple Allergens"
 authors:
 - David Pesqué
@@ -16,6 +16,7 @@ journal: Allergy
 year: '2025'
 doi: 10.1111/all.16642
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Transcriptomic Analysis of Allergic Patch Test Reactions in Non‐Atopic Patients: A Comparative Study Across Multiple Allergens

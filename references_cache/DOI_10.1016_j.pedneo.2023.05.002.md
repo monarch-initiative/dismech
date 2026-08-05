@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pedneo.2023.05.002"
+reference_id: DOI:10.1016/j.pedneo.2023.05.002
 title: Pathophysiological and clinical point of view on Kawasaki disease and MIS-C
 authors:
 - Lenka Vaňková
@@ -9,6 +9,7 @@ journal: "Pediatrics &amp; Neonatology"
 year: '2023'
 doi: 10.1016/j.pedneo.2023.05.002
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pathophysiological and clinical point of view on Kawasaki disease and MIS-C

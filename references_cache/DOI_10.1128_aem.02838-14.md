@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1128/aem.02838-14"
+reference_id: DOI:10.1128/aem.02838-14
 title: Positive Regulation of Botulinum Neurotoxin Gene Expression by CodY in Clostridium botulinum ATCC 3502
 authors:
 - Zhen Zhang
@@ -10,6 +10,7 @@ journal: Applied and Environmental Microbiology
 year: '2014'
 doi: 10.1128/aem.02838-14
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Positive Regulation of Botulinum Neurotoxin Gene Expression by CodY in Clostridium botulinum ATCC 3502

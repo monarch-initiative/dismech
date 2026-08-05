@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jnci/djae118"
+reference_id: DOI:10.1093/jnci/djae118
 title: Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer
 authors:
 - Dipesh Uprety
@@ -13,6 +13,7 @@ journal: "JNCI: Journal of the National Cancer Institute"
 year: '2024'
 doi: 10.1093/jnci/djae118
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Racial and socioeconomic disparities in survival among patients with metastatic non–small cell lung cancer

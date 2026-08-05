@@ -1,0 +1,12 @@
+| NCT number | Trial / abbreviated title | Phase | Status | Enrollment | Key intervention / design |
+|---|---|---|---|---:|---|
+| NCT03067181 | AGCT1531 / Active Surveillance, BEP, Carboplatin-Cisplatin in GCT | Phase 3 | Recruiting | 1780 | Risk-adapted management of pediatric and adult germ cell tumors using active surveillance or chemotherapy regimens including bleomycin, etoposide, carboplatin, and cisplatin (pqac-00000000) |
+| NCT02375204 | TIGER / Standard-Dose vs High-Dose Chemotherapy for Relapsed or Refractory GCT | Phase 3 | Active, not recruiting | 420 | Comparative trial of conventional-dose combination chemotherapy versus high-dose chemotherapy with stem cell transplant in relapsed/refractory germ cell tumors (pqac-00000000) |
+| NCT02582697 | Accelerated vs Standard BEP for Intermediate/Poor-Risk Metastatic GCT | Phase 3 | Recruiting | 500 | Comparison of accelerated BEP versus standard BEP chemotherapy in intermediate- and poor-risk metastatic germ cell tumours (pqac-00000000) |
+| NCT05874063 | Thromboprophylaxis in Good and Intermediate Prognosis Advanced GCT | Phase 3 | Recruiting | 387 | Interventional trial testing thromboprophylaxis in advanced germ cell tumors with good/intermediate prognosis during systemic treatment (pqac-00000000) |
+| NCT04684368 | Treatment for CNS NGGCT | Phase 2 | Recruiting | 160 | Multimodal treatment study for children and young adults with non-germinomatous germ cell tumor of the brain (NGGCT) (pqac-00000000) |
+| NCT05564026 | Molecular Epidemiology of Pediatric Germ Cell Tumors | Observational | Recruiting | 1151 | Observational molecular epidemiology study collecting biospecimens and clinical data to define pediatric germ cell tumor risk factors and biology (pqac-00000000) |
+| NCT02429687 | TC vs BEP in Malignant Ovarian Germ Cell Tumors | Phase 3 | Recruiting | 129 | Randomized comparison of TC (paclitaxel/carboplatin) versus BEP (bleomycin/etoposide/cisplatin) in ovarian germ cell tumors, relevant to mixed ovarian GCTs (pqac-00000000) |
+
+
+*Table: This table summarizes currently active or recruiting clinical trials relevant to germ cell tumors, including mixed histologies across testicular, ovarian, pediatric, and CNS settings. It is useful for identifying contemporary interventional and observational studies shaping current and near-future management.*

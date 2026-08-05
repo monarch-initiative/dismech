@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.xgen.2023.100474"
+reference_id: DOI:10.1016/j.xgen.2023.100474
 title: "Host genetic variants, Epstein-Barr virus subtypes, and the risk of nasopharyngeal carcinoma: Assessment of interaction and mediation"
 authors:
 - Miao Xu
@@ -32,6 +32,7 @@ journal: Cell Genomics
 year: '2024'
 doi: 10.1016/j.xgen.2023.100474
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Host genetic variants, Epstein-Barr virus subtypes, and the risk of nasopharyngeal carcinoma: Assessment of interaction and mediation

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/rap/rkae020"
+reference_id: DOI:10.1093/rap/rkae020
 title: "Current and future advances in practice: IgG4-related disease"
 authors:
 - Zachary S Wallace
@@ -10,6 +10,7 @@ journal: Rheumatology Advances in Practice
 year: '2024'
 doi: 10.1093/rap/rkae020
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current and future advances in practice: IgG4-related disease

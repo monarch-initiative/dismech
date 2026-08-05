@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1096/fj.202400210RR"
+reference_id: DOI:10.1096/fj.202400210RR
 title: Impaired cathepsin D in retinal pigment epithelium cells mediates Stargardt disease pathogenesis
 authors:
 - Eunice Sze Yin Ng
@@ -10,6 +10,7 @@ journal: The FASEB Journal
 year: '2024'
 doi: 10.1096/fj.202400210RR
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impaired cathepsin D in retinal pigment epithelium cells mediates Stargardt disease pathogenesis

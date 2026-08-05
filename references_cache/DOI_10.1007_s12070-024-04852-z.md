@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12070-024-04852-z"
+reference_id: DOI:10.1007/s12070-024-04852-z
 title: Topical Antibiotic-Induced Otomycosis - a Systematic Review of Aetiology and Risk Factors
 authors:
 - Maria Pereira
@@ -12,6 +12,7 @@ journal: "Indian Journal of Otolaryngology and Head &amp; Neck Surgery"
 year: '2024'
 doi: 10.1007/s12070-024-04852-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Topical Antibiotic-Induced Otomycosis - a Systematic Review of Aetiology and Risk Factors

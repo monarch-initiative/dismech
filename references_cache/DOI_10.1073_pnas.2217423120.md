@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1073/pnas.2217423120"
-title: "Deep intronic founder mutations identified in the
-            <i>ERCC4</i>
-            /
-            <i>XPF</i>
-            gene are potential therapeutic targets for a high-frequency form of xeroderma pigmentosum"
+reference_id: DOI:10.1073/pnas.2217423120
+title: "Deep intronic founder mutations identified in the <i>ERCC4</i> / <i>XPF</i> gene are potential therapeutic targets for a high-frequency form of xeroderma pigmentosum"
 authors:
 - Chikako Senju
 - Yuka Nakazawa
@@ -28,13 +24,10 @@ journal: Proceedings of the National Academy of Sciences
 year: '2023'
 doi: 10.1073/pnas.2217423120
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Deep intronic founder mutations identified in the
-            <i>ERCC4</i>
-            /
-            <i>XPF</i>
-            gene are potential therapeutic targets for a high-frequency form of xeroderma pigmentosum
+# Deep intronic founder mutations identified in the <i>ERCC4</i> / <i>XPF</i> gene are potential therapeutic targets for a high-frequency form of xeroderma pigmentosum
 **Authors:** Chikako Senju, Yuka Nakazawa, Taichi Oso, Mayuko Shimada, Kana Kato, Michiko Matsuse, Mariko Tsujimoto, Taro Masaki, Yasushi Miyazaki, Satoshi Fukushima, Satoshi Tateishi, Atsushi Utani, Hiroyuki Murota, Katsumi Tanaka, Norisato Mitsutake, Shinichi Moriwaki, Chikako Nishigori, Tomoo Ogi
 **Journal:** Proceedings of the National Academy of Sciences (2023)
 **DOI:** [10.1073/pnas.2217423120](https://doi.org/10.1073/pnas.2217423120)

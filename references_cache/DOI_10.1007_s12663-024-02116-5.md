@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s12663-024-02116-5"
+reference_id: DOI:10.1007/s12663-024-02116-5
 title: "Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study"
 authors:
 - N. K. Sahoo
@@ -12,6 +12,7 @@ journal: Journal of Maxillofacial and Oral Surgery
 year: '2024'
 doi: 10.1007/s12663-024-02116-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Incidence of Mortality and Its Relation to Comorbidity in Ludwig’s Angina: A Retrospective Study

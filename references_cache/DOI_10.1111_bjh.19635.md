@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/bjh.19635"
+reference_id: DOI:10.1111/bjh.19635
 title: Guidelines on the investigation and management of antiphospholipid syndrome
 authors:
 - Deepa J. Arachchillage
@@ -14,6 +14,7 @@ journal: British Journal of Haematology
 year: '2024'
 doi: 10.1111/bjh.19635
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Guidelines on the investigation and management of antiphospholipid syndrome

@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1093/oncolo/oyad082"
-title: "<i>BRAF</i>
-          V600E/<i>RAS</i> Mutations and Lynch Syndrome in Patients With MSI-H/dMMR Metastatic Colorectal Cancer Treated With Immune Checkpoint Inhibitors"
+reference_id: DOI:10.1093/oncolo/oyad082
+title: "<i>BRAF</i> V600E/<i>RAS</i> Mutations and Lynch Syndrome in Patients With MSI-H/dMMR Metastatic Colorectal Cancer Treated With Immune Checkpoint Inhibitors"
 authors:
 - Raphael Colle
 - Sara Lonardi
@@ -22,10 +21,10 @@ journal: The Oncologist
 year: '2023'
 doi: 10.1093/oncolo/oyad082
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>BRAF</i>
-          V600E/<i>RAS</i> Mutations and Lynch Syndrome in Patients With MSI-H/dMMR Metastatic Colorectal Cancer Treated With Immune Checkpoint Inhibitors
+# <i>BRAF</i> V600E/<i>RAS</i> Mutations and Lynch Syndrome in Patients With MSI-H/dMMR Metastatic Colorectal Cancer Treated With Immune Checkpoint Inhibitors
 **Authors:** Raphael Colle, Sara Lonardi, Marine Cachanado, Michael J Overman, Elena Elez, Marwan Fakih, Francesca Corti, Priya Jayachandran, Magali Svrcek, Antoine Dardenne, Baptiste Cervantes, Alex Duval, Romain Cohen, Filippo Pietrantonio, Thierry André
 **Journal:** The Oncologist (2023)
 **DOI:** [10.1093/oncolo/oyad082](https://doi.org/10.1093/oncolo/oyad082)

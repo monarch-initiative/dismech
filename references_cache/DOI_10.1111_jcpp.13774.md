@@ -1,9 +1,6 @@
 ---
-reference_id: "DOI:10.1111/jcpp.13774"
-title: "Treatment of childhood disruptive behavior disorders and
-                    <scp>callous‐unemotional</scp>
-                    traits: a systematic review and two multilevel
-                    <scp>meta‐analyses</scp>"
+reference_id: DOI:10.1111/jcpp.13774
+title: "Treatment of childhood disruptive behavior disorders and <scp>callous‐unemotional</scp> traits: a systematic review and two multilevel <scp>meta‐analyses</scp>"
 authors:
 - Samantha Perlstein
 - Maddy Fair
@@ -13,12 +10,10 @@ journal: Journal of Child Psychology and Psychiatry
 year: '2023'
 doi: 10.1111/jcpp.13774
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Treatment of childhood disruptive behavior disorders and
-                    <scp>callous‐unemotional</scp>
-                    traits: a systematic review and two multilevel
-                    <scp>meta‐analyses</scp>
+# Treatment of childhood disruptive behavior disorders and <scp>callous‐unemotional</scp> traits: a systematic review and two multilevel <scp>meta‐analyses</scp>
 **Authors:** Samantha Perlstein, Maddy Fair, Emily Hong, Rebecca Waller
 **Journal:** Journal of Child Psychology and Psychiatry (2023)
 **DOI:** [10.1111/jcpp.13774](https://doi.org/10.1111/jcpp.13774)

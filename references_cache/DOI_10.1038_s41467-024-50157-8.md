@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-024-50157-8"
+reference_id: DOI:10.1038/s41467-024-50157-8
 title: Glucose-6-phosphate dehydrogenase maintains redox homeostasis and biosynthesis in LKB1-deficient KRAS-driven lung cancer
 authors:
 - Taijin Lan
@@ -22,6 +22,7 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-024-50157-8
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Glucose-6-phosphate dehydrogenase maintains redox homeostasis and biosynthesis in LKB1-deficient KRAS-driven lung cancer

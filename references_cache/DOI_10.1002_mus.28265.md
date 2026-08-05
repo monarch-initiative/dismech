@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mus.28265"
+reference_id: DOI:10.1002/mus.28265
 title: Intravenous immunoglobulin and plasma exchange prescribing patterns for Guillain‐Barre Syndrome in the United States—2001 to 2018
 authors:
 - Amro M. Stino
@@ -10,6 +10,7 @@ journal: "Muscle &amp; Nerve"
 year: '2024'
 doi: 10.1002/mus.28265
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Intravenous immunoglobulin and plasma exchange prescribing patterns for Guillain‐Barre Syndrome in the United States—2001 to 2018

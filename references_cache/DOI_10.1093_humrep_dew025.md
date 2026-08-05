@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/humrep/dew025"
+reference_id: DOI:10.1093/humrep/dew025
 title: "A novel follicle-stimulating hormone receptor mutation causing primary ovarian failure: a fertility application of whole exome sequencing"
 authors:
 - Matthew S. Bramble
@@ -21,6 +21,7 @@ journal: Human Reproduction
 year: '2016'
 doi: 10.1093/humrep/dew025
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A novel follicle-stimulating hormone receptor mutation causing primary ovarian failure: a fertility application of whole exome sequencing

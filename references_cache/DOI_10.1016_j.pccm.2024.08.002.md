@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pccm.2024.08.002"
+reference_id: DOI:10.1016/j.pccm.2024.08.002
 title: Overcoming EGFR-TKI resistance by targeting the tumor microenvironment
 authors:
 - Jinsong Zhang
@@ -14,6 +14,7 @@ journal: Chinese Medical Journal Pulmonary and Critical Care Medicine
 year: '2024'
 doi: 10.1016/j.pccm.2024.08.002
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Overcoming EGFR-TKI resistance by targeting the tumor microenvironment

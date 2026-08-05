@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/hmg/ddn339"
+reference_id: DOI:10.1093/hmg/ddn339
 title: FGFR3 promotes synchondrosis closure and fusion of ossification centers through the MAPK pathway
 authors:
 - T. Matsushita
@@ -19,6 +19,7 @@ journal: Human Molecular Genetics
 year: '2008'
 doi: 10.1093/hmg/ddn339
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # FGFR3 promotes synchondrosis closure and fusion of ossification centers through the MAPK pathway

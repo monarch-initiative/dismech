@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1111/cge.13680"
-title: "Integrated analysis of
-                    <i>COL2A1</i>
-                    variant data and classification of type II collagenopathies"
+reference_id: DOI:10.1111/cge.13680
+title: "Integrated analysis of <i>COL2A1</i> variant data and classification of type II collagenopathies"
 authors:
 - Boyan Zhang
 - Yue Zhang
@@ -14,11 +12,10 @@ journal: Clinical Genetics
 year: '2020'
 doi: 10.1111/cge.13680
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Integrated analysis of
-                    <i>COL2A1</i>
-                    variant data and classification of type II collagenopathies
+# Integrated analysis of <i>COL2A1</i> variant data and classification of type II collagenopathies
 **Authors:** Boyan Zhang, Yue Zhang, Naichao Wu, Jianing Li, He Liu, Jincheng Wang
 **Journal:** Clinical Genetics (2020)
 **DOI:** [10.1111/cge.13680](https://doi.org/10.1111/cge.13680)

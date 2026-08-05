@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.15639"
+reference_id: DOI:10.1111/jdv.15639
 title: "Characteristics, risk factors and treatment reality in livedoid vasculopathy – a multicentre analysis"
 authors:
 - C. Weishaupt
@@ -15,6 +15,7 @@ journal: Journal of the European Academy of Dermatology and Venereology
 year: '2019'
 doi: 10.1111/jdv.15639
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Characteristics, risk factors and treatment reality in livedoid vasculopathy – a multicentre analysis

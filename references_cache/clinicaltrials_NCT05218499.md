@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT05218499"
 title: "Brightline-1: A Phase II/III, Randomized, Open-label, Multi-center Study of Brigimadlin (BI 907828) Compared to Doxorubicin as First Line Treatment of Patients With Advanced Dedifferentiated Liposarcoma"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Brightline-1: A Phase II/III, Randomized, Open-label, Multi-center Study of Brigimadlin (BI 907828) Compared to Doxorubicin as First Line Treatment of Patients With Advanced Dedifferentiated Liposarcoma

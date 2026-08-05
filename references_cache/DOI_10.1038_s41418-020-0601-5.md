@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41418-020-0601-5"
+reference_id: DOI:10.1038/s41418-020-0601-5
 title: Pyrroline-5-carboxylate synthase senses cellular stress and modulates metabolism by regulating mitochondrial respiration
 authors:
 - Zhaoying Yang
@@ -13,6 +13,7 @@ journal: "Cell Death &amp; Differentiation"
 year: '2021'
 doi: 10.1038/s41418-020-0601-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Pyrroline-5-carboxylate synthase senses cellular stress and modulates metabolism by regulating mitochondrial respiration

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jhep.2010.04.032"
+reference_id: DOI:10.1016/j.jhep.2010.04.032
 title: "Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China"
 authors:
 - Li Xu
@@ -11,6 +11,7 @@ journal: Journal of Hepatology
 year: '2010'
 doi: 10.1016/j.jhep.2010.04.032
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genetic variations of hepatitis B virus and serum aflatoxin-lysine adduct on high risk of hepatocellular carcinoma in Southern Guangxi, China

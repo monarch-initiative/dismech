@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2024.08.15.608062"
-title: "Novel tau filament folds in individuals with
-                  <i>MAPT</i>
-                  mutations P301L and P301T"
+reference_id: DOI:10.1101/2024.08.15.608062
+title: "Novel tau filament folds in individuals with <i>MAPT</i> mutations P301L and P301T"
 authors:
 - Manuel Schweighauser
 - Yang Shi
@@ -20,11 +18,10 @@ authors:
 year: '2024'
 doi: 10.1101/2024.08.15.608062
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Novel tau filament folds in individuals with
-                  <i>MAPT</i>
-                  mutations P301L and P301T
+# Novel tau filament folds in individuals with <i>MAPT</i> mutations P301L and P301T
 **Authors:** Manuel Schweighauser, Yang Shi, Alexey G. Murzin, Holly J. Garringer, Ruben Vidal, Jill R. Murrell, M. Elena Erro, Harro Seelaar, Isidro Ferrer, John C. van Swieten, Bernardino Ghetti, Sjors H.W. Scheres, Michel Goedert
 **DOI:** [10.1101/2024.08.15.608062](https://doi.org/10.1101/2024.08.15.608062)
 

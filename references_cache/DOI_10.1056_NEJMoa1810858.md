@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/NEJMoa1810858"
+reference_id: DOI:10.1056/NEJMoa1810858
 title: Maintenance Olaparib in Patients with Newly Diagnosed Advanced Ovarian Cancer
 authors:
 - Kathleen Moore
@@ -27,6 +27,7 @@ journal: New England Journal of Medicine
 year: '2018'
 doi: 10.1056/NEJMoa1810858
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Maintenance Olaparib in Patients with Newly Diagnosed Advanced Ovarian Cancer

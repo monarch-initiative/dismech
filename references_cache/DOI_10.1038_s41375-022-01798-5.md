@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41375-022-01798-5"
+reference_id: DOI:10.1038/s41375-022-01798-5
 title: Microenvironmental CXCL12 deletion enhances Flt3-ITD acute myeloid leukemia stem cell response to therapy by reducing p38 MAPK signaling
 authors:
 - Nicholas R. Anderson
@@ -18,6 +18,7 @@ journal: Leukemia
 year: '2023'
 doi: 10.1038/s41375-022-01798-5
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Microenvironmental CXCL12 deletion enhances Flt3-ITD acute myeloid leukemia stem cell response to therapy by reducing p38 MAPK signaling

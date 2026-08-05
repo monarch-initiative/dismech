@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mdc3.14157"
+reference_id: DOI:10.1002/mdc3.14157
 title: "Autosomal Recessive Guanosine Triphosphate Cyclohydrolase I Deficiency: Redefining the Phenotypic Spectrum and Outcomes"
 authors:
 - Maria Novelli
@@ -18,6 +18,7 @@ journal: Movement Disorders Clinical Practice
 year: '2024'
 doi: 10.1002/mdc3.14157
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Autosomal Recessive Guanosine Triphosphate Cyclohydrolase I Deficiency: Redefining the Phenotypic Spectrum and Outcomes

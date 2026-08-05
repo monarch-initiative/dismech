@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.62536"
+reference_id: DOI:10.1002/ajmg.a.62536
 title: "Koolen‐de Vries syndrome in a 63‐year‐old woman: Report of the oldest patient and a review of the adult phenotype"
 authors:
 - Marianna Farnè
@@ -15,6 +15,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2022'
 doi: 10.1002/ajmg.a.62536
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Koolen‐de Vries syndrome in a 63‐year‐old woman: Report of the oldest patient and a review of the adult phenotype

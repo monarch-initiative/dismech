@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1056/nejmra2305712"
+reference_id: DOI:10.1056/nejmra2305712
 title: Behçet’s Syndrome
 authors:
 - David Saadoun
@@ -9,6 +9,7 @@ journal: New England Journal of Medicine
 year: '2024'
 doi: 10.1056/nejmra2305712
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Behçet’s Syndrome

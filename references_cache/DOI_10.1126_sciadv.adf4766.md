@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1126/sciadv.adf4766"
+reference_id: DOI:10.1126/sciadv.adf4766
 title: RAS-dependent RAF-MAPK hyperactivation by pathogenic RIT1 is a therapeutic target in Noonan syndrome–associated cardiac hypertrophy
 authors:
 - Antonio Cuevas-Navarro
@@ -21,6 +21,7 @@ journal: Science Advances
 year: '2023'
 doi: 10.1126/sciadv.adf4766
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # RAS-dependent RAF-MAPK hyperactivation by pathogenic RIT1 is a therapeutic target in Noonan syndrome–associated cardiac hypertrophy

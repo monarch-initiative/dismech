@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.19288"
+reference_id: DOI:10.1111/jdv.19288
 title: "Detection of a knockdown mutation in the voltage‐sensitive sodium channel associated with permethrin tolerance in <i>Sarcoptes scabiei</i> var. <i>hominis</i> mites"
 authors:
 - K. Riebenbauer
@@ -13,6 +13,7 @@ journal: Journal of the European Academy of Dermatology and Venereology
 year: '2023'
 doi: 10.1111/jdv.19288
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Detection of a knockdown mutation in the voltage‐sensitive sodium channel associated with permethrin tolerance in <i>Sarcoptes scabiei</i> var. <i>hominis</i> mites

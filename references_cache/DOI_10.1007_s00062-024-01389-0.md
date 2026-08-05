@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00062-024-01389-0"
+reference_id: DOI:10.1007/s00062-024-01389-0
 title: Haberland Syndrome (Encephalocraniocutaneous Lipomatosis) with Development of Diffuse Leptomeningeal Glioneural Tumor (DL-GNT) during Adolescence
 authors:
 - Suely Fazio Ferraciolli
@@ -11,6 +11,7 @@ journal: Clinical Neuroradiology
 year: '2024'
 doi: 10.1007/s00062-024-01389-0
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Haberland Syndrome (Encephalocraniocutaneous Lipomatosis) with Development of Diffuse Leptomeningeal Glioneural Tumor (DL-GNT) during Adolescence

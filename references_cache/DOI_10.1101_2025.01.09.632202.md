@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.01.09.632202"
+reference_id: DOI:10.1101/2025.01.09.632202
 title: Dose-dependent sensitivity of human 3D chromatin to a heart disease-linked transcription factor
 authors:
 - Zoe L. Grant
@@ -21,6 +21,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.01.09.632202
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dose-dependent sensitivity of human 3D chromatin to a heart disease-linked transcription factor

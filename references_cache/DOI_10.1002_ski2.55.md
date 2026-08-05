@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ski2.55"
+reference_id: DOI:10.1002/ski2.55
 title: Merkel Cell Carcinoma
 authors:
 - K. Mistry
@@ -11,6 +11,7 @@ journal: Skin Health and Disease
 year: '2021'
 doi: 10.1002/ski2.55
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Merkel Cell Carcinoma

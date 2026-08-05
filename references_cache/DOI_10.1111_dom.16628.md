@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/dom.16628"
+reference_id: DOI:10.1111/dom.16628
 title: "The pathophysiology, presentation and classification of Type 1 diabetes"
 authors:
 - Kristie I. Aamodt
@@ -8,6 +8,7 @@ journal: "Diabetes, Obesity and Metabolism"
 year: '2025'
 doi: 10.1111/dom.16628
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The pathophysiology, presentation and classification of Type 1 diabetes

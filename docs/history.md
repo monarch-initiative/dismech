@@ -18,6 +18,33 @@ Use UTC timestamps in filenames, for example
 `2026-05-31T174412Z-codex-a3f9c2.yaml`. The short suffix prevents same-second
 collisions when multiple sessions touch the same target.
 
+## Creating a record
+
+Do not hand-write the path, timestamp, or session id. Scaffold a schema-valid
+skeleton with the helper, then edit the emitted `details`:
+
+```bash
+just new-history --kind disorder --slug Asthma \
+  --event CREATE --outcome changed \
+  --summary "Create: Asthma" \
+  --agent-tool claude-code --model claude-opus-4-8 \
+  --sections phenotypes,pathophysiology,evidence \
+  --pr 5123 --issue 2892 \
+  --details "One-paragraph summary of what was curated and how it was validated."
+```
+
+`--kind` is `disorder`, `module`, `comorbidity`, `schema`, or `other`
+(`schema`/`other` require an explicit `--path`). `--event` is one of
+`CREATE`/`EDIT`/`REVIEW`/`AUDIT`/`GENERAL`; `--outcome` is
+`changed`/`no_change`/`needs_followup`/`blocked`. `--issue`/`--pr`/`--url` accept
+bare numbers (expanded to repo URLs) or full URLs and repeat. Run
+`just new-history --help` for the full option list. The command prints the path
+it created; validate it with `just validate-history <path>` and `git add history/`.
+
+Any PR that creates or edits a KB entry (`kb/disorders/`, `kb/modules/`,
+`kb/comorbidities/`) should include a matching record — CI posts an advisory
+(non-blocking) warning when one is missing.
+
 Legacy `kb/disorders/*.history.yaml` files were compacted into this layout as
 `GENERAL` entry-history summaries. They summarize old `edit_history` activity
 by action, date range, model, agent tool, and agent version instead of
@@ -69,6 +96,51 @@ events:
       This can include reviewer reasoning, caveats, what was checked, why no
       edit was made, future follow-up suggestions, or links in prose.
 ```
+
+## Renamed or retargeted targets
+
+History records are **append-only**: once written, a record's `target.slug` and
+`target.path` describe the object as it stood during that session and are not
+rewritten later. When an entry is renamed, retargeted, or merged — for example a
+disorder curated under one name that curation then shows is not an independent
+entity — the earlier records keep pointing at the pre-rename path, which no
+longer exists on disk.
+
+Record the move with `target.superseded_by` instead of editing the original
+fields:
+
+```yaml
+target:
+  kind: disorder
+  slug: Fanconi-Ichthyosis-Dysmorphism_Syndrome
+  path: kb/disorders/Fanconi-Ichthyosis-Dysmorphism_Syndrome.yaml
+  superseded_by:
+    slug: Arthrogryposis-Renal_Dysfunction-Cholestasis_Syndrome
+    path: kb/disorders/Arthrogryposis-Renal_Dysfunction-Cholestasis_Syndrome.yaml
+    reason: >-
+      The 2001 ARC series (PMID:11668108) subsumes FID, so the entry was
+      retargeted by the next session in the same PR.
+```
+
+`slug`, `path`, and `reason` are all required inside the block — the block turns
+a hard layout failure into a pass, so the justification has to be visible in
+review. The record files themselves move into the successor's directory
+(`history/disorders/<successor-slug>/`) so all sessions for one entry stay
+together.
+
+**`superseded_by` may be updated in place; `target.slug`/`target.path` may not.**
+The two describe different things, and that is what keeps `superseded_by`
+consistent with append-only. `target.slug`/`target.path` record what the session
+did and are frozen. `superseded_by` records *where the entry lives now*, so if
+the successor is itself renamed later, repoint the existing `superseded_by` at
+the new entry (and move the record files again) rather than chaining a second
+block.
+
+`tests/test_history_schema.py::test_committed_history_records_follow_layout`
+enforces this: a record whose `target.path` is missing passes **only** if
+`target.superseded_by.path` resolves to an existing file, so an ordinary bad
+slug still fails loudly. `just new-history` also warns at authoring time when
+the target path does not exist yet.
 
 ## Event Types
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0044-1779713"
+reference_id: DOI:10.1055/s-0044-1779713
 title: "Hepatocellular Carcinoma: Advances in Systemic Therapy"
 authors:
 - Insija Ilyas Selene
@@ -9,6 +9,7 @@ journal: Seminars in Interventional Radiology
 year: '2024'
 doi: 10.1055/s-0044-1779713
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hepatocellular Carcinoma: Advances in Systemic Therapy

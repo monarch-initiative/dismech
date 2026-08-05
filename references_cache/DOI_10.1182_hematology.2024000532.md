@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/hematology.2024000532"
+reference_id: DOI:10.1182/hematology.2024000532
 title: "Ph+ ALL: new approaches for upfront therapy"
 authors:
 - Marlise R. Luskin
@@ -7,6 +7,7 @@ journal: Hematology
 year: '2024'
 doi: 10.1182/hematology.2024000532
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Ph+ ALL: new approaches for upfront therapy

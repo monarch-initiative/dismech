@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1002/mgg3.70166"
-title: "A Case of
-                    <scp>
-                      <i>CSNK2A1</i>
-                    </scp>
-                    Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum"
+reference_id: DOI:10.1002/mgg3.70166
+title: "A Case of <scp> <i>CSNK2A1</i> </scp> Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum"
 authors:
 - Xin Li
 - Shuping Wang
@@ -17,13 +13,10 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2025'
 doi: 10.1002/mgg3.70166
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# A Case of
-                    <scp>
-                      <i>CSNK2A1</i>
-                    </scp>
-                    Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum
+# A Case of <scp> <i>CSNK2A1</i> </scp> Gene Variant Causing Okur‐Chung Syndrome and Analysis of the Clinical Phenotypic Spectrum
 **Authors:** Xin Li, Shuping Wang, Xin Liu, Zhenjing Wang, Na Lv, Shaoting Wang, Wentao Yang
 **Journal:** Molecular Genetics &amp; Genomic Medicine (2025)
 **DOI:** [10.1002/mgg3.70166](https://doi.org/10.1002/mgg3.70166)

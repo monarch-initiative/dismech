@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06058793"
 title: "Brightline-4: A Phase III Open-label, Single-arm, Multi-center Study to Assess the Safety and Efficacy of Brigimadlin (BI 907828) Treatment in Patients With Treatment-naïve or Pre-treated Advanced Dedifferentiated Liposarcoma"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Brightline-4: A Phase III Open-label, Single-arm, Multi-center Study to Assess the Safety and Efficacy of Brigimadlin (BI 907828) Treatment in Patients With Treatment-naïve or Pre-treated Advanced Dedifferentiated Liposarcoma

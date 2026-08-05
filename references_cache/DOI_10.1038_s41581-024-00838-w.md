@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41581-024-00838-w"
+reference_id: DOI:10.1038/s41581-024-00838-w
 title: Immune mechanisms in the pathophysiology of hypertension
 authors:
 - Bianca A. Nguyen
@@ -9,6 +9,7 @@ journal: Nature Reviews Nephrology
 year: '2024'
 doi: 10.1038/s41581-024-00838-w
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Immune mechanisms in the pathophysiology of hypertension

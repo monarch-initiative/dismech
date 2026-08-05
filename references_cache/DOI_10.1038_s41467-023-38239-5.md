@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41467-023-38239-5"
+reference_id: DOI:10.1038/s41467-023-38239-5
 title: Reversible transitions between noradrenergic and mesenchymal tumor identities define cell plasticity in neuroblastoma
 authors:
 - Cécile Thirant
@@ -38,6 +38,7 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-38239-5
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Reversible transitions between noradrenergic and mesenchymal tumor identities define cell plasticity in neuroblastoma

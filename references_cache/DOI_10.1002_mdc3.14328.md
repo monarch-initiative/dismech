@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mdc3.14328"
+reference_id: DOI:10.1002/mdc3.14328
 title: Neurophysiological Insights into the Pathophysiology of Stiff‐Person Spectrum Disorders
 authors:
 - João Moura
@@ -12,6 +12,7 @@ journal: Movement Disorders Clinical Practice
 year: '2025'
 doi: 10.1002/mdc3.14328
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neurophysiological Insights into the Pathophysiology of Stiff‐Person Spectrum Disorders

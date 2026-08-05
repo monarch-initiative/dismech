@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jdn.10264"
+reference_id: DOI:10.1002/jdn.10264
 title: "Exome sequencing identifies a novel pathogenic variant in <i>RAB3GAP1</i> causing Warburg Micro syndrome in a Pakistani family"
 authors:
 - Wahid Ullah
@@ -17,6 +17,7 @@ journal: International Journal of Developmental Neuroscience
 year: '2023'
 doi: 10.1002/jdn.10264
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exome sequencing identifies a novel pathogenic variant in <i>RAB3GAP1</i> causing Warburg Micro syndrome in a Pakistani family

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/nrc2946"
+reference_id: DOI:10.1038/nrc2946
 title: The genesis and evolution of high-grade serous ovarian cancer
 authors:
 - David D. L. Bowtell
@@ -7,6 +7,7 @@ journal: Nature Reviews Cancer
 year: '2010'
 doi: 10.1038/nrc2946
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The genesis and evolution of high-grade serous ovarian cancer

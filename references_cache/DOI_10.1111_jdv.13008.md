@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/jdv.13008"
+reference_id: DOI:10.1111/jdv.13008
 title: "Eumycetoma and actinomycetoma – an update on causative agents, epidemiology, pathogenesis, diagnostics and therapy"
 authors:
 - P. Nenoff
@@ -11,6 +11,7 @@ journal: Journal of the European Academy of Dermatology and Venereology
 year: '2015'
 doi: 10.1111/jdv.13008
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Eumycetoma and actinomycetoma – an update on causative agents, epidemiology, pathogenesis, diagnostics and therapy

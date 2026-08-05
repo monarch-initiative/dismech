@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1007/s00439-002-0712-8"
+reference_id: DOI:10.1007/s00439-002-0712-8
 title: "A novel stable polyalanine [poly(A)] expansion in the HOXA13 gene associated with hand-foot-genital syndrome: proper function of poly(A)-harbouring transcription factors depends on a critical repeat length?"
 authors:
 - Boris Utsch
@@ -12,6 +12,7 @@ journal: Human Genetics
 year: '2002'
 doi: 10.1007/s00439-002-0712-8
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A novel stable polyalanine [poly(A)] expansion in the HOXA13 gene associated with hand-foot-genital syndrome: proper function of poly(A)-harbouring transcription factors depends on a critical repeat length?

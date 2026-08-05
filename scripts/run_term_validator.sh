@@ -46,7 +46,8 @@ if grep -Eq '(^|[^[:alnum:]_])(WARN|WARNING)([^[:alnum:]_]|$)' <<<"$output"; the
     exit 1
 fi
 
-if ! grep -q "Validation passed" <<<"$output"; then
+# Accept single-file ("Validation passed") or multi-file ("N files passed validation") success
+if ! grep -qE "(Validation passed|[0-9]+ files? passed)" <<<"$output"; then
     echo "Strict term validation failed: validator did not report success." >&2
     exit 1
 fi

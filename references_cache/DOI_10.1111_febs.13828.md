@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/febs.13828"
+reference_id: DOI:10.1111/febs.13828
 title: Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related H109R variant
 authors:
 - Peter Augustin
@@ -11,6 +11,7 @@ journal: The FEBS Journal
 year: '2016'
 doi: 10.1111/febs.13828
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Structure and biochemical properties of recombinant human dimethylglycine dehydrogenase and comparison to the disease‐related H109R variant

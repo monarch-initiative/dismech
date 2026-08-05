@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noab031"
+reference_id: DOI:10.1093/neuonc/noab031
 title: Integrated molecular analysis of adult sonic hedgehog (SHH)-activated medulloblastomas reveals two clinically relevant tumor subsets with VEGFA as potent prognostic indicator
 authors:
 - Andrey Korshunov
@@ -20,6 +20,7 @@ journal: Neuro-Oncology
 year: '2021'
 doi: 10.1093/neuonc/noab031
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Integrated molecular analysis of adult sonic hedgehog (SHH)-activated medulloblastomas reveals two clinically relevant tumor subsets with VEGFA as potent prognostic indicator

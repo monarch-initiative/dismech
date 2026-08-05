@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1111/epi.17979"
-title: "Hippocampal sclerosis and temporal lobe epilepsy following febrile status epilepticus: The
-                    <scp>FEBSTAT</scp>
-                    study"
+reference_id: DOI:10.1111/epi.17979
+title: "Hippocampal sclerosis and temporal lobe epilepsy following febrile status epilepticus: The <scp>FEBSTAT</scp> study"
 authors:
 - Darrell V. Lewis
 - James Voyvodic
@@ -27,11 +25,10 @@ journal: Epilepsia
 year: '2024'
 doi: 10.1111/epi.17979
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Hippocampal sclerosis and temporal lobe epilepsy following febrile status epilepticus: The
-                    <scp>FEBSTAT</scp>
-                    study
+# Hippocampal sclerosis and temporal lobe epilepsy following febrile status epilepticus: The <scp>FEBSTAT</scp> study
 **Authors:** Darrell V. Lewis, James Voyvodic, Shlomo Shinnar, Stephen Chan, Jacqueline A. Bello, Solomon L. Moshé, Douglas R. Nordli, L. Matthew Frank, John M. Pellock, Dale C. Hesdorffer, Yuan Xu, Ruth C. Shinnar, Syndi Seinfeld, Leon G. Epstein, David Masur, William Gallentine, Erica Weiss, Xiaoyan Deng, Shumei Sun
 **Journal:** Epilepsia (2024)
 **DOI:** [10.1111/epi.17979](https://doi.org/10.1111/epi.17979)

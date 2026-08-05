@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/neuonc/noab106"
+reference_id: DOI:10.1093/neuonc/noab106
 title: "The 2021 WHO Classification of Tumors of the Central Nervous System: a summary"
 authors:
 - David N Louis
@@ -19,6 +19,7 @@ journal: Neuro-Oncology
 year: '2021'
 doi: 10.1093/neuonc/noab106
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The 2021 WHO Classification of Tumors of the Central Nervous System: a summary

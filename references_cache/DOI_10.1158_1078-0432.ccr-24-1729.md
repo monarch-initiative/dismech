@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-1729"
+reference_id: DOI:10.1158/1078-0432.ccr-24-1729
 title: "FDA Approval Summary: Polatuzumab Vedotin in the First-Line Treatment of Select Large B-Cell Lymphomas"
 authors:
 - Maryam Sarraf Yazdy
@@ -16,6 +16,7 @@ journal: Clinical Cancer Research
 year: '2024'
 doi: 10.1158/1078-0432.ccr-24-1729
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # FDA Approval Summary: Polatuzumab Vedotin in the First-Line Treatment of Select Large B-Cell Lymphomas

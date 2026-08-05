@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/rmv.2538"
+reference_id: DOI:10.1002/rmv.2538
 title: Serious neurological adverse events in immunocompetent children and adolescents caused by viral reactivation in the years following varicella vaccination
 authors:
 - Prashanth Ramachandran
@@ -8,6 +8,7 @@ journal: Reviews in Medical Virology
 year: '2024'
 doi: 10.1002/rmv.2538
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Serious neurological adverse events in immunocompetent children and adolescents caused by viral reactivation in the years following varicella vaccination

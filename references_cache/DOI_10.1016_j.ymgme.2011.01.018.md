@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymgme.2011.01.018"
+reference_id: DOI:10.1016/j.ymgme.2011.01.018
 title: "Vascular pathology of medial arterial calcifications in NT5E deficiency: Implications for the role of adenosine in pseudoxanthoma elasticum"
 authors:
 - Thomas C. Markello
@@ -16,6 +16,7 @@ journal: Molecular Genetics and Metabolism
 year: '2011'
 doi: 10.1016/j.ymgme.2011.01.018
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Vascular pathology of medial arterial calcifications in NT5E deficiency: Implications for the role of adenosine in pseudoxanthoma elasticum

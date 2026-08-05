@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/kjm2.12852"
+reference_id: DOI:10.1002/kjm2.12852
 title: "Immunoglobulin A vasculitis: The clinical features and pathophysiology"
 authors:
 - Ya‐Chiao Hu
@@ -9,6 +9,7 @@ journal: The Kaohsiung Journal of Medical Sciences
 year: '2024'
 doi: 10.1002/kjm2.12852
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunoglobulin A vasculitis: The clinical features and pathophysiology

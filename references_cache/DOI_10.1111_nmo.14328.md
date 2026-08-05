@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nmo.14328"
+reference_id: DOI:10.1111/nmo.14328
 title: Retrograde upper esophageal sphincter function… and dysfunction
 authors:
 - Peter J. Kahrilas
@@ -7,6 +7,7 @@ journal: "Neurogastroenterology &amp; Motility"
 year: '2022'
 doi: 10.1111/nmo.14328
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Retrograde upper esophageal sphincter function… and dysfunction

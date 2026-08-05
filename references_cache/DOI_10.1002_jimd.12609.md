@@ -9,6 +9,7 @@ journal: Journal of Inherited Metabolic Disease
 year: '2024'
 doi: 10.1002/jimd.12609
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene therapy for urea cycle defects: An update from historical perspectives to future prospects

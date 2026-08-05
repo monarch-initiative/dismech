@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0044-1779485"
+reference_id: DOI:10.1055/s-0044-1779485
 title: "Progress in von Willebrand Disease Treatment: Evolution towards Newer Therapies"
 authors:
 - Miriam M. Moser
@@ -9,6 +9,7 @@ journal: Seminars in Thrombosis and Hemostasis
 year: '2024'
 doi: 10.1055/s-0044-1779485
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Progress in von Willebrand Disease Treatment: Evolution towards Newer Therapies

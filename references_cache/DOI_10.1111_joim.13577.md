@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/joim.13577"
+reference_id: DOI:10.1111/joim.13577
 title: Genetic and molecular architecture of familial hypercholesterolemia
 authors:
 - Marianne Abifadel
@@ -8,6 +8,7 @@ journal: Journal of Internal Medicine
 year: '2023'
 doi: 10.1111/joim.13577
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic and molecular architecture of familial hypercholesterolemia

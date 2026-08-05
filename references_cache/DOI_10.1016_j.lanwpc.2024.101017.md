@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.lanwpc.2024.101017"
+reference_id: DOI:10.1016/j.lanwpc.2024.101017
 title: Age-specific breast and ovarian cancer risks associated with germline BRCA1 or BRCA2 pathogenic variants – an Asian study of 572 families
 authors:
 - Weang-Kee Ho
@@ -64,6 +64,7 @@ journal: The Lancet Regional Health - Western Pacific
 year: '2024'
 doi: 10.1016/j.lanwpc.2024.101017
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Age-specific breast and ovarian cancer risks associated with germline BRCA1 or BRCA2 pathogenic variants – an Asian study of 572 families

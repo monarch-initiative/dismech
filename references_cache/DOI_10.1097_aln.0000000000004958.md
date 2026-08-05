@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/aln.0000000000004958"
+reference_id: DOI:10.1097/aln.0000000000004958
 title: Hemodynamic Support in Sepsis
 authors:
 - Edoardo Antonucci
@@ -9,6 +9,7 @@ journal: Anesthesiology
 year: '2024'
 doi: 10.1097/aln.0000000000004958
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hemodynamic Support in Sepsis

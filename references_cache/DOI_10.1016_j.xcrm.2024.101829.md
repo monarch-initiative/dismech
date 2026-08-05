@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.xcrm.2024.101829"
+reference_id: DOI:10.1016/j.xcrm.2024.101829
 title: Sepsis pathogenesis and outcome are shaped by the balance between the transcriptional states of systemic inflammation and antimicrobial response
 authors:
 - Rachel Brandes-Leibovitz
@@ -29,6 +29,7 @@ journal: Cell Reports Medicine
 year: '2024'
 doi: 10.1016/j.xcrm.2024.101829
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Sepsis pathogenesis and outcome are shaped by the balance between the transcriptional states of systemic inflammation and antimicrobial response

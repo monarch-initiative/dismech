@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2025.09.23.678171"
+reference_id: DOI:10.1101/2025.09.23.678171
 title: Generation and Validation of a Lower Limb Muscle Single-Cell RNA Sequencing Data Set Identifies Pathogenic Endothelial Metabolism in Peripheral Arterial Disease
 authors:
 - Mohamed Nofal
@@ -14,6 +14,7 @@ authors:
 year: '2025'
 doi: 10.1101/2025.09.23.678171
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Generation and Validation of a Lower Limb Muscle Single-Cell RNA Sequencing Data Set Identifies Pathogenic Endothelial Metabolism in Peripheral Arterial Disease

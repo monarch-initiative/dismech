@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04965038"
 title: Early Reperfusion Therapy With Intravenous Thrombolysis for Recovery of VISION in Acute Central Retinal Artery Occlusion
 content_type: summary
+full_text_attempted: true
 ---
 
 # Early Reperfusion Therapy With Intravenous Thrombolysis for Recovery of VISION in Acute Central Retinal Artery Occlusion

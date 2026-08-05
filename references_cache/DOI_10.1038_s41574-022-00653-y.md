@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41574-022-00653-y"
+reference_id: DOI:10.1038/s41574-022-00653-y
 title: "The genetics of autoimmune Addison disease: past, present and future"
 authors:
 - Ellen C. Røyrvik
@@ -8,6 +8,7 @@ journal: Nature Reviews Endocrinology
 year: '2022'
 doi: 10.1038/s41574-022-00653-y
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The genetics of autoimmune Addison disease: past, present and future

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamanetworkopen.2024.45525"
+reference_id: DOI:10.1001/jamanetworkopen.2024.45525
 title: Trends in Hepatocellular Carcinoma Mortality Rates in the US and Projections Through 2040
 authors:
 - Sikai Qiu
@@ -19,6 +19,7 @@ journal: JAMA Network Open
 year: '2024'
 doi: 10.1001/jamanetworkopen.2024.45525
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Trends in Hepatocellular Carcinoma Mortality Rates in the US and Projections Through 2040

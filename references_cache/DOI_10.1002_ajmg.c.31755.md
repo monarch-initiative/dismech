@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.c.31755"
+reference_id: DOI:10.1002/ajmg.c.31755
 title: "Kosaki overgrowth syndrome: A newly identified entity caused by pathogenic variants in platelet‐derived growth factor receptor‐beta"
 authors:
 - Toshiki Takenouchi
@@ -9,6 +9,7 @@ journal: "American Journal of Medical Genetics Part C: Seminars in Medical Genet
 year: '2019'
 doi: 10.1002/ajmg.c.31755
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Kosaki overgrowth syndrome: A newly identified entity caused by pathogenic variants in platelet‐derived growth factor receptor‐beta

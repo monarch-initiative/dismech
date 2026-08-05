@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/nrc2230"
+reference_id: DOI:10.1038/nrc2230
 title: "Genetic and molecular pathogenesis of mantle cell lymphoma: perspectives for new targeted therapeutics"
 authors:
 - Pedro Jares
@@ -9,6 +9,7 @@ journal: Nature Reviews Cancer
 year: '2007'
 doi: 10.1038/nrc2230
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genetic and molecular pathogenesis of mantle cell lymphoma: perspectives for new targeted therapeutics

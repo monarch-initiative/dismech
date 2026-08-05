@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.jbc.2023.105046"
+reference_id: DOI:10.1016/j.jbc.2023.105046
 title: FDX1 regulates cellular protein lipoylation through direct binding to LIAS
 authors:
 - Margaret B. Dreishpoon
@@ -15,6 +15,7 @@ journal: Journal of Biological Chemistry
 year: '2023'
 doi: 10.1016/j.jbc.2023.105046
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # FDX1 regulates cellular protein lipoylation through direct binding to LIAS

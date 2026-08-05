@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.fsc.2019.07.005"
+reference_id: DOI:10.1016/j.fsc.2019.07.005
 title: Management of Postsurgical Empty Nose Syndrome
 authors:
 - Jason Talmadge
@@ -10,6 +10,7 @@ journal: Facial Plastic Surgery Clinics of North America
 year: '2019'
 doi: 10.1016/j.fsc.2019.07.005
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Management of Postsurgical Empty Nose Syndrome

@@ -9,49 +9,29 @@ import html
 import json
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
-import yaml
 
+from dismech.yaml_io import safe_load
 
 EUROPE_PMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
 PROFILE_QUERIES = {
     "mechanisms": (
         "(("
-        + " OR ".join(
-            [
-                "TITLE:pathogenesis",
-                "TITLE:pathophysiology",
-                'TITLE:"molecular mechanism"',
-                "TITLE:mechanism",
-            ]
-        )
+        + 'TITLE:pathogenesis OR TITLE:pathophysiology OR TITLE:"molecular mechanism" OR TITLE:mechanism'
         + ") AND (TITLE_ABS:disease OR TITLE_ABS:syndrome OR TITLE_ABS:disorder))"
         + " OR "
         + "(("
-        + " OR ".join(
-            [
-                "TITLE:variant",
-                "TITLE:mutation",
-                "TITLE:genetic",
-                "TITLE:gene",
-            ]
-        )
+        + "TITLE:variant OR TITLE:mutation OR TITLE:genetic OR TITLE:gene"
         + ") AND (TITLE_ABS:disease OR TITLE_ABS:syndrome OR TITLE_ABS:disorder))"
         + " OR "
         + "(("
-        + " OR ".join(
-            [
-                "TITLE:treatment",
-                "TITLE:therapy",
-                "TITLE:therapeutic",
-                "TITLE:trial",
-            ]
-        )
+        + "TITLE:treatment OR TITLE:therapy OR TITLE:therapeutic OR TITLE:trial"
         + ") AND (TITLE_ABS:disease OR TITLE_ABS:syndrome OR TITLE_ABS:disorder))"
     )
 }
@@ -129,6 +109,14 @@ def canonical_ref(raw: str) -> str | None:
     if value.upper().startswith("DOI:"):
         doi = value.split(":", 1)[1].strip().lower()
         return f"DOI:{doi}" if doi else None
+    # Preprint references (Europe PMC SRC:PPR ids), first-class since
+    # linkml-reference-validator >=0.2.1rc2. Used by preprint_scan for
+    # already-cited detection.
+    if value.upper().startswith("PPR:"):
+        # Europe PMC PPR ids are uppercase (PPR1253390); normalize for robust
+        # matching against the scanner's `PPR:<id>` form.
+        ppr = value.split(":", 1)[1].strip().upper()
+        return f"PPR:{ppr}" if ppr else None
     return None
 
 
@@ -239,7 +227,7 @@ def load_disease_terms(kb_dir: Path) -> tuple[list[DiseaseTerm], dict[str, set[s
     for path in sorted(kb_dir.glob("*.yaml")):
         if path.name.endswith(".history.yaml"):
             continue
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = safe_load(path.read_text(encoding="utf-8")) or {}
         if not isinstance(data, dict):
             continue
         path_string = str(path)

@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1098/rstb.2017.0335"
-title: "The mechanical impact of
-                    <i>col11a2</i>
-                    loss on joints;
-                    <i>col11a2</i>
-                    mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis"
+reference_id: DOI:10.1098/rstb.2017.0335
+title: "The mechanical impact of <i>col11a2</i> loss on joints; <i>col11a2</i> mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis"
 authors:
 - Elizabeth A. Lawrence
 - Erika Kague
@@ -16,13 +12,10 @@ journal: "Philosophical Transactions of the Royal Society B: Biological Sciences
 year: '2018'
 doi: 10.1098/rstb.2017.0335
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# The mechanical impact of
-                    <i>col11a2</i>
-                    loss on joints;
-                    <i>col11a2</i>
-                    mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis
+# The mechanical impact of <i>col11a2</i> loss on joints; <i>col11a2</i> mutant zebrafish show changes to joint development and function, which leads to early-onset osteoarthritis
 **Authors:** Elizabeth A. Lawrence, Erika Kague, Jessye A. Aggleton, Robert L. Harniman, Karen A. Roddy, Chrissy L. Hammond
 **Journal:** Philosophical Transactions of the Royal Society B: Biological Sciences (2018)
 **DOI:** [10.1098/rstb.2017.0335](https://doi.org/10.1098/rstb.2017.0335)

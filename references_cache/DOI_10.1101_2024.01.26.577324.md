@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2024.01.26.577324"
-title: "Human vascular organoids with a mosaic
-                  <i>AKT1</i>
-                  mutation recapitulate Proteus syndrome"
+reference_id: DOI:10.1101/2024.01.26.577324
+title: "Human vascular organoids with a mosaic <i>AKT1</i> mutation recapitulate Proteus syndrome"
 authors:
 - Siyu He
 - Yuefei Zhu
@@ -24,11 +22,10 @@ authors:
 year: '2024'
 doi: 10.1101/2024.01.26.577324
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Human vascular organoids with a mosaic
-                  <i>AKT1</i>
-                  mutation recapitulate Proteus syndrome
+# Human vascular organoids with a mosaic <i>AKT1</i> mutation recapitulate Proteus syndrome
 **Authors:** Siyu He, Yuefei Zhu, Shradha Chauhan, Daniel Naveed Tavakol, Jong Ha Lee, Rayna Batya-Leia Berris, Cong Xu, Jounghyun H. Lee, Caleb Lee, Sarah Cai, Shannon McElroy, Gordana Vunjak-Novakovic, Raju Tomer, Elham Azizi, Bin Xu, Yeh-Hsing Lao, Kam W. Leong
 **DOI:** [10.1101/2024.01.26.577324](https://doi.org/10.1101/2024.01.26.577324)
 

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1001/jamaoncol.2024.2185"
+reference_id: DOI:10.1001/jamaoncol.2024.2185
 title: "<i>BRCA1, BRCA2</i>, and Associated Cancer Risks and Management for Male Patients"
 authors:
 - Heather H. Cheng
@@ -25,6 +25,7 @@ journal: JAMA Oncology
 year: '2024'
 doi: 10.1001/jamaoncol.2024.2185
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <i>BRCA1, BRCA2</i>, and Associated Cancer Risks and Management for Male Patients

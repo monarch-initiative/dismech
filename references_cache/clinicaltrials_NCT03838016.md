@@ -1,0 +1,14 @@
+---
+reference_id: "clinicaltrials:NCT03838016"
+title: "Babble Boot Camp: Preventing Speech and Language Disorders in Children With Classic Galactosemia"
+content_type: summary
+full_text_attempted: true
+---
+
+# Babble Boot Camp: Preventing Speech and Language Disorders in Children With Classic Galactosemia
+
+## Content
+
+A critical knowledge gap is whether proactive intervention can improve speech and language outcomes in infants at known risk for communication disorders. Speech and language assessments and treatments are usually not initiated until deficits can be diagnosed, no earlier than age 2-3 years. Preventive services are not available. Children with classic galactosemia (CG) hold the keys towards investigating whether proactive services are more effective than conventional management. CG is a recessively inherited inborn error of metabolism characterized by defective conversion of galactose. Despite early detection and strict adherence to lactose-restricted diets, children with CG are at very high risk not only for motor and learning disabilities but also for severe speech sound disorder and language impairment. Delays are evident from earliest signals of communication and persist into adulthood in many cases but speech/language assessment and treatment are usually not initiated until deficits manifest. However, because CG is diagnosed via newborn screening, the known genotype-phenotype association can be leveraged to investigate the efficacy of proactive interventions during the acquisition of prespeech (2 to 12 months) and early communication skills (13 to 24 months). If this proactive intervention is more effective than standard care regarding speech and language outcomes in children with CG, this will change their clinical management from deficit-based to proactive services. It will also motivate investigating this approach in infants with other types of known risk factors, e.g., various genetic causes and very low birth weight.
+
+The Babble Boot Camp is a program for children with CG, ages 2 to 24 months. The intervention is implemented by a pediatric speech-language pathologist (SLP) via parent training. Activities and routines are designed to foster earliest signals of communication, increase coo and babble behaviors, support the emergence of first words and word combinations, and expand syntactic complexity. The SLP meets with parents online every week for 10 to 15 minutes to provide instruction, feedback, and guidance. Close monitoring of progress is achieved via regularly administered questionnaires, a monthly day-long audio recording, and the SLPs weekly progress notes. At age 24 months, the active phase of the Babble Boot Camp ends. The children receive a professional speech/language assessment at ages 2 1/2, 3 1/2, and 4 1/2 years.

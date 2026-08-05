@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/ejh.70006"
+reference_id: DOI:10.1111/ejh.70006
 title: "Treatment Free Remission (<scp>TFR</scp>) in Chronic Phase‐Chronic Myeloid Leukemia (<scp>CP</scp>‐<scp>CML</scp>): Analysis of Predictive Factors and Novel Baseline Scoring System to Predict Molecular Relapse"
 authors:
 - Alessandro Laganà
@@ -14,6 +14,7 @@ journal: European Journal of Haematology
 year: '2025'
 doi: 10.1111/ejh.70006
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment Free Remission (<scp>TFR</scp>) in Chronic Phase‐Chronic Myeloid Leukemia (<scp>CP</scp>‐<scp>CML</scp>): Analysis of Predictive Factors and Novel Baseline Scoring System to Predict Molecular Relapse

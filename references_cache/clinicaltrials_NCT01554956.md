@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT01554956"
 title: A Historically Controlled Phase II/III Study to Evaluate Efficacy and Safety of Kedrion Human Plasminogen Eye Drop Preparation in Patients Diagnosed With Ligneous Conjunctivitis
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Historically Controlled Phase II/III Study to Evaluate Efficacy and Safety of Kedrion Human Plasminogen Eye Drop Preparation in Patients Diagnosed With Ligneous Conjunctivitis

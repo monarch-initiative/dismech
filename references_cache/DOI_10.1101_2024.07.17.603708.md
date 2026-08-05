@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1101/2024.07.17.603708"
-title: "Super-enhancer-driven
-                  <i>CACNA2D2</i>
-                  is an EWSR1::WT1 signature gene encoding a diagnostic marker for desmoplastic small round cell tumor (DSRCT)"
+reference_id: DOI:10.1101/2024.07.17.603708
+title: "Super-enhancer-driven <i>CACNA2D2</i> is an EWSR1::WT1 signature gene encoding a diagnostic marker for desmoplastic small round cell tumor (DSRCT)"
 authors:
 - Florian H. Geyer
 - Alina Ritter
@@ -39,11 +37,10 @@ authors:
 year: '2024'
 doi: 10.1101/2024.07.17.603708
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Super-enhancer-driven
-                  <i>CACNA2D2</i>
-                  is an EWSR1::WT1 signature gene encoding a diagnostic marker for desmoplastic small round cell tumor (DSRCT)
+# Super-enhancer-driven <i>CACNA2D2</i> is an EWSR1::WT1 signature gene encoding a diagnostic marker for desmoplastic small round cell tumor (DSRCT)
 **Authors:** Florian H. Geyer, Alina Ritter, Seneca Kinn-Gurzo, Tobias Faehling, Jing Li, Armin Jarosch, Carine Ngo, Endrit Vinca, Karim Aljakouch, Azhar Orynbek, Shunya Ohmura, Thomas Kirchner, Roland Imle, Laura Romero-Pérez, Stefanie Bertram, Enrique de Álava, Sophie Postel-Vilnay, Ana Banito, Martin Sill, Yvonne M.H. Versleijen-Jonkers, Benjamin F.B. Mayer, Martin Ebinger, Monika Sparber-Sauer, Sabine Stegmaier, Daniel Baumhoer, Wolfgang Hartmann, Jeroen Krijgsveld, David Horst, Olivier Delattre, Patrick J. Grohar, Thomas G. P. Grünewald, Florencia Cidre-Aranaz
 **DOI:** [10.1101/2024.07.17.603708](https://doi.org/10.1101/2024.07.17.603708)
 

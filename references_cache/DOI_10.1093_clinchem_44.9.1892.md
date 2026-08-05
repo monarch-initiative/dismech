@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/clinchem/44.9.1892"
+reference_id: DOI:10.1093/clinchem/44.9.1892
 title: "5-Aminolevulinic acid dehydratase deficiency porphyria: a twenty-year clinical and biochemical follow-up"
 authors:
 - Ulrich Gross
@@ -13,6 +13,7 @@ journal: Clinical Chemistry
 year: '1998'
 doi: 10.1093/clinchem/44.9.1892
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # 5-Aminolevulinic acid dehydratase deficiency porphyria: a twenty-year clinical and biochemical follow-up

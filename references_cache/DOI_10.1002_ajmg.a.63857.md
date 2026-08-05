@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.63857"
+reference_id: DOI:10.1002/ajmg.a.63857
 title: "Bridging the Diagnostic Gap for Hypermobile Ehlers‐Danlos Syndrome and Hypermobility Spectrum Disorders: Evidence of a Common Extracellular Matrix Fragmentation Pattern in Patient Plasma as a Potential Biomarker"
 authors:
 - Marco Ritelli
@@ -19,6 +19,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2025'
 doi: 10.1002/ajmg.a.63857
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Bridging the Diagnostic Gap for Hypermobile Ehlers‐Danlos Syndrome and Hypermobility Spectrum Disorders: Evidence of a Common Extracellular Matrix Fragmentation Pattern in Patient Plasma as a Potential Biomarker

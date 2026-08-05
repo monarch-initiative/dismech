@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.soncn.2018.12.001"
+reference_id: DOI:10.1016/j.soncn.2018.12.001
 title: "Hereditary Breast and Hereditary Ovarian Cancer: Implications for the Oncology Nurse"
 authors:
 - Laura Curr Beamer
@@ -7,6 +7,7 @@ journal: Seminars in Oncology Nursing
 year: '2019'
 doi: 10.1016/j.soncn.2018.12.001
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Hereditary Breast and Hereditary Ovarian Cancer: Implications for the Oncology Nurse

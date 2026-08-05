@@ -19,7 +19,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 import networkx as nx
-import yaml
 from ndex2.client import Ndex2
 from ndex2.cx2 import CX2Network, CX2NetworkXFactory
 
@@ -27,11 +26,12 @@ from dismech.graph import (
     _build_section_lookup,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
-    _iter_variant_items,
     _resolve_descriptor_target,
     build_causal_graph,
     graph_to_json,
+    iter_variant_items,
 )
+from dismech.yaml_io import safe_load, safe_load_path
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +362,7 @@ VISUAL_EDITOR_PROPERTIES = {
 def load_disorder(yaml_path: Path) -> dict[str, Any]:
     """Load a disorder YAML file."""
     with open(yaml_path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"Expected mapping in {yaml_path}")
     return data
@@ -373,7 +373,7 @@ def _load_prefix_map() -> dict[str, str]:
     """Load CURIE prefix mappings from the schema."""
     if not _SCHEMA_PATH.exists():
         return {}
-    data = yaml.safe_load(_SCHEMA_PATH.read_text())
+    data = safe_load_path(_SCHEMA_PATH)
     prefixes = data.get("prefixes", {}) if isinstance(data, dict) else {}
     return {
         prefix: base
@@ -1065,7 +1065,7 @@ def _build_edge_detail_lookup(
                 },
             )
 
-    for parent_name, variant in _iter_variant_items(disorder):
+    for parent_name, variant in iter_variant_items(disorder):
         source_name = variant.get("name")
         if not source_name:
             continue
@@ -1596,7 +1596,7 @@ def disorder_to_cx2(
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and item.get("name"):
                 item_lookup[str(item["name"])] = item
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         if isinstance(variant, dict) and variant.get("name"):
             item_lookup[str(variant["name"])] = variant
 

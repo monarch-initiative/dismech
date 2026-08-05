@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.070050097"
+reference_id: DOI:10.1073/pnas.070050097
 title: Destabilization of osteogenesis imperfecta collagen-like model peptides correlates with the identity of the residue replacing glycine
 authors:
 - Konrad Beck
@@ -12,6 +12,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2000'
 doi: 10.1073/pnas.070050097
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Destabilization of osteogenesis imperfecta collagen-like model peptides correlates with the identity of the residue replacing glycine

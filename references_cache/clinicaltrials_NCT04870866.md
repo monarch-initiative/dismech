@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04870866"
 title: NAD Supplementation to Prevent Progressive Neurological Disease in Ataxia Telangiectasia
 content_type: summary
+full_text_attempted: true
 ---
 
 # NAD Supplementation to Prevent Progressive Neurological Disease in Ataxia Telangiectasia

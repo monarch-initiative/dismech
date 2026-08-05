@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/lary.26530"
+reference_id: DOI:10.1002/lary.26530
 title: Computational fluid dynamics and trigeminal sensory examinations of empty nose syndrome patients
 authors:
 - Chengyu Li
@@ -14,6 +14,7 @@ journal: The Laryngoscope
 year: '2017'
 doi: 10.1002/lary.26530
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Computational fluid dynamics and trigeminal sensory examinations of empty nose syndrome patients

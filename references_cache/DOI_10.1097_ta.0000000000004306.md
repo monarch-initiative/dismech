@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/ta.0000000000004306"
+reference_id: DOI:10.1097/ta.0000000000004306
 title: Impact of resuscitation adjuncts on postintubation hypotension in patients with isolated traumatic brain injury
 authors:
 - Tanya Anand
@@ -16,6 +16,7 @@ journal: Journal of Trauma and Acute Care Surgery
 year: '2024'
 doi: 10.1097/ta.0000000000004306
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impact of resuscitation adjuncts on postintubation hypotension in patients with isolated traumatic brain injury

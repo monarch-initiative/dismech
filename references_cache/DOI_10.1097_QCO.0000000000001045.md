@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1097/QCO.0000000000001045"
+reference_id: DOI:10.1097/QCO.0000000000001045
 title: "The many faces of brucellosis: diagnostic and management approach"
 authors:
 - L’Emir Wassim El Ayoubi
@@ -9,6 +9,7 @@ journal: Current Opinion in Infectious Diseases
 year: '2024'
 doi: 10.1097/QCO.0000000000001045
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The many faces of brucellosis: diagnostic and management approach

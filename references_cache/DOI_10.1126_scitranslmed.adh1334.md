@@ -37,6 +37,7 @@ journal: Science Translational Medicine
 year: '2024'
 doi: 10.1126/scitranslmed.adh1334
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # mRNA therapy corrects defective glutathione metabolism and restores ureagenesis in preclinical argininosuccinic aciduria

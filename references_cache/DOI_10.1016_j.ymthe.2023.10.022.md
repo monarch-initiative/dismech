@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.ymthe.2023.10.022"
+reference_id: DOI:10.1016/j.ymthe.2023.10.022
 title: Improved efficacy of FKRP AAV gene therapy by combination with ribitol treatment for LGMD2I
 authors:
 - Marcela P. Cataldi
@@ -15,6 +15,7 @@ journal: Molecular Therapy
 year: '2023'
 doi: 10.1016/j.ymthe.2023.10.022
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Improved efficacy of FKRP AAV gene therapy by combination with ribitol treatment for LGMD2I

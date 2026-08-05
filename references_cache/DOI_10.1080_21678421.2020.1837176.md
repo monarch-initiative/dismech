@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1080/21678421.2020.1837176"
+reference_id: DOI:10.1080/21678421.2020.1837176
 title: Neuroimaging in primary lateral sclerosis
 authors:
 - Erik P. Pioro
@@ -9,6 +9,7 @@ journal: Amyotrophic Lateral Sclerosis and Frontotemporal Degeneration
 year: '2020'
 doi: 10.1080/21678421.2020.1837176
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Neuroimaging in primary lateral sclerosis

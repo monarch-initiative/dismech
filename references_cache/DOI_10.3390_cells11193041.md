@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells11193041"
+reference_id: DOI:10.3390/cells11193041
 title: Glucose 6-P Dehydrogenase—An Antioxidant Enzyme with Regulatory Functions in Skeletal Muscle during Exercise
 authors:
 - Esther García-Domínguez
@@ -13,6 +13,7 @@ journal: Cells
 year: '2022'
 doi: 10.3390/cells11193041
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Glucose 6-P Dehydrogenase—An Antioxidant Enzyme with Regulatory Functions in Skeletal Muscle during Exercise

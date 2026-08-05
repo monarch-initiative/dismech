@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina62040639"
+reference_id: DOI:10.3390/medicina62040639
 title: Alpha-1 Antitrypsin Deficiency-Associated Chronic Obstructive Pulmonary Disease
 authors:
 - Evangelia Fouka
@@ -11,6 +11,7 @@ journal: Medicina
 year: '2026'
 doi: 10.3390/medicina62040639
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Alpha-1 Antitrypsin Deficiency-Associated Chronic Obstructive Pulmonary Disease

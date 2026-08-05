@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT04445987"
 title: "A Phase 2, Multicenter, Open-Label Study of the Long-Term Safety of ARQ-154 Foam 0.3% in Subjects With Seborrheic Dermatitis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2, Multicenter, Open-Label Study of the Long-Term Safety of ARQ-154 Foam 0.3% in Subjects With Seborrheic Dermatitis

@@ -10,6 +10,30 @@ const DEFAULT_BOT_LOGINS = new Set([
   "github-actions[bot]",
 ]);
 
+const RISKY_COMMENT_PATTERNS = [
+  {
+    reason: "github_user_attachment",
+    pattern: /https?:\/\/github\.com\/user-attachments\/files\/\d+\/[^\s)\]>"']+/i,
+  },
+  {
+    reason: "archive_attachment",
+    pattern:
+      /(?:^|[^\w])[\w./:%?=&-]+\.(?:zip|7z|rar|tar\.gz|tgz|tar|gz|bz2|xz)(?:[?#][^\s)\]>"']*)?(?:[\s)\]>"']|$)/i,
+  },
+  {
+    reason: "executable_or_script_attachment",
+    // JavaScript is executable in browser and Node contexts. Python paths are
+    // intentionally not matched here so ordinary repo-script references are not
+    // hidden unless they also include an attachment/archive or agent trigger.
+    pattern:
+      /(?:^|[^\w])[\w./:%?=&-]+\.(?:exe|msi|dmg|pkg|apk|jar|sh|bash|zsh|ps1|bat|cmd|js|vbs|scr)(?:[?#][^\s)\]>"']*)?(?:[\s)\]>"']|$)/i,
+  },
+  {
+    reason: "agent_trigger",
+    pattern: /(?:^|\s)(?:@claude\b|@dragon-ai-agent\s+please\b|\/review\b)/i,
+  },
+];
+
 function normalizeLogin(login) {
   return String(login || "").trim().toLowerCase();
 }
@@ -130,6 +154,33 @@ function truncateText(value, maxLength) {
     return text;
   }
   return `${text.slice(0, maxLength)}\n\n[truncated]`;
+}
+
+function classifyCommentRisk(body) {
+  const text = String(body || "");
+  const reasons = RISKY_COMMENT_PATTERNS.filter(({ pattern }) =>
+    pattern.test(text),
+  ).map(({ reason }) => reason);
+
+  return {
+    shouldMinimize: reasons.length > 0,
+    classifier: "SPAM",
+    reasons,
+  };
+}
+
+async function minimizeComment({ github, subjectId, classifier = "SPAM" }) {
+  const mutation = `
+    mutation($subjectId: ID!, $classifier: ReportedContentClassifiers!) {
+      minimizeComment(input: {subjectId: $subjectId, classifier: $classifier}) {
+        minimizedComment {
+          isMinimized
+          minimizedReason
+        }
+      }
+    }
+  `;
+  return github.graphql(mutation, { subjectId, classifier });
 }
 
 function collectDiscussionAuthors(discussion) {
@@ -463,11 +514,13 @@ async function collectTrustedDiscussionCandidates({
 
 module.exports = {
   assessTrustedAuthors,
+  classifyCommentRisk,
   collectDiscussionAuthors,
   collectTrustedDiscussionCandidates,
   isBotLogin,
   isTrustedLogin,
   loadControllers,
+  minimizeComment,
   normalizeLogin,
   TRUSTED_PERMISSIONS,
 };

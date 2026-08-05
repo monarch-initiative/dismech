@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/jnen/nlae032"
+reference_id: DOI:10.1093/jnen/nlae032
 title: "Limbic-predominant age-related TDP-43 encephalopathy (LATE-NC): Co-pathologies and genetic risk factors provide clues about pathogenesis"
 authors:
 - Peter T Nelson
@@ -12,6 +12,7 @@ journal: "Journal of Neuropathology &amp; Experimental Neurology"
 year: '2024'
 doi: 10.1093/jnen/nlae032
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Limbic-predominant age-related TDP-43 encephalopathy (LATE-NC): Co-pathologies and genetic risk factors provide clues about pathogenesis

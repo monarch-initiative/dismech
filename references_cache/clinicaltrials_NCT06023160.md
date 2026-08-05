@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT06023160"
 title: "Predicting Functional Outcome and Response to Therapy of Anti-NMDAR Encephalitis at Diagnosis: The NEOSII Score"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Predicting Functional Outcome and Response to Therapy of Anti-NMDAR Encephalitis at Diagnosis: The NEOSII Score

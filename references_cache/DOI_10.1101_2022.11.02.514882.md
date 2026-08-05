@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1101/2022.11.02.514882"
+reference_id: DOI:10.1101/2022.11.02.514882
 title: Early maturation and hyperexcitability is a shared phenotype of cortical neurons derived from different ASD-associated mutations
 authors:
 - Yara Hussein
@@ -17,6 +17,7 @@ authors:
 year: '2022'
 doi: 10.1101/2022.11.02.514882
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Early maturation and hyperexcitability is a shared phenotype of cortical neurons derived from different ASD-associated mutations

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/nmo.14817"
+reference_id: DOI:10.1111/nmo.14817
 title: "Critical appraisal of the SIBO hypothesis and breath testing: A clinical practice update endorsed by the European society of neurogastroenterology and motility (ESNM) and the American neurogastroenterology and motility society (ANMS)"
 authors:
 - Purna Kashyap
@@ -11,6 +11,7 @@ journal: "Neurogastroenterology &amp; Motility"
 year: '2024'
 doi: 10.1111/nmo.14817
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Critical appraisal of the SIBO hypothesis and breath testing: A clinical practice update endorsed by the European society of neurogastroenterology and motility (ESNM) and the American neurogastroenterology and motility society (ANMS)

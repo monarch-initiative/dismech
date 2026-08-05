@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.heliyon.2024.e27077"
+reference_id: DOI:10.1016/j.heliyon.2024.e27077
 title: Thyroid dysfunction (TD) induced by PD-1/PD-L1 inhibitors in advanced lung cancer
 authors:
 - Yanling Wang
@@ -12,6 +12,7 @@ journal: Heliyon
 year: '2024'
 doi: 10.1016/j.heliyon.2024.e27077
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Thyroid dysfunction (TD) induced by PD-1/PD-L1 inhibitors in advanced lung cancer

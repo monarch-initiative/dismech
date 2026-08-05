@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41576-022-00519-z"
+reference_id: DOI:10.1038/s41576-022-00519-z
 title: Genetics of circadian rhythms and sleep in human health and disease
 authors:
 - Jacqueline M. Lane
@@ -12,6 +12,7 @@ journal: Nature Reviews Genetics
 year: '2023'
 doi: 10.1038/s41576-022-00519-z
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Genetics of circadian rhythms and sleep in human health and disease

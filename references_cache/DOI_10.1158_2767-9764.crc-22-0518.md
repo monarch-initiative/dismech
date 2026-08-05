@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1158/2767-9764.crc-22-0518"
-title: "Targeting the Clear Cell Sarcoma Oncogenic Driver Fusion Gene
-                    <i>EWSR1::ATF1</i>
-                    by HDAC Inhibition"
+reference_id: DOI:10.1158/2767-9764.crc-22-0518
+title: "Targeting the Clear Cell Sarcoma Oncogenic Driver Fusion Gene <i>EWSR1::ATF1</i> by HDAC Inhibition"
 authors:
 - Hirokazu Mae
 - Hidetatsu Outani
@@ -19,11 +17,10 @@ journal: Cancer Research Communications
 year: '2023'
 doi: 10.1158/2767-9764.crc-22-0518
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Targeting the Clear Cell Sarcoma Oncogenic Driver Fusion Gene
-                    <i>EWSR1::ATF1</i>
-                    by HDAC Inhibition
+# Targeting the Clear Cell Sarcoma Oncogenic Driver Fusion Gene <i>EWSR1::ATF1</i> by HDAC Inhibition
 **Authors:** Hirokazu Mae, Hidetatsu Outani, Yoshinori Imura, Ryota Chijimatsu, Akitomo Inoue, Yuki Kotani, Naohiro Yasuda, Sho Nakai, Takaaki Nakai, Satoshi Takenaka, Seiji Okada
 **Journal:** Cancer Research Communications (2023)
 **DOI:** [10.1158/2767-9764.crc-22-0518](https://doi.org/10.1158/2767-9764.crc-22-0518)

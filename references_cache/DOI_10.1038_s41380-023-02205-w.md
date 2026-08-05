@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1038/s41380-023-02205-w"
+reference_id: DOI:10.1038/s41380-023-02205-w
 title: Methylome-wide association study of anxiety disorders
 authors:
 - John M. Hettema
@@ -14,6 +14,7 @@ journal: Molecular Psychiatry
 year: '2023'
 doi: 10.1038/s41380-023-02205-w
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Methylome-wide association study of anxiety disorders

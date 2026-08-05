@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03569631"
 title: "A Randomized, Double-blind, Placebo-controlled, 2-period Crossover Study of BPN14770 in Adult Males With Fragile X Syndrome"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Double-blind, Placebo-controlled, 2-period Crossover Study of BPN14770 in Adult Males With Fragile X Syndrome

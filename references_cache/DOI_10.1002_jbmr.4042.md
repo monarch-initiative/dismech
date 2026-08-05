@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/jbmr.4042"
+reference_id: DOI:10.1002/jbmr.4042
 title: Fgfr3 Is a Positive Regulator of Osteoblast Expansion and Differentiation During Zebrafish Skull Vault Development
 authors:
 - Emilie Dambroise
@@ -20,6 +20,7 @@ journal: Journal of Bone and Mineral Research
 year: '2020'
 doi: 10.1002/jbmr.4042
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Fgfr3 Is a Positive Regulator of Osteoblast Expansion and Differentiation During Zebrafish Skull Vault Development

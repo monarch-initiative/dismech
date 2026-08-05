@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/dmcn.13579"
+reference_id: DOI:10.1111/dmcn.13579
 title: "High sensitivity and specificity in proposed clinical diagnostic criteria for anti‐<i>N</i>‐methyl‐<scp>D</scp>‐aspartate receptor encephalitis"
 authors:
 - Alvin C C Ho
@@ -16,6 +16,7 @@ journal: "Developmental Medicine &amp; Child Neurology"
 year: '2017'
 doi: 10.1111/dmcn.13579
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # High sensitivity and specificity in proposed clinical diagnostic criteria for anti‐<i>N</i>‐methyl‐<scp>D</scp>‐aspartate receptor encephalitis

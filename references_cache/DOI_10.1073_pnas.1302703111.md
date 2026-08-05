@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1073/pnas.1302703111"
+reference_id: DOI:10.1073/pnas.1302703111
 title: Hypertrophic chondrocytes can become osteoblasts and osteocytes in endochondral bone formation
 authors:
 - Liu Yang
@@ -11,6 +11,7 @@ journal: Proceedings of the National Academy of Sciences
 year: '2014'
 doi: 10.1073/pnas.1302703111
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hypertrophic chondrocytes can become osteoblasts and osteocytes in endochondral bone formation

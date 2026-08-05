@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1093/braincomms/fcac106"
+reference_id: DOI:10.1093/braincomms/fcac106
 title: Longitudinal EEG model detects antisense oligonucleotide treatment effect and increased UBE3A in Angelman syndrome
 authors:
 - Elizabeth R. Spencer
@@ -21,6 +21,7 @@ journal: Brain Communications
 year: '2022'
 doi: 10.1093/braincomms/fcac106
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Longitudinal EEG model detects antisense oligonucleotide treatment effect and increased UBE3A in Angelman syndrome

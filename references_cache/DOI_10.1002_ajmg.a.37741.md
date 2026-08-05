@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/ajmg.a.37741"
+reference_id: DOI:10.1002/ajmg.a.37741
 title: "A recessive syndrome of intellectual disability, moderate overgrowth, and renal dysplasia predisposing to Wilms tumor is caused by a mutation in<i>FIBP</i>gene"
 authors:
 - Nadia Akawi
@@ -12,6 +12,7 @@ journal: American Journal of Medical Genetics Part A
 year: '2016'
 doi: 10.1002/ajmg.a.37741
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A recessive syndrome of intellectual disability, moderate overgrowth, and renal dysplasia predisposing to Wilms tumor is caused by a mutation in<i>FIBP</i>gene

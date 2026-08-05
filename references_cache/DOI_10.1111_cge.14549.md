@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1111/cge.14549"
-title: "Novel biallelic
-                    <i>PISD</i>
-                    missense variants cause spondyloepimetaphyseal dysplasia with disproportionate short stature and fragmented mitochondrial morphology"
+reference_id: DOI:10.1111/cge.14549
+title: "Novel biallelic <i>PISD</i> missense variants cause spondyloepimetaphyseal dysplasia with disproportionate short stature and fragmented mitochondrial morphology"
 authors:
 - Line Aagaard Nolting
 - Tess Holling
@@ -16,11 +14,10 @@ journal: Clinical Genetics
 year: '2024'
 doi: 10.1111/cge.14549
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Novel biallelic
-                    <i>PISD</i>
-                    missense variants cause spondyloepimetaphyseal dysplasia with disproportionate short stature and fragmented mitochondrial morphology
+# Novel biallelic <i>PISD</i> missense variants cause spondyloepimetaphyseal dysplasia with disproportionate short stature and fragmented mitochondrial morphology
 **Authors:** Line Aagaard Nolting, Tess Holling, Gen Nishimura, Jakob Ek, Mads Bak, Merete Ljungberg, Kerstin Kutsche, Hanne Hove
 **Journal:** Clinical Genetics (2024)
 **DOI:** [10.1111/cge.14549](https://doi.org/10.1111/cge.14549)

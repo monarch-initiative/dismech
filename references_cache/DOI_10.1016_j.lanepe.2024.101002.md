@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.lanepe.2024.101002"
+reference_id: DOI:10.1016/j.lanepe.2024.101002
 title: "Past, current, and future trends in the prevalence of primary sclerosing cholangitis and inflammatory bowel disease across England (2015–2027): a nationwide, population-based study"
 authors:
 - Hannah Crothers
@@ -12,6 +12,7 @@ journal: The Lancet Regional Health - Europe
 year: '2024'
 doi: 10.1016/j.lanepe.2024.101002
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Past, current, and future trends in the prevalence of primary sclerosing cholangitis and inflammatory bowel disease across England (2015–2027): a nationwide, population-based study

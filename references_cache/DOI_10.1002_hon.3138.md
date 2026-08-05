@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/hon.3138"
+reference_id: DOI:10.1002/hon.3138
 title: Update on follicular lymphoma
 authors:
 - Jonathan W. Friedberg
@@ -7,6 +7,7 @@ journal: Hematological Oncology
 year: '2023'
 doi: 10.1002/hon.3138
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Update on follicular lymphoma

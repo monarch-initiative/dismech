@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1128/cmr.00135-23"
-title: "<i>Clostridioides difficile</i>
-            infection: history, epidemiology, risk factors, prevention, clinical manifestations, treatment, and future options"
+reference_id: DOI:10.1128/cmr.00135-23
+title: "<i>Clostridioides difficile</i> infection: history, epidemiology, risk factors, prevention, clinical manifestations, treatment, and future options"
 authors:
 - Stefano Di Bella
 - Gianfranco Sanson
@@ -15,10 +14,10 @@ journal: Clinical Microbiology Reviews
 year: '2024'
 doi: 10.1128/cmr.00135-23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>Clostridioides difficile</i>
-            infection: history, epidemiology, risk factors, prevention, clinical manifestations, treatment, and future options
+# <i>Clostridioides difficile</i> infection: history, epidemiology, risk factors, prevention, clinical manifestations, treatment, and future options
 **Authors:** Stefano Di Bella, Gianfranco Sanson, Jacopo Monticelli, Verena Zerbato, Luigi Principe, Mauro Giuffrè, Giuseppe Pipitone, Roberto Luzzati
 **Journal:** Clinical Microbiology Reviews (2024)
 **DOI:** [10.1128/cmr.00135-23](https://doi.org/10.1128/cmr.00135-23)

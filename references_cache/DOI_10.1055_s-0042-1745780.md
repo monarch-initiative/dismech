@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1055/s-0042-1745780"
+reference_id: DOI:10.1055/s-0042-1745780
 title: "Hirschsprung-Associated Enterocolitis: Transformative Research from Bench to Bedside"
 authors:
 - Zhen Zhang
@@ -12,6 +12,7 @@ journal: European Journal of Pediatric Surgery
 year: '2022'
 doi: 10.1055/s-0042-1745780
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hirschsprung-Associated Enterocolitis: Transformative Research from Bench to Bedside

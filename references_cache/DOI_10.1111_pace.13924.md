@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1111/pace.13924"
+reference_id: DOI:10.1111/pace.13924
 title: "<i>SCN5A</i> mutation identified in a patient with short‐coupled variant of torsades de pointes"
 authors:
 - Keiko Sonoda
@@ -13,6 +13,7 @@ journal: Pacing and Clinical Electrophysiology
 year: '2020'
 doi: 10.1111/pace.13924
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <i>SCN5A</i> mutation identified in a patient with short‐coupled variant of torsades de pointes

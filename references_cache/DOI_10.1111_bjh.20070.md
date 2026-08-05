@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1111/bjh.20070"
-title: "The molecular landscape of
-                    <scp>AL</scp>
-                    amyloidosis"
+reference_id: DOI:10.1111/bjh.20070
+title: "The molecular landscape of <scp>AL</scp> amyloidosis"
 authors:
 - Tal Zvida‐Bloch
 - Eli Muchtar
@@ -13,11 +11,10 @@ journal: British Journal of Haematology
 year: '2025'
 doi: 10.1111/bjh.20070
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# The molecular landscape of
-                    <scp>AL</scp>
-                    amyloidosis
+# The molecular landscape of <scp>AL</scp> amyloidosis
 **Authors:** Tal Zvida‐Bloch, Eli Muchtar, Angela Dispenzieri, Ofer Shpilberg, Oshrat Hershkovitz‐Rokah
 **Journal:** British Journal of Haematology (2025)
 **DOI:** [10.1111/bjh.20070](https://doi.org/10.1111/bjh.20070)

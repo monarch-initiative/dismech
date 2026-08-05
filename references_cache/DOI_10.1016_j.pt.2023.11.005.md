@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.pt.2023.11.005"
+reference_id: DOI:10.1016/j.pt.2023.11.005
 title: "Unravelling mysteries at the perivascular space: a new rationale for cerebral malaria pathogenesis"
 authors:
 - Samuel C. Wassmer
@@ -10,6 +10,7 @@ journal: Trends in Parasitology
 year: '2024'
 doi: 10.1016/j.pt.2023.11.005
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Unravelling mysteries at the perivascular space: a new rationale for cerebral malaria pathogenesis

@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03274375"
 title: Prospective Assessment of Efficacy of Immunoadsorption Therapy in Managing Childhood NMDA-Receptor (NMDAR) Antibodies Encephalitis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Prospective Assessment of Efficacy of Immunoadsorption Therapy in Managing Childhood NMDA-Receptor (NMDAR) Antibodies Encephalitis

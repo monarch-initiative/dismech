@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT07185256"
 title: "A Phase 1b/2a, Open-Label, Dose-Exploration Basket Study to Investigate the Safety and Tolerability of Subretinally Injected OPGx-BEST1 Administered in Patients With Either Autosomal-Dominant BEST1 Disease (Best Vitelliform Macular Dystrophy [BVMD]) or Autosomal-Recessive Bestrophinopathy (ARB)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 1b/2a, Open-Label, Dose-Exploration Basket Study to Investigate the Safety and Tolerability of Subretinally Injected OPGx-BEST1 Administered in Patients With Either Autosomal-Dominant BEST1 Disease (Best Vitelliform Macular Dystrophy [BVMD]) or Autosomal-Recessive Bestrophinopathy (ARB)

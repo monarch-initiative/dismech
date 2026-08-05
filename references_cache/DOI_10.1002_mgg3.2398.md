@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1002/mgg3.2398"
+reference_id: DOI:10.1002/mgg3.2398
 title: "<scp>Okur‐Chung</scp> neurodevelopmental syndrome: Implications for phenotype and genotype expansion"
 authors:
 - Haitian Nan
@@ -12,6 +12,7 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2024'
 doi: 10.1002/mgg3.2398
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <scp>Okur‐Chung</scp> neurodevelopmental syndrome: Implications for phenotype and genotype expansion

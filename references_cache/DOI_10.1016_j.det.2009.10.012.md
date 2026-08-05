@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1016/j.det.2009.10.012"
+reference_id: DOI:10.1016/j.det.2009.10.012
 title: Kindler Syndrome Pathogenesis and Fermitin Family Homologue 1 (Kindlin-1) Function
 authors:
 - "Maria-Anna M.A. D'Souza"
@@ -9,6 +9,7 @@ journal: Dermatologic Clinics
 year: '2010'
 doi: 10.1016/j.det.2009.10.012
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Kindler Syndrome Pathogenesis and Fermitin Family Homologue 1 (Kindlin-1) Function
