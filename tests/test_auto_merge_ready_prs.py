@@ -275,6 +275,157 @@ def test_list_stage_rejects_criteria_it_can_answer(overrides):
     assert not decide(make_pr(**overrides), final=False).eligible
 
 
+# --- benign vs real merge failures ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Head branch was modified. Review and try the merge again.",
+        "Pull request #7 is already merged",
+        "Pull request is not mergeable",
+        "GraphQL: Base branch was modified",
+    ],
+)
+def test_races_are_benign(message):
+    assert auto_merge.is_benign_merge_failure(message)
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "HTTP 403: Resource not accessible by integration",
+        "HTTP 502: Bad Gateway",
+        "protected branch rules not met",
+        "gh exited 1",
+    ],
+)
+def test_real_errors_are_not_benign(message):
+    assert not auto_merge.is_benign_merge_failure(message)
+
+
+# --- end-to-end main() ----------------------------------------------------
+
+
+def _run_main(monkeypatch, tmp_path, *, view, extra_args=()):
+    """Drive main() against a stubbed gh, returning (exit code, gh calls)."""
+    listed = [
+        make_pr(number=42, mergeable="MERGEABLE"),
+    ]
+    calls = []
+
+    def fake_gh(args):
+        calls.append(args)
+        if args[:2] == ["pr", "list"]:
+            return json.dumps(listed)
+        if args[:2] == ["pr", "view"]:
+            return json.dumps(view)
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    monkeypatch.setattr(auto_merge.time, "sleep", lambda _: None)
+    code = auto_merge.main(
+        [
+            "--repo",
+            "o/r",
+            "--summary-file",
+            str(tmp_path / "summary.md"),
+            *extra_args,
+        ]
+    )
+    return code, calls
+
+
+def test_main_merges_a_fully_ready_pr(monkeypatch, tmp_path):
+    view = make_pr(number=42, headRefOid="cafe1234")
+    code, calls = _run_main(monkeypatch, tmp_path, view=view)
+    merges = [c for c in calls if c[:2] == ["pr", "merge"]]
+    assert code == 0
+    assert len(merges) == 1
+    assert "cafe1234" in merges[0]
+
+
+def test_main_does_not_merge_when_only_the_per_pr_view_disqualifies(
+    monkeypatch, tmp_path
+):
+    """The list payload looks ready but the fresh view is BLOCKED. If the
+    second loop ever regressed to `final=False`, this PR would be merged on
+    stale data — that is the bug this test exists to catch."""
+    view = make_pr(number=42, mergeStateStatus="BLOCKED")
+    code, calls = _run_main(monkeypatch, tmp_path, view=view)
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+
+
+def test_main_does_not_merge_when_checks_fail(monkeypatch, tmp_path):
+    view = make_pr(
+        number=42,
+        statusCheckRollup=[
+            {"name": "test (3.13)", "status": "COMPLETED", "conclusion": "FAILURE"}
+        ],
+    )
+    code, calls = _run_main(monkeypatch, tmp_path, view=view)
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+
+
+def test_main_dry_run_merges_nothing(monkeypatch, tmp_path):
+    view = make_pr(number=42, headRefOid="cafe1234")
+    code, calls = _run_main(monkeypatch, tmp_path, view=view, extra_args=["--dry-run"])
+    assert code == 0
+    assert not [c for c in calls if c[:2] == ["pr", "merge"]]
+    assert "Would merge 1" in (tmp_path / "summary.md").read_text()
+
+
+def test_main_list_call_does_not_request_merge_state_status(monkeypatch, tmp_path):
+    """Requesting mergeStateStatus for every open PR intermittently 502s and
+    the list stage never reads it."""
+    _, calls = _run_main(monkeypatch, tmp_path, view=make_pr(number=42))
+    list_call = next(c for c in calls if c[:2] == ["pr", "list"])
+    fields = list_call[list_call.index("--json") + 1]
+    assert "mergeStateStatus" not in fields
+    assert "mergeStateStatus" in auto_merge.VIEW_FIELDS
+
+
+def test_main_reports_a_race_as_skipped_not_failed(monkeypatch, tmp_path):
+    """A benign race must not turn the six-times-daily workflow red."""
+
+    def fake_gh(args):
+        if args[:2] == ["pr", "list"]:
+            return json.dumps([make_pr(number=42)])
+        if args[:2] == ["pr", "view"]:
+            return json.dumps(make_pr(number=42, headRefOid="cafe1234"))
+        if args[:2] == ["pr", "merge"]:
+            raise subprocess.CalledProcessError(
+                1, "gh", stderr="Head branch was modified. Review and try again."
+            )
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
+    summary = (tmp_path / "s.md").read_text()
+    assert code == 0
+    assert "Failed to merge" not in summary
+
+
+def test_main_exits_nonzero_on_a_genuine_merge_error(monkeypatch, tmp_path):
+    def fake_gh(args):
+        if args[:2] == ["pr", "list"]:
+            return json.dumps([make_pr(number=42)])
+        if args[:2] == ["pr", "view"]:
+            return json.dumps(make_pr(number=42, headRefOid="cafe1234"))
+        if args[:2] == ["pr", "merge"]:
+            raise subprocess.CalledProcessError(
+                1, "gh", stderr="HTTP 403: Resource not accessible by integration"
+            )
+        return ""
+
+    monkeypatch.setattr(auto_merge, "_gh", fake_gh)
+    code = auto_merge.main(["--repo", "o/r", "--summary-file", str(tmp_path / "s.md")])
+    assert code == 1
+    assert "Failed to merge 1" in (tmp_path / "s.md").read_text()
+
+
 # --- reporting ------------------------------------------------------------
 
 

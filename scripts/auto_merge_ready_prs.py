@@ -49,10 +49,19 @@ Eligibility is evaluated in two stages. The list stage applies the criteria
 that a bulk ``gh pr list`` can answer; the final stage re-applies all of them
 to a freshly fetched per-PR view immediately before merging, so a PR whose
 state changed mid-run is not merged on stale data. The split is not just an
-optimization: GitHub computes mergeability *lazily per PR*, so a bulk list
-reports ``mergeable: UNKNOWN`` for most PRs and only a single-PR query forces
-the computation (which is why ``view_pr`` retries while it is pending). The
-list stage therefore defers the mergeability, merge-state, and status-check
+optimization; two independent forces require it:
+
+1. GitHub computes mergeability *lazily per PR*, so a bulk list reports
+   ``mergeable: UNKNOWN`` for most PRs and only a single-PR query forces the
+   computation (which is why ``view_pr`` retries while it is pending).
+2. Asking for ``mergeStateStatus`` across hundreds of PRs in one query makes
+   GitHub's GraphQL API intermittently return **HTTP 502** — measured on this
+   repo at ~200 open PRs. It is therefore in ``VIEW_FIELDS`` only. Keep it out
+   of ``LIST_FIELDS``: the list stage never reads it (``evaluate`` returns
+   before the merge-state check when ``final=False``), so its only effect
+   there is to make the one unguarded call in the script flaky.
+
+The list stage therefore defers the mergeability, merge-state, and status-check
 criteria rather than rejecting on them.
 
 Usage::
@@ -80,18 +89,33 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 # Fields fetched for the initial scan; a superset is re-fetched per candidate.
+# `mergeStateStatus` is deliberately NOT here — see the module docstring.
 LIST_FIELDS = (
     "number,title,author,isDraft,createdAt,assignees,reviewDecision,"
-    "mergeable,mergeStateStatus,baseRefName,headRefName,url"
+    "mergeable,baseRefName,headRefName,url"
 )
 # headRefOid pins the merge to the exact commit whose checks were evaluated.
-VIEW_FIELDS = LIST_FIELDS + ",state,statusCheckRollup,headRefOid"
+VIEW_FIELDS = LIST_FIELDS + ",state,statusCheckRollup,headRefOid,mergeStateStatus"
 
 # Check conclusions that do not count as a failure. SKIPPED/NEUTRAL are how
 # conditional workflow jobs report "not applicable to this PR".
 PASSING_CONCLUSIONS = frozenset({"SUCCESS", "SKIPPED", "NEUTRAL"})
 # Legacy commit-status states (StatusContext rollup entries).
 PASSING_STATES = frozenset({"SUCCESS", "EXPECTED", "NEUTRAL"})
+
+# Merge failures that mean "the guards worked" rather than "something is
+# broken": the PR moved under us between verification and merge, or somebody
+# else got there first. The sweep runs six times a day, so the right response
+# is to record a skip and reconsider next run — NOT to fail the workflow and
+# page a human about a race that resolved itself correctly.
+BENIGN_MERGE_FAILURES = (
+    "head branch was modified",  # --match-head-commit fired: a push landed
+    "base branch was modified",
+    "already merged",
+    "not mergeable",
+    "pull request is closed",
+    "no commits between",
+)
 
 MERGE_COMMENT = (
     "🐑 **PR Shepherd** (deterministic sweep) — Squash-merged: approved, "
@@ -192,8 +216,13 @@ def evaluate(
     against a single-PR view, can decide those, and only that pass gates a
     merge.
     """
-    state = (pr.get("state") or "OPEN").upper()
-    if state != "OPEN":
+    # `state` is absent from LIST_FIELDS (the list call already filters to open
+    # PRs) but present in VIEW_FIELDS, so in the final stage a missing value
+    # means the response was not what we think it was — fail closed.
+    state = (pr.get("state") or "").upper()
+    if final and not state:
+        return Decision(False, "no state in the API response")
+    if state and state != "OPEN":
         return Decision(False, f"not open (state={state.lower()})")
     if pr.get("isDraft"):
         return Decision(False, "draft")
@@ -251,6 +280,12 @@ def _gh_error(exc: subprocess.CalledProcessError) -> str:
     """Condense a gh failure into one reportable line."""
     stderr = (exc.stderr or "").strip()
     return stderr.splitlines()[-1] if stderr else f"gh exited {exc.returncode}"
+
+
+def is_benign_merge_failure(message: str) -> bool:
+    """True when a failed merge means the PR moved, not that we are broken."""
+    lowered = message.lower()
+    return any(marker in lowered for marker in BENIGN_MERGE_FAILURES)
 
 
 def list_open_prs(repo: str, limit: int, base_branch: str) -> list[dict]:
@@ -466,8 +501,14 @@ def main(argv: list[str] | None = None) -> int:
             merge_pr(args.repo, number, args.min_age_days, fresh.get("headRefOid"))
         except subprocess.CalledProcessError as exc:
             reason = _gh_error(exc)
-            print(f"FAIL  #{number}: {reason}", file=sys.stderr)
-            failed.append({"number": number, "reason": reason})
+            if is_benign_merge_failure(reason):
+                # The PR moved between verification and merge. That is the
+                # guard working; next run reconsiders it.
+                print(f"SKIP  #{number}: {reason}")
+                skipped.append({"number": number, "reason": reason})
+            else:
+                print(f"FAIL  #{number}: {reason}", file=sys.stderr)
+                failed.append({"number": number, "reason": reason})
             continue
         print(f"MERGED #{number}: {fresh['title']}")
         merged.append({"number": number, "title": fresh["title"]})
