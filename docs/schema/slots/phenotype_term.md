@@ -22,11 +22,12 @@ Alias: phenotype_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
-| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
-| [Phenotype](../classes/Phenotype.md) |  |  no  |
 | [LogicalCriterion](../classes/LogicalCriterion.md) | A node in a nested boolean membership-criteria expression |  no  |
+| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
+| [Phenotype](../classes/Phenotype.md) |  |  no  |
 | [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) | A mechanism or feature that distinguishes a grouping member from its siblings... |  no  |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
+| [ImagingFinding](../classes/ImagingFinding.md) | A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc |  yes  |
 
 
 
@@ -40,7 +41,7 @@ Alias: phenotype_term
 | Property | Value |
 | --- | --- |
 | Range | [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) |
-| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [ReferenceRangeBand](../classes/ReferenceRangeBand.md), [Phenotype](../classes/Phenotype.md), [LogicalCriterion](../classes/LogicalCriterion.md), [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) |
+| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [ReferenceRangeBand](../classes/ReferenceRangeBand.md), [Phenotype](../classes/Phenotype.md), [ImagingFinding](../classes/ImagingFinding.md), [LogicalCriterion](../classes/LogicalCriterion.md), [DifferentiatingMechanism](../classes/DifferentiatingMechanism.md) |
 
 ### Cardinality and Requirements
 
@@ -93,6 +94,7 @@ domain_of:
 - ExperimentalReadout
 - ReferenceRangeBand
 - Phenotype
+- ImagingFinding
 - LogicalCriterion
 - DifferentiatingMechanism
 range: PhenotypeDescriptor

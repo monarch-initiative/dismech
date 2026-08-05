@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from functools import cache
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load
 
 _WS = re.compile(r"\s+")
 _FILENAME = re.compile(
@@ -30,7 +30,7 @@ def _normalized_text(path: str) -> str:
 def iter_assessment_problems(assessment_path: str | Path) -> Iterable[str]:
     """Yield filename, link, and verbatim-quote problems for one sidecar."""
     assessment_path = Path(assessment_path)
-    data = yaml.safe_load(assessment_path.read_text(encoding="utf-8")) or {}
+    data = safe_load(assessment_path.read_text(encoding="utf-8")) or {}
 
     filename = _FILENAME.fullmatch(assessment_path.name)
     if not filename:

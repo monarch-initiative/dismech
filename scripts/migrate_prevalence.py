@@ -38,7 +38,7 @@ import re
 import sys
 from pathlib import Path
 
-import yaml as _pyyaml  # read-only parsing; we never re-dump whole files
+from dismech.yaml_io import safe_load
 
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
@@ -490,7 +490,7 @@ def main():
         with open(path, "r", encoding="utf-8", newline="") as _fh:
             text = _fh.read()  # preserve CRLF/LF; never normalize
         try:
-            data = _pyyaml.safe_load(text)
+            data = safe_load(text)
         except Exception as e:
             print(f"!! parse error {path.name}: {e}", file=sys.stderr)
             continue

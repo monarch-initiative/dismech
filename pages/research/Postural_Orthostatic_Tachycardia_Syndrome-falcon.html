@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -987,14 +1149,14 @@ POTS patients exhibit elevated catecholamine and angiotensin II levels with decr
 <p><em>Table: This table summarizes current POTS management strategies across non-pharmacological, pharmacological, and immunotherapy categories. It is useful for comparing mechanisms, strength of evidence, and key clinical notes from recent literature and trial context.</em></p>
 <h3>Non-Pharmacological Approaches (First-Line)</h3>
 <ul>
-<li><strong>Graded exercise training:</strong> The Levine Protocol is a 3-month program starting with recumbent exercises (rowing, swimming, recumbent cycling) before progressing to upright activities. Combined endurance and resistance training has shown 53–71% of patients no longer meeting diagnostic criteria (<a href="#ref-roy2025autonomicdysfunctionin-pages-7-10">roy2025autonomicdysfunctionin pages 7-10</a>, <a href="#ref-steinberg2023narrativereviewof-pages-6-7">steinberg2023narrativereviewof pages 6-7</a>). <em><a href="http://purl.obolibrary.org/obo/MAXO_0001001" target="_blank" rel="noopener noreferrer">MAXO:0001001</a> (exercise therapy)</em></li>
-<li><strong>Salt and fluid intake:</strong> 8–12 g sodium/day and 2–3 L fluid daily recommended for all patients (<a href="#ref-steinberg2023narrativereviewof-pages-6-7">steinberg2023narrativereviewof pages 6-7</a>, <a href="#ref-mallick2023covid19inducedpostural-pages-5-6">mallick2023covid19inducedpostural pages 5-6</a>). <em><a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (dietary modification)</em></li>
-<li><strong>Compression garments:</strong> 20–30 mmHg thigh-high stockings or abdominal binders to reduce venous pooling (<a href="#ref-steinberg2023narrativereviewof-pages-7-8">steinberg2023narrativereviewof pages 7-8</a>, <a href="#ref-steinberg2023narrativereviewof-pages-5-6">steinberg2023narrativereviewof pages 5-6</a>). <em><a href="http://purl.obolibrary.org/obo/MAXO_0000588" target="_blank" rel="noopener noreferrer">MAXO:0000588</a> (compression therapy)</em></li>
+<li><strong>Graded exercise training:</strong> The Levine Protocol is a 3-month program starting with recumbent exercises (rowing, swimming, recumbent cycling) before progressing to upright activities. Combined endurance and resistance training has shown 53–71% of patients no longer meeting diagnostic criteria (<a href="#ref-roy2025autonomicdysfunctionin-pages-7-10">roy2025autonomicdysfunctionin pages 7-10</a>, <a href="#ref-steinberg2023narrativereviewof-pages-6-7">steinberg2023narrativereviewof pages 6-7</a>). <em><a href="https://bioregistry.io/MAXO:0001001" target="_blank" rel="noopener noreferrer">MAXO:0001001</a> (exercise therapy)</em></li>
+<li><strong>Salt and fluid intake:</strong> 8–12 g sodium/day and 2–3 L fluid daily recommended for all patients (<a href="#ref-steinberg2023narrativereviewof-pages-6-7">steinberg2023narrativereviewof pages 6-7</a>, <a href="#ref-mallick2023covid19inducedpostural-pages-5-6">mallick2023covid19inducedpostural pages 5-6</a>). <em><a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (dietary modification)</em></li>
+<li><strong>Compression garments:</strong> 20–30 mmHg thigh-high stockings or abdominal binders to reduce venous pooling (<a href="#ref-steinberg2023narrativereviewof-pages-7-8">steinberg2023narrativereviewof pages 7-8</a>, <a href="#ref-steinberg2023narrativereviewof-pages-5-6">steinberg2023narrativereviewof pages 5-6</a>). <em><a href="https://bioregistry.io/MAXO:0000588" target="_blank" rel="noopener noreferrer">MAXO:0000588</a> (compression therapy)</em></li>
 <li><strong>Transcutaneous vagus nerve stimulation (tVNS):</strong> Emerging therapy that restores sympathovagal balance and exerts immunomodulatory effects (<a href="#ref-chakraborty2023noninvasivevagusnerve-pages-2-3">chakraborty2023noninvasivevagusnerve pages 2-3</a>, <a href="#ref-schiweck2026systematicliteraturereview-pages-1-2">schiweck2026systematicliteraturereview pages 1-2</a>)</li>
 </ul>
 <h3>Pharmacological Treatments</h3>
 <ul>
-<li><strong>Ivabradine:</strong> Selective If-channel blocker in sinoatrial node pacemaker cells; reduces heart rate without affecting blood pressure or myocardial contractivity. Phase 3 trial completed (NCT03182725, 37 participants). Effectively reduces HR and alleviates symptoms (<a href="#ref-qu2024navigatingcomplexityin-pages-10-12">qu2024navigatingcomplexityin pages 10-12</a>, <a href="#ref-schiweck2026systematicliteraturereview-pages-1-2">schiweck2026systematicliteraturereview pages 1-2</a>). <em><a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (pharmacotherapy)</em></li>
+<li><strong>Ivabradine:</strong> Selective If-channel blocker in sinoatrial node pacemaker cells; reduces heart rate without affecting blood pressure or myocardial contractivity. Phase 3 trial completed (NCT03182725, 37 participants). Effectively reduces HR and alleviates symptoms (<a href="#ref-qu2024navigatingcomplexityin-pages-10-12">qu2024navigatingcomplexityin pages 10-12</a>, <a href="#ref-schiweck2026systematicliteraturereview-pages-1-2">schiweck2026systematicliteraturereview pages 1-2</a>). <em><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (pharmacotherapy)</em></li>
 <li><strong>Beta-blockers</strong> (propranolol, bisoprolol, metoprolol): Heart rate reduction and sympatholytic effects (<a href="#ref-steinberg2023narrativereviewof-pages-5-6">steinberg2023narrativereviewof pages 5-6</a>, <a href="#ref-schiweck2026systematicliteraturereview-pages-1-2">schiweck2026systematicliteraturereview pages 1-2</a>)</li>
 <li><strong>Midodrine:</strong> α1-adrenergic agonist for peripheral vasoconstriction (<a href="#ref-steinberg2023narrativereviewof-pages-7-8">steinberg2023narrativereviewof pages 7-8</a>, <a href="#ref-schiweck2026systematicliteraturereview-pages-1-2">schiweck2026systematicliteraturereview pages 1-2</a>)</li>
 <li><strong>Fludrocortisone:</strong> Mineralocorticoid for blood volume expansion in hypovolemic subtype (<a href="#ref-steinberg2023narrativereviewof-pages-6-7">steinberg2023narrativereviewof pages 6-7</a>, <a href="#ref-qu2024navigatingcomplexityin-pages-10-12">qu2024navigatingcomplexityin pages 10-12</a>)</li>
@@ -1002,7 +1164,7 @@ POTS patients exhibit elevated catecholamine and angiotensin II levels with decr
 </ul>
 <h3>Immunotherapy (Emerging)</h3>
 <p>For severe, refractory POTS with autoimmune features:
-- <strong>IVIG/SCIG:</strong> Case series show improvement in orthostatic symptoms, fatigue, and autoantibody titers (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-5-7">blitshteyn2025immunotherapiesforpostural pages 5-7</a>, <a href="#ref-pena2024autoimmunityinsyndromes-pages-8-9">pena2024autoimmunityinsyndromes pages 8-9</a>). However, one small RCT showed no significant advantage over albumin, though study limitations may have affected results (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-5-7">blitshteyn2025immunotherapiesforpostural pages 5-7</a>). Phase 3 trial of IgPro20 (NCT06524739) was terminated (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-17-18">blitshteyn2025immunotherapiesforpostural pages 17-18</a>). <em><a href="http://purl.obolibrary.org/obo/MAXO_0000780" target="_blank" rel="noopener noreferrer">MAXO:0000780</a> (immunotherapy)</em>
+- <strong>IVIG/SCIG:</strong> Case series show improvement in orthostatic symptoms, fatigue, and autoantibody titers (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-5-7">blitshteyn2025immunotherapiesforpostural pages 5-7</a>, <a href="#ref-pena2024autoimmunityinsyndromes-pages-8-9">pena2024autoimmunityinsyndromes pages 8-9</a>). However, one small RCT showed no significant advantage over albumin, though study limitations may have affected results (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-5-7">blitshteyn2025immunotherapiesforpostural pages 5-7</a>). Phase 3 trial of IgPro20 (NCT06524739) was terminated (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-17-18">blitshteyn2025immunotherapiesforpostural pages 17-18</a>). <em><a href="https://bioregistry.io/MAXO:0000780" target="_blank" rel="noopener noreferrer">MAXO:0000780</a> (immunotherapy)</em>
 - <strong>Plasmapheresis:</strong> Reported to improve function in severe cases, allowing return to daily activities (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-5-7">blitshteyn2025immunotherapiesforpostural pages 5-7</a>, <a href="#ref-pena2024autoimmunityinsyndromes-pages-8-9">pena2024autoimmunityinsyndromes pages 8-9</a>)
 - <strong>Rituximab:</strong> Case reports of autonomic symptomatic resolution with decreased autoantibodies (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-5-7">blitshteyn2025immunotherapiesforpostural pages 5-7</a>)
 - At least 3–6 months of treatment may be needed for full effects (<a href="#ref-blitshteyn2025immunotherapiesforpostural-pages-16-17">blitshteyn2025immunotherapiesforpostural pages 16-17</a>)</p>
@@ -1193,7 +1355,7 @@ POTS patients exhibit elevated catecholamine and angiotensin II levels with decr
 
             <nav class="report-nav" aria-label="Report navigation">
                 
-                <a href="Postinfectious_Vasculitis-falcon.html">← Postinfectious Vasculitis (Falcon)</a>
+                <a href="Postpartum_Depression-claude_code.html">← Postpartum Depression (Claude Code)</a>
                 
                 
                 <a href="Pouchitis-cyberian.html">Pouchitis (Cyberian) →</a>
