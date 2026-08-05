@@ -57,7 +57,8 @@ def record_span(lines: list[str], acc: str) -> tuple[int, int] | None:
 
 
 def tidy_file(path: Path, allowed: set[str] | None, dry_run: bool) -> tuple[int, int]:
-    text = path.read_text(newline="")
+    with path.open(newline="") as stream:
+        text = stream.read()
     doc = yaml.safe_load(text) or {}
     records = [r for r in (doc.get("datasets") or []) if isinstance(r, dict)]
     if not records:

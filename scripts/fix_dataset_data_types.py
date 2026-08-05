@@ -46,7 +46,10 @@ def wanted_type(record: dict) -> str:
 def fix_file(
     path: Path, dry_run: bool, allowed: set[str] | None = None
 ) -> list[tuple[str, str, str]]:
-    text = path.read_text(newline="")
+    with path.open(newline="") as stream:
+        text = stream.read()
+    if allowed is not None and not any(acc in text for acc in allowed):
+        return []
     doc = yaml.safe_load(text) or {}
     changes: list[tuple[str, str, str]] = []
 
