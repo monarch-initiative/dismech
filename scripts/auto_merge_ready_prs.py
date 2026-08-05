@@ -108,6 +108,12 @@ PASSING_STATES = frozenset({"SUCCESS", "EXPECTED", "NEUTRAL"})
 # else got there first. The sweep runs six times a day, so the right response
 # is to record a skip and reconsider next run — NOT to fail the workflow and
 # page a human about a race that resolved itself correctly.
+#
+# "Benign" therefore means *assumed transient*. Each run is stateless, so a PR
+# that fails this way every time is retried and skipped indefinitely without
+# escalating. It stays visible in the step summary's skip list, which is the
+# only signal; if a permanently-stuck PR ever needs to escalate, that requires
+# cross-run state this script deliberately does not keep.
 BENIGN_MERGE_FAILURES = (
     "head branch was modified",  # --match-head-commit fired: a push landed
     "base branch was modified",
@@ -277,14 +283,28 @@ def _gh(args: list[str]) -> str:
 
 
 def _gh_error(exc: subprocess.CalledProcessError) -> str:
-    """Condense a gh failure into one reportable line."""
-    stderr = (exc.stderr or "").strip()
-    return stderr.splitlines()[-1] if stderr else f"gh exited {exc.returncode}"
+    """Condense a gh failure into one reportable line.
+
+    Take the *first* non-empty line, not the last: when ``gh pr merge`` refuses
+    a merge it puts the actionable sentence first and appends ``--auto`` and
+    ``--admin`` hint lines, so the last line is advice rather than a diagnosis.
+    """
+    for line in (exc.stderr or "").splitlines():
+        cleaned = line.strip().lstrip("X!✓ ").strip()
+        if cleaned:
+            return cleaned
+    return f"gh exited {exc.returncode}"
 
 
-def is_benign_merge_failure(message: str) -> bool:
-    """True when a failed merge means the PR moved, not that we are broken."""
-    lowered = message.lower()
+def is_benign_merge_failure(stderr: str) -> bool:
+    """True when a failed merge means the PR moved, not that we are broken.
+
+    Matches against the *whole* stderr. gh's refusal messages are multi-line
+    and the marker can be on any of them, so classifying on a single extracted
+    line silently misses cases — that is how "not mergeable" (the commonest
+    benign race) previously ended up reported as a hard failure.
+    """
+    lowered = stderr.lower()
     return any(marker in lowered for marker in BENIGN_MERGE_FAILURES)
 
 
@@ -501,7 +521,8 @@ def main(argv: list[str] | None = None) -> int:
             merge_pr(args.repo, number, args.min_age_days, fresh.get("headRefOid"))
         except subprocess.CalledProcessError as exc:
             reason = _gh_error(exc)
-            if is_benign_merge_failure(reason):
+            # Classify on the full stderr, report the condensed line.
+            if is_benign_merge_failure(exc.stderr or reason):
                 # The PR moved between verification and merge. That is the
                 # guard working; next run reconsiders it.
                 print(f"SKIP  #{number}: {reason}")
