@@ -58,6 +58,7 @@ URI: [linkml:Any](https://w3id.org/linkml/Any)
 | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
+| [ImagingFindingDescriptor](../classes/ImagingFindingDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [InheritanceDescriptor](../classes/InheritanceDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
@@ -79,6 +80,7 @@ URI: [linkml:Any](https://w3id.org/linkml/Any)
 | [Phenotype](../classes/Phenotype.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [Biochemical](../classes/Biochemical.md) | [frequency](../slots/frequency.md) | range | [Any](../classes/Any.md) |
 | [HistopathologyFinding](../classes/HistopathologyFinding.md) | [frequency](../slots/frequency.md) | range | [Any](../classes/Any.md) |
+| [ImagingFinding](../classes/ImagingFinding.md) | [frequency](../slots/frequency.md) | range | [Any](../classes/Any.md) |
 | [Genetic](../classes/Genetic.md) | [frequency](../slots/frequency.md) | range | [Any](../classes/Any.md) |
 | [CriteriaItem](../classes/CriteriaItem.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |
 | [ConditionDescriptor](../classes/ConditionDescriptor.md) | [severity](../slots/severity.md) | range | [Any](../classes/Any.md) |

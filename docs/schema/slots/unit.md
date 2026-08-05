@@ -17,10 +17,10 @@ Alias: unit
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ModelVariable](../classes/ModelVariable.md) | A variable in a computational model, identified by a human-readable name, wit... |  no  |
-| [ReferenceRange](../classes/ReferenceRange.md) | A population reference interval for a clinical laboratory analyte |  yes  |
-| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
 | [EpidemiologyInfo](../classes/EpidemiologyInfo.md) |  |  no  |
+| [ReferenceRange](../classes/ReferenceRange.md) | A population reference interval for a clinical laboratory analyte |  yes  |
+| [ModelVariable](../classes/ModelVariable.md) | A variable in a computational model, identified by a human-readable name, wit... |  no  |
+| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
 
 
 

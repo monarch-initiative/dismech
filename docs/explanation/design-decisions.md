@@ -268,6 +268,44 @@ exactly.
 **Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
 
+### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
+
+**Decision.** When a disease-level mechanistic hypothesis has been overturned, it is
+curated as a `mechanistic_hypotheses` entry with `status: DEPRECATED` — kept in the entry,
+not removed from it — and the rendered page states explicitly that DisMech does **not**
+assert it as the current mechanism.
+
+- **Retain rather than delete.** An overturned model that is still circulating in reviews,
+  textbooks or older diagnostic criteria is exactly the claim a reader arrives wanting to
+  check. Deleting it leaves them with nothing to check against; recording it with a verdict
+  and cited refutations is the more useful artifact.
+- **Citation volume does not decide standing.** A deprecated hypothesis will often carry
+  *more* supporting than refuting citations, because the supporting literature accumulated
+  for decades before the refutation landed. Where evidence conflicts, DisMech follows the
+  more recent and more direct evidence — a quantitative or orthogonal-method refutation
+  outweighs any number of narrative citations asserting the older view.
+- **Both sides get cited.** The hypothesis's own `evidence` list carries the founding
+  supporting citations (`supports: SUPPORT`) alongside the refutations (`supports: REFUTE`),
+  each with a verified snippet, so the assessment is auditable rather than editorial
+  assertion. Renderers surface the SUPPORT/PARTIAL/REFUTE split as an evidence-balance row.
+- **Disputed nodes are marked, not asserted.** A pathophysiology node that exists only to
+  represent a deprecated model carries `mechanism_confidence: HYPOTHETICAL`, and its causal
+  edges opt into the deprecated `hypothesis_groups` so the disputed chain stays separable
+  from the live models. Hypothesis chips on nodes and edges carry the deprecated status.
+- **No conformance on a disputed claim.** Do not add a `conforms_to` edge to a mechanism
+  module on the strength of a hypothesis curated as DEPRECATED — that would assert as fact
+  precisely what the assessment rejects.
+
+**Rationale.** Mechanism knowledge bases fail readers in two opposite ways: by omitting
+retired models (so a reader meeting the claim in the literature has no recourse), and by
+listing them undifferentiated alongside live ones (so retired models keep accruing
+authority). Recording the model *with* an explicit verdict and a visible evidence balance
+avoids both. The worked example is the beta-amyloid hypothesis of sporadic inclusion body
+myositis (`amyloid_beta_proteotoxicity` in `kb/disorders/Inclusion_Body_Myositis.yaml`),
+whose literature is itself the documented subject of a citation-distortion analysis
+(PMID:19622839) — the clearest available case of citation weight outrunning data. See
+[the exploration report](../reports/ibm-amyloid-beta-hypothesis-2026-08-02.md).
+
 
 ## 7. Curation process & governance
 

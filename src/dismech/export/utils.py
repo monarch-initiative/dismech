@@ -16,6 +16,26 @@ RESEARCH_REPORT_PATTERN = re.compile(
 )
 
 
+def slugify(name: str) -> str:
+    """Convert an entry name to a filename-safe slug.
+
+    **The single source of truth for page filenames.** The renderer names files
+    on disk with this, and every exporter builds the ``page_url`` pointing at
+    them with the same function, so the two halves of a build cannot disagree.
+
+    This used to be five byte-identical copies (``render``, ``browser_export``,
+    ``models_export``, ``discussions_export``, ``pathograph_export``), three of
+    which recorded the coupling in a docstring rather than enforcing it. A
+    divergence between the renderer's copy and an exporter's copy produces dead
+    links in the browser index, and since ``check_browser_data_links.py`` is
+    fail-closed it would now stop the publish pipeline outright.
+
+    ``hpoa_export.slugify`` is deliberately **not** this function — it emits
+    lowercase hyphenated slugs for a different purpose and stays separate.
+    """
+    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
+
+
 def discover_disorder_files(input_dir: Path) -> list[Path]:
     """Return sorted disorder YAML files in ``input_dir``, excluding history files."""
     return [
