@@ -7,7 +7,9 @@ unusual enough to deserve an explanation of the shape rather than a per-workflow
 manual.
 
 This page is the map. It explains **why the automation is arranged the way it
-is**. For the individual knobs, see [Cron Profiles](../cron-profiles.md)
+is**. Counts and sampled statistics below were measured **2026-08-05** and will
+drift — they are given to make the reasoning concrete, and none of the arguments
+depend on the exact numbers holding. For the individual knobs, see [Cron Profiles](../cron-profiles.md)
 (cadence), [Agent Model Config](../agent-config.md) (which model), and
 [Page Build](../page-build.md) (full vs incremental rendering).
 
@@ -16,7 +18,7 @@ skip to [Review states and merge state](#review-states-and-merge-state).
 
 ---
 
-## The stance: agent-forward, human-gated
+## The stance: agent-forward, with a human *window* rather than a sign-off
 
 [Design decision §7](design-decisions.md) states it: DisMech is **agent-forward**.
 Most curation is performed by AI agents, initiated either by humans or by
@@ -27,6 +29,20 @@ The consequence people underestimate: at this volume, **a human cannot be the
 throughput bottleneck on every change**. Roughly 200 PRs are open at any time.
 So the human role is not "approve each diff" — it is "set the policy the
 automation enforces, and intervene where it flags uncertainty."
+
+**Be precise about what "reviewed" means here.** The automated reviewer is
+itself a model: `claude-code-review.yml` mints an `ai4c-reviewer` GitHub App
+token and has it run `gh pr review --approve`. So `reviewDecision == APPROVED`
+— the load-bearing condition in the auto-merge criteria — is normally produced
+by an LLM, not a person. For an agent-authored curation PR, that closes an
+**author → approve → merge** loop with no human in it.
+
+That is deliberate at this repo's curation volume, but it means the human
+control is *not* a sign-off gate. It is the **3-day delay and the assignee
+check** — see [the auto-merge criteria](#the-auto-merge-criteria-in-this-vocabulary).
+Those two otherwise arbitrary-looking conditions exist precisely to be the
+window in which a human can notice and intervene; everything else in the
+predicate is a correctness check that a machine can evaluate.
 
 That only works if the automation is trustworthy in a specific way, which is the
 next section.
@@ -49,10 +65,18 @@ Worked examples, each a place where the two halves sit side by side:
 | Workflow | The model's job (judgement) | The deterministic gate (decision) |
 |---|---|---|
 | `pr-shepherd` | Agent step reads stuck PRs, resolves review comments, pushes fixes | Closing sweep merges only PRs passing a fixed predicate ([`scripts/auto_merge_ready_prs.py`](https://github.com/monarch-initiative/dismech/blob/main/scripts/auto_merge_ready_prs.py)) |
-| `claude-code-review` | Agent reviews the diff and writes findings | Branch protection decides whether the PR can merge |
+| `claude-code-review` | Agent reviews the diff, writes findings, **and submits the approving review** | *(none on this path — see below)* |
 | Curation generally | Agent writes the YAML and picks the evidence | The [validation stack](../quality-control.md) — schema, term, and reference validators — decides whether it's admissible |
 | `generate-pages` | — | [`classify_page_build.py`](https://github.com/monarch-initiative/dismech/blob/main/scripts/classify_page_build.py) decides full vs incremental, defaulting to full on anything unrecognised |
 | `close-fork-prs` | — | Closes every fork PR. "No model is involved" (its own header comment) |
+
+**The review row is the honest exception**, and worth stating plainly in a page
+arguing this principle. Branch protection does gate the merge, but the approval
+it requires is produced by the reviewing model itself, so on that path the
+"deterministic decides" half is satisfied by model judgement. The real
+deterministic gates on a curation PR are the **validation stack** and the
+**merge sweep's fixed predicate** — not the review requirement. Wherever this
+page says a change is gated, that is what is doing the work.
 
 The validation stack is the load-bearing instance. Agents hallucinate PMIDs,
 snippets, and ontology IDs; the answer is not "prompt the agent harder" but
@@ -97,7 +121,11 @@ on issues, PRs, and review comments. `claude-issue-triage` and
 
 **Derived artifacts** — `generate-pages`, `generate-grouping-pages`,
 `generate-project-pages` render HTML; `warm-reference-cache` pre-resolves
-publisher PDFs; `sync-epic-checkboxes` reconciles a tracking issue.
+publisher PDFs.
+
+**Scheduled housekeeping** — `weekly-compliance` opens a periodic
+compliance-fix PR (the one `auto-merge-compliance` is scoped to);
+`sync-epic-checkboxes` reconciles a tracking issue against the KB.
 
 **Releases** — `kgx-release`, `mondo-emc-release`, `pypi-publish`, triggered by
 published GitHub releases.
@@ -140,8 +168,17 @@ agent that reads it (prompt injection). Three mechanisms address this:
    content appears to be giving it orders. `pr-shepherd`'s prompt is the fullest
    worked example.
 
-**Bot identity.** Scheduled agents authenticate as the `ai4c-agent` GitHub App
-rather than using the built-in `GITHUB_TOKEN`. This is deliberate: a push made
+**Bot identity.** Two GitHub Apps appear in timelines, with different
+permissions, and it is worth being able to tell them apart:
+
+- **`ai4c-agent`** — the *write* identity. Scheduled agents (curation scanners,
+  `pr-shepherd`) push branches, comment, and merge as this app.
+- **`ai4c-reviewer`** — the *review* identity used by `claude-code-review` to
+  submit review states. An `ai4c-reviewer[bot]` approval in a PR timeline is a
+  model's verdict, per the section above.
+
+Scheduled agents authenticate as an App rather than using the built-in
+`GITHUB_TOKEN`. This is deliberate: a push made
 with `GITHUB_TOKEN` does *not* trigger further workflows (GitHub's loop
 prevention), so a fix pushed by an agent would never get re-reviewed. An App
 token does trigger them. Note App installation tokens expire after **1 hour**,
@@ -250,9 +287,22 @@ created more than **3 days** ago · targeting `main`.
 
 This applies to **all authors, humans included**.
 
-> **To stop a PR being auto-merged, assign it to someone.** An assigned PR reads
-> as somebody's active work and is never swept. Converting to draft or leaving a
-> `CHANGES_REQUESTED` review also blocks it.
+**Two of those criteria are the human control, and the rest are machine checks.**
+Approval, mergeability, and green checks are all things a machine evaluates —
+and since the approving reviewer is itself a model, they contain no human
+judgement at all. What remains is:
+
+- **more than 3 days old** — a standing window in which any human can look at
+  any queued PR before it merges;
+- **unassigned** — the per-PR veto. Assigning a PR marks it as somebody's active
+  work, and the sweep never touches it.
+
+So "a human is in the loop" here means *a human has a guaranteed opportunity to
+intervene*, not *a human signed off*. Read the 3-day delay as the price paid for
+that opportunity rather than as an arbitrary cooling-off period.
+
+> **To stop a PR being auto-merged, assign it to someone.** Converting to draft
+> or leaving a `CHANGES_REQUESTED` review also blocks it.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 
