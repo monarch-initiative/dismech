@@ -45,7 +45,6 @@ Figures below are measured, not estimated.
 
 | Source | Recipe | Coverage | Use it for |
 |---|---|---|---|
-| **phenopacket-store** | `discover_phenopackets.py` | 700 cohorts; matched 62 of 774 Mendelian entries | Rare monogenic disease. **Matches on disease *identity***, not name |
 | **EGA** | `discover_ega.py` | 10,453 studies | Controlled-access human cohorts GEO cannot index |
 | **GEO** | `discover_datasets.py` | — | Common/complex disease. Poor for rare disease (see below) |
 | **ArrayExpress** | `discover_arrayexpress.py` | 21,319 native of 80,697 | **73.6% are GEO re-imports** — native submissions only |
@@ -60,26 +59,12 @@ both resolve, which no verifier can detect.
 **Never curate OmicsDI hits from GEO/ArrayExpress/PRIDE/MetaboLights/EGA.** Same
 duplication problem, one aggregation layer further out.
 
-### phenopacket-store is the strongest match available
-
-Every other source matches disease *names*. A phenopacket carries a **coded
-disease term** and its source PMID, so cohorts are matched by comparing the
-cohort's disease IDs against the OMIM/Orphanet xrefs of the entry's own MONDO
-`disease_term`. Identifier equality, not string similarity.
-
-That catches errors no title-matcher can. The FGFR3 cohort is *withheld* from
-`Achondroplasia` because it codes `OMIM:146000` (hypochondroplasia) against the
-entry's `OMIM:100800` — the same right-gene/sibling-disease error that gave Pick
-disease a Niemann-Pick dataset under GEO, caught mechanically instead of by
-reading titles.
-
 ### Why GEO stops working for rare disease
 
 Measured over 140 Mendelian entries: 24% yielded anything and 40% of proposals
 were rejected as wrong-disease. A GEO series carries no coded disease, so for a
 rare disorder the only available signal is its causal gene — and a gene hit is
-usually a study *about something else*. Prefer phenopacket-store, EGA and
-dbGaP there.
+usually a study *about something else*. Prefer EGA and dbGaP there.
 
 ## The workflow
 
@@ -175,14 +160,12 @@ They are reported rather than failed because fixing them needs a human.
 ## Supported repositories
 
 NCBI GEO / SRA / BioProject / dbGaP, EBI BioStudies (ArrayExpress) / PRIDE /
-MetaboLights / MGnify, EGA, MassIVE, NASA OSDR, Metabolomics Workbench, and
-phenopacket-store. Adding another means writing a resolver in
+MetaboLights / MGnify, EGA, MassIVE, NASA OSDR, and Metabolomics Workbench.
+Adding another means writing a resolver in
 `scripts/verify_dataset_accessions.py` and registering its accession shape.
 
-Two resolve **offline** against a committed index rather than a live API:
-`phenopacket-store` (the GitHub contents API is capped at 60 req/hour, which
-would throttle a whole-KB audit) and, for discovery only, the ArrayExpress and
-EGA study indexes. Their bulk archives are gitignored and rebuilt with
+For discovery, the ArrayExpress and EGA study indexes resolve offline against
+committed retrieval metadata. Their bulk archives are gitignored and rebuilt with
 `--refresh`; only the derived index or a retrieval stamp is committed.
 
 ## Known KB issues this tooling surfaced

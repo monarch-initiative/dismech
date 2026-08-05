@@ -101,8 +101,11 @@ def entry_phrases(entry: dict, slug: str) -> tuple[list[str], list[tuple[str, st
 
 
 def compile_phrases(phrases: list[str]) -> list[tuple[str, re.Pattern]]:
-    """Word-boundary patterns, so "H Syndrome" cannot match "MRKH syndrome"."""
-    return [(p, re.compile(rf"\b{re.escape(p.lower())}\b")) for p in phrases]
+    """Hyphen-aware boundaries, so Pick disease cannot match Niemann-Pick disease."""
+    return [
+        (p, re.compile(rf"(?<![\w-]){re.escape(p)}(?![\w-])", re.IGNORECASE))
+        for p in phrases
+    ]
 
 
 def match_title(title: str, patterns, cores) -> tuple[str, str]:

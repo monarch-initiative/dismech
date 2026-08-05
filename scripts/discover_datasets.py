@@ -72,8 +72,6 @@ GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
     ("atac", "ATAC_SEQ"),
     ("protein profiling", "PROTEOMICS"),
     ("metabolomic", "METABOLOMICS"),
-    ("snp genotyping", "GWAS"),
-    ("genome variation profiling", "GWAS"),
     ("expression profiling by high throughput sequencing", "BULK_RNA_SEQ"),
     ("expression profiling by array", "MICROARRAY"),
     ("non-coding rna profiling by array", "MICROARRAY"),
@@ -86,7 +84,7 @@ GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
 ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(spatial(ly)?[- ]?(resolved|transcriptom\w*)?|visium|geomx|merfish|"
                 r"xenium|cosmx|slide[- ]?seq|stereo[- ]?seq)\b", re.IGNORECASE), "SPATIAL_TRANSCRIPTOMICS"),
-    (re.compile(r"\b(atac[- ]?seq|scatac|cut&tag|cut ?& ?run|cut&run)\b", re.IGNORECASE), "ATAC_SEQ"),
+    (re.compile(r"\b(atac[- ]?seq|(?:sc|sn)atac[- ]?seq|cut&tag|cut ?& ?run|cut&run)\b", re.IGNORECASE), "ATAC_SEQ"),
     (re.compile(r"\b(single[- ]cell|single[- ]nucleus|single[- ]nuclei|sc ?rna[- ]?seq|"
                 r"sn ?rna[- ]?seq|scrna|snrna|cite[- ]?seq|10x genomics|droplet[- ]based)\b",
                 re.IGNORECASE), "SINGLE_CELL_RNA_SEQ"),
@@ -105,11 +103,13 @@ def refine_data_type(gds_type: str, text: str, mapped: str) -> str:
     is never overridden by a stray word in a summary.
     """
     low = (gds_type or "").lower()
-    if mapped and not any(u in low for u in UNSPECIFIC_GDSTYPES):
+    if not any(u in low for u in UNSPECIFIC_GDSTYPES):
         return mapped
-    for pattern, enum in ASSAY_PATTERNS:
-        if pattern.search(text or ""):
-            return enum
+    matches = {enum for pattern, enum in ASSAY_PATTERNS if pattern.search(text or "")}
+    if len(matches) > 1:
+        return "MULTI_OMICS"
+    if matches:
+        return matches.pop()
     return mapped
 
 
