@@ -1296,6 +1296,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-# Backwards-compatible alias for the previous private name.
-_iter_variant_items = iter_variant_items
