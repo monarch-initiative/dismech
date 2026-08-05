@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16030601"
+reference_id: DOI:10.3390/cancers16030601
 title: Novel Approaches with HIF-2α Targeted Therapies in Metastatic Renal Cell Carcinoma
 authors:
 - Charles B. Nguyen
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16030601
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel Approaches with HIF-2α Targeted Therapies in Metastatic Renal Cell Carcinoma

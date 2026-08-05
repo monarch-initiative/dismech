@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15184573"
+reference_id: DOI:10.3390/cancers15184573
 title: Mechanisms of Resistance to Small Molecules in Acute Myeloid Leukemia
 authors:
 - Tonio Johannes Lukas Lang
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15184573
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mechanisms of Resistance to Small Molecules in Acute Myeloid Leukemia

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14090958"
+reference_id: DOI:10.3390/diagnostics14090958
 title: Pathological and Molecular Diagnosis of Uveal Melanoma
 authors:
 - Mihai Adrian Păsărică
@@ -11,6 +11,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14090958
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathological and Molecular Diagnosis of Uveal Melanoma

@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MED13L Syndrome · Anthropic Pipeline · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MED13L Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MED13L Syndrome</h1>
+                
+                <p class="report-subtitle">MED13L Syndrome — Anthropic systematic-review pipeline output</p>
+                
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-other">Anthropic Pipeline</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014773" target="_blank" rel="noopener noreferrer">MONDO:0014773</a>
+                    
+                    
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>MED13L Syndrome — Anthropic systematic-review pipeline output</h1>
+<p><strong>Provider:</strong> Anthropic Claude systematic-review pipeline (multi-phase: literature
+retrieval, structured curation, claim-triple verification).
+<strong>Subject:</strong> MED13L syndrome (MRFACD), <a href="http://purl.obolibrary.org/obo/MONDO_0014773" target="_blank" rel="noopener noreferrer">MONDO:0014773</a>
+<strong>Run date:</strong> 2026-06-24 (MED13) / 2026-06-23 (MED13L); artifacts received 2026-07-09.
+<strong>Deposited:</strong> 2026-07-30, as the source artifact for dismech PR #7186.</p>
+<blockquote>
+<p><strong>AI-Generated Content — Not Medical Advice.</strong> This document was generated with
+substantial AI assistance and is not medical advice. It is a research literature
+synthesis intended for scientific and educational use. It has not been independently
+reviewed by a licensed physician for clinical accuracy and must not be used as a
+substitute for professional medical advice, diagnosis, or treatment. AI systems can
+produce errors, including plausible-sounding statements that are incorrect; verify
+every claim against the cited primary literature before use.</p>
+</blockquote>
+<h2>How this artifact was used</h2>
+<p>The dismech repository was <strong>held out</strong> during this pipeline run — no sub-agent fetched
+or read <code>kb/disorders/MED13_Syndrome.yaml</code> or the rendered dismech site. The two
+curations are therefore independent, and their overlap is convergent evidence rather
+than derivation.</p>
+<p><strong>Critical caveat for anyone reusing this file.</strong> The pipeline's own provenance block
+states its evidence snippets are <em>"verbatim spans from the post-P19 review.md, not from
+source abstracts"</em>. They are therefore <strong>not</strong> valid dismech evidence snippets and must
+not be copied into a KB entry. Every claim curated into dismech from this artifact was
+re-derived against PubMed abstracts (and cached full text where available) using
+<code>linkml-reference-validator</code>. Claims whose only support was a pipeline snippet absent
+from the cited source were dropped rather than reworded. See PR #7186 for the full
+list of what was dropped and why.</p>
+<p>References here are given as DOIs; dismech requires PMIDs. 74 of 78 DOIs resolved to
+PubMed records; the four that did not are listed in the PR description.</p>
+<hr />
+<h1>Part 1 — Curation preview (DisMech format)</h1>
+<h2>Description AI-GENERATED</h2>
+<p>MED13L syndrome is an autosomal dominant neurodevelopmental disorder caused by heterozygous, predominantly de novo, loss-of-function or missense variants in MED13L, which encodes a subunit of the CDK8 kinase module of the Mediator transcriptional coactivator complex. The phenotype comprises moderate intellectual disability, marked speech delay, hypotonia, a recognisable facial gestalt, and variable congenital heart defects. Missense variants are associated with a more severe presentation including epilepsy, and the disorder belongs to the broader CDK8-module Mediatorpathy spectrum.</p>
+<p>Parents: <a href="http://purl.obolibrary.org/obo/MONDO_0002320" target="_blank" rel="noopener noreferrer">MONDO:0002320</a><a href="http://purl.obolibrary.org/obo/MONDO_0015159" target="_blank" rel="noopener noreferrer">MONDO:0015159</a><a href="http://purl.obolibrary.org/obo/MONDO_0100547" target="_blank" rel="noopener noreferrer">MONDO:0100547</a><a href="http://purl.obolibrary.org/obo/MONDO_0100601" target="_blank" rel="noopener noreferrer">MONDO:0100601</a></p>
+<h2>AI-generated mechanistic hypotheses AI-GENERATED (5)</h2>
+<p>These 5 hypotheses are the pipeline's integrative reasoning layer: each synthesises across the mechanism nodes below to propose a testable claim. Per-citation context (DisMech explanation) is collapsed under each evidence item, not shown as headline reasoning.</p>
+<h3>MED13L haploinsufficiency (dosage loss) is the primary disease mechanismCANONICALAI reasoning</h3>
+<p>Heterozygous deletion, frameshift, nonsense and canonical-splice variants reduce functional MED13L dosage below a developmental threshold, dysregulating CKM-gated Mediator transcription. Supported by the predominance of LoF alleles in patients, the recognisable phenotype across deletion and truncating cases, and recapitulation in Med13l+/- mice with embryonic lethality of the null.</p>
+<p>Applies to: LoF (deletion/truncating/splice)</p>
+<p>Evidence: for 4 · against 1</p>
+<p>4 supporting citations</p>
+<p>“Results: The 17 kb out-of-frame de novo deletion encompassing exon 2 of MED13L (MIM *608771) in patient 56366, together with overlapping cases, were instrumental to define a recognisable haploinsufficiency syndrome that we reported and discussed in detail elsewhere.”
+de novo intragenic deletion defines recognisable haploinsufficiency syndrome
+literature · 10.1136/jmedgenet-2014-102588</p>
+<p>“The first patient has a de novo mutation in the splice acceptor site of exon 5 of MED13L. cDNA analysis showed this mutation results in an in-frame deletion, removing 15 amino acids in middle of the conserved MED13L N-terminal domain.”
+splice and exonic deletion alleles confirm haploinsufficiency phenotype
+literature · 10.1038/ejhg.2014.69</p>
+<p>“Results: Due to embryonic lethality, we characterize the Med13l heterozygous germline deletion (Figure 1E).”
+Med13l null is embryonic lethal; heterozygote phenocopies syndrome
+literature · 10.1002/dvdy.70079</p>
+<p>“Congenital cardiac and neurodevelopmental deficits have been recently linked to the mediator complex subunit 13-like protein MED13L, a subunit of the CDK8-associated mediator complex that functions in transcriptional regulation through DNA-binding transcription factors and RNA polymerase II.”
+haploinsufficiency causes the cardiac+neurodevelopmental phenotype
+literature · 10.1038/ejhg.2015.26</p>
+<p>1 contrary citation</p>
+<p>“We found that patients carrying missense mutations had more frequently epilepsy and showed a more severe phenotype.”
+missense carriers show a more severe phenotype than expected from pure dosage loss
+literature · 10.1007/s10048-018-0541-0</p>
+<h3>Subset of recurrent missense variants act via dominant-negative or neomorphic gain-of-functionEMERGINGAI reasoning</h3>
+<p>Recurrent missense variants (notably p.Pro869Ser) retain stable nuclear expression yet associate with a more severe, epilepsy-enriched phenotype than truncating alleles, consistent with a dominant-negative or neomorphic effect on the assembled CKM rather than simple dosage loss.</p>
+<p>Applies to: missense (exon-15 hotspot, C-terminal)</p>
+<p>Evidence: for 3 · against 2</p>
+<p>3 supporting citations</p>
+<p>“Discussion: We observed that the p.Pro866Leu mutant variant shared similarities with the other studied variants—p.Cys1131Tyr, p.Gly1899Arg, and p.Thr2162Met—with cytoplasmic localization and protein instability, consistent with a loss-of-function pathogenic mechanism, while p.Pro869Ser exhibited more stable protein expression and partial nuclear localization, closely resembling the WT condition, arguing for the dominant-negative effect of the mutant protein or the possibility of a neomorphic effect with dominant or semi-dominant properties.”
+p.Pro869Ser stable+nuclear, arguing for dominant-negative/neomorphic effect
+literature · 10.1016/j.xhgg.2025.100467</p>
+<p>“We found that patients carrying missense mutations had more frequently epilepsy and showed a more severe phenotype.”
+missense → more frequent epilepsy and more severe phenotype
+literature · 10.1007/s10048-018-0541-0</p>
+<p>“Discussion: Our case further demonstrates that Pro869Ser is a hotspot mutation of the MED13L gene.”
+Pro869Ser is a recurrent hotspot mutation
+literature · 10.1186/s13052-020-00847-y</p>
+<p>2 contrary citations</p>
+<p>“Discussion: We observed that the p.Pro866Leu mutant variant shared similarities with the other studied variants—p.Cys1131Tyr, p.Gly1899Arg, and p.Thr2162Met—with cytoplasmic localization and protein instability, consistent with a loss-of-function pathogenic mechanism, while p.Pro869Ser exhibited more stable protein expression and partial nuclear localization, closely resembling the WT condition, arguing for the dominant-negative effect of the mutant protein or the possibility of a neomorphic effect with dominant or semi-dominant properties.”
+four other missense variants behave as LoF (cytoplasmic, unstable)
+literature · 10.1016/j.xhgg.2025.100467</p>
+<p>“Notably, our in silico modelling predicted this missense mutation to decrease the stability of an alpha-helix and thereby affecting the MED13L secondary structure, while the majority of published missense mutations remain variants of uncertain significance.”
+missense variant predicted to destabilise structure (LoF-like)
+literature · 10.1016/j.ejmg.2017.06.004</p>
+<h3>MED13L missense variants cause isolated dextro-transposition of the great arteriesREFUTEDAI reasoning</h3>
+<p>The founding 2003 PROSIT240 study reported MED13L missense variants in 3/97 isolated d-TGA patients, proposing MED13L as a conotruncal-CHD gene. Subsequent syndromic cohorts show low CHD penetrance, no isolated-d-TGA enrichment, and the original missense alleles are now classified as VUS — the association has not replicated and is regarded as the historical entry point to the gene.</p>
+<p>Applies to: isolated d-TGA</p>
+<p>Evidence: for 1 · against 3</p>
+<p>1 supporting citation</p>
+<p>“In addition, we identify as Mediator-associated proteins the CDK8-like cyclin-dependent kinase CDK11 and the TRAP240-like KIAA1025 protein (MED13L), which is mutated in patients with the congenital heart defect transposition of the great arteries (TGA).”
+MED13L (KIAA1025) noted as mutated in TGA patients (citing the founding study)
+literature · 10.1016/j.molcel.2004.05.006</p>
+<p>3 contrary citations</p>
+<p>“Congenital cardiac and neurodevelopmental deficits have been recently linked to the mediator complex subunit 13-like protein MED13L, a subunit of the CDK8-associated mediator complex that functions in transcriptional regulation through DNA-binding transcription factors and RNA polymerase II.”
+redefinition of MED13L syndrome as a neurodevelopmental haploinsufficiency disorder; cardiac defects variable
+literature · 10.1038/ejhg.2015.26</p>
+<p>“Notably, our in silico modelling predicted this missense mutation to decrease the stability of an alpha-helix and thereby affecting the MED13L secondary structure, while the majority of published missense mutations remain variants of uncertain significance.”
+majority of published missense variants remain VUS
+literature · 10.1016/j.ejmg.2017.06.004</p>
+<p>“The first patient has a de novo mutation in the splice acceptor site of exon 5 of MED13L. cDNA analysis showed this mutation results in an in-frame deletion, removing 15 amino acids in middle of the conserved MED13L N-terminal domain.”
+LoF alleles cause syndromic ID, not isolated d-TGA
+literature · 10.1038/ejhg.2014.69</p>
+<h3>MED13 paralogue partially compensates for MED13L loss (and vice versa)EMERGINGAI reasoning</h3>
+<p>MED13 and MED13L are mutually exclusive in the CKM and show compensatory upregulation in knockout models, buffering some MED13L-dependent functions; incomplete compensation may explain variable expressivity (e.g. cardiac penetrance) and is a candidate therapeutic axis.</p>
+<p>Applies to: all</p>
+<p>Evidence: for 3 · against 2</p>
+<p>3 supporting citations</p>
+<p>“The difference between these two phenotypes may be explained by the compensatory upregulation of Med13l , a Med13 paralog, which develops in MED13 KOs during a rather long transcriptionally active stage of oocyte growth. However, postimplantation development is not rescued by MED13L [ 31 ].”
+Med13l compensatorily upregulates in MED13 KOs during oocyte growth
+literature · 10.3390/ijms24119330</p>
+<p>“Clones generated for cryo-EM: However, probably because CH12 cells also express med13L , this strategy did not improve the purification and thus was unnecessary and omitted in other mutants.”
+MED13L expression buffers MED13 knockout in CH12 cells
+literature · 10.1016/j.cell.2019.07.011</p>
+<p>“Interestingly, 3 subunits of the kinase module have undergone independent gene duplications in vertebrates to generate the paralog pairs MED12/MED12L, MED13/ MED13L, and CDK8/CDK19.”
+MED13/MED13L are vertebrate paralogue pair from independent gene duplication
+literature · 10.4172/jpb.s2-004</p>
+<p>2 contrary citations</p>
+<p>“The difference between these two phenotypes may be explained by the compensatory upregulation of Med13l , a Med13 paralog, which develops in MED13 KOs during a rather long transcriptionally active stage of oocyte growth. However, postimplantation development is not rescued by MED13L [ 31 ].”
+MED13L does not rescue postimplantation development in MED13 KO
+literature · 10.3390/ijms24119330</p>
+<p>“Results: The preponderance of MED13 crosslinks over MED13L ones is likely explained by a report indicating that MED13 preferentially associates with CKM-MED, while MED13L is present in complexes that also contain MED26 35 .”
+MED13 preferentially associates with CKM-MED while MED13L is in MED26-containing complexes (non-equivalent roles)
+literature · 10.1016/j.molcel.2024.06.006</p>
+<h3>Aberrant cytoplasmic cyclin C release drives mitochondrial fragmentation contributing to neuronal dysfunctionEMERGINGAI reasoning</h3>
+<p>Loss of the MED13L nuclear anchor releases cyclin C to the cytoplasm in unstressed patient fibroblasts, triggering mitochondrial fission, reduced respiration and ATP output; if operative in neurons this would link MED13L haploinsufficiency to a metabolic component of the ID phenotype.</p>
+<p>Applies to: LoF (deletion/truncating/splice)</p>
+<p>Evidence: for 3 · against 2</p>
+<p>3 supporting citations</p>
+<p>“Cyclin C exhibits aberrant cytoplasmic localization in unstressed MED13L S1497 F/fs fibroblasts: MED13L +/ fs cells exhibit cyclin C nuclear release and mitochondrial dysfunction”
+MED13L+/fs fibroblasts show cytoplasmic cyclin C and mitochondrial dysfunction
+literature · 10.1016/j.isci.2022.103823</p>
+<p>“5.4. Diseases Associated with MED13 Biology: In MED13L, mutant fibroblast cyclin C is aberrantly released into the cytoplasm, leading to mitochondrial fragmentation and increased mitochondrial dysfunction [ 303 ].”
+cyclin C release leads to mitochondrial fragmentation in MED13L mutant fibroblasts
+literature · 10.3390/cells14090636</p>
+<p>“MED13L syndrome mechanism: It is hypothesized that in MED13L Haploinsufficiency Syndrome, the transcriptional process related to the mediator complex interaction with RNA polymerase II may be disrupted. Cyclin C is aberrantly released into the cytoplasm, increasing susceptibility to cell death through mitochondrial fragmentation, decreased oxygen consumption as well as decreased ATP production. 50 , 53”
+cyclin C release decreases oxygen consumption and ATP production
+literature · 10.1177/26330040241290252</p>
+<p>2 contrary citations</p>
+<h2>Pathophysiology AI-CURATED (6 mechanism nodes)</h2>
+<h3>mn-ckm-hinge high</h3>
+<p>MED13L (with its paralogue MED13) is the physical hinge of the Mediator CDK8 kinase module (CKM): it carries an Argonaute-like fold whose large intrinsically disordered region forms the sole CKM contact with core Mediator and sterically occludes the RNA Pol II / MED26 binding surface, so MED13L abundance and integrity gate reversible CKM-core docking and the switch between Mediator's repressive and activating states.</p>
+<p>Causes →: mn-haploinsufficiencymn-fbw7-turnover</p>
+<p>Genes: <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a><a href="https://bioregistry.io/HGNC:22474" target="_blank" rel="noopener noreferrer">HGNC:22474</a><a href="https://bioregistry.io/HGNC:11957" target="_blank" rel="noopener noreferrer">HGNC:11957</a><a href="https://bioregistry.io/HGNC:1779" target="_blank" rel="noopener noreferrer">HGNC:1779</a><a href="https://bioregistry.io/HGNC:1581" target="_blank" rel="noopener noreferrer">HGNC:1581</a></p>
+<p>Gene products: MED13LMED13MED12CDK8Cyclin C</p>
+<p>GO process: <a href="http://purl.obolibrary.org/obo/GO_0006366" target="_blank" rel="noopener noreferrer">GO:0006366</a></p>
+<p>GO function: <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" rel="noopener noreferrer">GO:0003713</a></p>
+<p>Complexes: CKM (CDK8 kinase module)Mediator complex</p>
+<p>Structures: AF-Q71F56-F1</p>
+<p>5 evidence</p>
+<p>“The structure of the dissociable CKM: Despite exhibiting low sequence homology to classical Argonaute (Ago) proteins, the Med13 possesses an Ago-like architecture, comprising four globular domains (N, PAZ, MID and PIWI) and two linker domains (L1 and L2) ( Figure 3d )[ 42 ].”
+MED13/MED13L has Argonaute-like four-domain architecture forming the CKM hinge
+literature · 10.1016/j.sbi.2024.102892</p>
+<p>“Architecture of human CKM: Notably, MED13 harbors a large and unique insertion between its PAZ and L2 domains, corresponding to its large IDR (residues 350 – 1069) ( Figures 2A and 2C ).”
+MED13 IDR occludes Pol II/MED26 binding surface on core Mediator
+literature · 10.1016/j.molcel.2024.09.001</p>
+<p>“Kinase module function and regulation The Mediator kinase module (~430 kDa in yeast; ~560 kDa in humans) is nominally comprised of four subunits: MED13, MED12, CycC and CDK8, with paralogs of all but CycC identified in humans and some vertebrates (discussed below) ( Borggrefe et al. , 2002 ; Bourbon, 2008 ; Hengartner et al. , 1995 ; Sato et al. , 2004 ).”
+kinase module = MED13/MED12/CycC/CDK8 with vertebrate paralogues
+literature · 10.3109/10409238.2015.1064854</p>
+<p>“Congenital cardiac and neurodevelopmental deficits have been recently linked to the mediator complex subunit 13-like protein MED13L, a subunit of the CDK8-associated mediator complex that functions in transcriptional regulation through DNA-binding transcription factors and RNA polymerase II.”
+MED13L is a CDK8-associated Mediator subunit linked to cardiac and neurodevelopmental deficits
+literature · 10.1038/ejhg.2015.26</p>
+<p>AlphaFold model for UniProt:Q71F56 (MED13L, mediator complex subunit 13L)
+structure of MED13L
+database · alphafold · AF-Q71F56-F1</p>
+<h3>mn-haploinsufficiency high</h3>
+<p>Heterozygous loss-of-function alleles (whole-gene/intragenic deletions, frameshift, nonsense, canonical splice) halve functional MED13L dosage, reducing the pool of intact CKM available to dock with core Mediator and dysregulating Pol II-dependent transcriptional programmes during development. Heterozygous deletion is sufficient to produce the phenotype in mouse, while homozygous loss is embryonic lethal.</p>
+<p>Causes →: mn-neurodev-transcriptionmn-ncc-cardiac</p>
+<p>Genes: <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a></p>
+<p>Gene products: MED13L</p>
+<p>GO process: <a href="http://purl.obolibrary.org/obo/GO_0006366" target="_blank" rel="noopener noreferrer">GO:0006366</a><a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a></p>
+<p>Complexes: CKM (CDK8 kinase module)</p>
+<p>5 evidence</p>
+<p>“Results: The 17 kb out-of-frame de novo deletion encompassing exon 2 of MED13L (MIM *608771) in patient 56366, together with overlapping cases, were instrumental to define a recognisable haploinsufficiency syndrome that we reported and discussed in detail elsewhere.”
+de novo intragenic deletion defines a recognisable haploinsufficiency syndrome
+literature · 10.1136/jmedgenet-2014-102588</p>
+<p>“The first patient has a de novo mutation in the splice acceptor site of exon 5 of MED13L. cDNA analysis showed this mutation results in an in-frame deletion, removing 15 amino acids in middle of the conserved MED13L N-terminal domain.”
+de novo splice/exonic LoF variants confirm haploinsufficiency
+literature · 10.1038/ejhg.2014.69</p>
+<p>“Results: Due to embryonic lethality, we characterize the Med13l heterozygous germline deletion (Figure 1E).”
+homozygous Med13l KO is embryonic lethal; heterozygous mice model the syndrome
+literature · 10.1002/dvdy.70079</p>
+<p>“MED13L syndrome mechanism: It is hypothesized that in MED13L Haploinsufficiency Syndrome, the transcriptional process related to the mediator complex interaction with RNA polymerase II may be disrupted. Cyclin C is aberrantly released into the cytoplasm, increasing susceptibility to cell death through mitochondrial fragmentation, decreased oxygen consumption as well as decreased ATP production. 50 , 53”
+haploinsufficiency disrupts Mediator–Pol II transcription and cyclin C retention
+literature · 10.1177/26330040241290252</p>
+<p>pLI=1; LOEUF=0.060; mis_z=6.46
+extreme LoF constraint consistent with haploinsufficiency
+database · gnomad · gene/MED13L</p>
+<h3>mn-missense-destabilisation medium</h3>
+<p>Recurrent missense variants clustering in conserved domains (notably exon 15 hotspot p.Pro866Leu/p.Pro869Ser and C-terminal residues) destabilise MED13L secondary structure, drive cytoplasmic mislocalisation, and impair dendritic growth in cortical neurons; most behave as loss-of-function, but at least p.Pro869Ser retains nuclear localisation and stable expression consistent with a dominant-negative or neomorphic effect, and missense carriers show a more severe phenotype with epilepsy.</p>
+<p>Causes →: mn-neurodev-transcription</p>
+<p>Genes: <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a></p>
+<p>Gene products: MED13L</p>
+<p>GO process: <a href="http://purl.obolibrary.org/obo/GO_0048813" target="_blank" rel="noopener noreferrer">GO:0048813</a></p>
+<p>4 evidence</p>
+<p>“Notably, our in silico modelling predicted this missense mutation to decrease the stability of an alpha-helix and thereby affecting the MED13L secondary structure, while the majority of published missense mutations remain variants of uncertain significance.”
+in silico modelling predicts alpha-helix destabilisation by missense variant
+literature · 10.1016/j.ejmg.2017.06.004</p>
+<p>“In overexpression assays using cortical neurons from embryonic mouse cerebral cortices transduced by in utero electroporation-mediated gene transfer, we found that mouse orthologues of human MED13L-p.P866L and -p.T2162M missense variants accumulated in the nucleus, while the p.S2163L and p.S2177Y variants were diffusely distributed in the cytoplasm.”
+missense variants alter nuclear/cytoplasmic localisation and impair dendritic growth in mouse cortical neurons
+literature · 10.1111/jnc.15783</p>
+<p>“Discussion: We observed that the p.Pro866Leu mutant variant shared similarities with the other studied variants—p.Cys1131Tyr, p.Gly1899Arg, and p.Thr2162Met—with cytoplasmic localization and protein instability, consistent with a loss-of-function pathogenic mechanism, while p.Pro869Ser exhibited more stable protein expression and partial nuclear localization, closely resembling the WT condition, arguing for the dominant-negative effect of the mutant protein or the possibility of a neomorphic effect with dominant or semi-dominant properties.”
+four missense variants show cytoplasmic mislocalisation/instability (LoF); p.Pro869Ser stable+nuclear (possible DN/neomorph)
+literature · 10.1016/j.xhgg.2025.100467</p>
+<p>“We found that patients carrying missense mutations had more frequently epilepsy and showed a more severe phenotype.”
+missense carriers have more frequent epilepsy and a more severe phenotype
+literature · 10.1007/s10048-018-0541-0</p>
+<h3>mn-fbw7-turnover high</h3>
+<p>SCF(FBW7) ubiquitin ligase recognises a CDK8/19-primed phosphodegron on MED13/MED13L and targets both paralogues for proteasomal degradation, providing the only known E3-ligase control of MED13L abundance and thereby the kinetics of CKM dissociation from core Mediator.</p>
+<p>Causes →: mn-haploinsufficiency</p>
+<p>Genes: <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a><a href="https://bioregistry.io/HGNC:16712" target="_blank" rel="noopener noreferrer">HGNC:16712</a><a href="https://bioregistry.io/HGNC:22474" target="_blank" rel="noopener noreferrer">HGNC:22474</a><a href="https://bioregistry.io/HGNC:1779" target="_blank" rel="noopener noreferrer">HGNC:1779</a><a href="https://bioregistry.io/HGNC:19338" target="_blank" rel="noopener noreferrer">HGNC:19338</a></p>
+<p>Gene products: FBW7 (FBXW7)MED13LMED13</p>
+<p>GO process: <a href="http://purl.obolibrary.org/obo/GO_0006511" target="_blank" rel="noopener noreferrer">GO:0006511</a></p>
+<p>Complexes: SCF(FBW7) E3 ubiquitin ligaseCKM (CDK8 kinase module)</p>
+<p>2 evidence</p>
+<p>“We show that Fbw7, a tumor suppressor and ubiquitin ligase, binds to CDK8-Mediator and targets MED13/13L for degradation.”
+Fbw7 binds CDK8-Mediator and targets MED13/13L for degradation
+literature · 10.1101/gad.207720.112</p>
+<p>“The Clurman lab demonstrated that MED13 and its paralog MED13L are ubiquitylated by the ubiquitin ligase FBW7, and this modification regulates MED13 and MED13L abundance and stability (Davis et al ., 2013 ).”
+FBW7 ubiquitylation regulates MED13/MED13L abundance and stability
+literature · 10.3109/10409238.2013.840259</p>
+<h3>mn-neurodev-transcription high</h3>
+<p>Reduced or dysfunctional MED13L dysregulates RNA Pol II-dependent neurodevelopmental gene programmes, impairing cortical neurogenesis, radial migration, dendrite outgrowth and callosal axon projection, providing the cellular substrate for intellectual disability, speech impairment and hypotonia.</p>
+<p>Causes →: []</p>
+<p>Genes: <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a></p>
+<p>Gene products: MED13L</p>
+<p>GO process: <a href="http://purl.obolibrary.org/obo/GO_0021987" target="_blank" rel="noopener noreferrer">GO:0021987</a><a href="http://purl.obolibrary.org/obo/GO_0048813" target="_blank" rel="noopener noreferrer">GO:0048813</a><a href="http://purl.obolibrary.org/obo/GO_0006366" target="_blank" rel="noopener noreferrer">GO:0006366</a></p>
+<p>3 evidence</p>
+<p>“Med13l KO impairs cortical neurogenesis and dendrite development.”
+Med13l KO impairs cortical neurogenesis and dendrite development
+literature · 10.1038/s42003-025-08532-8</p>
+<p>“In overexpression assays using cortical neurons from embryonic mouse cerebral cortices transduced by in utero electroporation-mediated gene transfer, we found that mouse orthologues of human MED13L-p.P866L and -p.T2162M missense variants accumulated in the nucleus, while the p.S2163L and p.S2177Y variants were diffusely distributed in the cytoplasm.”
+MED13L missense variants impair dendritic growth in mouse cortical neurons
+literature · 10.1111/jnc.15783</p>
+<p>“Discussion: Functional validation experiments showed that overexpression of PlxnA4 partially rescued both the radial migration and callosal projection defects in Med13-silencing neurons, establishing PlxnA4 as a critical downstream effector of Med13 for these two processes.”
+Med13 silencing impairs radial migration and callosal projection (paralogue evidence)
+literature · 10.1038/s42003-026-09704-w</p>
+<h3>mn-ncc-cardiac medium</h3>
+<p>MED13L dosage reduction perturbs neural-crest-dependent cardiac outflow-tract morphogenesis, yielding the variable conotruncal and septal congenital heart defects observed in a minority of patients; supported by neural-crest defects in CKM-mutant zebrafish and craniofacial anomalies in Med13l heterozygous mice.</p>
+<p>Causes →: []</p>
+<p>Genes: <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a><a href="https://bioregistry.io/HGNC:11957" target="_blank" rel="noopener noreferrer">HGNC:11957</a></p>
+<p>Gene products: MED13L</p>
+<p>GO process: <a href="http://purl.obolibrary.org/obo/GO_0061308" target="_blank" rel="noopener noreferrer">GO:0061308</a><a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" rel="noopener noreferrer">GO:0007507</a></p>
+<p>3 evidence</p>
+<p>“Congenital cardiac and neurodevelopmental deficits have been recently linked to the mediator complex subunit 13-like protein MED13L, a subunit of the CDK8-associated mediator complex that functions in transcriptional regulation through DNA-binding transcription factors and RNA polymerase II.”
+congenital cardiac and neurodevelopmental deficits linked to MED13L
+literature · 10.1038/ejhg.2015.26</p>
+<p>“Homozygous kto mutant zebrafish embryos show defects in brain, neural crest, and kidney development and die at approximately 6 days postfertilization.”
+CKM (med12) mutant zebrafish embryos show neural-crest defects
+literature · 10.1073/pnas.0509457102</p>
+<p>“Conclusions and Discussion: We classify a Med13l HET mouse model as a possible resource to begin deciphering the correlation between mutations and phenotypes.”
+Med13l HET mouse recapitulates craniofacial anomalies (neural-crest-derived)
+literature · 10.1002/dvdy.70079</p>
+<h2>Genetic (1)</h2>
+<p>| gene | relationship | inheritance | variant_origin | frequency | Evidence | </p>
+<p>| <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | disease-causing germline mutation in | <a href="http://purl.obolibrary.org/obo/GENO_0000147" target="_blank" rel="noopener noreferrer">GENO:0000147</a> | germline | &gt;95% de novo; rare parental gonadal mosaicism reported | </p>
+<p>4 evidence</p>
+<p>“The paper describes three clinical cases of MED13L-associated intellectual disability with an autosomal dominant inheritance.”
+MED13L-associated ID with autosomal dominant inheritance
+literature · 10.21508/1027-4065-2022-67-1-101-107</p>
+<p>“Results: The 17 kb out-of-frame de novo deletion encompassing exon 2 of MED13L (MIM *608771) in patient 56366, together with overlapping cases, were instrumental to define a recognisable haploinsufficiency syndrome that we reported and discussed in detail elsewhere.”
+de novo MED13L deletion is causal
+literature · 10.1136/jmedgenet-2014-102588</p>
+<p>“The first patient has a de novo mutation in the splice acceptor site of exon 5 of MED13L. cDNA analysis showed this mutation results in an in-frame deletion, removing 15 amino acids in middle of the conserved MED13L N-terminal domain.”
+de novo splice-site MED13L variant is causal
+literature · 10.1038/ejhg.2014.69</p>
+<p>symbol=MED13L; name='mediator complex subunit 13L'; uniprot=Q71F56; ensembl=ENSG00000123066
+gene identity
+database · hgnc · <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | </p>
+<h3>Variants</h3>
+<p>| gene | hgvs | effect | significance | Evidence | </p>
+<p>| <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | (ClinVar census) | mixed | ClinVar: 235 P/LP, 606 VUS of 1813 total records | </p>
+<p>1 evidence</p>
+<p>total=1813; P/LP=235; VUS=606
+variant census
+database · clinvar · gene=MED13L | </p>
+<p>| <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | c.2597C&gt;T (p.Pro866Leu) | missense (exon-15 hotspot) | Pathogenic | </p>
+<p>1 evidence</p>
+<p>“Discussion: We observed that the p.Pro866Leu mutant variant shared similarities with the other studied variants—p.Cys1131Tyr, p.Gly1899Arg, and p.Thr2162Met—with cytoplasmic localization and protein instability, consistent with a loss-of-function pathogenic mechanism, while p.Pro869Ser exhibited more stable protein expression and partial nuclear localization, closely resembling the WT condition, arguing for the dominant-negative effect of the mutant protein or the possibility of a neomorphic effect with dominant or semi-dominant properties.”
+p.Pro866Leu shows cytoplasmic localisation and protein instability (LoF mechanism)
+literature · 10.1016/j.xhgg.2025.100467 | </p>
+<p>| <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | c.2605C&gt;A (p.Pro869Ser) | missense (exon-15 hotspot) | Pathogenic | </p>
+<p>2 evidence</p>
+<p>“Discussion: Our case further demonstrates that Pro869Ser is a hotspot mutation of the MED13L gene.”
+Pro869Ser is a recurrent hotspot mutation
+literature · 10.1186/s13052-020-00847-y</p>
+<p>“Discussion: We observed that the p.Pro866Leu mutant variant shared similarities with the other studied variants—p.Cys1131Tyr, p.Gly1899Arg, and p.Thr2162Met—with cytoplasmic localization and protein instability, consistent with a loss-of-function pathogenic mechanism, while p.Pro869Ser exhibited more stable protein expression and partial nuclear localization, closely resembling the WT condition, arguing for the dominant-negative effect of the mutant protein or the possibility of a neomorphic effect with dominant or semi-dominant properties.”
+p.Pro869Ser stable nuclear expression, possible dominant-negative/neomorphic
+literature · 10.1016/j.xhgg.2025.100467 | </p>
+<p>| <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | c.5278C&gt;T (p.Arg1760*) | stop-gain | Pathogenic | </p>
+<p>1 evidence</p>
+<p>“As depicted in Figure 2A , a heterozygous stop-gain variant of MED13L c.5278C &gt; T (p.Arg1760 ∗ ) was detected in a female newborn diagnosed with spina bifida.”
+heterozygous stop-gain p.Arg1760* identified in spina bifida newborn
+literature · 10.3389/fcell.2021.641831 | </p>
+<p>| <a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> | 17 kb out-of-frame de novo deletion encompassing exon 2 | intragenic out-of-frame deletion | Pathogenic | </p>
+<p>1 evidence</p>
+<p>“Results: The 17 kb out-of-frame de novo deletion encompassing exon 2 of MED13L (MIM *608771) in patient 56366, together with overlapping cases, were instrumental to define a recognisable haploinsufficiency syndrome that we reported and discussed in detail elsewhere.”
+17 kb out-of-frame de novo deletion of exon 2 defines the haploinsufficiency syndrome
+literature · 10.1136/jmedgenet-2014-102588 | </p>
+<h2>Inheritance (1)</h2>
+<p>| mode | label | penetrance | expressivity | Evidence | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a> | Autosomal dominant inheritance | complete (assumed; no non-penetrant carriers reported) | variable — wide intrafamilial variability documented; missense (esp. exon 15/17) carriers tend to a more severe phenotype than PTV carriers | </p>
+<p>3 evidence</p>
+<p>“, Variants are primarily de novo, autosomal dominant, and considered to be loss-of-function (LoF); thus, MED13L syndrome is historically considered a haploinsufficiency syndrome.”
+literature · 10.1177/26330040241290252</p>
+<p>“Sixteen of 17 variants were de novo, with inferred germline mosaicism for the two families with affected siblings (Table ).”
+literature · 10.1186/s11689-025-09645-1</p>
+<p>“Results: 1). We identified the presence of the MED13L mutation in ∼30%–50% of the sperm cells (predicted on the basis of the peak heights on the sequencing electropherograms) accountable for a high recurrence risk in the couple's future pregnancies and advised on either preimplantation genetic diagnosis or insemination with donor sperm cells.”
+literature · 10.1101/mcs.a006124 | </p>
+<h2>Phenotypes (22 HPO)</h2>
+<p>| HPO | Label | Freq | Sev | Dx | Evidence | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> | Intellectual disability | 36/36 (100%) | moderate | ✓ | </p>
+<p>2 evidence</p>
+<p>“All patients presented with intellectual disability and severe language impairment.”
+literature · 10.1007/s10048-018-0541-0</p>
+<p>“Neurodevelopmental evaluation: ID severity was classified in 30 of 41 patients with 23% classified as mild, 47% as moderate, and 30% as severe to profound (Table 1).”
+literature · 10.1186/s11689-025-09618-4 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> | Global developmental delay | 8/8 (100%) | moderate | ✓ | </p>
+<p>3 evidence</p>
+<p>“Phenotypically, they all had intellectual disability, speech and motor delay, and features of the mouth (open mouth appearance, macroglossia, and/or macrostomia).”
+literature · 10.1016/j.ejmg.2018.06.014</p>
+<p>“MED13L syndrome clinical symptoms: Minimal or absent speech and impaired motor capabilities dominate the presentation of global developmental delay, with 99% (81/82) and 98% (80/82) of individuals presenting with minimal/absent speech or impaired motor capabilities, respectively.”
+literature · 10.1177/26330040241290252</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040281" target="_blank" rel="noopener noreferrer">HP:0040281</a>; evidence=PCS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a> | Delayed speech and language development | 81/82 (99%) | severe | ✓ | </p>
+<p>3 evidence</p>
+<p>“MED13L syndrome clinical symptoms: Minimal or absent speech and impaired motor capabilities dominate the presentation of global developmental delay, with 99% (81/82) and 98% (80/82) of individuals presenting with minimal/absent speech or impaired motor capabilities, respectively.”
+literature · 10.1177/26330040241290252</p>
+<p>“Discussion: Hypotonia, speech delay and brain abnormalities in MRI are quite common among these patients (70%, 99% and 45%, respectively).”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040281" target="_blank" rel="noopener noreferrer">HP:0040281</a>; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/ORPHA:369891" target="_blank" rel="noopener noreferrer">ORPHA:369891</a>|<a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" rel="noopener noreferrer">HP:0001344</a> | Absent speech | ~33% (minimally/non-verbal beyond age 4y; n=67) | severe |  | </p>
+<p>1 evidence</p>
+<p>“Almost all individuals (97%) from the full cohort of 67 reported a diagnosis of language disorder during the developmental history interview, with about a third of children described by their caregivers as minimally verbal or nonverbal beyond the age of 4 years.”
+literature · 10.1186/s11689-025-09645-1 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a> | Motor delay | 80/82 (98%) | moderate | ✓ | </p>
+<p>3 evidence</p>
+<p>“MED13L syndrome clinical symptoms: Minimal or absent speech and impaired motor capabilities dominate the presentation of global developmental delay, with 99% (81/82) and 98% (80/82) of individuals presenting with minimal/absent speech or impaired motor capabilities, respectively.”
+literature · 10.1177/26330040241290252</p>
+<p>“[SECTION: Motor evaluation] There was no significant difference in the mean age of walking between patients in the GenIDA series ( n = 41) and those in the literature series ( n = 65) with ages of 28 and 27 (SD = 6.59) months, respectively.”
+literature · 10.1186/s11689-025-09618-4</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040281" target="_blank" rel="noopener noreferrer">HP:0040281</a>; evidence=PCS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a> | Generalized hypotonia | 70% | moderate | ✓ | </p>
+<p>2 evidence</p>
+<p>“Discussion: Hypotonia, speech delay and brain abnormalities in MRI are quite common among these patients (70%, 99% and 45%, respectively).”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003</p>
+<p>frequency=n/a; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a> | Autistic behavior | 55.6% (missense subset); 23% (all variants) |  |  | </p>
+<p>3 evidence</p>
+<p>“Case presentation: Behavioral difficulties, such as self-harm and autistic features, were seen in 55.6% of the patients.”
+literature · 10.1186/s13052-020-00847-y</p>
+<p>“Compared with the overall incidence in all MED13L-related patients summarized by Torring et al. and Smol et al., patients with missense mutations have a higher incidence of seizures (44.4% vs 16%), MRI abnormalities (66.7% vs 45%) and autistic features (55.6% vs 23%)”
+literature · 10.1186/s13052-020-00847-y</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040282" target="_blank" rel="noopener noreferrer">HP:0040282</a>; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/ORPHA:369891" target="_blank" rel="noopener noreferrer">ORPHA:369891</a>|<a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a> | Atypical behavior | 55.6% |  |  | </p>
+<p>2 evidence</p>
+<p>“Case presentation: Behavioral difficulties, such as self-harm and autistic features, were seen in 55.6% of the patients.”
+literature · 10.1186/s13052-020-00847-y</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040282" target="_blank" rel="noopener noreferrer">HP:0040282</a>; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/ORPHA:369891" target="_blank" rel="noopener noreferrer">ORPHA:369891</a>|<a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> | Seizure | 15/68 (22%) |  |  | </p>
+<p>2 evidence</p>
+<p>“Documented seizure presence is about 22% (15/68) in publications. 2 , 8 , 10 , 27 , 32 , 37 , 38 Of these, 17 individuals with missense variants are evaluated, with 10 having seizures. 10 , 39 Most seizure types are not characterized, though absence seizures ( n = 3) are most common. 8 , 32 , 38 The average age of individuals with reported seizures is 12 years.”
+literature · 10.1177/26330040241290252</p>
+<p>“Compared with the overall incidence in all MED13L-related patients summarized by Torring et al. and Smol et al., patients with missense mutations have a higher incidence of seizures (44.4% vs 16%), MRI abnormalities (66.7% vs 45%) and autistic features (55.6% vs 23%)”
+literature · 10.1186/s13052-020-00847-y | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> | Ataxia | 20–50% |  |  | </p>
+<p>2 evidence</p>
+<p>“Further common signs include abnormal MRI findings of myelination defects and abnormal corpus callosum, ataxia and coordination problems, autistic features, seizures/abnormal EEG, or congenital heart defects, present in about 20-50% of the patients.”
+literature · 10.1016/j.ejmg.2017.06.004</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040283" target="_blank" rel="noopener noreferrer">HP:0040283</a>; evidence=PCS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" rel="noopener noreferrer">HP:0012443</a> | Abnormal brain morphology | 45% |  |  | </p>
+<p>2 evidence</p>
+<p>“Discussion: Hypotonia, speech delay and brain abnormalities in MRI are quite common among these patients (70%, 99% and 45%, respectively).”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003</p>
+<p>“Further common signs include abnormal MRI findings of myelination defects and abnormal corpus callosum, ataxia and coordination problems, autistic features, seizures/abnormal EEG, or congenital heart defects, present in about 20-50% of the patients.”
+literature · 10.1016/j.ejmg.2017.06.004 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> | Abnormal heart morphology | 15/72 (20.8%) |  |  | </p>
+<p>3 evidence</p>
+<p>“[4. Discussion] The congenital heart defects, previously highlighted as one of the main features of MED13L haploinsufficiency syndrome, were diagnosed in only 15 (20.8%) individuals (Supplementary Table S2).”
+literature · 10.3390/medicina59071225</p>
+<p>“Congenital heart defects 12/64 –”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040283" target="_blank" rel="noopener noreferrer">HP:0040283</a>; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/ORPHA:369891" target="_blank" rel="noopener noreferrer">ORPHA:369891</a>|<a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a> | Bulbous nose | 75% | mild | ✓ | </p>
+<p>2 evidence</p>
+<p>“Common dysmorphic features, seen in at least 50%, are bulbous nasal tip (75%), open mouth appearance (62%), low set ears (52%), and depressed/broad nasal bridge (58%).”
+literature · 10.1016/j.ejmg.2018.06.014</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040282" target="_blank" rel="noopener noreferrer">HP:0040282</a>; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000194" target="_blank" rel="noopener noreferrer">HP:0000194</a> | Open mouth | 62% | mild | ✓ | </p>
+<p>3 evidence</p>
+<p>“Common dysmorphic features, seen in at least 50%, are bulbous nasal tip (75%), open mouth appearance (62%), low set ears (52%), and depressed/broad nasal bridge (58%).”
+literature · 10.1016/j.ejmg.2018.06.014</p>
+<p>“the syndrome may be suspected in some individuals based on the association of developmental delay, speech impairment, bulbous nasal tip, and macroglossia, macrostomia, or open mouth appearance.”
+literature · 10.1016/j.ejmg.2018.06.014</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040282" target="_blank" rel="noopener noreferrer">HP:0040282</a>; evidence=PCS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0000194" target="_blank" rel="noopener noreferrer">HP:0000194</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a> | Low-set ears | 52% | mild |  | </p>
+<p>2 evidence</p>
+<p>“Common dysmorphic features, seen in at least 50%, are bulbous nasal tip (75%), open mouth appearance (62%), low set ears (52%), and depressed/broad nasal bridge (58%).”
+literature · 10.1016/j.ejmg.2018.06.014</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040282" target="_blank" rel="noopener noreferrer">HP:0040282</a>; evidence=PCS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a> | Depressed nasal bridge | 58% | mild |  | </p>
+<p>2 evidence</p>
+<p>“Common dysmorphic features, seen in at least 50%, are bulbous nasal tip (75%), open mouth appearance (62%), low set ears (52%), and depressed/broad nasal bridge (58%).”
+literature · 10.1016/j.ejmg.2018.06.014</p>
+<p>frequency=<a href="http://purl.obolibrary.org/obo/HP_0040283" target="_blank" rel="noopener noreferrer">HP:0040283</a>; evidence=TAS
+phenotype.hpoa annotation
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000341" target="_blank" rel="noopener noreferrer">HP:0000341</a> | Narrow forehead |  |  |  | </p>
+<p>1 evidence</p>
+<p>frequency=n/a; reference=<a href="https://pubmed.ncbi.nlm.nih.gov/25758992/" target="_blank" rel="noopener noreferrer">PMID:25758992</a>; evidence_code=PCS
+HPO annotation file
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0000341" target="_blank" rel="noopener noreferrer">HP:0000341</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0002465" target="_blank" rel="noopener noreferrer">HP:0002465</a> | Poor speech |  |  |  | </p>
+<p>1 evidence</p>
+<p>frequency=n/a; reference=<a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>; evidence_code=TAS
+HPO annotation file
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0002465" target="_blank" rel="noopener noreferrer">HP:0002465</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000582" target="_blank" rel="noopener noreferrer">HP:0000582</a> | Upslanted palpebral fissure |  |  |  | </p>
+<p>1 evidence</p>
+<p>frequency=n/a; reference=<a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>; evidence_code=TAS
+HPO annotation file
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0000582" target="_blank" rel="noopener noreferrer">HP:0000582</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" rel="noopener noreferrer">HP:0002342</a> | Moderate intellectual disability |  |  |  | </p>
+<p>1 evidence</p>
+<p>frequency=n/a; reference=<a href="https://pubmed.ncbi.nlm.nih.gov/25167861/" target="_blank" rel="noopener noreferrer">PMID:25167861</a>; evidence_code=PCS
+HPO annotation file
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0002342" target="_blank" rel="noopener noreferrer">HP:0002342</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> | Strabismus |  |  |  | </p>
+<p>1 evidence</p>
+<p>frequency=n/a; reference=<a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>; evidence_code=TAS
+HPO annotation file
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a> | Infantile onset |  |  |  | </p>
+<p>1 evidence</p>
+<p>frequency=n/a; reference=<a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>; evidence_code=TAS
+HPO annotation file
+database · hpoa · <a href="https://bioregistry.io/OMIM:616789" target="_blank" rel="noopener noreferrer">OMIM:616789</a>|<a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a> | </p>
+<h2>Diagnosis (4)</h2>
+<p>| MAXO | Label | Expected result | Markers | Evidence | </p>
+<p>| <a href="https://bioregistry.io/MAXO:0001612" target="_blank" rel="noopener noreferrer">MAXO:0001612</a> | chromosomal microarray testing | Normal in most; detects 12q24.21 intragenic deletions/duplications in the CNV-associated subset; ACMG-recommended first-tier ID test. | 12q24.21 CNV, MED13L intragenic deletion | </p>
+<p>2 evidence</p>
+<p>“A chromosomal microarray, as recommended by the American College of Medical Genetics (ACMG), had been previously conducted and was found to be normal, prompting the decision to proceed with WES.”
+literature · 10.7759/cureus.59904</p>
+<p>“Using high resolution molecular karyotyping, we identified two intragenic de novo frameshift deletions, likely resulting in haploinsufficiency, in two patients with a similar phenotype of hypotonia, moderate ID, conotruncal heart defect and facial anomalies.”
+literature · 10.1038/ejhg.2013.17 | </p>
+<p>| <a href="https://bioregistry.io/MAXO:0009004" target="_blank" rel="noopener noreferrer">MAXO:0009004</a> | clinical whole-exome sequencing | Heterozygous de novo MED13L pathogenic variant (PTV, intragenic CNV, or recurrent missense); trio confirmation of de novo status anchors PS2 pathogenicity. | MED13L (NM_015335.5) PTV, MED13L missense (exon 15/17 cluster), de novo status | </p>
+<p>2 evidence</p>
+<p>“A six-year-old male patient presenting with heart malformation, ID, and hypotonia was further examined using whole exome sequencing of genomic DNA extracted from a peripheral blood sample.”
+literature · 10.1016/j.isci.2022.103823</p>
+<p>“However, due to some similarity to other syndromes with ID such as FG syndrome caused by MED12 mutation, 1p36 deletion syndrome or 22q11.2 deletion syndrome and proved variable clinical expression, the use of NGS is recommended for disease differential diagnosis. 6 , 7 Key points Pathogenic variants in MED13L are common in the autosomal dominant form of syndromic intellectual disability.”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003 | </p>
+<p>| <a href="https://bioregistry.io/MAXO:0010203" target="_blank" rel="noopener noreferrer">MAXO:0010203</a> | echocardiography | Normal in ~80%; detects conotruncal CHD (d-TGA, VSD, persistent foramen ovale) in 19–21%; baseline echocardiogram recommended at diagnosis. | VSD, d-TGA, conotruncal defect | </p>
+<p>2 evidence</p>
+<p>“echocardiography showed ventricular septal defect”
+literature · 10.7499/j.issn.1008-8830.2017.10.010</p>
+<p>“[4. Discussion] The congenital heart defects, previously highlighted as one of the main features of MED13L haploinsufficiency syndrome, were diagnosed in only 15 (20.8%) individuals (Supplementary Table S2).”
+literature · 10.3390/medicina59071225 | </p>
+<p>| <a href="https://bioregistry.io/MAXO:0000932" target="_blank" rel="noopener noreferrer">MAXO:0000932</a> | electroencephalography | Abnormal in ~20–50% (epileptiform discharges including spike-and-slow-wave) even without clinical seizures; higher yield in missense carriers. | spike-and-slow-wave, absence seizures | </p>
+<p>2 evidence</p>
+<p>“She had no clinically observed seizures but had abnormal EEG showing spike and slow wave colligation and multi-spike and slow waves in the bilateral occipital and posterior temporal regions, as well as rapid rhythm distribution in the occipital area (Fig. 2 ).”
+literature · 10.1186/s13052-020-00847-y</p>
+<p>“Documented seizure presence is about 22% (15/68) in publications. 2 , 8 , 10 , 27 , 32 , 37 , 38 Of these, 17 individuals with missense variants are evaluated, with 10 having seizures. 10 , 39 Most seizure types are not characterized, though absence seizures ( n = 3) are most common. 8 , 32 , 38 The average age of individuals with reported seizures is 12 years.”
+literature · 10.1177/26330040241290252 | </p>
+<h2>Differential diagnoses (5)</h2>
+<p>| disease | label | distinguishing features | Evidence | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/MONDO_0011929" target="_blank" rel="noopener noreferrer">MONDO:0011929</a> | chromosome 1p36 deletion syndrome | Overlapping straight eyebrows, deep-set eyes, midface hypoplasia, 1p36 deletion detectable on CMA; MED13L locus is 12q24.21 | </p>
+<p>1 evidence</p>
+<p>“Haploinsufficiency for MED13L should be considered in the differential diagnosis of the 1p36 microdeletion syndrome, due to overlapping dysmorphic facial features in some patients.”
+literature · 10.1038/ejhg.2015.19 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/MONDO_0012455" target="_blank" rel="noopener noreferrer">MONDO:0012455</a> | Kleefstra syndrome | Facial gestalt resemblance noted in individual MED13L patients, Distinguished by EHMT1 variant / 9q34.3 deletion on molecular testing | </p>
+<p>1 evidence</p>
+<p>“The first patient indicates some facial resemblance to Kleefstra syndrome as a novel differential diagnosis, and the second patient shows, for the first time, recurrence of a MED13L missense mutation (p.(Asp860Gly)).”
+literature · 10.1016/j.ejmg.2017.06.004 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/MONDO_0018923" target="_blank" rel="noopener noreferrer">MONDO:0018923</a> | 22q11.2 deletion syndrome | Shared ID + conotruncal CHD; 22q11.2 adds palatal anomalies, hypocalcaemia, immune deficiency, 22q11.2 deletion detectable on CMA | </p>
+<p>1 evidence</p>
+<p>“However, due to some similarity to other syndromes with ID such as FG syndrome caused by MED12 mutation, 1p36 deletion syndrome or 22q11.2 deletion syndrome and proved variable clinical expression, the use of NGS is recommended for disease differential diagnosis. 6 , 7 Key points Pathogenic variants in MED13L are common in the autosomal dominant form of syndromic intellectual disability.”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/MONDO_0100000" target="_blank" rel="noopener noreferrer">MONDO:0100000</a> | MED12-related intellectual disability syndrome | X-linked inheritance (FG/Opitz-Kaveggia, Lujan, Ohdo MKB) vs autosomal-dominant de novo for MED13L, Congenital diaphragmatic hernia in 42% (3/7) of female MED12 LoF — not reported in MED13L | </p>
+<p>1 evidence</p>
+<p>“However, due to some similarity to other syndromes with ID such as FG syndrome caused by MED12 mutation, 1p36 deletion syndrome or 22q11.2 deletion syndrome and proved variable clinical expression, the use of NGS is recommended for disease differential diagnosis. 6 , 7 Key points Pathogenic variants in MED13L are common in the autosomal dominant form of syndromic intellectual disability.”
+literature · 10.34763/jmotherandchild.20202403.2021.d-20-00003 | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/MONDO_0016033" target="_blank" rel="noopener noreferrer">MONDO:0016033</a> | Cornelia de Lange syndrome | MED13L LoF variants identified in cohesinopathy-negative CdLS-suspected cohorts, CdLS classically has synophrys, limb-reduction defects, growth restriction — not core MED13L features | </p>
+<p>1 evidence</p>
+<p>“Furthermore, pathogenic CNVs were detected in NIPBL, MED13L, and EHMT1, along with pathogenic SNVs in ZMYND11, MED13L, and PHIP.”
+literature · 10.1038/s10038-019-0643-z | </p>
+<h2>Treatments (9)</h2>
+<h3>speech therapy developmental therapy</h3>
+<p>Recommendation with broadest support across reports; addresses near-universal expressive-language impairment and articulatory deficits; consider AAC for minimally/non-verbal children.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a></p>
+<p>Regimen: Early referral (before age 3) and ongoing</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a><a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" rel="noopener noreferrer">HP:0001344</a></p>
+<p>2 evidence</p>
+<p>“First, children with known P/LP variants in MED13L would benefit from early referrals to speech therapy to assess their speech, language, and support needs.”
+literature · 10.1186/s11689-025-09645-1</p>
+<p>“A prominent feature of the MED13L neurocognitive presentation is profound language impairment, often in combination with articulatory deficits.”
+literature · 10.1038/ejhg.2015.26</p>
+<h3>physical therapy developmental therapy</h3>
+<p>Addresses hypotonia, motor delay (mean walking age 27–28 mo) and coordination/balance problems.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a></p>
+<p>Regimen: From infancy; standard early-intervention schedule</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a><a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></p>
+<p>1 evidence</p>
+<p>“[SECTION: Motor evaluation] There was no significant difference in the mean age of walking between patients in the GenIDA series ( n = 41) and those in the literature series ( n = 65) with ages of 28 and 27 (SD = 6.59) months, respectively.”
+literature · 10.1186/s11689-025-09618-4</p>
+<h3>occupational therapy developmental therapy</h3>
+<p>Part of multidisciplinary developmental-therapy package alongside speech and physical therapy.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0001351" target="_blank" rel="noopener noreferrer">MAXO:0001351</a></p>
+<p>Regimen: Standard early-intervention schedule</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></p>
+<p>1 evidence</p>
+<p>“[Discussion] Audiovestibular rehabilitation should be prompt, appropriate, and effective and should be part of a holistic multidisciplinary effort for a maximally favorable outcome.”
+literature · 10.5152/iao.2024.231284</p>
+<h3>vision assessment surveillance</h3>
+<p>Visual disorders reported in 78% (32/41) by caregivers (strabismus, hypermetropia); registry-recommended.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000971" target="_blank" rel="noopener noreferrer">MAXO:0000971</a></p>
+<p>Regimen: Baseline at diagnosis; periodic ophthalmologic review</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a><a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a><a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" rel="noopener noreferrer">HP:0000504</a></p>
+<p>1 evidence</p>
+<p>“[Discussion] Hearing and visual screening are recommended to improve the management of these patients.”
+literature · 10.1186/s11689-025-09618-4</p>
+<h3>hearing examination surveillance</h3>
+<p>Hearing problems in 32% (13/41) GenIDA; audiovestibular rehabilitation when hearing loss/balance dysfunction present.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000873" target="_blank" rel="noopener noreferrer">MAXO:0000873</a></p>
+<p>Regimen: Baseline at diagnosis; audiometric testing (<a href="https://bioregistry.io/MAXO:0000125" target="_blank" rel="noopener noreferrer">MAXO:0000125</a>) as indicated</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></p>
+<p>2 evidence</p>
+<p>“[Discussion] Hearing and visual screening are recommended to improve the management of these patients.”
+literature · 10.1186/s11689-025-09618-4</p>
+<p>“[Discussion] Audiovestibular rehabilitation should be prompt, appropriate, and effective and should be part of a holistic multidisciplinary effort for a maximally favorable outcome.”
+literature · 10.5152/iao.2024.231284</p>
+<h3>echocardiography surveillance</h3>
+<p>CHD in ~20% (15/72); calibrated to a minority feature — baseline screen rather than intensive surveillance.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0010203" target="_blank" rel="noopener noreferrer">MAXO:0010203</a></p>
+<p>Regimen: Baseline echocardiogram at diagnosis; cardiology follow-up if abnormal</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a><a href="http://purl.obolibrary.org/obo/HP_0001669" target="_blank" rel="noopener noreferrer">HP:0001669</a></p>
+<p>2 evidence</p>
+<p>“[4. Discussion] The congenital heart defects, previously highlighted as one of the main features of MED13L haploinsufficiency syndrome, were diagnosed in only 15 (20.8%) individuals (Supplementary Table S2).”
+literature · 10.3390/medicina59071225</p>
+<p>“echocardiography showed ventricular septal defect”
+literature · 10.7499/j.issn.1008-8830.2017.10.010</p>
+<h3>electroencephalography surveillance</h3>
+<p>Seizures in 14–22%; EEG abnormalities can be present without clinical seizures; lower threshold in missense (esp. exon 15/17) carriers.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000932" target="_blank" rel="noopener noreferrer">MAXO:0000932</a></p>
+<p>Regimen: Baseline EEG; repeat on clinical suspicion of seizures</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></p>
+<p>2 evidence</p>
+<p>“Documented seizure presence is about 22% (15/68) in publications. 2 , 8 , 10 , 27 , 32 , 37 , 38 Of these, 17 individuals with missense variants are evaluated, with 10 having seizures. 10 , 39 Most seizure types are not characterized, though absence seizures ( n = 3) are most common. 8 , 32 , 38 The average age of individuals with reported seizures is 12 years.”
+literature · 10.1177/26330040241290252</p>
+<p>“She had no clinically observed seizures but had abnormal EEG showing spike and slow wave colligation and multi-spike and slow waves in the bilateral occipital and posterior temporal regions, as well as rapid rhythm distribution in the occipital area (Fig. 2 ).”
+literature · 10.1186/s13052-020-00847-y</p>
+<h3>anticonvulsant agent therapy symptom-directed pharmacotherapy</h3>
+<p>Valproic acid initiated for focal bilateral abnormal EEG in one report; no MED13L-specific ASM trial data.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000167" target="_blank" rel="noopener noreferrer">MAXO:0000167</a></p>
+<p>Regimen: Standard anti-seizure medication per seizure type</p>
+<p>Addresses: <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></p>
+<p>1 evidence</p>
+<p>“[Results] Focal bilateral abnormal waves on electroencephalogram (EEG) necessitated the initiation of valproic acid.”
+literature · 10.1101/mcs.a006124</p>
+<h3>genetic counseling counselling</h3>
+<p>De novo in 94–100% of cases but parental gonadal mosaicism documented in ≥4 families; offer prenatal/preimplantation diagnosis to exclude recurrence.</p>
+<p>MAXO: <a href="https://bioregistry.io/MAXO:0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a></p>
+<p>Regimen: At diagnosis and pre-conception</p>
+<p>2 evidence</p>
+<p>“Given the de novo nature of the mutation and the autosomal dominant inheritance model of MED13L , we suggested that her mother receive a molecular prenatal diagnosis by amniocentesis to rule out gonadal mosaicism and prevent the recurrence of another affected child, despite the low risk of recurrence.”
+literature · 10.3389/fgene.2025.1669849</p>
+<p>“We assume the presence of gonadal mosaicism in the mother, which allows to recommend families with confirmed cases of MED13L-associated intellectual disability to plan pregnancies with prenatal or preimplantational diagnostics.”
+literature · 10.21508/1027-4065-2022-67-1-101-107</p>
+<h2>Prevalence (2)</h2>
+<p>global (published cases) — Unknown; ~100 patients described in the literature as of 2025; &lt;1/1,000,000 (Orphanet category)</p>
+<p>“There are currently around 100 patients described in the scientific literature, either in case reports or in the form of series of patients who have undergone gene panel, exome or genome analysis, with brief clinical descriptions [ 4 – 6 ].”
+literature · literature · caumes2025</p>
+<p>global — Unknown; &lt;1/1,000,000 (Orphanet point prevalence class)</p>
+<p>Orphanet prevalence class for <a href="https://bioregistry.io/ORPHA:369891" target="_blank" rel="noopener noreferrer">ORPHA:369891</a>
+prevalence
+orphadata · orphadata · <a href="https://bioregistry.io/ORPHA:369891" target="_blank" rel="noopener noreferrer">ORPHA:369891</a> (epidemiology)</p>
+<h2>Clinical trials (1)</h2>
+<p>| nct | phase | status | intervention | </p>
+<p>| NCT01238250 | Observational | RECRUITING | Observational (Simons Searchlight online registry; no intervention) | </p>
+<h2>Animal/experimental models (8)</h2>
+<p>| organism | model | models_node | </p>
+<p>| NCBITaxon:10090 | Germline heterozygous Med13l mouse — postnatal growth delay, midfacial skeletal anomalies (~61% by micro-CT at 9 mo); no significant cardiac functional defect | mn-haploinsufficiency | </p>
+<p>| NCBITaxon:10090 | Conditional Med13l knockout in developing cerebral cortex — loss of transcriptional priming of neurogenesis genes (proteomics + bulk/scRNA-seq) | mn-neurodev-transcription | </p>
+<p>| NCBITaxon:10090 | In-utero electroporation of mouse cortex (shRNA knockdown ± WT/missense rescue) — dendritic growth and spine-formation readouts for variant-level function | mn-neurodev-transcription | </p>
+<p>| NCBITaxon:7955 | Zebrafish med13b morpholino knockdown (morphant) — defective cranial neural-crest-cell migration and craniofacial cartilage deformities at embryonic/larval stages | mn-ncc-cardiac | </p>
+<p>| NCBITaxon:7227 | Drosophila CDK8–Cyclin C kinase-module manipulation in wing disc — Mad-dependent Dpp-target transcription; demonstrates context-dependent direction of CKM effect | mn-ckm-hinge | </p>
+<p>| system | description | models_node | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> | Patient-derived MED13L+/− skin fibroblasts (single +/fs line {chang2022}; 12-line/11-variant collection {campbell2026}) — cyclin-C localisation and mitochondrial-morphology readouts | mn-ckm-hinge | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a> | Human iPSC-derived neurons / neural progenitors carrying MED13L variants (CRISPR-perturbation neural-development platform {wang2024}) | mn-neurodev-transcription | </p>
+<p>| <a href="http://purl.obolibrary.org/obo/CL_0000010" target="_blank" rel="noopener noreferrer">CL:0000010</a> | HEK293 transfection with FLAG-tagged WT vs MED13L missense variants — protein stability (Western) and subcellular localisation (immunofluorescence) {smol2025} | mn-haploinsufficiency | </p>
+<h2>External assertions (3)</h2>
+<p>gnomAD: MED13L pLI=1, LOEUF=0.060 · link</p>
+<p>ClinVar: 235 P/LP and 606 VUS of 1813 MED13L records · link</p>
+<p>Reactome: MED13L mapped to: PPARA activates gene expression; Transcriptional regulation of white adipocyte differentiation; RSV-host interactions · link</p>
+<h2>References (18 cited in this entry)</h2>
+<p>10.1186/s11689-025-09618-4</p>
+<p>10.1177/26330040241290252</p>
+<p>10.1002/dvdy.70079</p>
+<p>10.1101/2024.09.25.614184</p>
+<p>10.1016/j.isci.2022.103823</p>
+<p>10.64898/2026.06.01.729270</p>
+<p>10.1371/journal.pgen.1008832</p>
+<p>10.1186/s11689-025-09645-1</p>
+<p>10.4172/jpb.s2-004</p>
+<p>10.1038/ejhg.2013.17</p>
+<p>10.1016/j.ejmg.2018.06.014</p>
+<p>10.1016/j.xhgg.2025.100467</p>
+<p>10.1101/gad.207720.112</p>
+<p>10.1016/j.jmccpl.2025.100481</p>
+<p>10.1002/humu.22636</p>
+<p>10.1111/jnc.15783</p>
+<p>10.1101/2022.03.30.486486</p>
+<p>10.1038/s42003-025-08532-8</p>
+<h2>Provenance</h2>
+<p>{
+  "creation_date": "2026-06-23 18:39:36.509614+00:00",
+  "updated_date": "2026-06-23 18:39:36.509614+00:00",
+  "curation_history": [
+    {
+      "date": "2026-06-23 18:39:36.509614+00:00",
+      "agent": "<code>pipeline module</code> / Anthropic Claude (frame 5f9723cd)",
+      "change": "Initial curation entry generated from systematic review run (pipeline run directory)"
+    },
+    {
+      "date": "2026-06-23 18:39:36.509614+00:00",
+      "agent": "data-validation db-fetch",
+      "change": "Database evidence injected: MONDO/HGNC/gnomAD/ClinVar/AlphaFold/Reactome/HPOA/Orphadata."
+    }
+  ],
+  "notes": [
+    "research.clinical_trials: ClinicalTrials.gov search for 'MED13L' returned 1 record at curation time; gap recorded.",
+    "Monarch Initiative API blocked by sandbox allowlist (non-critical; MONDO resolved via OLS4).",
+    "ClinGen gene-validity API endpoint returned non-JSON / 404 for direct query; assertion not retrieved (gap).",
+    "completeness_honesty: mechanism.biochemical, mechanism.histopathology, mechanism.environmental, mechanism.infectious, clinical.stages, research.computational_models, research.surrogate_endpoints \u2014 not applicable / no curatable evidence; intentionally omitted.",
+    "validity.reference_validity: all literature snippets sourced verbatim from Phase-5 evidence_package claim_source_sentence fields, which were extracted from abstracts/full-text in Phase 2 with COMPLIANCE_RATE 0.9982."
+  ],
+  "review_notes": [
+    "Missense vs PTV mechanism (hyp-missense-dn-gof) is EMERGING and contested; treat severity stratification as preliminary.",
+    "FBXW7/SCF dosage-modulation hypothesis carries an oncogene-substrate safety caveat (see hypothesis packet hyp-haploinsufficiency / mn-fbw7-turnover)."
+  ]
+}</p>
+<hr />
+<h1>Part 2 — Post-hoc comparison against the held-out dismech entry</h1>
+<blockquote>
+<p><strong>⚠️ AI—Generated Content — Not Medical Advice</strong></p>
+<p>This document was generated with substantial AI assistance and is not medical advice. It is a research literature synthesis intended for scientific and educational use. It has not been independently reviewed by a licensed physician for clinical accuracy and must not be used as a substitute for professional medical advice, diagnosis, or treatment. Patients, caregivers, and clinicians should rely on qualified healthcare providers and primary sources for any decision regarding a medical condition. AI systems can produce errors, including plausible-sounding statements that are incorrect; verify every claim against the cited primary literature before use. We are pursuing this work with our research partners because we want AI to become more useful in helping people learn about health and medical topics. One day, further research and testing may bring us to a different point — but today is not that day. This is early-stage work, and AI should not be interpreted as providing medical advice or as any substitute for qualified professional care.</p>
+</blockquote>
+<h1>Unbiased comparison — the pipeline MED13L outputs vs DisMech <code>MED13_Syndrome</code> page</h1>
+<p><strong>Generated</strong> 2026-06-23<a href="https://bioregistry.io/T23:40" target="_blank" rel="noopener noreferrer">T23:40</a>:18Z · this report is a static comparison; per the user's instruction, <strong>nothing in the pipeline  review was modified based on DisMech content</strong>.</p>
+<h2>0. Subject-identity caveat (read first)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>the pipeline (this run)</th>
+<th>DisMech page linked</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><strong>MED13L syndrome</strong></td>
+<td><strong>MED13 syndrome</strong> (MRD61)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0014773" target="_blank" rel="noopener noreferrer">MONDO:0014773</a></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0032485" target="_blank" rel="noopener noreferrer">MONDO:0032485</a></td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><em>MED13L</em> (<a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a>, 12q24.21)</td>
+<td><em>MED13</em> (<a href="https://bioregistry.io/HGNC:22474" target="_blank" rel="noopener noreferrer">HGNC:22474</a>, 17q23.2)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>616789</td>
+<td>618009</td>
+</tr>
+<tr>
+<td>Reported cases</td>
+<td>&gt;300 (registry + cohort)</td>
+<td>~26 (per the DisMech <code>description</code> field)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The page at <a href="https://dismech.monarchinitiative.org/pages/disorders/MED13_Syndrome.html">https://dismech.monarchinitiative.org/pages/disorders/MED13_Syndrome.html</a> covers the <strong>paralog gene</strong> <em>MED13</em>, not <em>MED13L</em>. A <code>MED13L</code> page does <strong>not</strong> exist in DisMech: probes of <code>kb/disorders/MED13L*.yaml</code> (repo) and <code>pages/disorders/MED13L*.html</code> (site) all returned 404 against the 1391-disorder kb. The two are sister CKM-hinge disorders with substantial mechanistic and clinical overlap, so a <em>format-and-method</em> comparison is informative — but every <strong>content</strong> divergence below must be read as <strong>paralog biology, not pipeline disagreement</strong>.</p>
+<p>For an apples-to-apples comparison on structure and evidence model, the pipeline  side uses <strong>two artifacts</strong>:
+- the <strong>narrative review</strong> (<a href="../../research/—">med13l_review_v3.pdf</a>, 67 pp, 11 394 body-prose words, 120 cited references), and
+- the <strong>structured curation entry</strong> (<a href="../../research/—">curation-entry.yaml</a>, 87 KB) + <a href="../../research/—">pathograph.json</a> — these are the pipeline  artefacts that occupy the same role as a DisMech YAML.</p>
+<h2>1. Format and scope</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>the pipeline MED13L (review v3 + curation-entry)</th>
+<th>DisMech MED13_Syndrome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Artifact type</td>
+<td>Systematic narrative review (PDF/HTML/MyST) <strong>plus</strong> schema-backed YAML curation entry</td>
+<td>Schema-backed YAML rendered to a single HTML page</td>
+</tr>
+<tr>
+<td>Source file size</td>
+<td>review_v3.md ≈ 18.9k words (16.1k pre-Methods); curation-entry.yaml 87 KB</td>
+<td>YAML 59 429 B; rendered HTML 612 KB</td>
+</tr>
+<tr>
+<td>Page count</td>
+<td>67 pp PDF</td>
+<td>single scrolling page</td>
+</tr>
+<tr>
+<td>Top-level YAML sections</td>
+<td>6 (identity, mechanism, clinical, research, provenance, companion_artifacts)</td>
+<td>12 (name, creation_date, category, synonyms, description, disease_term, parents, pathophysiology, phenotypes, genetic, treatments, datasets)</td>
+</tr>
+<tr>
+<td>Rendered prose sections</td>
+<td>Intro + §1–§10 + §6b + conclusion + Methods</td>
+<td>Pathophysiology, Pathograph, Phenotypes, Genetic Associations, Medical Actions, Related Datasets, Source YAML, References &amp; Deep Research (which embeds two 15-section "deep research" reports)</td>
+</tr>
+<tr>
+<td>Structured pathograph</td>
+<td>12 nodes / 12 edges (6 mechanism + 6 phenotype), JSON</td>
+<td>7 pathophysiology nodes with <code>downstream</code> edges; CX2/NDEx export linked</td>
+</tr>
+<tr>
+<td>Figures</td>
+<td>3 body + 2 Methods</td>
+<td>0 (renderer-generated pathograph only)</td>
+</tr>
+<tr>
+<td>Tables</td>
+<td>12</td>
+<td>1 phenotype table + 1 medical-actions table (renderer-generated)</td>
+</tr>
+<tr>
+<td>Authoring date range</td>
+<td>2026-06-19 → 2026-06-23</td>
+<td>2026-04-11 → 2026-06-19 (3 commits)</td>
+</tr>
+<tr>
+<td>Authoring agent</td>
+<td>Anthropic Claude (literature-review/data-validation/clinical-critic roles)</td>
+<td>per-repo Claude Code <code>/curate</code> workflow (cmungall + bot, per commit log)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Interpretation.</strong> DisMech is a <strong>structured KB record</strong>: terse, ontology-bound, slot-per-claim, designed for cross-disease query and programmatic export (Mondo EMC, NDEx, ontology-score browser). the pipeline is a <strong>PRISMA-style narrative review</strong> with a structured KB record alongside — the narrative carries argument, conflict adjudication, and a Methods section the DisMech page does not attempt.</p>
+<h2>2. Evidence model</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>the pipeline review v3</th>
+<th>the pipeline curation-entry.yaml</th>
+<th>DisMech MED13 YAML</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reference identifier</td>
+<td>DOI (cite-key → bib)</td>
+<td><code>DOI:</code> CURIE in <code>evidence[*].source</code></td>
+<td><code>PMID:</code> in <code>evidence[*].reference</code></td>
+</tr>
+<tr>
+<td>Distinct cited references</td>
+<td><strong>120</strong></td>
+<td>34 distinct DOIs across 113 evidence items</td>
+<td><strong>12 PMIDs</strong> across 49 evidence items</td>
+</tr>
+<tr>
+<td>Evidence items (slot-level)</td>
+<td>n/a (prose)</td>
+<td><strong>113</strong> (83 with verbatim snippet, 5 empty stubs)</td>
+<td><strong>49</strong> (49 with snippet)</td>
+</tr>
+<tr>
+<td>Snippet-to-source verification</td>
+<td>1 149 claim–citation triples → 91.7 % CLEAN (0 hallucinated, 0 chimeric, 0 broken-DOI) via 5-step blinded protocol</td>
+<td>110/110 snippets matched verbatim against the Phase-5 evidence corpus (<a href="../../research/—">gate</a>)</td>
+<td>per-snippet "validated against PubMed abstracts" (DisMech reference-validator); pass status not exposed on the page</td>
+</tr>
+<tr>
+<td>Reference <em>titles</em> stored inline</td>
+<td>no (resolved at build from <code>references.bib</code>)</td>
+<td>no</td>
+<td>yes (<code>reference_title</code> on every evidence item)</td>
+</tr>
+<tr>
+<td>Evidence typing</td>
+<td>n/a</td>
+<td><code>kind: literature</code> only</td>
+<td><code>evidence_source</code> enum (e.g. <code>HUMAN_CLINICAL</code>) + <code>supports</code> enum (e.g. <code>SUPPORT</code>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Interpretation.</strong> the pipeline cites an order of magnitude more sources (120 vs 12) — expected, since MED13L has ~10× the literature MED13 has, and a narrative review's job is comprehensive coverage rather than a curated minimum. DisMech's evidence model is <em>richer per item</em> (typed <code>evidence_source</code> + <code>supports</code> enum + inline <code>reference_title</code> + <code>explanation</code>) and PMID-native; the pipeline's is DOI-native with a separate bibliography resolution step. Both store verbatim supporting snippets; both verify them, but against different oracles (DisMech: PubMed abstract text; the pipeline: its own full-text/abstract evidence corpus, then a separate CrossRef metadata check). the pipeline's curation-entry has <strong>5 empty evidence stubs</strong> (e.g. <code>animal_models[0]</code> — source/snippet blank) that DisMech's validator would flag.</p>
+<h2>3. Ontology binding</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>the pipeline curation-entry</th>
+<th>DisMech MED13</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease term</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0014773" target="_blank" rel="noopener noreferrer">MONDO:0014773</a> (+ OMIM/ORPHA/GARD/ICD-10 in <a href="../../research/—">crossrefs.yaml</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0032485" target="_blank" rel="noopener noreferrer">MONDO:0032485</a></td>
+</tr>
+<tr>
+<td>Gene term</td>
+<td><a href="https://bioregistry.io/HGNC:22962" target="_blank" rel="noopener noreferrer">HGNC:22962</a> (+ UniProt, Ensembl, Entrez, AlphaFold)</td>
+<td><a href="https://bioregistry.io/HGNC:22474" target="_blank" rel="noopener noreferrer">HGNC:22474</a></td>
+</tr>
+<tr>
+<td>Phenotype HPO</td>
+<td>22 terms (numeric <code>n/N (%)</code> frequencies)</td>
+<td>22 terms (Orphanet <code>VERY_FREQUENT/FREQUENT/OCCASIONAL</code> enum)</td>
+</tr>
+<tr>
+<td>Treatment MAXO</td>
+<td>9 terms</td>
+<td>4 terms (1 with <code>therapeutic_modality</code>)</td>
+</tr>
+<tr>
+<td>Biological process GO</td>
+<td>per-node lists (e.g. <a href="http://purl.obolibrary.org/obo/GO_0006366" target="_blank" rel="noopener noreferrer">GO:0006366</a>)</td>
+<td>per-node <code>biological_processes</code> lists</td>
+</tr>
+<tr>
+<td>Cell type CL</td>
+<td>none in YAML (covered in prose)</td>
+<td>per-node <code>cell_types</code> lists</td>
+</tr>
+<tr>
+<td>Differential MONDO</td>
+<td>5 terms</td>
+<td>— (slot absent)</td>
+</tr>
+<tr>
+<td>Model organism NCBITaxon</td>
+<td>5 (mouse×3, zebrafish, Drosophila)</td>
+<td>1 (mouse, via <code>datasets</code> only)</td>
+</tr>
+<tr>
+<td>Mappings (<code>mondo_mappings</code>)</td>
+<td>not populated under that key (xrefs in separate file)</td>
+<td>not populated</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>HPO overlap</strong> (despite being different diseases): 6/22 shared — <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a>, <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>, <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>, <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>, <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a>, <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a>. This is exactly the CKM-disorder core triad (ID, GDD, speech delay, motor delay, seizures, abnormal heart morphology). The remaining 16-per-side reflect genuine paralog divergence: DisMech-MED13 carries Duane anomaly (<a href="http://purl.obolibrary.org/obo/HP_0009921" target="_blank" rel="noopener noreferrer">HP:0009921</a>), supernumerary tooth (<a href="http://purl.obolibrary.org/obo/HP_0011069" target="_blank" rel="noopener noreferrer">HP:0011069</a>), aganglionic megacolon (<a href="http://purl.obolibrary.org/obo/HP_0002251" target="_blank" rel="noopener noreferrer">HP:0002251</a>), retinal atrophy (<a href="http://purl.obolibrary.org/obo/HP_0001105" target="_blank" rel="noopener noreferrer">HP:0001105</a>) — none reported as MED13L features. <code>pipeline module</code> carries the dysmorphism granularity (bulbous nose <a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a>, open mouth <a href="http://purl.obolibrary.org/obo/HP_0000194" target="_blank" rel="noopener noreferrer">HP:0000194</a>, depressed nasal bridge <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a>, low-set ears <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a>) and ataxia (<a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a>) — the MED13L gestalt. <strong>Neither side is "wrong"; they describe sister disorders.</strong></p>
+<p><strong>Frequency encoding</strong> is the sharper methodological difference: DisMech uses the Orphanet-style 5-band enum; the pipeline records the <strong>observed numerator/denominator</strong> (e.g. <code>15/72 (20.8%)</code>) plus per-variant-subset splits (<code>55.6% (missense subset); 23%…</code>). The numeric form preserves the underlying cohort sizes and the ascertainment-method dependence the review's Act-II argument turns on; the enum form is what cross-KB queries and the Orphanet frequency model expect.</p>
+<h2>4. Mechanism / pathophysiology</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th></th>
+<th>the pipeline</th>
+<th>DisMech MED13</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mechanism nodes</td>
+<td>6 (<code>mn-ckm-hinge</code>, <code>mn-haploinsufficiency</code>, <code>mn-missense-destabilisation</code>, <code>mn-fbw7-turnover</code>, <code>mn-neurodev-transcription</code>, <code>mn-ncc-cardiac</code>)</td>
+<td>7 (Mediator transcriptional dysregulation, MED13 phosphodegron disruption, neurodev transcriptional dysreg, brain-structural/excitability, cardiac dev dysreg, craniofacial/ocular/sensory, somatic-growth/skeletal)</td>
+</tr>
+<tr>
+<td>Node identifiers</td>
+<td>stable <code>mn-*</code> ids (machine-referenced from treatments/models/hypotheses)</td>
+<td><code>name</code> strings only</td>
+</tr>
+<tr>
+<td>Causal edges</td>
+<td>explicit <code>causes:</code> lists → 12-edge pathograph JSON</td>
+<td><code>downstream:</code> lists per node → CX2/NDEx pathograph</td>
+</tr>
+<tr>
+<td>Mechanism hypotheses (separate from established nodes)</td>
+<td>5 ranked hypotheses (separate <code>mechanistic_hypotheses</code> slot + 5 standalone hypothesis-packet artifacts)</td>
+<td>— (no hypothesis slot in DisMech schema)</td>
+</tr>
+<tr>
+<td>Variant-class mechanism split</td>
+<td>5-row <code>variants</code> block (PTV, missense-hotspot, intragenic del/dup, whole-gene CNV, d-TGA-associated noncoding)</td>
+<td>encoded as a 529-char free-text <code>genetic[0].features</code> string</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Interpretation.</strong> Coverage is comparable (6 vs 7 nodes; both span the CKM-hinge → tissue-specific dysregulation chain). DisMech's nodes carry richer per-node ontology context (<code>cell_types</code>, <code>biological_processes</code> on every node); the pipeline's carry richer cross-linking (<code>causes</code> ids, <code>confidence</code>, GO+MF+complex+structure lists, and a separate testable-hypothesis layer). DisMech encodes the variant-mechanism split as prose in a string slot; the pipeline as a typed list — neither is the Disease-class <code>genetic</code> shape the dismech schema <em>prefers</em> (which is per-feature dicts, as in larger entries like Kabuki).</p>
+<h2>5. Coverage gaps (slots one side populates and the other does not)</h2>
+<p><strong>Populated by the pipeline, absent in DisMech MED13 YAML:</strong>
+- <code>differential_diagnoses</code> (5 MONDO-bound entries with distinguishing features)
+- <code>diagnosis</code> (4 entries — diagnostic pathway / criteria)
+- <code>prevalence</code> / <code>epidemiology</code> (2 entries; numeric estimates with source)
+- <code>animal_models</code> / <code>experimental_models</code> (5 + 3 entries)
+- <code>mechanistic_hypotheses</code> (5, ranked, with experiment-design packets)
+- <code>clinical_trials</code> (1)
+- <code>progression</code> / natural-history narrative
+- Separate Methods, PRISMA flow, verification ledger, conflict adjudication
+- <code>mappings</code> to OMIM/ORPHA/GARD/ICD-10/UniProt/Ensembl/AlphaFold</p>
+<p><strong>Populated by DisMech MED13, absent in the pipeline curation-entry:</strong>
+- <code>parents</code> (3 disease-ontology parents — the pipeline has <code>identity.parents</code> 4× but as labels, not MONDO-bound parent terms in DisMech's sense)
+- <code>datasets</code> (1 GEO accession <code>geo:GSE298801</code> + 1 ClinicalTrials.gov record <code>clinicaltrials:NCT01238250</code>, each with organism/data-type binding) — the pipeline's <code>research.datasets</code> slot is the literal string <code>'[]'</code>, not a structured list
+- per-evidence <code>evidence_source</code> enum and <code>supports</code> enum
+- per-evidence inline <code>reference_title</code>
+- per-node <code>cell_types</code> (CL terms)
+- the page-embedded "References &amp; Deep Research" report (two 15-section research dossiers rendered alongside the structured data)</p>
+<h2>6. Quality-control surface</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Check</th>
+<th>the pipeline</th>
+<th>DisMech</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Schema validation</td>
+<td><code>gate_curation_entry</code> (term_validity 22/22 HPO, 10/10 MONDO, 11/11 MAXO; reference_validity 110/110 snippet-match; pass)</td>
+<td><code>linkml-validate --target-class Disease</code> (PR-time hook); per-file compliance score in QC dashboard</td>
+</tr>
+<tr>
+<td>Reference validation</td>
+<td>5-step blinded triple verification (DOI resolve → title → author → metadata → claim), 1 149 triples, 91.7 % clean</td>
+<td><code>linkml-reference-validator</code> against PubMed abstracts (pass implied by merge)</td>
+</tr>
+<tr>
+<td>Ontology-term validation</td>
+<td>OLS4 lookups at build; 0 bad terms</td>
+<td>dismech-terms skill (OAK-backed term resolution)</td>
+</tr>
+<tr>
+<td>Human review</td>
+<td>story-coherence + clinical-critic (7-check clinical critic) — automated, no human in loop</td>
+<td>PR review by Monarch curators (cmungall et al., per commit log)</td>
+</tr>
+<tr>
+<td>Audit trail</td>
+<td>phase_ledger.json (16 versions), gate_* JSONs, fix_ledger</td>
+<td>git history (3 commits) + per-PR review threads</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Interpretation.</strong> the pipeline's QC is <em>deeper per claim</em> (every numeric/citation triple individually verified) but <em>entirely automated</em>; DisMech's QC is <em>lighter per claim</em> but ends in <em>human curator review</em>, which catches things automated checks do not (the Delpire–McNeill PR thread shows reviewers catching a GoF/LoF mislabel and a too-generic CL term — exactly the class of error clinical-critic also targets).</p>
+<h2>7. Net assessment</h2>
+<ul>
+<li><strong>As a structured KB record</strong>, the pipeline  curation-entry is a <strong>near-superset</strong> of the DisMech slot inventory (it populates 8 slot families DisMech-MED13 leaves empty), with two real gaps to close before it would pass a DisMech PR review: (a) PMID identifiers alongside DOIs, (b) structured <code>datasets</code> with GEO/SRA accessions, plus the 5 empty evidence stubs.</li>
+<li><strong>As a reader-facing page</strong>, DisMech is <strong>leaner and more ontology-navigable</strong> — every term is a hyperlink into MONDO/HPO/GO/CL/MAXO and the pathograph is exportable to NDEx; the pipeline  review is <strong>far more comprehensive and argued</strong> (120 vs 12 sources; conflict adjudication; ascertainment-bias analysis; ranked research priorities) but the curation-entry is not yet rendered as a standalone clickable page.</li>
+<li><strong>Subject-identity</strong> remains the dominant caveat: the only valid scientific-content comparison is mechanism-node <em>structure</em>, not <em>content</em>, because MED13 ≠ MED13L. A like-for-like content comparison would require a <code>kb/disorders/MED13L_Syndrome.yaml</code> in DisMech — which does not yet exist.</li>
+</ul>
+<hr />
+<p><em>Sources read for this comparison:</em> <code>kb/disorders/MED13_Syndrome.yaml</code> @ main (59 429 B), rendered page (612 KB), <code>src/dismech/schema/dismech.yaml</code>, <code>app/data.js</code> MED13 row, repo commit log; the pipeline <a href="../../research/—">review_v3.md</a>, <a href="../../research/—">curation-entry.yaml</a>, <a href="../../research/—">pathograph.json</a>, <a href="../../research/—">crossrefs.yaml</a>, <a href="../../research/—">gate_curation_entry.json</a>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="MED13_Syndrome-perplexity.html">← MED13 Syndrome (Perplexity)</a>
+                
+                
+                <a href="Mediator_Complex_Neurodevelopmental_Disorder-falcon.html">Mediator Complex Neurodevelopmental Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MED13L_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MED13L_Syndrome-deep-research-anthropic-pipeline.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-other" aria-current="page">Anthropic Pipeline</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

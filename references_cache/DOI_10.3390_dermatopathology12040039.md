@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/dermatopathology12040039"
+reference_id: DOI:10.3390/dermatopathology12040039
 title: Histopathologic Features and Molecular Markers of Encephalocraniocutaneous Lipomatosis (ECCL)
 authors:
 - Siddharth Venigalla
@@ -12,6 +12,7 @@ journal: Dermatopathology
 year: '2025'
 doi: 10.3390/dermatopathology12040039
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Histopathologic Features and Molecular Markers of Encephalocraniocutaneous Lipomatosis (ECCL)

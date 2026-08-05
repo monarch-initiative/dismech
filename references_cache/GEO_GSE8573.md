@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE8573"
+reference_id: GEO:GSE8573
 title: Salmonella Typhimurium transcription profiles in space flight
 content_type: summary
+full_text_attempted: true
 ---
 
 # Salmonella Typhimurium transcription profiles in space flight

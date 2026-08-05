@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life14060689"
+reference_id: DOI:10.3390/life14060689
 title: "Afamelanotide for Treatment of the Protoporphyrias: Impact on Quality of Life and Laboratory Parameters in a US Cohort"
 authors:
 - Rebecca K. Leaf
@@ -20,6 +20,7 @@ journal: Life
 year: '2024'
 doi: 10.3390/life14060689
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Afamelanotide for Treatment of the Protoporphyrias: Impact on Quality of Life and Laboratory Parameters in a US Cohort
