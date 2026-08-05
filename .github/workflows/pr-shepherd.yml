@@ -259,10 +259,23 @@ jobs:
       #
       # Runs even if the agent step failed: the two are independent, and a
       # failed agent run should not strand mergeable PRs.
+      #
+      # Fresh token: GitHub App installation tokens expire after 1 hour, but
+      # this job may run for up to `timeout-minutes: 90` and the sweep is its
+      # last step — the token minted at the top of the job is routinely dead by
+      # the time we get here.
+      - name: Regenerate ai4c-agent token for the merge sweep
+        id: ai4c-token-merge
+        if: ${{ !cancelled() }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+
       - name: Auto-merge ready PRs (deterministic)
         if: ${{ !cancelled() }}
         env:
-          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          GH_TOKEN: ${{ steps.ai4c-token-merge.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
           set -euo pipefail
@@ -271,4 +284,8 @@ jobs:
             args+=(--dry-run)
           fi
           # Stdlib-only by design, so it still runs if `uv sync` above failed.
-          python3 scripts/auto_merge_ready_prs.py "${args[@]}"
+          # `--no-project` skips the project environment for that reason, while
+          # still guaranteeing a uv-managed interpreter new enough for the
+          # script (the repo floor is 3.12) rather than trusting the runner's
+          # system `python3`.
+          uv run --no-project python scripts/auto_merge_ready_prs.py "${args[@]}"
