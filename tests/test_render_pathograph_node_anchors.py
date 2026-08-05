@@ -8,6 +8,7 @@ graph's click handler can scroll the reader to the details.
 import html as html_lib
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import yaml
@@ -76,27 +77,59 @@ def test_every_pathograph_node_has_a_matching_card(tmp_path: Path) -> None:
 
 
 def test_card_anchor_ids_are_unique(tmp_path: Path) -> None:
-    """Same-slug names in one section get distinct anchor IDs."""
+    """Colliding slugs get distinct anchor IDs, even across suffix collisions."""
     disorder = dict(DISORDER)
     disorder["phenotypes"] = [
         {"name": "Bronchiectasis"},
         {"name": "Bronchiectasis!"},
+        # Slugifies to the same value the de-dup suffix would hand the previous
+        # item, so a naive counter would put two cards on phenotype-bronchiectasis-2.
+        {"name": "Bronchiectasis 2"},
         {"name": "Pancreatic Insufficiency"},
     ]
     html = _render(tmp_path, disorder)
 
-    anchor_ids = re.findall(r'id="(phenotype-[^"]*)"', html)
-    assert "phenotype-bronchiectasis" in anchor_ids
-    assert "phenotype-bronchiectasis-2" in anchor_ids
-    assert len(anchor_ids) == len(set(anchor_ids))
+    phenotype_ids = re.findall(r'id="(phenotype-[^"]*)"', html)
+    assert "phenotype-bronchiectasis" in phenotype_ids
+    assert "phenotype-bronchiectasis-2" in phenotype_ids
+    assert len(phenotype_ids) == len(set(phenotype_ids))
 
 
-def test_jump_helpers_are_wired_into_the_page(tmp_path: Path) -> None:
-    """The pathograph click handler offers a jump affordance."""
+def test_page_has_no_duplicate_element_ids(tmp_path: Path) -> None:
+    """Anchors must not collide with any other ID on the rendered page."""
     html = _render(tmp_path, DISORDER)
-    assert "function jumpToCard(nodeId, nodeType)" in html
-    assert "function findCardForNode(nodeId, nodeType)" in html
+    all_ids = re.findall(r'\sid="([^"]+)"', html)
+    duplicates = [item for item, count in Counter(all_ids).items() if count > 1]
+    assert not duplicates, f"duplicate element IDs on the page: {duplicates}"
+
+
+def test_jump_affordance_is_rendered(tmp_path: Path) -> None:
+    """The pathograph offers a jump affordance wired to the card attributes."""
+    html = _render(tmp_path, DISORDER)
+    assert 'class="tt-jump"' in html
     assert "Jump to details" in html
     assert "dismech-jump-flash" in html
-    # Clicking pins the tooltip so the jump button stays reachable.
-    assert "pinnedNodeId = n.id;" in html
+    # The handler resolves cards through the attribute pair the cards emit.
+    assert "data-dismech-node" in html
+    assert "data-dismech-type" in html
+
+
+def test_semantic_ref_nodes_fall_back_to_the_named_card(tmp_path: Path) -> None:
+    """A dangling "section#Name" ref still finds the card that Name refers to."""
+    disorder = dict(DISORDER)
+    disorder["pathophysiology"] = [
+        {
+            "name": "CFTR Dysfunction",
+            "downstream": [{"target": "phenotype#Pancreatic Insufficiency"}],
+        }
+    ]
+    html = _render(tmp_path, disorder)
+
+    graph = build_causal_graph(disorder)
+    payload = json.loads(graph_to_json(graph, disorder))
+    orphans = [n["id"] for n in payload["nodes"] if n["node_type"] == "orphan"]
+    assert "phenotype#Pancreatic Insufficiency" in orphans
+
+    # The card the ref names is present, so the JS prefix fallback has a target.
+    assert ("Pancreatic Insufficiency", "phenotype") in _cards(html)
+    assert 'var hash = nodeId.indexOf("#");' in html

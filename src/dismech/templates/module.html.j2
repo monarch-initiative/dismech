@@ -554,8 +554,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -749,7 +757,14 @@
             if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
             if (!fallback) fallback = el;
         }
-        return fallback;
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
     }
 
     function jumpToCard(nodeId, nodeType) {
@@ -977,9 +992,16 @@
             hideTooltip();
         });
 
-        /* Escape dismisses a pinned tooltip. */
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
         document.addEventListener("keydown", function(event) {
             if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
             unpinTooltip();
             clearHighlight();
             hideTooltip();
@@ -1135,6 +1157,7 @@
                 });
             }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1148,6 +1171,7 @@
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
             tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
         }
 
         function unpinTooltip() {
@@ -1507,7 +1531,7 @@
                 <span class="card-count">{{ module.computational_models | length }}</span>
             </div>
             {% for model in module.computational_models %}
-            <div class="item-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %}>
+            <div class="item-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %} data-dismech-node="{{ model.name | e }}" data-dismech-type="computational_model">
                 <div class="item-name">
                     {{ model.name }}
                     <span class="tag-list" style="display: inline-flex; margin-left: 8px; vertical-align: middle;">

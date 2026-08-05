@@ -406,18 +406,22 @@ def _annotate_card_anchors(disorder: dict) -> None:
         items = disorder.get(section_key) or []
         if not isinstance(items, list):
             continue
-        seen: dict[str, int] = {}
+        used: set[str] = set()
         for item in items:
             if not isinstance(item, dict):
                 continue
             name = item.get("name")
             if not name:
                 continue
-            anchor_id = _make_anchor_id(node_type, str(name))
-            occurrence = seen.get(anchor_id, 0) + 1
-            seen[anchor_id] = occurrence
-            if occurrence > 1:
-                anchor_id = f"{anchor_id}-{occurrence}"
+            base_id = _make_anchor_id(node_type, str(name))
+            anchor_id = base_id
+            # Probe past any suffix a differently-named sibling already claimed,
+            # e.g. "Foo", "Foo", "Foo 2" must not all land on "phenotype-foo-2".
+            occurrence = 1
+            while anchor_id in used:
+                occurrence += 1
+                anchor_id = f"{base_id}-{occurrence}"
+            used.add(anchor_id)
             item["_anchor_id"] = anchor_id
 
 
