@@ -129,10 +129,15 @@ committing.
 
 ## Register and record
 
-1. Add a one-line entry to the **Available modules** registry in `CLAUDE.md`
-   (name, one-sentence chain, drug-target pattern, key conformance target; for an
-   Xogenesis module include the anchor). Keep it to one line — do not paste the
-   full pattern into `CLAUDE.md`; that lives here.
+1. **Do not add the module to a list in `CLAUDE.md`.** There is no module
+   registry there any more — it did not scale and drifted behind `kb/modules/`.
+   Discovery is `just list-modules` (or `ls kb/modules/`), which reads the module
+   YAML directly. What that makes load-bearing is the module's own
+   `description:` slot: write it so it states the causal chain in one sentence,
+   the drug-target pattern if there is one, the key conformance target, how the
+   module is complementary to (not overlapping with) its sibling modules, and —
+   for an Xogenesis module — the OGMS/MPATH/UBERON anchor. That description is
+   the only place a curator will find this, so it must stand alone.
 2. Scaffold a history record:
    `just new-history --kind module --slug <name> --event CREATE --outcome changed …`
 3. Wire real conformers: add `conforms_to: "<name>#<Node>"` to the matching
