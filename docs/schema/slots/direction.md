@@ -22,8 +22,9 @@ Alias: direction
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
 | [BiomarkerReadout](../classes/BiomarkerReadout.md) | Links a biochemical biomarker to a pathograph node that it measures, reflects... |  yes  |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  no  |
+| [PhenotypeReadout](../classes/PhenotypeReadout.md) | Links an investigation-readout phenotype (an abnormal electrophysiology, func... |  yes  |
 
 
 
@@ -37,7 +38,7 @@ Alias: direction
 | Property | Value |
 | --- | --- |
 | Range | [BiomarkerReadoutDirectionEnum](../enums/BiomarkerReadoutDirectionEnum.md) |
-| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [BiomarkerReadout](../classes/BiomarkerReadout.md) |
+| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [BiomarkerReadout](../classes/BiomarkerReadout.md), [PhenotypeReadout](../classes/PhenotypeReadout.md) |
 
 ### Cardinality and Requirements
 
@@ -90,6 +91,7 @@ alias: direction
 domain_of:
 - ExperimentalReadout
 - BiomarkerReadout
+- PhenotypeReadout
 range: BiomarkerReadoutDirectionEnum
 
 ```
