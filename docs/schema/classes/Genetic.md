@@ -16,6 +16,17 @@ URI: [dismech:class/Genetic](https://w3id.org/monarch-initiative/dismech/class/G
     click Genetic href "../../classes/Genetic/"
       Genetic : association
         
+      Genetic : case_fractions
+        
+          
+    
+        
+        
+        Genetic --> "*" GeneCaseFraction : case_fractions
+        click GeneCaseFraction href "../../classes/GeneCaseFraction/"
+    
+
+        
       Genetic : evidence
         
           
@@ -128,7 +139,8 @@ URI: [dismech:class/Genetic](https://w3id.org/monarch-initiative/dismech/class/G
 | [variant_origin](../slots/variant_origin.md) | 0..1 <br/> [VariantOriginEnum](../enums/VariantOriginEnum.md) | The origin of disease-associated variation in this gene (germline, somatic, d... | direct |
 | [review_notes](../slots/review_notes.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
 | [subtype](../slots/subtype.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
-| [frequency](../slots/frequency.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md) |  | direct |
+| [frequency](../slots/frequency.md) | 0..1 <br/> [FrequencyEnum](../enums/FrequencyEnum.md)&nbsp;or&nbsp;<br />[FrequencyQuantity](../types/FrequencyQuantity.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md) |  | direct |
+| [case_fractions](../slots/case_fractions.md) | * <br/> [GeneCaseFraction](../classes/GeneCaseFraction.md) | Per-cohort estimates of the fraction of cases of a genetically heterogeneous ... | direct |
 | [inheritance](../slots/inheritance.md) | * <br/> [Inheritance](../classes/Inheritance.md) |  | direct |
 | [variants](../slots/variants.md) | * <br/> [Variant](../classes/Variant.md) |  | direct |
 | [features](../slots/features.md) | 0..1 <br/> [String](../types/String.md) |  | direct |
@@ -203,6 +215,7 @@ slots:
 - review_notes
 - subtype
 - frequency
+- case_fractions
 - inheritance
 - variants
 - features
@@ -248,6 +261,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -315,17 +329,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -341,6 +359,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -433,6 +452,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: string
   frequency:
@@ -449,11 +469,27 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     range: Any
     any_of:
     - range: FrequencyEnum
     - range: FrequencyQuantity
+  case_fractions:
+    name: case_fractions
+    description: Per-cohort estimates of the fraction of cases of a genetically heterogeneous
+      disease attributable to this gene (the genetic-spectrum analog of population
+      Prevalence records). Multivalued because the share varies by cohort/ancestry.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: case_fractions
+    owner: Genetic
+    domain_of:
+    - Genetic
+    range: GeneCaseFraction
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   inheritance:
     name: inheritance
     examples:
@@ -525,12 +561,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
