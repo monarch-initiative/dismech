@@ -1550,6 +1550,42 @@ enums:
       RESTORES:
         description: Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
 
+  EnvironmentalEffectEnum:
+    description: >-
+      How an environmental factor or exposure acts on a pathophysiology
+      mechanism node. The environmental analogue of TreatmentEffectEnum,
+      used to keep causative, aggravating, and protective exposures visually
+      and semantically distinct in the pathograph.
+    permissible_values:
+      TRIGGERS:
+        title: Triggers
+        description: >-
+          The exposure initiates the mechanism, which would not otherwise
+          occur in its absence (e.g., inorganic arsenic ingestion initiating
+          systemic arsenic exposure; allergen contact initiating sensitization).
+      EXACERBATES:
+        title: Exacerbates
+        description: >-
+          The exposure worsens or amplifies a mechanism that is already
+          present or can arise independently (e.g., tobacco smoke amplifying
+          airway inflammation).
+      PREDISPOSES:
+        title: Predisposes
+        description: >-
+          The exposure increases susceptibility to the mechanism without
+          being sufficient to produce it (e.g., a risk-factor exposure that
+          requires additional genetic or environmental hits).
+      PROTECTS_AGAINST:
+        title: Protects against
+        description: >-
+          The exposure reduces the occurrence or severity of the mechanism
+          (e.g., early-life microbial exposure and allergic sensitization).
+      MODULATES:
+        title: Modulates
+        description: >-
+          The exposure alters the mechanism without a clear unidirectional
+          effect, or the direction is context dependent.
+
   ImagingModalityEnum:
     description: >-
       In-vivo medical imaging modality by which an ImagingFinding is detected.
@@ -3616,6 +3652,23 @@ slots:
       - Target names should match pathophysiology entry names in the same disease file
       - Use description to capture the specific assayable or modeled assertion, not just the node label
       - Kept intentionally lightweight so it can later align more explicitly with NAMO relations
+  influences_mechanisms:
+    description: >-
+      Pathophysiology mechanism nodes that this environmental factor or exposure
+      acts on. Connects a disease-level environmental entry into the causal
+      graph, so that exposures appear in the pathograph as upstream initiating
+      steps rather than as a disconnected list.
+    multivalued: true
+    range: EnvironmentalMechanismTarget
+    inlined_as_list: true
+    comments:
+      - Target names should match pathophysiology entry names in the same disease file
+      - Use environmental_effect to distinguish triggering, aggravating, and protective exposures
+      - Distinct from Pathophysiology.triggers, which annotates an ECTO exposure term
+        directly on a mechanism node rather than linking a disease-level environmental entry
+  environmental_effect:
+    description: How the environmental factor affects the targeted mechanism
+    range: EnvironmentalEffectEnum
   treatment_effect:
     description: How the treatment affects the targeted mechanism
     range: TreatmentEffectEnum
@@ -5265,6 +5318,38 @@ classes:
           Must match a pathophysiology or phenotype name in the same disease file.
       evidence:
         description: Evidence that this treatment targets this specific mechanism
+  EnvironmentalMechanismTarget:
+    description: >-
+      Links an environmental factor or exposure to a specific pathophysiology
+      mechanism node it acts on. The environmental counterpart of
+      TreatmentMechanismTarget: it places exposures inside the causal graph as
+      upstream initiating (or protective) steps instead of leaving them as a
+      disconnected disease-level list.
+    slots:
+      - target
+      - environmental_effect
+      - causal_link_type
+      - description
+      - evidence
+    slot_usage:
+      target:
+        description: >-
+          Name of the pathograph node this environmental factor acts on. Prefer
+          a pathophysiology entry; phenotype targets are also allowed when the
+          exposure acts directly on a clinical manifestation rather than an
+          upstream mechanism node. Must match a pathophysiology or phenotype
+          name in the same disease file.
+        required: true
+      environmental_effect:
+        description: >-
+          How the exposure acts on the target. Omit only when the direction of
+          effect is genuinely unstated in the cited evidence.
+      causal_link_type:
+        description: >-
+          Whether the exposure acts directly on the target mechanism or through
+          omitted (known or unknown) intermediates.
+      evidence:
+        description: Evidence that this exposure acts on this specific mechanism
   ModelMechanismLink:
     description: >-
       Links an experimental model to a specific pathophysiology mechanism node,
@@ -5933,6 +6018,7 @@ classes:
       - exposure_term
       - environment_context
       - food_source
+      - influences_mechanisms
   Disease:
     slots:
       - name

@@ -920,6 +920,41 @@ def test_computational_model_mechanism_targets(filepath):
 
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_environmental_mechanism_targets(filepath):
+    """Environmental factor links should reference declared pathograph nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Pathophysiology is the preferred target, but phenotype targets are
+    # allowed for exposures acting directly on a manifestation.
+    valid_targets = {
+        item["name"]
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, factor in enumerate(data.get("environmental", []) or []):
+        if not isinstance(factor, dict):
+            continue
+        for j, link in enumerate(factor.get("influences_mechanisms", []) or []):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"environmental[{i}].influences_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Environmental mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtypes_have_disease_term(filepath):
     """Test that has_subtypes items have a subtype_term with an ontology grounding.
 
