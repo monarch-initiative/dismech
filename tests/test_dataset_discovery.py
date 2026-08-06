@@ -48,6 +48,55 @@ def test_comparison_to_single_cell_is_not_assay_evidence():
     )
 
 
+def test_bracketed_bulk_title_beats_single_cell_context():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    title = "[bulk RNA-seq] Myocardial infarction"
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing",
+            f"{title} compared with single-cell data",
+            coarse,
+            title,
+        )
+        == "BULK_RNA_SEQ"
+    )
+
+
+def test_spatial_organization_is_not_spatial_transcriptomics():
+    assert (
+        refine_data_type(
+            "Genome binding/occupancy profiling",
+            "ChIP-seq reveals spatial organization of chromatin",
+            "CHIP_SEQ",
+        )
+        == "CHIP_SEQ"
+    )
+
+
+def test_spatial_single_cell_transcriptomics_is_spatial():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing",
+            "single-cell spatial transcriptomics",
+            coarse,
+        )
+        == "SPATIAL_TRANSCRIPTOMICS"
+    )
+
+
+def test_mass_spectrometry_is_proteomics():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing",
+            "quantitative mass spectrometry proteomic analysis",
+            coarse,
+        )
+        == "PROTEOMICS"
+    )
+
+
 def test_hyphenated_sibling_name_does_not_match():
     pick = compile_phrases(["Pick disease"])[0][1]
     small_cell = compile_phrases(["small cell lung cancer"])[0][1]
