@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from functools import cache
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load
 
 _WS = re.compile(r"\s+")
 
@@ -68,7 +68,7 @@ def iter_quote_problems(synthesis_path: str | Path) -> Iterable[str]:
     quote is not a whitespace-normalized substring of that report.
     """
     synthesis_path = Path(synthesis_path)
-    data = yaml.safe_load(synthesis_path.read_text(encoding="utf-8")) or {}
+    data = safe_load(synthesis_path.read_text(encoding="utf-8")) or {}
     for i, finding in enumerate(data.get("harmonized_findings") or []):
         for support in finding.get("provider_support") or []:
             quote = support.get("best_matching_text")
