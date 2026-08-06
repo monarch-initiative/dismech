@@ -12,8 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from dismech.yaml_io import safe_load
 from phenoagent.matching_cli import create_initial_matching_file
 
 WORKFLOW_FILE = Path(__file__).resolve().parent / "workflows" / "explain_non_matches.workflow.yaml"
@@ -47,7 +46,7 @@ def _default_matching_workdir(matching_file: Path, *, root_dir: Path | None = No
 
     try:
         with open(matching_file) as stream:
-            data = yaml.safe_load(stream)
+            data = safe_load(stream)
         if isinstance(data, dict):
             if data.get("case_id"):
                 case_id = str(data["case_id"])
@@ -65,7 +64,7 @@ def _read_pr_is_diagnosis(matching_file: Path) -> float | None:
     """Read pr_is_diagnosis from matching YAML, returning None if unavailable."""
     try:
         with open(matching_file) as stream:
-            data: Any = yaml.safe_load(stream)
+            data: Any = safe_load(stream)
     except Exception:
         return None
     if not isinstance(data, dict):

@@ -131,6 +131,7 @@ PREFIX_ALIASES = {
     "nasa_osdr": "osdr",
     "geo_series": "geo",
     "ae": "arrayexpress",
+    "proteomexchange": "pride",
 }
 
 
@@ -177,7 +178,9 @@ def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> A
     for attempt in range(retries):
         if throttle:
             throttle.wait()
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
+        )
         try:
             with urllib.request.urlopen(req, timeout=45) as resp:
                 return json.loads(resp.read().decode("utf-8", "replace"))
@@ -197,11 +200,15 @@ def http_json(url: str, throttle: Throttle | None = None, retries: int = 3) -> A
 # --------------------------------------------------------------------------- #
 
 
-def _eutils_lookup(db: str, term: str, local_id: str, throttle: Throttle, api_key: str | None):
+def _eutils_lookup(
+    db: str, term: str, local_id: str, throttle: Throttle, api_key: str | None
+):
     params = {"db": db, "term": term, "retmode": "json", "retmax": "5"}
     if api_key:
         params["api_key"] = api_key
-    data = http_json(f"{EUTILS}/esearch.fcgi?{urllib.parse.urlencode(params)}", throttle)
+    data = http_json(
+        f"{EUTILS}/esearch.fcgi?{urllib.parse.urlencode(params)}", throttle
+    )
     ids = (data or {}).get("esearchresult", {}).get("idlist") or []
     if not ids:
         return NOT_FOUND, "", f"no {db} record for {local_id}", {}
@@ -209,7 +216,9 @@ def _eutils_lookup(db: str, term: str, local_id: str, throttle: Throttle, api_ke
     sparams = {"db": db, "id": ids[0], "retmode": "json"}
     if api_key:
         sparams["api_key"] = api_key
-    summary = http_json(f"{EUTILS}/esummary.fcgi?{urllib.parse.urlencode(sparams)}", throttle)
+    summary = http_json(
+        f"{EUTILS}/esummary.fcgi?{urllib.parse.urlencode(sparams)}", throttle
+    )
     doc = ((summary or {}).get("result") or {}).get(ids[0]) or {}
 
     # Defence in depth: confirm the record NCBI returned is the one asked for.
@@ -221,7 +230,13 @@ def _eutils_lookup(db: str, term: str, local_id: str, throttle: Throttle, api_ke
     if echoed and echoed != local_id.upper():
         return NOT_FOUND, "", f"{db} returned {echoed}, not {local_id}", {}
 
-    title = doc.get("title") or doc.get("project_title") or doc.get("d_study_name") or doc.get("expname") or ""
+    title = (
+        doc.get("title")
+        or doc.get("project_title")
+        or doc.get("d_study_name")
+        or doc.get("expname")
+        or ""
+    )
     extra = {}
     for key, out in (
         ("gdstype", "gds_type"),
@@ -247,7 +262,9 @@ def resolve_sra(local_id: str, throttle: Throttle, api_key: str | None):
 
 
 def resolve_bioproject(local_id: str, throttle: Throttle, api_key: str | None):
-    return _eutils_lookup("bioproject", f"{local_id}[Project Accession]", local_id, throttle, api_key)
+    return _eutils_lookup(
+        "bioproject", f"{local_id}[Project Accession]", local_id, throttle, api_key
+    )
 
 
 def resolve_dbgap(local_id: str, throttle: Throttle, api_key: str | None):
@@ -256,7 +273,9 @@ def resolve_dbgap(local_id: str, throttle: Throttle, api_key: str | None):
 
 
 def resolve_arrayexpress(local_id: str, throttle: Throttle, api_key: str | None):
-    data = http_json(f"https://www.ebi.ac.uk/biostudies/api/v1/studies/{urllib.parse.quote(local_id)}")
+    data = http_json(
+        f"https://www.ebi.ac.uk/biostudies/api/v1/studies/{urllib.parse.quote(local_id)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no BioStudies record for {local_id}", {}
     title = ""
@@ -274,14 +293,18 @@ def resolve_arrayexpress(local_id: str, throttle: Throttle, api_key: str | None)
 
 
 def resolve_pride(local_id: str, throttle: Throttle, api_key: str | None):
-    data = http_json(f"https://www.ebi.ac.uk/pride/ws/archive/v2/projects/{urllib.parse.quote(local_id)}")
+    data = http_json(
+        f"https://www.ebi.ac.uk/pride/ws/archive/v2/projects/{urllib.parse.quote(local_id)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no PRIDE project {local_id}", {}
     return OK, data.get("title", ""), "", {}
 
 
 def resolve_metabolights(local_id: str, throttle: Throttle, api_key: str | None):
-    data = http_json(f"https://www.ebi.ac.uk/metabolights/ws/studies/{urllib.parse.quote(local_id)}")
+    data = http_json(
+        f"https://www.ebi.ac.uk/metabolights/ws/studies/{urllib.parse.quote(local_id)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no MetaboLights study {local_id}", {}
     study = data.get("content") or data.get("study") or {}
@@ -290,7 +313,9 @@ def resolve_metabolights(local_id: str, throttle: Throttle, api_key: str | None)
 
 def resolve_ega(local_id: str, throttle: Throttle, api_key: str | None):
     kind = "studies" if local_id.upper().startswith("EGAS") else "datasets"
-    data = http_json(f"https://metadata.ega-archive.org/{kind}/{urllib.parse.quote(local_id)}")
+    data = http_json(
+        f"https://metadata.ega-archive.org/{kind}/{urllib.parse.quote(local_id)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no EGA {kind[:-1]} {local_id}", {}
     return OK, data.get("title") or data.get("description", "") or "", "", {}
@@ -298,12 +323,16 @@ def resolve_ega(local_id: str, throttle: Throttle, api_key: str | None):
 
 def resolve_osdr(local_id: str, throttle: Throttle, api_key: str | None):
     num = local_id.split("-")[-1]
-    data = http_json(f"https://osdr.nasa.gov/osdr/data/osd/meta/{urllib.parse.quote(num)}")
+    data = http_json(
+        f"https://osdr.nasa.gov/osdr/data/osd/meta/{urllib.parse.quote(num)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no OSDR study {local_id}", {}
     try:
         study = next(iter((data.get("study") or {}).values()))
-        title = ((study.get("additionalInformation") or {}).get("description") or {}).get("Study Title", "")
+        title = (
+            (study.get("additionalInformation") or {}).get("description") or {}
+        ).get("Study Title", "")
         if not title:
             title = (study.get("studies") or [{}])[0].get("title", "")
     except (StopIteration, AttributeError, IndexError):
@@ -312,21 +341,27 @@ def resolve_osdr(local_id: str, throttle: Throttle, api_key: str | None):
 
 
 def resolve_massive(local_id: str, throttle: Throttle, api_key: str | None):
-    data = http_json(f"https://massive.ucsd.edu/ProteoSAFe/proxi/v0.1/datasets/{urllib.parse.quote(local_id)}")
+    data = http_json(
+        f"https://massive.ucsd.edu/ProteoSAFe/proxi/v0.1/datasets/{urllib.parse.quote(local_id)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no MassIVE dataset {local_id}", {}
     return OK, data.get("title", ""), "", {}
 
 
 def resolve_mgnify(local_id: str, throttle: Throttle, api_key: str | None):
-    data = http_json(f"https://www.ebi.ac.uk/metagenomics/api/v1/studies/{urllib.parse.quote(local_id)}")
+    data = http_json(
+        f"https://www.ebi.ac.uk/metagenomics/api/v1/studies/{urllib.parse.quote(local_id)}"
+    )
     if not data:
         return NOT_FOUND, "", f"no MGnify study {local_id}", {}
-    attrs = ((data.get("data") or {}).get("attributes") or {})
+    attrs = (data.get("data") or {}).get("attributes") or {}
     return OK, attrs.get("study-name", ""), "", {}
 
 
-def resolve_metabolomics_workbench(local_id: str, throttle: Throttle, api_key: str | None):
+def resolve_metabolomics_workbench(
+    local_id: str, throttle: Throttle, api_key: str | None
+):
     """Resolve a Metabolomics Workbench study (ST######) via its REST API."""
     data = http_json(
         f"https://www.metabolomicsworkbench.org/rest/study/study_id/"
@@ -335,8 +370,11 @@ def resolve_metabolomics_workbench(local_id: str, throttle: Throttle, api_key: s
     if not data or not isinstance(data, dict) or not data.get("study_id"):
         return NOT_FOUND, "", f"no Metabolomics Workbench study {local_id}", {}
     extra = {}
-    for src, dst in (("number_of_samples", "sample_count"), ("analysis_type", "analysis_type"),
-                     ("species", "organism")):
+    for src, dst in (
+        ("number_of_samples", "sample_count"),
+        ("analysis_type", "analysis_type"),
+        ("species", "organism"),
+    ):
         if data.get(src):
             extra[dst] = data[src]
     return OK, data.get("study_title", ""), "", extra
@@ -378,7 +416,9 @@ def split_accession(accession: str) -> tuple[str, str]:
     return prefix, local.strip()
 
 
-def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | None, refresh: bool) -> Result:
+def verify_one(
+    accession: str, cache: dict, throttle: Throttle, api_key: str | None, refresh: bool
+) -> Result:
     prefix, local_id = split_accession(accession)
     res = Result(accession=accession, prefix=prefix, local_id=local_id, status=ERROR)
 
@@ -404,8 +444,13 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
         # shape it actually matches, and report the correction.
         #
         actual = next(
-            (p for p, pat in SHAPE.items()
-             if p not in NON_FALLBACK_PREFIXES and pat.match(local_id) and p in RESOLVERS),
+            (
+                p
+                for p, pat in SHAPE.items()
+                if p not in NON_FALLBACK_PREFIXES
+                and pat.match(local_id)
+                and p in RESOLVERS
+            ),
             "",
         )
         if not actual:
@@ -421,7 +466,9 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
     if cached and cached.get("status") == NOT_FOUND:
         checked = cached.get("checked", "")
         try:
-            age = (dt.datetime.now(dt.UTC).date() - dt.date.fromisoformat(checked[:10])).days
+            age = (
+                dt.datetime.now(dt.UTC).date() - dt.date.fromisoformat(checked[:10])
+            ).days
         except (TypeError, ValueError):
             age = 10**6
         if age > NEGATIVE_CACHE_DAYS:
@@ -433,19 +480,28 @@ def verify_one(accession: str, cache: dict, throttle: Throttle, api_key: str | N
         res.checked = cached.get("checked", "")
     else:
         try:
-            status, title, detail, extra = RESOLVERS[prefix](local_id, throttle, api_key)
+            status, title, detail, extra = RESOLVERS[prefix](
+                local_id, throttle, api_key
+            )
         except Exception as exc:
             res.status = ERROR
             res.detail = str(exc)[:200]
             return res
         if status in (OK, NOT_FOUND):
             res.checked = dt.datetime.now(dt.UTC).date().isoformat()
-            cache[key] = {"status": status, "title": title, "detail": detail,
-                          "extra": extra, "checked": res.checked}
+            cache[key] = {
+                "status": status,
+                "title": title,
+                "detail": detail,
+                "extra": extra,
+                "checked": res.checked,
+            }
 
     if mismatch_from and status == OK:
         status = PREFIX_MISMATCH
-        detail = f"real {prefix} record; prefix should be '{prefix}:' not '{mismatch_from}:'"
+        detail = (
+            f"real {prefix} record; prefix should be '{prefix}:' not '{mismatch_from}:'"
+        )
 
     res.prefix = prefix
     res.status, res.title, res.detail, res.extra = status, title, detail, extra
@@ -476,14 +532,31 @@ def collect_accessions(paths: Iterable[Path]) -> dict[str, list[str]]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("files", nargs="*", type=Path, help="KB YAML files to check")
-    ap.add_argument("--all", action="store_true", help="check every dataset accession in kb/")
-    ap.add_argument("--accession", action="append", default=[], help="check a bare accession (repeatable)")
-    ap.add_argument("--strict", action="store_true", help="exit non-zero if any accession is NOT_FOUND/MALFORMED")
-    ap.add_argument("--refresh", action="store_true", help="ignore the cache and re-query the APIs")
+    ap.add_argument(
+        "--all", action="store_true", help="check every dataset accession in kb/"
+    )
+    ap.add_argument(
+        "--accession",
+        action="append",
+        default=[],
+        help="check a bare accession (repeatable)",
+    )
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit non-zero if any accession is NOT_FOUND/MALFORMED",
+    )
+    ap.add_argument(
+        "--refresh", action="store_true", help="ignore the cache and re-query the APIs"
+    )
     ap.add_argument("--json", type=Path, help="write full results to a JSON file")
-    ap.add_argument("--quiet", action="store_true", help="only print problems and the summary")
+    ap.add_argument(
+        "--quiet", action="store_true", help="only print problems and the summary"
+    )
     args = ap.parse_args()
 
     paths: list[Path] = list(args.files)
@@ -558,7 +631,9 @@ def main() -> int:
     if bad:
         print("\nAccessions that do not resolve:")
         for r in bad:
-            print(f"  {r.status}  {r.accession}  ({', '.join(sorted(set(r.sources)))})  {r.detail}")
+            print(
+                f"  {r.status}  {r.accession}  ({', '.join(sorted(set(r.sources)))})  {r.detail}"
+            )
 
     if args.strict and bad:
         return 1
