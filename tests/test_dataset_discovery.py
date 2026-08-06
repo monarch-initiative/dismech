@@ -86,14 +86,40 @@ def test_spatial_single_cell_transcriptomics_is_spatial():
 
 
 def test_mass_spectrometry_is_proteomics():
-    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    coarse = map_data_type("Other")
     assert (
         refine_data_type(
-            "Expression profiling by high throughput sequencing",
+            "Other",
             "quantitative mass spectrometry proteomic analysis",
             coarse,
         )
         == "PROTEOMICS"
+    )
+
+
+def test_proteome_topic_does_not_switch_rna_seq_modality():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing",
+            "Mouse RNA-seq resource reveals a restored proteome",
+            coarse,
+        )
+        == "BULK_RNA_SEQ"
+    )
+
+
+def test_bracketed_rna_seq_beats_companion_chip_seq_context():
+    coarse = map_data_type("Expression profiling by high throughput sequencing")
+    title = "SuperSeries component [RNA-seq]"
+    assert (
+        refine_data_type(
+            "Expression profiling by high throughput sequencing",
+            f"{title} Companion H3K27ac ChIP-seq data are available.",
+            coarse,
+            title,
+        )
+        == "BULK_RNA_SEQ"
     )
 
 
