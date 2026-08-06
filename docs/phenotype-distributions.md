@@ -25,31 +25,39 @@ profile_source
 One set is about one disease, declared once at the top. Each profile under it is
 one pattern.
 
+The whole shape, at its smallest — this is
+`examples/phenotype_distributions/minimal_asthma_illustrative.yaml`, with
+invented weights:
+
 ```yaml
-collection_id: CHARMPHENO-POPULATION-EDS-001
-provenance_tier: TOOL_EXPORTED
+collection_id: EXAMPLE-MINIMAL-ASTHMA-001
+provenance_tier: ILLUSTRATIVE
 disease:
-  disease_name: Ehlers-Danlos Syndrome
-  disease_term: {term_id: MONDO:0020066, term_label: Ehlers-Danlos syndrome}
+  disease_name: Asthma
+  disease_term: {term_id: MONDO:0004979, term_label: asthma}
 profile_source:
-  resource: CHARMPheno dashboard bundle population_eds
+  resource: Illustrative example — not a real model run
   method: COMPUTATIONAL_INFERENCE
-  dataset: All of Us, harmonized OMOP records
-  cohort_size: 959
-  weight_basis: >-
-    The whole 191,876-document sampled corpus, not the 959-document EDS arm.
+  weight_basis: Fraction of the whole fitted corpus.
 profiles:
-- profile_id: CHARMPHENO-EDS-DYSAUTONOMIA-001
-  profile_label: EDS dysautonomia — POTS, syncope, and GI dysmotility
-  profile_weight: 0.00011972462747401996
+- profile_id: EXAMPLE-ASTHMA-EXACERBATION-001
+  profile_label: Frequent exacerbation with oral corticosteroid use
+  profile_weight: 0.02
   code_distributions:
   - clinical_domain: CONDITION
     code_vocabulary: OMOP_CONCEPT_ID
     truncated: true
     weighted_codes:
-    - {code: '444070', code_label: Tachycardia, code_weight: 0.15634}
-    - {code: '4159659', code_label: Postural orthostatic tachycardia syndrome, code_weight: 0.11381}
+    - {code: '317009', code_label: Asthma, code_weight: 0.31}
+    - {code: '255573', code_label: Chronic obstructive lung disease, code_weight: 0.14}
+    - {code: '4145356', code_label: Wheezing, code_weight: 0.10}
 ```
+
+Everything below is why each of those fields is shaped the way it is. The same
+shape filled in from a real model export — with the seventeen-digit weights,
+pinned provenance and caveats that real numbers bring — is
+`charmpheno_population_eds.yaml`, discussed under
+[the worked examples](#the-worked-examples).
 
 ## Design decisions
 
