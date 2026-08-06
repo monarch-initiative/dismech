@@ -6,8 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from discover_datasets import map_data_type, refine_data_type
-from disease_title_match import compile_phrases
 from discover_omicsdi import clean_description
+from disease_title_match import compile_phrases
 
 
 def test_generic_copy_number_profiles_are_not_called_gwas():
