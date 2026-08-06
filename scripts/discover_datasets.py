@@ -84,7 +84,8 @@ GDSTYPE_TO_ENUM: list[tuple[str, str]] = [
 ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
     (
         re.compile(
-            r"\b(spatial(ly)?[- ]?(resolved|transcriptom\w*)?|visium|geomx|merfish|"
+            r"\b(spatial(?:ly)?(?:[- ]?(?:resolved|transcriptom\w*)|"
+            r"(?:\W+\w+){0,5}\W+transcriptom\w*)|visium|geomx|merfish|"
             r"xenium|cosmx|slide[- ]?seq|stereo[- ]?seq)\b",
             re.IGNORECASE,
         ),
@@ -105,6 +106,31 @@ ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
         ),
         "SINGLE_CELL_RNA_SEQ",
     ),
+    (
+        re.compile(r"\b(chip[- ]?seq|chromatin immunoprecipitation)\b", re.IGNORECASE),
+        "CHIP_SEQ",
+    ),
+    (
+        re.compile(r"\b(mass spectrom\w*|proteom\w*)\b", re.IGNORECASE),
+        "PROTEOMICS",
+    ),
+    (
+        re.compile(
+            r"\b(dna methylation|methylation profil\w*|methylome)\b",
+            re.IGNORECASE,
+        ),
+        "METHYLATION",
+    ),
+]
+
+BRACKETED_TITLE_ASSAYS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\[bulk rna[- ]?seq\]", re.IGNORECASE), "BULK_RNA_SEQ"),
+    (re.compile(r"\[chip[- ]?seq\]", re.IGNORECASE), "CHIP_SEQ"),
+    (re.compile(r"\[atac[- ]?seq\]", re.IGNORECASE), "ATAC_SEQ"),
+    (
+        re.compile(r"\[(?:sc|sn)rna[- ]?seq\]", re.IGNORECASE),
+        "SINGLE_CELL_RNA_SEQ",
+    ),
 ]
 
 # `gdstype` values that describe only the broad modality, so the series text is
@@ -112,13 +138,17 @@ ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
 UNSPECIFIC_GDSTYPES = ("expression profiling", "genome binding/occupancy", "other")
 
 
-def refine_data_type(gds_type: str, text: str, mapped: str) -> str:
+def refine_data_type(gds_type: str, text: str, mapped: str, title: str = "") -> str:
     """Upgrade a coarse `gdstype` mapping using the series' own title/summary.
 
     Only fires when `gdstype` is one of the broad values that cannot express
     assay resolution, so an explicit GEO label (methylation, proteomics, GWAS)
     is never overridden by a stray word in a summary.
     """
+    for pattern, enum in BRACKETED_TITLE_ASSAYS:
+        if pattern.search(title or ""):
+            return enum
+
     low = (gds_type or "").lower()
     if not any(u in low for u in UNSPECIFIC_GDSTYPES):
         return mapped
@@ -132,6 +162,8 @@ def refine_data_type(gds_type: str, text: str, mapped: str) -> str:
         re.IGNORECASE,
     ):
         matches.clear()
+    if matches == {"SPATIAL_TRANSCRIPTOMICS", "SINGLE_CELL_RNA_SEQ"}:
+        return "SPATIAL_TRANSCRIPTOMICS"
     if len(matches) > 1:
         return "MULTI_OMICS"
     if matches:
@@ -505,6 +537,19 @@ def score_candidate(
     hay_title = cand.title.lower()
     hay_all = f"{cand.title} {cand.summary}".lower()
 
+    # A literal disease-name hit under a ``non-`` qualifier denotes the
+    # complementary disease class (for example, non-clear-cell RCC), not this
+    # entry. This must run even when the entry has no removable leading
+    # qualifier; the sibling-disease check below only handles names such as
+    # chronic versus acute disease.
+    for phrase in phrases:
+        phrase_pattern = re.escape(phrase.lower()).replace(r"\ ", r"[- ]+")
+        if re.search(rf"\bnon[- ]+{phrase_pattern}\b", hay_title):
+            cand.relevance = "CONFLICT"
+            cand.score = -10.0
+            cand.score_notes = [f"title negates disease name: 'non-{phrase.lower()}'"]
+            return
+
     # A candidate that applies a competing qualifier to the disease's core term
     # is about a sibling disease (hereditary vs acquired angioedema), no matter
     # how well the rest of it scores.
@@ -634,6 +679,7 @@ def discover(
                 cand.gds_type,
                 f"{cand.title} {cand.summary}",
                 map_data_type(cand.gds_type),
+                cand.title,
             )
             score_candidate(cand, phrases, wordsets, cores)
             seen[acc] = cand
