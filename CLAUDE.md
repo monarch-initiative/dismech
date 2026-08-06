@@ -497,6 +497,61 @@ split into atomic nodes.
 **Reference.** `projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md` records the
 survey that fixed the enum at these four values and the bundle patterns
 curators should watch for.
+
+### Linking Environmental Factors into the Pathograph
+
+An `environmental:` entry only appears in the pathograph if it declares which
+mechanism it acts on. Use `influences_mechanisms` — the environmental
+counterpart of `treatments.target_mechanisms` and
+`experimental_models.modeled_mechanisms`:
+
+```yaml
+environmental:
+- name: Chronic ingestion of arsenic-contaminated drinking water
+  exposure_term:
+    preferred_term: exposure to arsenic in water via ingestion
+    term:
+      id: ECTO:0080000
+      label: exposure to arsenic in water via ingestion
+  influences_mechanisms:
+  - target: Systemic inorganic arsenic exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: >-
+      Sustained ingestion of contaminated groundwater is the route by which the
+      systemic arsenic burden is established.
+    evidence:
+    - reference: PMID:21576319
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: "exact quote from the abstract"
+      explanation: Why this supports the exposure acting on this mechanism.
+```
+
+**Key points:**
+- `target` must match a `pathophysiology` (preferred) or `phenotype` name in the
+  same file; a test (`test_environmental_mechanism_targets`) enforces this.
+- `environmental_effect` (`EnvironmentalEffectEnum`: `TRIGGERS`, `EXACERBATES`,
+  `PREDISPOSES`, `PROTECTS_AGAINST`, `MODULATES`) sets the edge predicate.
+  A protective exposure is drawn green and dashed so it never reads as a causal
+  arrow. Omitting it falls back to a neutral `influences` predicate rather than
+  asserting causation — prefer an explicit value.
+- The link makes its own claim, so it takes its **own** evidence, separate from
+  the environmental entry's general evidence.
+- Because these edges have no incoming edges, exposures land at the leftmost
+  layer of the layout as initiating steps.
+- **Not the same as `Pathophysiology.triggers`**, which hangs an ECTO exposure
+  term directly on a mechanism node. Both may coexist: `triggers` annotates the
+  node, `influences_mechanisms` pulls the disease-level environmental entry in
+  as its own node.
+- For a protective exposure, `environmental_effect: PROTECTS_AGAINST` is now the
+  preferred signal for the KGX exporter too — it supersedes the older free-text
+  `effect:` phrase matching (#2098) when every mechanism link agrees, and yields
+  `biolink:associated_with_decreased_likelihood_of`.
+
+Worked example: `Arsenic_Poisoning` (acute and chronic exposure routes both
+linked to "Systemic inorganic arsenic exposure").
+
 ### Digenic / Oligogenic Inheritance (Multi-Locus)
 
 Some disorders require variants at **two loci (digenic)** or a **few loci

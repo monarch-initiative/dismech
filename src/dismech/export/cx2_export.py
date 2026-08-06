@@ -221,6 +221,45 @@ EDGE_STYLE_BY_PREDICATE = {
         target_arrow_shape="circle",
         width=2,
     ),
+    # Environmental exposure -> mechanism. Green so exposures read as the
+    # upstream entry points they are; the protective case gets a tee head so it
+    # is never mistaken for a causal arrow.
+    "triggers": EdgeStyle(
+        color="#059669",
+        line_style="solid",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "exacerbates": EdgeStyle(
+        color="#059669",
+        line_style="solid",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "predisposes_to": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "protects_against": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "modulates": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="diamond",
+        width=2,
+    ),
+    "influences": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
 }
 
 VISUAL_PROPERTIES = {
