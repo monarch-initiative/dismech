@@ -125,6 +125,7 @@ ASSAY_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 BRACKETED_TITLE_ASSAYS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\[bulk rna[- ]?seq\]", re.IGNORECASE), "BULK_RNA_SEQ"),
+    (re.compile(r"\[rna[- ]?seq\]", re.IGNORECASE), "BULK_RNA_SEQ"),
     (re.compile(r"\[chip[- ]?seq\]", re.IGNORECASE), "CHIP_SEQ"),
     (re.compile(r"\[atac[- ]?seq\]", re.IGNORECASE), "ATAC_SEQ"),
     (
@@ -153,6 +154,13 @@ def refine_data_type(gds_type: str, text: str, mapped: str, title: str = "") -> 
     if not any(u in low for u in UNSPECIFIC_GDSTYPES):
         return mapped
     matches = {enum for pattern, enum in ASSAY_PATTERNS if pattern.search(text or "")}
+    # Text may refine resolution within GEO's declared modality, but topic
+    # words in a summary must not switch an RNA-seq series to proteomics,
+    # methylation, or ChIP-seq.
+    if "other" not in low:
+        matches -= {"PROTEOMICS", "METHYLATION"}
+    if "genome binding/occupancy" not in low and "other" not in low:
+        matches.discard("CHIP_SEQ")
     # Comparative background text is not evidence that the submitted series
     # used a single-cell assay (for example, "Compared to single-cell
     # technologies, NETSseq ...").
