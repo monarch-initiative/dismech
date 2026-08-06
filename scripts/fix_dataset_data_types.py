@@ -28,7 +28,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from discover_datasets import refine_data_type
+from discover_datasets import ASSAY_PATTERNS, BRACKETED_TITLE_ASSAYS, refine_data_type
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
@@ -37,9 +37,23 @@ KB_DIR = REPO_ROOT / "kb" / "disorders"
 def wanted_type(record: dict) -> str:
     """The assay the record's own title/description names, if any."""
     current = str(record.get("data_type") or "")
-    if current in {"METHYLATION", "MICROARRAY", "PROTEOMICS", "WGS", "GWAS"}:
+    if current in {
+        "METHYLATION",
+        "MICROARRAY",
+        "PROTEOMICS",
+        "METABOLOMICS",
+        "MULTI_OMICS",
+        "MULTI_OMICS_PERTURBATION",
+        "WGS",
+        "GWAS",
+    }:
         return current
-    text = f"{record.get('title', '')} {record.get('description', '')}"
+    title = str(record.get("title") or "")
+    text = f"{title} {record.get('description', '')}"
+    if not any(pattern.search(text) for pattern, _enum in ASSAY_PATTERNS) and not any(
+        pattern.search(title) for pattern, _enum in BRACKETED_TITLE_ASSAYS
+    ):
+        return ""
     if current in {"CHIP_SEQ", "ATAC_SEQ"}:
         gds_type, mapped = "Genome binding/occupancy profiling", "CHIP_SEQ"
     else:
@@ -47,7 +61,7 @@ def wanted_type(record: dict) -> str:
             "Expression profiling by high throughput sequencing",
             "BULK_RNA_SEQ",
         )
-    return refine_data_type(gds_type, text, mapped, str(record.get("title") or ""))
+    return refine_data_type(gds_type, text, mapped, title)
 
 
 def fix_file(
