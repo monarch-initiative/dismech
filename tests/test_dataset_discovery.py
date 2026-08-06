@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from discover_datasets import map_data_type, refine_data_type
 from disease_title_match import compile_phrases
+from discover_omicsdi import clean_description
 
 
 def test_generic_copy_number_profiles_are_not_called_gwas():
@@ -103,3 +104,14 @@ def test_hyphenated_sibling_name_does_not_match():
     assert pick.search("Niemann-Pick disease cohort") is None
     assert small_cell.search("non-small cell lung cancer cohort") is None
     assert pick.search("Pick disease cohort") is not None
+
+
+def test_omicsdi_description_strips_markup_and_ends_at_sentence():
+    text = (
+        "First sentence. <a href='https://example.org'>Second sentence with markup</a>. "
+        + "x" * 700
+    )
+    cleaned = clean_description(text)
+    assert "<a" not in cleaned
+    assert cleaned.endswith(".")
+    assert len(cleaned) <= 600
