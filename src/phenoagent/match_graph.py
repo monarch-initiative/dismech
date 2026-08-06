@@ -11,9 +11,8 @@ from html import escape as html_escape
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from dismech.graph import build_causal_graph
+from dismech.yaml_io import safe_load
 from phenoagent.matching import resolve_disease_reference
 
 
@@ -80,7 +79,7 @@ def _trim(text: str | None, *, max_len: int = 100) -> str:
 
 def _load_yaml_object(path: Path) -> dict[str, Any]:
     with open(path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"Expected YAML object at {path}")
     return data

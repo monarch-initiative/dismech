@@ -62,6 +62,7 @@ URI: [dismech:class/Term](https://w3id.org/monarch-initiative/dismech/class/Term
 | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
+| [ImagingFindingDescriptor](../classes/ImagingFindingDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
 | [InheritanceDescriptor](../classes/InheritanceDescriptor.md) | [term](../slots/term.md) | range | [Term](../classes/Term.md) |
