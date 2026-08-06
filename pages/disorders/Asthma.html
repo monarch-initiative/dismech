@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2631,6 +2745,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2797,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2856,13 +3014,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3032,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3303,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3336,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3449,11 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
 
 
 
@@ -3466,6 +3673,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3524,6 +3733,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -9073,7 +9283,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cyanosis" data-dismech-node="Cyanosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cyanosis
 
@@ -9143,7 +9353,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sleep Disturbance
 
@@ -9246,7 +9456,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anxiety
 
@@ -9356,7 +9566,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wheezing" data-dismech-node="Wheezing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Wheezing
 
@@ -9466,7 +9676,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coughing" data-dismech-node="Coughing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coughing
 
@@ -9565,7 +9775,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rapid-breathing" data-dismech-node="Rapid Breathing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rapid Breathing
 
@@ -9646,7 +9856,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-distress" data-dismech-node="Respiratory Distress" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Distress
 
@@ -9716,7 +9926,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-tightness" data-dismech-node="Chest Tightness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest Tightness
 
@@ -9817,7 +10027,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -9898,7 +10108,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exercise-intolerance" data-dismech-node="Exercise Intolerance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Exercise Intolerance
 
@@ -10001,7 +10211,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-exercise-tolerance" data-dismech-node="Reduced Exercise Tolerance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Exercise Tolerance
 
@@ -10071,7 +10281,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-breathlessness" data-dismech-node="Breathlessness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Breathlessness
 
@@ -10159,7 +10369,7 @@
                 <span class="card-count">17</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il4" data-dismech-node="IL4" data-dismech-type="genetic">
                 <div class="item-name">
                     IL4
 
@@ -10241,9 +10451,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il13" data-dismech-node="IL13" data-dismech-type="genetic">
                 <div class="item-name">
                     IL13
 
@@ -10327,9 +10538,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-adam33" data-dismech-node="ADAM33" data-dismech-type="genetic">
                 <div class="item-name">
                     ADAM33
 
@@ -10391,9 +10603,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gsdmb" data-dismech-node="GSDMB" data-dismech-type="genetic">
                 <div class="item-name">
                     GSDMB
 
@@ -10435,9 +10648,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dq" data-dismech-node="HLA-DQ" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DQ
 
@@ -10479,9 +10693,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ormdl3" data-dismech-node="ORMDL3" data-dismech-type="genetic">
                 <div class="item-name">
                     ORMDL3
 
@@ -10563,9 +10778,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
                 <div class="item-name">
                     BACH2
 
@@ -10577,9 +10793,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnfaip3" data-dismech-node="TNFAIP3" data-dismech-type="genetic">
                 <div class="item-name">
                     TNFAIP3
 
@@ -10591,9 +10808,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stat3" data-dismech-node="STAT3" data-dismech-type="genetic">
                 <div class="item-name">
                     STAT3
 
@@ -10605,9 +10823,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
                 <div class="item-name">
                     CD28
 
@@ -10619,9 +10838,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-egr2" data-dismech-node="EGR2" data-dismech-type="genetic">
                 <div class="item-name">
                     EGR2
 
@@ -10633,9 +10853,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
                 <div class="item-name">
                     ETS1
 
@@ -10647,9 +10868,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-irf4" data-dismech-node="IRF4" data-dismech-type="genetic">
                 <div class="item-name">
                     IRF4
 
@@ -10661,9 +10883,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-satb1" data-dismech-node="SATB1" data-dismech-type="genetic">
                 <div class="item-name">
                     SATB1
 
@@ -10675,9 +10898,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad3" data-dismech-node="SMAD3" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD3
 
@@ -10689,9 +10913,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il21r" data-dismech-node="IL21R" data-dismech-type="genetic">
                 <div class="item-name">
                     IL21R
 
@@ -10703,9 +10928,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cdhr3" data-dismech-node="CDHR3" data-dismech-type="genetic">
                 <div class="item-name">
                     CDHR3
 
@@ -10788,9 +11014,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -10802,7 +11032,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-inhaled-corticosteroid" data-dismech-node="Inhaled Corticosteroid" data-dismech-type="treatment">
                 <div class="item-name">
                     Inhaled Corticosteroid
                 </div>
@@ -10920,7 +11150,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-long-acting-beta-agonist" data-dismech-node="Long-acting Beta Agonist" data-dismech-type="treatment">
                 <div class="item-name">
                     Long-acting Beta Agonist
                 </div>
@@ -11036,7 +11266,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-leukotriene-modifier" data-dismech-node="Leukotriene Modifier" data-dismech-type="treatment">
                 <div class="item-name">
                     Leukotriene Modifier
                 </div>
@@ -11146,7 +11376,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-ige-therapy" data-dismech-node="Anti-IgE Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-IgE Therapy
                 </div>
@@ -11264,7 +11494,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-biologic-therapy-for-severe-asthma" data-dismech-node="Biologic Therapy for Severe Asthma" data-dismech-type="treatment">
                 <div class="item-name">
                     Biologic Therapy for Severe Asthma
                 </div>
@@ -11342,7 +11572,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-short-acting-beta-agonist" data-dismech-node="Short-acting Beta Agonist" data-dismech-type="treatment">
                 <div class="item-name">
                     Short-acting Beta Agonist
                 </div>
@@ -11472,7 +11702,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-allergens" data-dismech-node="Allergens" data-dismech-type="environmental">
                 <div class="item-name">Allergens</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11574,7 +11804,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-air-pollution" data-dismech-node="Air Pollution" data-dismech-type="environmental">
                 <div class="item-name">Air Pollution</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11676,7 +11906,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoke" data-dismech-node="Tobacco Smoke" data-dismech-type="environmental">
                 <div class="item-name">Tobacco Smoke</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11778,7 +12008,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-occupational-exposures" data-dismech-node="Occupational Exposures" data-dismech-type="environmental">
                 <div class="item-name">Occupational Exposures</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11880,7 +12110,7 @@
 
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-prenatal-acid-suppressive-medication-exposure" data-dismech-node="Prenatal Acid-Suppressive Medication Exposure" data-dismech-type="environmental">
                 <div class="item-name">Prenatal Acid-Suppressive Medication Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -12002,7 +12232,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-eosinophils" data-dismech-node="Eosinophils" data-dismech-type="biochemical">
                 <div class="item-name">
                     Eosinophils
 
@@ -12091,7 +12321,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-neutrophils" data-dismech-node="Neutrophils" data-dismech-type="biochemical">
                 <div class="item-name">
                     Neutrophils
 
@@ -12178,7 +12408,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-ige-antibodies" data-dismech-node="IgE Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     IgE Antibodies
 
@@ -12267,7 +12497,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-exhaled-volatile-organic-compounds-vocs-profile" data-dismech-node="Exhaled Volatile Organic Compounds (VOCs) Profile" data-dismech-type="biochemical">
                 <div class="item-name">
                     Exhaled Volatile Organic Compounds (VOCs) Profile
 
