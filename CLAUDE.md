@@ -182,6 +182,40 @@ Rules:
   These are generated, not "manually touched"; regenerate them via their script
   rather than hand-editing, and leave them in place.
 
+### Dataset Curation (`datasets:` records)
+
+Dataset accessions are the one identifier class with no validator in the core
+stack — `linkml-reference-validator` checks PMIDs/DOIs/NCTs, but nothing
+resolved `geo:GSE…`, so a fabricated accession used to pass `just qc`.
+
+```bash
+just datasets-coverage                    # which entries still need datasets
+just discover-datasets Asthma             # real candidates from the GEO index
+just verify-datasets kb/disorders/Asthma.yaml   # resolve accessions (run before commit)
+just research-datasets openscientist Marfan_Syndrome  # non-GEO repositories
+```
+
+**Always run `just verify-datasets` on any file whose `datasets:` block you
+touched.** An offline pytest guard catches malformed/mis-prefixed accessions;
+only the verifier catches nonexistent ones.
+
+**The check that tooling cannot do for you:** verification proves a dataset
+*exists*, never that it is about the right disease. Searching a causal gene
+surfaces whatever disease that gene is famous for (`FTL` →
+Alzheimer/medulloblastoma, not neuroferritinopathy), and relaxing a precise
+entry name collapses sibling diseases together (*acquired* vs *hereditary*
+angioedema). Both produce accessions that resolve perfectly. Candidates are
+tagged `DIRECT` / `GENE_ONLY` / `CONFLICT` to narrow it down, but **relevance
+triage is a required manual step** — this is Named Entity Confusion (§2b)
+reached through dataset search.
+
+Bulk-generated records deliberately carry **no `evidence:` block**: an evidence
+item needs an exact quote from the cited abstract, and manufacturing those at
+scale is precisely the fabrication risk the evidence SOP warns about. They carry
+`publication:` (the repository's own PMID link) and provenance `notes` instead.
+
+See [`docs/dataset-curation.md`](docs/dataset-curation.md).
+
 ### Structured-Database Sources (`src/dismech/structured_sources/`)
 - Framework for ingesting structured knowledge bases (Orphanet, ClinGen; OMIM /
   MONDO / HGNC pluggable) into `references_cache/` as line-oriented markdown
