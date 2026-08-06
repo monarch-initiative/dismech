@@ -172,9 +172,18 @@ exposure honest, and drives the edge predicate:
 | `MODULATES` | `modulates` | Direction is context dependent |
 | *(omitted)* | `influences` | Direction genuinely unstated in the cited evidence |
 
-Protective edges are drawn green and dashed so they never read as causal
-arrows. Omitting `environmental_effect` falls back to the neutral `influences`
-predicate rather than silently asserting causation — prefer an explicit value.
+Protective edges are drawn green with a dashed line and a tee head, so they
+never read as causal arrows. Omitting `environmental_effect` falls back to the
+neutral `influences` predicate rather than silently asserting causation — prefer
+an explicit value.
+
+The effect also decides whether the edge counts as *mechanistically explaining*
+its target. `TRIGGERS` and `EXACERBATES` join `causes`/`leads_to` in
+`qc_plugins.CAUSAL_PREDICATES`, so an exposure curated directly onto a phenotype
+wires that phenotype in for compliance scoring. `PREDISPOSES`,
+`PROTECTS_AGAINST`, `MODULATES` and the bare `influences` fallback deliberately
+do not — raising susceptibility, running the other way, or declining to commit
+is not an explanation.
 
 This is distinct from `Pathophysiology.triggers`, which hangs an ECTO exposure
 term directly on a mechanism node. Use `triggers` to annotate a node's exposure

@@ -82,6 +82,12 @@ ENVIRONMENTAL_EFFECT_PREDICATES = {
 # unqualified exposure is never silently asserted to be causative.
 DEFAULT_ENVIRONMENTAL_PREDICATE = "influences"
 
+# Every predicate an environmental edge can carry, for consumers that reason
+# about them as a group (export styling, QC coverage) rather than one at a time.
+ENVIRONMENTAL_PREDICATES: frozenset[str] = frozenset(
+    ENVIRONMENTAL_EFFECT_PREDICATES.values()
+) | {DEFAULT_ENVIRONMENTAL_PREDICATE}
+
 
 def _sanitize_node_id(name: str) -> str:
     """Convert a node name to a valid Mermaid node ID."""
@@ -1335,4 +1341,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -533,9 +533,11 @@ environmental:
   same file; a test (`test_environmental_mechanism_targets`) enforces this.
 - `environmental_effect` (`EnvironmentalEffectEnum`: `TRIGGERS`, `EXACERBATES`,
   `PREDISPOSES`, `PROTECTS_AGAINST`, `MODULATES`) sets the edge predicate.
-  A protective exposure is drawn green and dashed so it never reads as a causal
-  arrow. Omitting it falls back to a neutral `influences` predicate rather than
-  asserting causation — prefer an explicit value.
+  A protective exposure is drawn green, dashed, with a tee head so it never
+  reads as a causal arrow. Omitting it falls back to a neutral `influences`
+  predicate rather than asserting causation — prefer an explicit value. Only
+  `TRIGGERS` and `EXACERBATES` count as mechanistically explaining their target
+  for compliance scoring (`qc_plugins.CAUSAL_PREDICATES`).
 - The link makes its own claim, so it takes its **own** evidence, separate from
   the environmental entry's general evidence.
 - Because these edges have no incoming edges, exposures land at the leftmost
