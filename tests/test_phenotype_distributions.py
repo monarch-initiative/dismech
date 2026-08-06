@@ -75,6 +75,37 @@ def test_evidence_direction_values_match_native_dismech_support_enum() -> None:
     assert ours == theirs
 
 
+def test_profile_method_values_stay_a_subset_of_the_native_association_enum() -> None:
+    """Pin the claim `ProfileMethodEnum`'s own description makes.
+
+    That description says every value here is also a value of the native
+    `AssociationSignalMethodEnum`. Unguarded, that is prose, and prose about
+    this schema has rotted five times already — adding one value falsifies the
+    sentence and nothing notices.
+
+    I first declined this guard, on the argument that pinning the enum would
+    assert it should exist, when deleting it in favour of the native one is the
+    open proposal. That was wrong: the guard is conditional. It says *if* this
+    enum exists it stays a subset, which holds under every restructuring option
+    — and under the one that reuses the native enum, this test is deleted along
+    with the thing it guards. Nothing here argues for keeping it.
+
+    Deliberately subset rather than set-equality, unlike the
+    `EvidenceDirectionEnum` guard above: the native enum has two values
+    (`EHR_TEMPORAL_COMORBIDITY`, `LITERATURE_ASSOCIATION`) that describe no way
+    a profile is derived, so equality would be the wrong claim.
+    """
+    sv = SchemaView(str(SCHEMA_PATH))
+    native = SchemaView(str(NATIVE_SCHEMA_PATH))
+    ours = set(sv.get_enum("ProfileMethodEnum").permissible_values)
+    theirs = set(native.get_enum("AssociationSignalMethodEnum").permissible_values)
+    assert ours <= theirs, (
+        "ProfileMethodEnum has values the native AssociationSignalMethodEnum "
+        f"does not: {sorted(ours - theirs)}. Either add them there too, or "
+        "amend the enum description, which claims this cannot happen."
+    )
+
+
 @pytest.mark.parametrize("path", _all_paths(), ids=lambda p: p.name)
 def test_collections_validate_against_schema(path: Path) -> None:
     from linkml.validator import validate_file
