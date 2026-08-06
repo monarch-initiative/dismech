@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1289/ehp14336"
+reference_id: DOI:10.1289/ehp14336
 title: A Snapshot of Lead in Consumer Products Across Four US Jurisdictions
 authors:
 - Kate Porterfield
@@ -15,6 +15,7 @@ journal: Environmental Health Perspectives
 year: '2024'
 doi: 10.1289/ehp14336
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A Snapshot of Lead in Consumer Products Across Four US Jurisdictions

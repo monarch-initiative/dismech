@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.15252/msb.20198982"
+reference_id: DOI:10.15252/msb.20198982
 title: "Personalized whole‐body models integrate metabolism, physiology, and the gut microbiome"
 authors:
 - Ines Thiele
@@ -13,6 +13,7 @@ journal: Molecular Systems Biology
 year: '2020'
 doi: 10.15252/msb.20198982
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Personalized whole‐body models integrate metabolism, physiology, and the gut microbiome

@@ -34,9 +34,14 @@ from __future__ import annotations
 from typing import Any, Protocol, runtime_checkable
 
 from linkml_data_qc.config import QCConfig
-from linkml_data_qc.models import AggregatedPathScore, ComplianceReport, ThresholdViolation
+from linkml_data_qc.models import (
+    AggregatedPathScore,
+    ComplianceReport,
+    ThresholdViolation,
+)
 
 from dismech.graph import _genetic_item_infers_mechanism_edges, build_causal_graph
+from dismech.yaml_io import safe_load
 
 # Predicates that mechanistically *explain* a downstream node. A phenotype is
 # considered "wired in" only when something causes it via one of these. A
@@ -286,7 +291,6 @@ def _main() -> None:
     import argparse
     from pathlib import Path
 
-    import yaml
 
     parser = argparse.ArgumentParser(
         description=(
@@ -364,7 +368,7 @@ def _main() -> None:
 
     for path in files:
         with open(path) as fh:
-            data = yaml.safe_load(fh)
+            data = safe_load(fh)
         if not isinstance(data, dict):
             continue
 

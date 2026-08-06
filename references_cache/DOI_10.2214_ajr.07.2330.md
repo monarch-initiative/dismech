@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2214/ajr.07.2330"
+reference_id: DOI:10.2214/ajr.07.2330
 title: Incidence and Management of Complex Fibroadenomas
 authors:
 - Miri Sklair-Levy
@@ -12,6 +12,7 @@ journal: American Journal of Roentgenology
 year: '2008'
 doi: 10.2214/ajr.07.2330
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Incidence and Management of Complex Fibroadenomas

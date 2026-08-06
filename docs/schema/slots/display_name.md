@@ -22,9 +22,9 @@ Alias: display_name
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Subtype](../classes/Subtype.md) |  |  no  |
-| [GroupingMember](../classes/GroupingMember.md) | One member of a grouping, referenced by foreign key, together with the mechan... |  no  |
 | [Grouping](../classes/Grouping.md) | An explicit, curated union of distinct Disease entries assembled below the le... |  no  |
+| [GroupingMember](../classes/GroupingMember.md) | One member of a grouping, referenced by foreign key, together with the mechan... |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
 
 
 

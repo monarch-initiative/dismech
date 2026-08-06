@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1155/2021/7306432"
+reference_id: DOI:10.1155/2021/7306432
 title: "Suprasellar Melanocytoma with Leptomeningeal Seeding: An Aggressive Clinical Course for a Histologically Benign Tumor"
 authors:
 - Imen Maaloul
@@ -13,6 +13,7 @@ journal: Case Reports in Radiology
 year: '2021'
 doi: 10.1155/2021/7306432
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Suprasellar Melanocytoma with Leptomeningeal Seeding: An Aggressive Clinical Course for a Histologically Benign Tumor

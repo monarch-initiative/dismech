@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2217/nmt-2020-0046"
+reference_id: DOI:10.2217/nmt-2020-0046
 title: Satralizumab in the Treatment of Neuromyelitis Optica Spectrum Disorder
 authors:
 - Ankelien Duchow
@@ -8,6 +8,7 @@ journal: Neurodegenerative Disease Management
 year: '2021'
 doi: 10.2217/nmt-2020-0046
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Satralizumab in the Treatment of Neuromyelitis Optica Spectrum Disorder

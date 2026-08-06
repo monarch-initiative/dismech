@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fped.2025.1475143"
+reference_id: DOI:10.3389/fped.2025.1475143
 title: Trametinib as a targeted treatment in cardiac and lymphatic presentations of Noonan syndrome
 authors:
 - Isabel De Brouchoven
@@ -12,6 +12,7 @@ journal: Frontiers in Pediatrics
 year: '2025'
 doi: 10.3389/fped.2025.1475143
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Trametinib as a targeted treatment in cardiac and lymphatic presentations of Noonan syndrome

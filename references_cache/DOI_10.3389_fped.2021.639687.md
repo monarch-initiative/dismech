@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fped.2021.639687"
+reference_id: DOI:10.3389/fped.2021.639687
 title: "Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene"
 authors:
 - Benzhen Wang
@@ -12,6 +12,7 @@ journal: Frontiers in Pediatrics
 year: '2021'
 doi: 10.3389/fped.2021.639687
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Case Report: Two Chinese Infants of Sengers Syndrome Caused by Mutations in AGK Gene

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01522235"
+reference_id: clinicaltrials:NCT01522235
 title: "A Double-blind, Randomized, Placebo-controlled Trial to Evaluate the Efficacy of Intravenous Immunoglobulin Therapy in Autoimmune Autonomic Ganglionopathy."
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Double-blind, Randomized, Placebo-controlled Trial to Evaluate the Efficacy of Intravenous Immunoglobulin Therapy in Autoimmune Autonomic Ganglionopathy.

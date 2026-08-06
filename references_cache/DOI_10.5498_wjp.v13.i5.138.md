@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5498/wjp.v13.i5.138"
+reference_id: DOI:10.5498/wjp.v13.i5.138
 title: "Differences between DSM-5-TR and ICD-11 revisions of attention deficit/hyperactivity disorder: A commentary on implications and opportunities"
 authors:
 - Rapson Gomez
@@ -9,6 +9,7 @@ journal: World Journal of Psychiatry
 year: '2023'
 doi: 10.5498/wjp.v13.i5.138
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Differences between DSM-5-TR and ICD-11 revisions of attention deficit/hyperactivity disorder: A commentary on implications and opportunities

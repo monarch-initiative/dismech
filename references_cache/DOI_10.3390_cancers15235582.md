@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15235582"
+reference_id: DOI:10.3390/cancers15235582
 title: Targeted Therapies for Kirsten Rat Sarcoma (KRAS) G12C Mutant Metastatic Non-Small-Cell Lung Cancers
 authors:
 - Cian O’Leary
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15235582
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Targeted Therapies for Kirsten Rat Sarcoma (KRAS) G12C Mutant Metastatic Non-Small-Cell Lung Cancers

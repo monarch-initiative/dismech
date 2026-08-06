@@ -1,6 +1,6 @@
 """Semantic YAML diff tool.
 
-Compares YAML files at the data level (post yaml.safe_load()),
+Compares YAML files at the data level (post safe_load()),
 ignoring serialization differences like key ordering, quoting, and wrapping.
 
 Usage:
@@ -21,10 +21,9 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
-from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load, safe_load_path
 
 KEY_CANDIDATES = ["name", "id", "reference", "hypothesis_group_id", "preferred_term"]
 
@@ -103,7 +102,7 @@ def _find_key_field(items: list[dict]) -> str | None:
                 all_present = False
                 break
             values.append(item[candidate])
-        if all_present and len(values) == len(set(str(v) for v in values)):
+        if all_present and len(values) == len({str(v) for v in values}):
             return candidate
     return None
 
@@ -264,10 +263,11 @@ def load_yaml_from_git(ref: str, filepath: str) -> dict | None:
         ["git", "show", f"{ref}:{filepath}"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         return None
-    return yaml.safe_load(result.stdout)
+    return safe_load(result.stdout)
 
 
 def _git_changed_files(
@@ -278,7 +278,7 @@ def _git_changed_files(
     if directory:
         cmd.append("--")
         cmd.append(directory)
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         return []
     return [f for f in result.stdout.strip().split("\n") if f and f.endswith(".yaml")]
@@ -290,6 +290,7 @@ def _git_list_files(ref: str, directory: str) -> list[str]:
         ["git", "ls-tree", "--name-only", ref, directory + "/"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         return []
@@ -455,8 +456,8 @@ def main():
     ignore = {f.strip() for f in args.ignore_fields.split(",") if f.strip()}
 
     if args.command == "files":
-        old_data = yaml.safe_load(Path(args.old_file).read_text())
-        new_data = yaml.safe_load(Path(args.new_file).read_text())
+        old_data = safe_load_path(args.old_file)
+        new_data = safe_load_path(args.new_file)
         changes = diff_dicts(old_data, new_data, ignore_fields=ignore)
         result = FileDiffResult(
             filename=f"{args.old_file} -> {args.new_file}", changes=changes

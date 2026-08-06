@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/WNL.0000000000210109"
+reference_id: DOI:10.1212/WNL.0000000000210109
 title: "Long-Term Cognitive, Functional, and Patient-Reported Outcomes in Patients With Anti-NMDAR Encephalitis"
 authors:
 - Juliette Brenner
@@ -28,6 +28,7 @@ journal: Neurology
 year: '2024'
 doi: 10.1212/WNL.0000000000210109
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Long-Term Cognitive, Functional, and Patient-Reported Outcomes in Patients With Anti-NMDAR Encephalitis
