@@ -3,7 +3,7 @@
 # Class: TreatmentDescriptor 
 
 
-_A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinical interventions_
+_A descriptor for treatments/medical actions, bindable to NCIT clinical interventions_
 
 
 
@@ -178,7 +178,7 @@ URI: [dismech:class/TreatmentDescriptor](https://w3id.org/monarch-initiative/dis
 | [dietary_modifications](../slots/dietary_modifications.md) | * <br/> [DietaryModification](../classes/DietaryModification.md) | The food or beverage additions, restrictions, avoidances, or substitutions th... | direct |
 | [preferred_term](../slots/preferred_term.md) | 1 <br/> [String](../types/String.md) | The preferred human-readable term for this descriptor | [Descriptor](../classes/Descriptor.md) |
 | [description](../slots/description.md) | 0..1 <br/> [String](../types/String.md) | A description of the descriptor | [Descriptor](../classes/Descriptor.md) |
-| [term](../slots/term.md) | 0..1 _recommended_ <br/> [Term](../classes/Term.md) | Optional MAXO or NCIT treatment term reference | [Descriptor](../classes/Descriptor.md) |
+| [term](../slots/term.md) | 0..1 _recommended_ <br/> [Term](../classes/Term.md) | Optional NCIT treatment term reference | [Descriptor](../classes/Descriptor.md) |
 | [modifier](../slots/modifier.md) | 0..1 <br/> [ModifierEnum](../enums/ModifierEnum.md) | Directional or qualitative modifier for a descriptor (e | [Descriptor](../classes/Descriptor.md) |
 | [located_in](../slots/located_in.md) | 0..1 <br/> [AnatomicalEntityDescriptor](../classes/AnatomicalEntityDescriptor.md) | Anatomical location where this entity/process occurs or procedure is performe... | [Descriptor](../classes/Descriptor.md) |
 | [laterality](../slots/laterality.md) | 0..1 <br/> [LateralityEnum](../enums/LateralityEnum.md) | Laterality qualifier (left, right, or bilateral) | [Descriptor](../classes/Descriptor.md) |
@@ -186,7 +186,7 @@ URI: [dismech:class/TreatmentDescriptor](https://w3id.org/monarch-initiative/dis
 | [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | [Descriptor](../classes/Descriptor.md) |
 | [temporality](../slots/temporality.md) | 0..1 <br/> [TemporalityEnum](../enums/TemporalityEnum.md) | Temporal qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
 | [clinical_course](../slots/clinical_course.md) | 0..1 <br/> [ClinicalCourseEnum](../enums/ClinicalCourseEnum.md) | Clinical course qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
-| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | [Descriptor](../classes/Descriptor.md) |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | [Descriptor](../classes/Descriptor.md) |
 | [qualifiers](../slots/qualifiers.md) | * <br/> [Qualifier](../classes/Qualifier.md) | List of predicate-value pairs for formal post-composition | [Descriptor](../classes/Descriptor.md) |
 
 
@@ -247,8 +247,8 @@ URI: [dismech:class/TreatmentDescriptor](https://w3id.org/monarch-initiative/dis
 <details>
 ```yaml
 name: TreatmentDescriptor
-description: A descriptor for treatments/medical actions, bindable to MAXO or NCIT
-  clinical interventions
+description: A descriptor for treatments/medical actions, bindable to NCIT clinical
+  interventions
 from_schema: https://w3id.org/monarch-initiative/dismech
 is_a: Descriptor
 slots:
@@ -257,7 +257,7 @@ slots:
 slot_usage:
   term:
     name: term
-    description: Optional MAXO or NCIT treatment term reference
+    description: Optional NCIT treatment term reference
     bindings:
     - range: TreatmentActionTerm
       obligation_level: REQUIRED
@@ -265,8 +265,8 @@ slot_usage:
   therapeutic_agent:
     name: therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs
-      are involved.
+      the treatment term is generic (e.g., pharmacotherapy NCIT:C15986) but specific
+      drugs are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
     - Use NCIT for drug classes when specific CHEBI term unavailable
@@ -276,7 +276,7 @@ slot_usage:
       that define a dietary intervention.
     comments:
     - Best used when treatment_term is a dietary or nutritional intervention (for
-      example MAXO:0000088 dietary intervention)
+      example NCIT:C15447 dietary intervention)
     - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
 
 ```
@@ -287,14 +287,14 @@ slot_usage:
 <details>
 ```yaml
 name: TreatmentDescriptor
-description: A descriptor for treatments/medical actions, bindable to MAXO or NCIT
-  clinical interventions
+description: A descriptor for treatments/medical actions, bindable to NCIT clinical
+  interventions
 from_schema: https://w3id.org/monarch-initiative/dismech
 is_a: Descriptor
 slot_usage:
   term:
     name: term
-    description: Optional MAXO or NCIT treatment term reference
+    description: Optional NCIT treatment term reference
     bindings:
     - range: TreatmentActionTerm
       obligation_level: REQUIRED
@@ -302,8 +302,8 @@ slot_usage:
   therapeutic_agent:
     name: therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs
-      are involved.
+      the treatment term is generic (e.g., pharmacotherapy NCIT:C15986) but specific
+      drugs are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
     - Use NCIT for drug classes when specific CHEBI term unavailable
@@ -313,14 +313,14 @@ slot_usage:
       that define a dietary intervention.
     comments:
     - Best used when treatment_term is a dietary or nutritional intervention (for
-      example MAXO:0000088 dietary intervention)
+      example NCIT:C15447 dietary intervention)
     - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
 attributes:
   therapeutic_agent:
     name: therapeutic_agent
     description: The drug(s) or chemical agent(s) used in this treatment. Use when
-      the MAXO term is generic (e.g., pharmacotherapy NCIT:C15986) but specific drugs
-      are involved.
+      the treatment term is generic (e.g., pharmacotherapy NCIT:C15986) but specific
+      drugs are involved.
     comments:
     - Prefer CHEBI terms for specific drugs (e.g., CHEBI:15365 for aspirin)
     - Use NCIT for drug classes when specific CHEBI term unavailable
@@ -339,7 +339,7 @@ attributes:
       that define a dietary intervention.
     comments:
     - Best used when treatment_term is a dietary or nutritional intervention (for
-      example MAXO:0000088 dietary intervention)
+      example NCIT:C15447 dietary intervention)
     - Use FOODON-backed foods or beverages rather than abstract nutrients where possible
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
@@ -396,6 +396,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -403,6 +404,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -434,7 +436,7 @@ attributes:
     recommended: false
   term:
     name: term
-    description: Optional MAXO or NCIT treatment term reference
+    description: Optional NCIT treatment term reference
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: term
@@ -461,6 +463,7 @@ attributes:
     owner: TreatmentDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     - DifferentiatingMechanism
     range: ModifierEnum
   located_in:
@@ -473,6 +476,7 @@ attributes:
     owner: TreatmentDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: AnatomicalEntityDescriptor
     inlined: true
   laterality:
@@ -484,6 +488,7 @@ attributes:
     owner: TreatmentDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: LateralityEnum
   spatial_extent:
     name: spatial_extent
@@ -495,6 +500,7 @@ attributes:
     owner: TreatmentDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: SpatialExtentEnum
   onset:
     name: onset
