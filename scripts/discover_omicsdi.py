@@ -85,31 +85,31 @@ OMICS_TYPE_TO_DATA_TYPE = {
 
 ORGANISM_PATTERNS = (
     (
-        re.compile(r"\bvero(?: cells?)?\b", re.I),
+        re.compile(r"\bvero(?: cells?)?\b", re.IGNORECASE),
         "African green monkey",
         "NCBITaxon:60711",
         "Chlorocebus sabaeus",
     ),
     (
-        re.compile(r"\b(?:mus musculus|mice|mouse|murine)\b", re.I),
+        re.compile(r"\b(?:mus musculus|mice|mouse|murine)\b", re.IGNORECASE),
         "mouse",
         "NCBITaxon:10090",
         "Mus musculus",
     ),
     (
-        re.compile(r"\b(?:rattus norvegicus|rats?|rat)\b", re.I),
+        re.compile(r"\b(?:rattus norvegicus|rats?|rat)\b", re.IGNORECASE),
         "rat",
         "NCBITaxon:10116",
         "Rattus norvegicus",
     ),
     (
-        re.compile(r"\b(?:canis lupus familiaris|dogs?|canine)\b", re.I),
+        re.compile(r"\b(?:canis lupus familiaris|dogs?|canine)\b", re.IGNORECASE),
         "dog",
         "NCBITaxon:9615",
         "Canis lupus familiaris",
     ),
     (
-        re.compile(r"\b(?:mesocricetus auratus|syrian hamsters?)\b", re.I),
+        re.compile(r"\b(?:mesocricetus auratus|syrian hamsters?)\b", re.IGNORECASE),
         "Syrian hamster",
         "NCBITaxon:10036",
         "Mesocricetus auratus",
