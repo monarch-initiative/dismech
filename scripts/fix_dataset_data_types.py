@@ -28,7 +28,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from discover_datasets import ASSAY_PATTERNS
+from discover_datasets import refine_data_type
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
@@ -36,11 +36,18 @@ KB_DIR = REPO_ROOT / "kb" / "disorders"
 
 def wanted_type(record: dict) -> str:
     """The assay the record's own title/description names, if any."""
+    current = str(record.get("data_type") or "")
+    if current in {"METHYLATION", "MICROARRAY", "PROTEOMICS", "WGS", "GWAS"}:
+        return current
     text = f"{record.get('title', '')} {record.get('description', '')}"
-    matches = {enum for pattern, enum in ASSAY_PATTERNS if pattern.search(text)}
-    if len(matches) > 1:
-        return "MULTI_OMICS"
-    return matches.pop() if matches else ""
+    if current in {"CHIP_SEQ", "ATAC_SEQ"}:
+        gds_type, mapped = "Genome binding/occupancy profiling", "CHIP_SEQ"
+    else:
+        gds_type, mapped = (
+            "Expression profiling by high throughput sequencing",
+            "BULK_RNA_SEQ",
+        )
+    return refine_data_type(gds_type, text, mapped, str(record.get("title") or ""))
 
 
 def fix_file(
