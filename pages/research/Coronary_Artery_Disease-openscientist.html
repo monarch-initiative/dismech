@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coronary Artery Disease · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Coronary Artery Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Coronary Artery Disease</h1>
+                
+                <p class="report-subtitle">Coronary Artery Disease (Coronary Atherosclerosis, MONDO:0021661): A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-07-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0021661" target="_blank" rel="noopener noreferrer">MONDO:0021661</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">47 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Coronary Artery Disease (Coronary Atherosclerosis, <a href="http://purl.obolibrary.org/obo/MONDO_0021661" target="_blank" rel="noopener noreferrer">MONDO:0021661</a>): A Comprehensive Disease Characterization Report</h1>
+<h2>Summary</h2>
+<p><strong>Coronary artery disease</strong>, defined here strictly as <strong>coronary atherosclerosis (<code>MONDO:0021661</code>)</strong> — atherosclerotic plaque formation in the intima of the epicardial coronary arteries — is a chronic, polygenic, lipid-initiated and inflammation-amplified disease. The best-supported causal model is a <strong>staged process</strong>: subendothelial retention of apolipoprotein-B (apoB)-containing lipoproteins at disturbed-flow arterial sites drives endothelial dysfunction, monocyte recruitment, macrophage foam-cell formation with defective apoptotic-cell clearance (efferocytosis), and smooth-muscle-cell (SMC) phenotypic switching. These processes generate plaques whose <strong>composition</strong> — a lipid/necrotic core beneath a thin fibrous cap — rather than the <strong>degree of luminal stenosis</strong>, precipitates acute coronary events. Two histologically distinct terminal routes convert stable plaque into coronary thrombosis: <strong>plaque rupture</strong> (~2/3 of ACS) and <strong>superficial erosion</strong> (~1/3 of ACS).</p>
+<p>The causal centrality of apoB/LDL is established at the highest evidence tier by convergent <strong>human genetics</strong> (PCSK9 loss-of-function and LPA variants) and <strong>randomized outcome and imaging trials</strong> (statins, PCSK9 inhibitors, bempedoic acid). Independently, <strong>inflammation is causal</strong>: IL-1β inhibition (canakinumab, CANTOS) and colchicine reduce coronary events <em>without</em> lowering lipids, isolating an IL-1β→IL-6→CRP axis. Coronary-specific imaging evidence (PROSPECT natural history, NIRS-IVUS/OCT wall-shear-stress studies, MESA coronary artery calcium) anchors the anatomy and prognostic value of plaque burden and composition directly in the coronary bed. Model-organism and in-vitro work (MerTK efferocytosis, SMC lineage tracing, IL-1β-induced LDL transcytosis) supplies mechanism but is labeled by species and vascular bed and does not, alone, establish human coronary causality.</p>
+<p>Clinically, CAD is managed by aggressive apoB/LDL lowering, anti-inflammatory therapy in selected patients, and antithrombotics; <strong>revascularization relieves symptoms but does not reduce death or MI in stable disease</strong> (ISCHEMIA). This report organizes the evidence across the 15 requested domains, maintaining an explicit evidence-directness ladder (human coronary → human systemic → transferable non-coronary plaque → model organism → in vitro → computational) and flagging discordant/null findings.</p>
+<hr />
+<h2>Evidence Matrix (Directness Ladder Applied)</h2>
+<p><strong>Directness ladder:</strong> T1 = human coronary pathology/imaging (anatomically direct; imaging composition = surrogate); T2 = human coronary-event genetics/biomarker/systemic intervention (clinically relevant, not plaque-localized); T3 = human carotid/aortic/peripheral plaque (transferable, indirect for coronary); T4 = animal in-vivo (MODEL_ORGANISM); T5 = cultured cells/ex-vivo (IN_VITRO); T6 = computational.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Claim</th>
+<th>Design / n</th>
+<th>Vascular site</th>
+<th>Tier</th>
+<th>Causal verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F009</td>
+<td>PCSK9 LoF → lower LDL → 47–88% lower CHD</td>
+<td>ARIC cohort, 15 yr</td>
+<td>Human coronary events</td>
+<td>T2 genetics</td>
+<td>Causal for LDL→CHD</td>
+</tr>
+<tr>
+<td>F002</td>
+<td>PCSK9 inhibition regresses coronary atheroma</td>
+<td>GLAGOV RCT, n=968, serial IVUS</td>
+<td>Human <strong>coronary</strong></td>
+<td>T1 imaging surrogate</td>
+<td>Causal for LDL→plaque volume</td>
+</tr>
+<tr>
+<td>F013</td>
+<td>Statin: −21% MVE per 1 mmol/L LDL</td>
+<td>CTT meta, 28 RCTs, n=186,854</td>
+<td>Human coronary events</td>
+<td>T2 RCT</td>
+<td>Causal, LDL-dependent</td>
+</tr>
+<tr>
+<td>F011</td>
+<td>IL-1β inhibition ↓ events without lipid change</td>
+<td>CANTOS RCT, n=10,061</td>
+<td>Human coronary events</td>
+<td>T2 RCT</td>
+<td>Causal for inflammation</td>
+</tr>
+<tr>
+<td>F012</td>
+<td>Colchicine ↓ MACE (COLCOT, LoDoCo2)</td>
+<td>RCTs / meta</td>
+<td>Human coronary events</td>
+<td>T2 RCT</td>
+<td>Causal for inflammation</td>
+</tr>
+<tr>
+<td>F001</td>
+<td>Plaque burden/MLA/TCFA predict events</td>
+<td>PROSPECT, n=697, IVUS</td>
+<td>Human <strong>coronary</strong></td>
+<td>T1 natural history</td>
+<td>Prognostic (composition)</td>
+</tr>
+<tr>
+<td>F007</td>
+<td>Low WSS + lipid → coronary plaque growth</td>
+<td>n=40, NIRS-IVUS/OCT</td>
+<td>Human <strong>coronary</strong></td>
+<td>T1 imaging</td>
+<td>Direct coronary hemodynamic</td>
+</tr>
+<tr>
+<td>F003</td>
+<td>Rupture vs erosion = 2 terminal routes</td>
+<td>OCT in-vivo</td>
+<td>Human <strong>coronary</strong></td>
+<td>T1 imaging</td>
+<td>Mechanistic (terminal)</td>
+</tr>
+<tr>
+<td>F014</td>
+<td>CAC &amp; progression predict CHD</td>
+<td>MESA, n=6,778</td>
+<td>Human <strong>coronary</strong></td>
+<td>T1 imaging</td>
+<td>Prognostic</td>
+</tr>
+<tr>
+<td>F006/F010</td>
+<td>9p21.3, LPA strongest loci; Lp(a) causal</td>
+<td>GWAS/MR</td>
+<td>Human coronary events</td>
+<td>T2 genetics</td>
+<td>Causal (Lp(a))</td>
+</tr>
+<tr>
+<td>F005</td>
+<td>CHIP → inflammatory ASCVD risk</td>
+<td>UK Biobank, n=13,129</td>
+<td>Human systemic</td>
+<td>T2 + mouse</td>
+<td>Assoc. + model causal</td>
+</tr>
+<tr>
+<td>F015</td>
+<td>9 risk factors = &gt;90% MI PAR</td>
+<td>INTERHEART, n=27,098</td>
+<td>Human MI</td>
+<td>T2 case-control</td>
+<td>Population attributable</td>
+</tr>
+<tr>
+<td>F008</td>
+<td>MerTK efferocytosis failure → necrotic core</td>
+<td>Apoe−/− mice</td>
+<td>Mouse aortic root</td>
+<td>T4 model</td>
+<td>Model causal</td>
+</tr>
+<tr>
+<td>F004</td>
+<td>SMC → macrophage-like switching destabilizes</td>
+<td>Lineage tracing + scRNA</td>
+<td>Mouse + human plaque</td>
+<td>T4–T3</td>
+<td>Mechanistic hypothesis</td>
+</tr>
+<tr>
+<td>F016</td>
+<td>Mouse models recapitulate lipid plaque, not coronary events</td>
+<td>Apoe/Ldlr−/− etc.</td>
+<td>Mouse aorta</td>
+<td>T4</td>
+<td>Model limitation</td>
+</tr>
+<tr>
+<td>F017</td>
+<td>Revascularization no death/MI benefit in stable CAD</td>
+<td>ISCHEMIA</td>
+<td>Human coronary</td>
+<td>T2 RCT</td>
+<td>Causal (null for hard events)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Coronary atherosclerosis</strong> is the accumulation of atherosclerotic plaque — lipid, inflammatory cells, smooth-muscle cells, extracellular matrix, calcification and necrotic debris — within the intima of the epicardial coronary arteries, progressively narrowing the lumen and/or destabilizing to cause thrombosis. It is the dominant substrate of <strong>ischemic heart disease</strong> and the leading cause of death worldwide.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>Mondo:</strong> <code>MONDO:0021661</code> (coronary atherosclerosis) — the locked disease identity. <code>MONDO:0004975</code>, broad ASCVD, and "all coronary disorders" are explicitly <em>excluded</em>.
+- <strong>MeSH:</strong> Coronary Artery Disease (D003324); Coronary Atherosclerosis
+- <strong>ICD-10:</strong> I25.1 (atherosclerotic heart disease of native coronary artery)
+- <strong>ICD-11:</strong> BA80 (ischaemic heart disease block)
+- <strong>SNOMED CT:</strong> 53741008 (coronary arteriosclerosis)</p>
+<p><strong>Synonyms / near-terms (with scope caveats):</strong> coronary atherosclerosis, atherosclerotic heart disease, coronary arteriosclerosis. <strong>Not exact synonyms:</strong> stable angina, acute coronary syndrome (ACS), and myocardial infarction (MI) are <em>manifestations/complications</em>. <strong>Excluded differentials:</strong> spontaneous coronary artery dissection (SCAD), coronary vasospasm, congenital coronary anomalies, coronary embolism, isolated coronary microvascular dysfunction, and type-2 MI.</p>
+<p><strong>Data provenance:</strong> This report synthesizes <strong>aggregated disease-level resources</strong> (RCTs, cohort studies, GWAS meta-analyses, imaging natural-history studies), not individual patient EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factors</h3>
+<p>CAD is a <strong>multifactorial, polygenic</strong> disease. The initiating causal factor is <strong>subendothelial retention of apoB-containing lipoproteins</strong> (LDL, remnant/triglyceride-rich lipoproteins, and Lp(a)), superimposed on hemodynamic (disturbed-flow) and inflammatory contributors.</p>
+<p><strong>Human-genetic proof of LDL causality (F009):</strong> In ARIC (15-yr follow-up), PCSK9 nonsense mutations (2.6% of Black participants) conferred a <strong>28% lower LDL-C and 88% lower CHD risk</strong> (HR 0.11, 95% CI 0.02–0.81); a PCSK9 variant in White participants gave 15% lower LDL-C and 47% lower CHD risk (HR 0.50, 95% CI 0.32–0.79). <em>"these mutations were associated with a 28 percent reduction in mean LDL cholesterol and an 88 percent reduction in the risk of CHD"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16554528/">PMID: 16554528</a>). This natural experiment demonstrates that <strong>lifelong lower apoB exposure yields disproportionately large CHD reduction</strong>.</p>
+<h3>Genetic risk factors (F006, F010)</h3>
+<ul>
+<li><strong>9p21.3 / CDKN2A/B</strong> (rs1333049) — the most replicated common CAD locus; also a shared T2DM–CAD signal (strongest local genetic correlation; T2DM–CAD rg=0.39, P=1.43×10⁻⁷⁵) (<a href="https://pubmed.ncbi.nlm.nih.gov/38062574/">PMID: 38062574</a>).</li>
+<li><strong>LPA / lipoprotein(a)</strong> (rs10455872) — one of the two strongest CAD risk loci (<a href="https://pubmed.ncbi.nlm.nih.gov/30482443/">PMID: 30482443</a>); Mendelian randomization confirms Lp(a) <strong>causally</strong> raises risk of CHD, large-artery stroke, PAD and aortic stenosis: <em>"Mendelian randomization confirms causal relationships with coronary heart disease, large-artery stroke, peripheral artery disease, and aortic stenosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41789317/">PMID: 41789317</a>). Lp(a) is 70–90% genetically determined and elevated in ~20% of the global population.</li>
+<li><strong>CDKN2B (9p21.3)</strong> also replicated as an ankle-brachial-index/PAD–CAD locus (<a href="https://pubmed.ncbi.nlm.nih.gov/41252360/">PMID: 41252360</a>).</li>
+</ul>
+<h3>Environmental / lifestyle risk factors (F015)</h3>
+<p>INTERHEART (52 countries, ~27,098 participants) found <strong>nine modifiable risk factors account for &gt;90% of MI population-attributable risk</strong> (women 96% vs men 93%): abnormal lipids (ApoB:ApoA1), current smoking, hypertension, diabetes, abdominal obesity, psychosocial stress, low fruit/vegetable intake, physical inactivity, and no/low alcohol. <em>"The population attributable risk (PAR) of all nine risk factors exceeded 94%, and was similar among women and men (96 vs. 93%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18334475/">PMID: 18334475</a>).</p>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Genetic:</strong> PCSK9 loss-of-function alleles (F009); constitutionally low-Lp(a) genotypes.</li>
+<li><strong>Environmental:</strong> the inverse of the INTERHEART factors — physical activity, fruit/vegetable intake, moderate alcohol, non-smoking. Pharmacologic LDL lowering is protective regardless of mechanism (F013).</li>
+</ul>
+<h3>Gene–environment interactions</h3>
+<p>The T2DM–CAD relationship is <strong>bidirectional and partly genetic</strong> (rg largely BMI-independent, 0.31), mediated substantially by systolic blood pressure and statin use (<a href="https://pubmed.ncbi.nlm.nih.gov/38062574/">PMID: 38062574</a>). CHIP illustrates a somatic-genetic × inflammatory-environment interaction (F005).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>CAD is <strong>asymptomatic during plaque development</strong> (subclinical for decades) and becomes clinically manifest through ischemic syndromes. Per the scope guardrails, these are <em>manifestations/complications</em>, not synonyms.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset / course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Angina pectoris (exertional chest pain/pressure)</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" rel="noopener noreferrer">HP:0001681</a> (Angina pectoris)</td>
+<td>Adult/late-onset; episodic, exertional</td>
+<td>Common in symptomatic CAD</td>
+</tr>
+<tr>
+<td>Myocardial infarction</td>
+<td>Clinical event</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" rel="noopener noreferrer">HP:0001658</a> (Myocardial infarction)</td>
+<td>Acute; median first MI age 56 (men) / 65 (women)</td>
+<td>Terminal complication</td>
+</tr>
+<tr>
+<td>Coronary artery atherosclerosis</td>
+<td>Physical/imaging sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" rel="noopener noreferrer">HP:0001677</a></td>
+<td>Adult; progressive</td>
+<td>Ubiquitous by definition</td>
+</tr>
+<tr>
+<td>Dyspnea on exertion</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" rel="noopener noreferrer">HP:0002875</a></td>
+<td>Progressive</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Elevated troponin</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410174" target="_blank" rel="noopener noreferrer">HP:0410174</a> (Increased circulating troponin)</td>
+<td>Acute (ACS/MI)</td>
+<td>Diagnostic for MI</td>
+</tr>
+<tr>
+<td>Coronary artery calcification</td>
+<td>Imaging sign</td>
+<td>—</td>
+<td>Adult; progressive</td>
+<td>~50% baseline prevalence, MESA age 45–84</td>
+</tr>
+<tr>
+<td>Sudden cardiac death</td>
+<td>Clinical event</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" rel="noopener noreferrer">HP:0001645</a> (Sudden cardiac death)</td>
+<td>Acute</td>
+<td>Can be first presentation</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset:</strong> typically adult/late-onset, with earlier clinical onset in men (median first MI 56 vs 65 yr in women) (F015). <strong>Severity/progression:</strong> variable and generally progressive but modifiable; long asymptomatic phase punctuated by acute episodes. <strong>QoL impact:</strong> angina limits daily functioning; captured by disease-specific tools (Seattle Angina Questionnaire) and generic measures (EQ-5D, SF-36). In stable disease, revascularization's main benefit is <strong>angina relief</strong> rather than event reduction (F017).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p>CAD is <strong>polygenic/multifactorial</strong>, not a Mendelian single-gene disorder, except that monogenic hypercholesterolemias greatly accelerate coronary atherosclerosis (familial hypercholesterolemia: <em>LDLR</em>, <em>APOB</em>, <em>PCSK9</em> gain-of-function).</p>
+<p><strong>Key genes / loci:</strong>
+- <strong>PCSK9</strong> (<a href="https://bioregistry.io/HGNC:20001" target="_blank" rel="noopener noreferrer">HGNC:20001</a>) — loss-of-function is protective (F009); gain-of-function causes FH. Functional consequence: LoF → increased hepatic LDLR → lower LDL.
+- <strong>LDLR</strong> — the classic FH gene; central to LDL clearance.
+- <strong>LPA</strong> (<a href="https://bioregistry.io/HGNC:6667" target="_blank" rel="noopener noreferrer">HGNC:6667</a>) — determines Lp(a); causal for CAD (F010).
+- <strong>CDKN2A/CDKN2B (9p21.3)</strong> — strongest common susceptibility locus (F006); non-coding regulatory effect on vascular SMC biology.
+- <strong>TCF21</strong> — coronary-disease GWAS gene modulating SMC phenotype (anchor <a href="https://pubmed.ncbi.nlm.nih.gov/31359001/" target="_blank" rel="noopener noreferrer">PMID:31359001</a>, mixed human/model evidence).</p>
+<p><strong>Modifier / acquired genetic drivers — CHIP (F005):</strong> Somatic mutations in hematopoietic stem cells. <strong>DNMT3A and TET2 are the two most frequently mutated CHIP genes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/36097025/">PMID: 36097025</a>). In UK Biobank (n=13,129 with ASCVD): <em>"any CHIP and large CHIP at baseline were associated with adjusted HRs of 1.23 (95% CI: 1.10-1.38; P &lt; 0.001) and 1.34 (95% CI: 1.17-1.53; P &lt; 0.001), respectively, for the primary outcome"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37197843/">PMID: 37197843</a>); large TET2 HR 1.89, large spliceosome HR 3.02. Murine Tet2/Dnmt3a loss-of-function supports an IL-1β/inflammasome-mediated causal mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/31345433/">PMID: 31345433</a>).</p>
+<p><strong>Epigenetics:</strong> DNMT3A and TET2 CHIP produce distinct, directionally opposing genome-wide DNA-methylation patterns; Mendelian randomization suggests some DNAm alterations promote CAD risk (<a href="https://pubmed.ncbi.nlm.nih.gov/36097025/">PMID: 36097025</a>).</p>
+<p><strong>Chromosomal abnormalities:</strong> Not a defining feature of coronary atherosclerosis. The most relevant "large-scale" genetic contributor is clonal expansion of mutant hematopoietic clones (CHIP), not aneuploidy.</p>
+<p><strong>Variant classification / population frequency:</strong> PCSK9 protective LoF alleles (e.g., Y142X, C679X) are more frequent in individuals of African ancestry (~2–3%); classified benign-protective. FH-causing LDLR/APOB/PCSK9-GoF variants span missense, nonsense, frameshift, and splice-site classes (pathogenic/likely pathogenic per ACMG/AMP in ClinVar). All germline; CHIP mutations are <strong>somatic</strong>.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Lifestyle factors (F015):</strong> smoking, atherogenic diet (high saturated fat/refined carbohydrate), physical inactivity, abdominal obesity, and psychosocial stress. Current smoking and abnormal lipids are among the strongest INTERHEART contributors.</li>
+<li><strong>Environmental exposures:</strong> ambient air pollution (particulate matter) is an established population risk factor for ischemic heart disease.</li>
+<li><strong>Metabolic environment:</strong> diabetes/hyperglycemia (bidirectional with CAD, <a href="https://pubmed.ncbi.nlm.nih.gov/38062574/">PMID: 38062574</a>) and hypertension.</li>
+<li><strong>Infectious agents:</strong> CAD is <strong>not an infectious disease</strong>. Chronic low-grade inflammation (not a specific pathogen) is the operative inflammatory driver; the causal inflammatory axis is IL-1β→IL-6→CRP (F011, F012), not a microbe.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Staged causal model</h3>
+<pre><code>apoB-lipoprotein entry &amp; proteoglycan retention  (CAUSAL: PCSK9/LPA genetics, LDL RCTs)
+│  (amplified at disturbed-flow / low wall-shear-stress sites)
+▼
+Endothelial dysfunction &amp; activation  (↓eNOS/NO GO:0006809; ↑adhesion molecules)
+│  IL-1β can induce LDLR/Rab27a-dependent LDL transcytosis (IN VITRO/mouse)
+▼
+Leukocyte recruitment → monocyte entry
+▼
+Macrophage foam-cell formation (CD36/oxLDL uptake; GO:0019915 lipid storage)
+▼
+Defective efferocytosis (MerTK)  →  secondary necrosis  (MODEL ORGANISM: Apoe−/− mice)
+▼
+Necrotic core expansion + SMC phenotypic switching (contractile→synthetic/
+   macrophage-like/osteogenic; CL:0000359) → fibrous cap thinning
+▼
+Calcification, neovascularization, intraplaque hemorrhage → plaque growth/remodeling
+▼
+   ┌─────────────────────────────┬──────────────────────────────┐
+   ▼ TERMINAL ROUTE 1            ▼ TERMINAL ROUTE 2
+ Plaque RUPTURE (~2/3 ACS)     Superficial EROSION (~1/3 ACS)
+ thin cap + large necrotic     intact cap, less necrosis/
+ core + inflammation           inflammation, larger lumen
+└──────────────┬───────────────┘
+               ▼
+Platelet/coagulation activation → CORONARY THROMBOSIS → MI / sudden death
+
+     (Non-thrombotic route: progressive stenosis → demand ischemia → stable angina)
+</code></pre>
+<h3>Molecular pathways &amp; cellular processes</h3>
+<ul>
+<li><strong>Lipid retention &amp; foam-cell formation:</strong> apoB-lipoprotein subendothelial retention; scavenger-receptor (CD36) uptake of oxLDL; <strong>lipid storage (<a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" rel="noopener noreferrer">GO:0019915</a>)</strong>. In vitro, oxLDL downregulates the PPARγ/LXRα/MerTK efferocytosis axis and upregulates competitive receptor CD300a, driving CD36-mediated foam-cell formation (<a href="https://pubmed.ncbi.nlm.nih.gov/36721069/">PMID: 36721069</a>).</li>
+<li><strong>Endothelial mechanotransduction:</strong> low wall shear stress downregulates <strong>eNOS / nitric-oxide biosynthesis (<a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" rel="noopener noreferrer">GO:0006809</a>)</strong> and upregulates E-selectin/ICAM-1, promoting leukocyte adhesion (in-vitro HUVEC/microfluidic, <a href="https://pubmed.ncbi.nlm.nih.gov/34948110/">PMID: 34948110</a>); NRP2/PARP1 mediate low-shear endothelial apoptosis in mouse aorta (<a href="https://pubmed.ncbi.nlm.nih.gov/35028975/">PMID: 35028975</a>).</li>
+<li><strong>Efferocytosis / apoptotic-cell clearance (F008):</strong> In <em>Mertk</em>-kinase-dead;<em>Apoe⁻/⁻</em> mice, lesions accumulated apoptotic cells and became more necrotic — <em>"mutation of the phagocytic Mertk receptor promotes the accumulation of apoptotic cells"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18451332/">PMID: 18451332</a>). <strong>Species: mouse; site: aortic root — not coronary.</strong></li>
+<li><strong>SMC plasticity (F004):</strong> Contractile vascular-associated SMCs (<strong><a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a></strong>) dedifferentiate to synthetic, macrophage-like, osteoblast-like states. <em>"most of lesional macrophages... are derived from macrophage-like cells (MLCs) dedifferentiated from the VSMCs lineage... promoting... necrotic core expansion and fibrous cap thinning"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41165871/">PMID: 41165871</a>). IRF7 is proposed as a checkpoint for maladaptive switching, upregulated in unstable human plaques (<a href="https://pubmed.ncbi.nlm.nih.gov/41625231/">PMID: 41625231</a>). Dual SMC/EC lineage tracing shows endothelial-to-SMC and SMC-loss dynamics under vascular stress (<a href="https://pubmed.ncbi.nlm.nih.gov/41648299/">PMID: 41648299</a>).</li>
+<li><strong>Inflammation is causal (F011):</strong> IL-1β→IL-6→CRP axis. Mechanistically, IL-1β induces LDL transcytosis by human coronary artery endothelial cells via an LDLR/Rab27a pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/38989581/">PMID: 38989581</a>), linking inflammation to early lipid entry.</li>
+</ul>
+<h3>Upstream vs downstream</h3>
+<ul>
+<li><strong>Upstream (initiation):</strong> apoB retention, disturbed-flow endothelial dysfunction.</li>
+<li><strong>Midstream (progression):</strong> foam cells, defective efferocytosis, SMC switching, necrotic-core growth.</li>
+<li><strong>Downstream (terminal):</strong> cap thinning → rupture <em>or</em> endothelial erosion → thrombosis.</li>
+</ul>
+<h3>GO / CL term suggestions</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" rel="noopener noreferrer">GO:0019915</a> lipid storage; <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" rel="noopener noreferrer">GO:0006809</a> nitric oxide biosynthetic process; <a href="http://purl.obolibrary.org/obo/GO_0043277" target="_blank" rel="noopener noreferrer">GO:0043277</a> apoptotic cell clearance (efferocytosis); <a href="http://purl.obolibrary.org/obo/GO_0033344" target="_blank" rel="noopener noreferrer">GO:0033344</a> cholesterol efflux; <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response.</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a> vascular associated smooth muscle cell; <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage/foam cell; <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" rel="noopener noreferrer">CL:0000071</a> blood vessel endothelial cell; <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> neutrophil (erosion).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> Heart — specifically the <strong>epicardial coronary arteries</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" rel="noopener noreferrer">UBERON:0001621</a>; left anterior descending, left circumflex, right coronary). Secondary organ: <strong>myocardium</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" rel="noopener noreferrer">UBERON:0002349</a>) via ischemia/infarction. Body system: <strong>cardiovascular system</strong>.</li>
+<li><strong>Tissue level:</strong> arterial <strong>tunica intima</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0004638" target="_blank" rel="noopener noreferrer">UBERON:0004638</a>; primary plaque site), tunica media (SMC source). Tissue types: endothelium, connective tissue/ECM, vascular smooth muscle.</li>
+<li><strong>Cell level:</strong> endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" rel="noopener noreferrer">CL:0000071</a>), monocyte-derived macrophages/foam cells (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), vascular-associated smooth muscle cells (<a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a>), T lymphocytes, neutrophils (prominent in erosion), platelets (terminal thrombosis).</li>
+<li><strong>Subcellular level:</strong> lysosomes/late endosomes (lipid handling, efferocytic degradation, Rab27a vesicles, <a href="https://pubmed.ncbi.nlm.nih.gov/38989581/">PMID: 38989581</a>); endoplasmic reticulum (lipid synthesis/stress); mitochondria (oxidative stress). GO CC: <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome; <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> ER.</li>
+<li><strong>Localization / lateralization:</strong> Multifocal, bilateral (multiple coronary arteries); plaques preferentially form at <strong>branch points and inner curvatures</strong> where wall shear stress is low/oscillatory (F007).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Subclinical plaque begins in early adulthood (fatty streaks even earlier); clinical onset typically adult/geriatric. Onset of <em>events</em> is often <strong>acute</strong> superimposed on <strong>chronic, insidious</strong> plaque growth.</li>
+<li><strong>Progression / stages:</strong> fatty streak → fibroatheroma → thin-cap fibroatheroma (TCFA, high-risk) → complicated/ruptured or eroded plaque with thrombosis. Progression is <strong>variable</strong> and modifiable; low wall shear stress accelerates lipid-rich plaque growth over ~1 year — <em>"Exposure to low WSS was associated with a higher plaque progression"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36575921/">PMID: 36575921</a>).</li>
+<li><strong>Course pattern:</strong> chronic, lifelong, generally progressive but <strong>regressable</strong> with intensive LDL lowering (GLAGOV IVUS regression, F002; PACMAN-AMI lesion-level regression showing PAV change −4.86% alirocumab vs −2.78% placebo, <a href="https://pubmed.ncbi.nlm.nih.gov/39221516/">PMID: 39221516</a>).</li>
+<li><strong>Natural history (F001):</strong> In PROSPECT, most nonculprit lesions causing future events were <strong>angiographically mild at baseline</strong> (mean diameter stenosis 32.3±20.6%) yet had high-risk features — <em>"nonculprit lesions associated with recurrent events were more likely... to be characterized by a plaque burden of 70% or greater (hazard ratio, 5.03; 95% confidence interval [CI], 2.51 to 10.11; P&lt;0.001) or a minimal luminal area of 4.0 mm(2) or less"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21247313/">PMID: 21247313</a>). This establishes <strong>composition/burden, not stenosis, as the driver of events</strong>.</li>
+<li><strong>Critical intervention windows:</strong> LDL lowering and anti-inflammatory therapy alter trajectory at any stage; the post-MI period is a high-residual-risk window (CANTOS, colchicine).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Ischemic heart disease is the leading global cause of death and DALYs. GBD 2021 shows rising incidence/prevalence even in young adults (aged 20–24), with ischemic heart disease dominating mortality/DALYs and males bearing greater mortality/DALY burden (<a href="https://pubmed.ncbi.nlm.nih.gov/42483021/">PMID: 42483021</a>). CAC prevalence is ~50% in adults aged 45–84 (MESA, F014).</li>
+<li><strong>Inheritance:</strong> <strong>Polygenic/multifactorial</strong>, not Mendelian. Heritability estimates ~40–60%. Dominant common-variant contributors: 9p21.3, LPA (F006, F010); ~300+ GWAS loci total.</li>
+<li><strong>Penetrance/expressivity:</strong> Genetic liability is probabilistic (polygenic risk scores), strongly modified by environment (F015). Lp(a) is highly penetrant for elevated risk when very high.</li>
+<li><strong>Founder effects:</strong> PCSK9 protective variants have population-specific frequencies (F009).</li>
+<li><strong>Population demographics / sex:</strong> Median first-MI age higher in women (65 vs 56 yr); hypertension (OR 2.95 vs 2.32) and diabetes (OR 4.26 vs 2.67) are more strongly associated in women, while several factors are similar across sexes (F015). Low/low-middle sociodemographic-index regions bear the highest young-adult burden (<a href="https://pubmed.ncbi.nlm.nih.gov/42483021/">PMID: 42483021</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Laboratory tests/biomarkers:</strong> Lipid panel (LDL-C, apoB, non-HDL-C); <strong>Lp(a)</strong> (2024 NLA Class I recommendation for universal one-time measurement; F010); <strong>high-sensitivity cardiac troponin</strong> (<a href="http://purl.obolibrary.org/obo/HP_0410174" target="_blank" rel="noopener noreferrer">HP:0410174</a>) for MI; <strong>hs-CRP</strong> for residual inflammatory risk (CANTOS entry criterion ≥2 mg/L; F012) — <em>"High-sensitivity C-reactive protein is a practical and reliable biomarker for assessing low-grade chronic inflammation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41936433/">PMID: 41936433</a>). Serum urate independently predicts MACE/CV death even under IL-1β blockade (HR 1.66 for MACE, <a href="https://pubmed.ncbi.nlm.nih.gov/39862678/">PMID: 39862678</a>).</li>
+<li><strong>Imaging (coronary-direct, tier 1):</strong></li>
+<li><strong>Coronary artery calcium (CAC) score</strong> by non-contrast CT (Agatston method) — MESA: <em>"those with annual progression of ≥300 units had adjusted HRs of 3.8 (1.5 to 9.6) for total"</em> CHD events (<a href="https://pubmed.ncbi.nlm.nih.gov/23500326/">PMID: 23500326</a>). AI-enhanced CAC scans add chamber-volume and hepatic-steatosis prognostics (<a href="https://pubmed.ncbi.nlm.nih.gov/38664073/">PMID: 38664073</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40221147/">PMID: 40221147</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41591983/">PMID: 41591983</a>).</li>
+<li><strong>Coronary CT angiography (CCTA)</strong> — anatomy and plaque composition.</li>
+<li><strong>Invasive intracoronary imaging:</strong> IVUS (plaque burden/volume; GLAGOV/PROSPECT), <strong>NIRS</strong> (lipid-core burden), <strong>OCT</strong> (thin-cap fibroatheroma; the only modality able to identify <strong>erosion in vivo</strong>, F003).</li>
+<li>Low endothelial shear stress adds incremental risk beyond morphology (HR 4.34, <a href="https://pubmed.ncbi.nlm.nih.gov/28917684/">PMID: 28917684</a>).</li>
+<li><strong>Functional tests:</strong> exercise/pharmacologic stress testing, fractional flow reserve (FFR); ECG.</li>
+<li><strong>Clinical criteria / differential diagnosis:</strong> ACC/AHA and ESC guidelines. <strong>Differentials to exclude</strong> (per scope): SCAD, vasospasm, congenital anomalies, embolism, isolated microvascular dysfunction, type-2 MI.</li>
+<li><strong>Genetic/omics testing:</strong> Not routine for common CAD; polygenic risk scores and Lp(a) are emerging risk-stratification tools. FH gene panels (LDLR/APOB/PCSK9) apply to monogenic hypercholesterolemia.</li>
+<li><strong>Screening:</strong> CAC scoring for intermediate-risk asymptomatic adults; universal one-time Lp(a).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> Ischemic heart disease is the leading cause of death globally (GBD 2021). Acute MI and sudden cardiac death are the principal fatal outcomes.</li>
+<li><strong>Prognostic factors (coronary-direct):</strong> plaque burden ≥70%, minimal luminal area ≤4.0 mm², and thin-cap fibroatheroma morphology independently predict nonculprit events (PROSPECT, F001); low endothelial shear stress adds risk (<a href="https://pubmed.ncbi.nlm.nih.gov/28917684/">PMID: 28917684</a>); CAC progression predicts hard CHD (F014).</li>
+<li><strong>Prognostic biomarkers:</strong> LDL-C/apoB (modifiable driver), Lp(a), hs-CRP (residual inflammatory risk), troponin, serum urate.</li>
+<li><strong>Modifiability:</strong> Prognosis is strongly improved by LDL lowering (−21% MVE per 1 mmol/L, F013), anti-inflammatory therapy (F011/F012), and antithrombotics.</li>
+<li><strong>Complications:</strong> MI, heart failure (predictable from CAC-derived chamber ratios, <a href="https://pubmed.ncbi.nlm.nih.gov/41591983/">PMID: 41591983</a>), arrhythmia, sudden death.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy — lipid lowering (causal, LDL-dependent; <a href="https://bioregistry.io/MAXO:0000262" target="_blank" rel="noopener noreferrer">MAXO:0000262</a> lipid-lowering agent therapy)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug class</th>
+<th>Example</th>
+<th>Mechanism</th>
+<th>Key evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Statins</td>
+<td>atorvastatin</td>
+<td>HMG-CoA reductase inhibition</td>
+<td>CTT: <em>"a 21% (RR 0.79, 95% CI 0.77-0.81) proportional reduction"</em> in MVE per 1 mmol/L LDL (<a href="https://pubmed.ncbi.nlm.nih.gov/30712900/">PMID: 30712900</a>)</td>
+</tr>
+<tr>
+<td>PCSK9 inhibitors</td>
+<td>evolocumab, alirocumab</td>
+<td>↑ hepatic LDLR</td>
+<td>GLAGOV coronary regression (F002, <a href="https://pubmed.ncbi.nlm.nih.gov/27846344/">PMID: 27846344</a>); PACMAN-AMI lesion stabilization (<a href="https://pubmed.ncbi.nlm.nih.gov/39221516/">PMID: 39221516</a>)</td>
+</tr>
+<tr>
+<td>ACL inhibitor</td>
+<td>bempedoic acid</td>
+<td>inhibits ATP-citrate lyase</td>
+<td>CLEAR: HR 0.75 per 1 mmol/L LDL, matching statins (<a href="https://pubmed.ncbi.nlm.nih.gov/38960508/">PMID: 38960508</a>)</td>
+</tr>
+<tr>
+<td>Ezetimibe</td>
+<td>—</td>
+<td>NPC1L1 inhibition</td>
+<td>Additive LDL lowering</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Benefit <strong>tracks the absolute magnitude of LDL-C reduction regardless of mechanism</strong> and holds in patients ≥75 yr (RR 0.74 per 1 mmol/L; <a href="https://pubmed.ncbi.nlm.nih.gov/33186535/">PMID: 33186535</a>).</p>
+<h3>Anti-inflammatory therapy (causal, lipid-independent)</h3>
+<ul>
+<li><strong>Canakinumab (anti-IL-1β):</strong> CANTOS reduced events without lowering lipids — <em>"Canakinumab did not reduce lipid levels from baseline"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28845751/">PMID: 28845751</a>); total-event rate ratios ~0.78–0.80 (<a href="https://pubmed.ncbi.nlm.nih.gov/33004131/">PMID: 33004131</a>).</li>
+<li><strong>Colchicine (0.5 mg/day, FDA-approved 2023):</strong> COLCOT and LoDoCo2 reduced MACE — <em>"randomised colchicine trials such as COLCOT and LoDoCo2 showed reductions in major adverse cardiovascular events in patients with recent myocardial infarction and chronic coronary disease, respectively"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42454467/">PMID: 42454467</a>).</li>
+<li><strong>Discordant/null control:</strong> low-dose methotrexate (CIRT) was <strong>null</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23874021/">PMID: 23874021</a> rationale), showing the effective axis is specifically IL-1β→IL-6→CRP, not anti-inflammation broadly (F011).</li>
+</ul>
+<h3>RNA-based / emerging</h3>
+<ul>
+<li><strong>Lp(a)-lowering:</strong> olpasiran (siRNA, OCEAN(a), NCT05581303) and pelacarsen (ASO, Lp(a) HORIZON, NCT04023552) in outcome trials (<a href="https://pubmed.ncbi.nlm.nih.gov/42016317/">PMID: 42016317</a>).</li>
+</ul>
+<h3>Antithrombotic</h3>
+<p>Antiplatelet therapy (aspirin, P2Y12 inhibitors) and anticoagulation address the terminal thrombotic route (MAXO: antiplatelet therapy).</p>
+<h3>Surgical / interventional (MAXO: percutaneous coronary intervention; coronary artery bypass grafting)</h3>
+<ul>
+<li><strong>PCI with drug-eluting stents</strong> and <strong>CABG</strong>. <strong>Key nuance (F017):</strong> in <em>stable</em> CAD with moderate–severe ischemia, <em>"an initial invasive strategy does not reduce cardiovascular mortality or myocardial infarction compared with optimized medical therapy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42099494/">PMID: 42099494</a>); benefit is symptom relief (also sham-controlled ORBITA). Revascularization remains indicated for ACS, left-main, high-risk anatomy, and refractory symptoms. Chronic-total-occlusion PCI is a specialized subset with distinct procedural profiles (<a href="https://pubmed.ncbi.nlm.nih.gov/42309488/">PMID: 42309488</a>).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> risk-factor modification targeting the nine INTERHEART factors (F015) — smoking cessation, lipid/apoB lowering, blood-pressure and glycemic control, weight/diet/activity. Lp(a) measurement for risk stratification.</li>
+<li><strong>Secondary prevention:</strong> intensive LDL lowering to very low targets, anti-inflammatory therapy (colchicine) in selected post-MI/chronic coronary patients, antithrombotics, cardiac rehabilitation.</li>
+<li><strong>Tertiary prevention:</strong> guideline-directed medical therapy to prevent recurrent events and heart failure; hs-CRP-guided identification of residual inflammatory risk.</li>
+<li><strong>Screening / risk stratification:</strong> CAC scoring (MESA-validated, F014); polygenic risk scores (emerging); universal one-time Lp(a).</li>
+<li><strong>Behavioral / public health:</strong> population-level tobacco control, dietary policy, physical-activity promotion — urgent in low-SDI regions with rising young-adult burden (<a href="https://pubmed.ncbi.nlm.nih.gov/42483021/">PMID: 42483021</a>).</li>
+<li><strong>Not applicable:</strong> immunization (no infectious etiology).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> Naturally occurring coronary atherosclerosis with thrombosis is largely a human condition; rare in most laboratory species. Relevant orthologs in <strong>Mus musculus (NCBI:txid10090)</strong>: <em>Apoe</em> (Gene ID 11816), <em>Ldlr</em> (16835), <em>Pcsk9</em> (100102). <strong>Lpa has no rodent ortholog</strong> (F016).</li>
+<li><strong>Larger animals with true coronary lesions:</strong> WHHL rabbit (LDLR-mutant), Ossabaw/Yucatan <strong>pigs</strong>, and <strong>nonhuman primates</strong> develop coronary atherosclerosis more analogous to humans (F016).</li>
+<li><strong>Comparative pathology:</strong> Rodent lesions form at the aortic root/arch and brachiocephalic artery and <strong>rarely rupture or thrombose spontaneously</strong>, limiting fidelity to human coronary events.</li>
+<li><strong>Zoonotic potential:</strong> none (non-infectious, non-transmissible).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Standard models (F016):</strong> hyperlipidemia-driven mice — <em>Apoe⁻/⁻</em> and <em>Ldlr⁻/⁻</em> on Western/pro-atherogenic diets, and humanized <strong>APOE*3-Leiden.CETP</strong> (human-like lipoprotein metabolism); PCSK9-AAV overexpression induces atherogenesis without germline editing. <em>"APOE</em>3-Leiden.CETP mice, a well-established model for human-like lipoprotein metabolism"* (<a href="https://pubmed.ncbi.nlm.nih.gov/40460236/">PMID: 40460236</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Recapitulates</th>
+<th>Does NOT recapitulate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apoe⁻/⁻ mouse</td>
+<td>Knockout</td>
+<td>Lipid-driven aortic plaque, foam cells</td>
+<td>Epicardial coronary lesions; spontaneous rupture/thrombosis</td>
+</tr>
+<tr>
+<td>Ldlr⁻/⁻ mouse</td>
+<td>Knockout</td>
+<td>Diet-responsive hypercholesterolemia + plaque</td>
+<td>Coronary events</td>
+</tr>
+<tr>
+<td>APOE*3-Leiden.CETP</td>
+<td>Humanized transgenic</td>
+<td>Human-like lipoproteins, plaque</td>
+<td>Coronary thrombosis</td>
+</tr>
+<tr>
+<td>Mertk-KD;Apoe⁻/⁻</td>
+<td>Compound mutant</td>
+<td>Defective efferocytosis → necrotic core (F008)</td>
+<td>Coronary localization</td>
+</tr>
+<tr>
+<td>WHHL rabbit / Ossabaw pig / NHP</td>
+<td>Spontaneous/diet</td>
+<td><strong>True coronary lesions</strong></td>
+<td>Cost, throughput</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Applications:</strong> dissecting apoB retention, foam-cell biology, efferocytosis (MerTK), SMC lineage plasticity (dual lineage tracing, <a href="https://pubmed.ncbi.nlm.nih.gov/41648299/">PMID: 41648299</a>), and hemodynamic endothelial dysfunction. <strong>Limitations:</strong> the dominant murine models do not produce spontaneous coronary plaque rupture or MI, so terminal-route mechanisms (rupture vs erosion) are studied primarily by <strong>human coronary OCT</strong> in vivo (F003). Negative-control model result: PUFA-synthesis-deficient (<em>fads2⁻/⁻</em>) mice remain atherosclerosis-prone when crossed to <em>Apoe⁻/⁻</em>/<em>Ldlr⁻/⁻</em> — hypercholesterolemia dominates (<a href="https://pubmed.ncbi.nlm.nih.gov/34530175/">PMID: 34530175</a>).</p>
+<p><strong>Resources:</strong> MGI, IMPC/KOMP, IMSR, Alliance of Genome Resources.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The synthesis across 17 findings supports a <strong>staged, multi-arm causal model</strong> in which <strong>initiation, progression, stability, and acute thrombosis are distinct processes</strong> with distinct evidence:</p>
+<ol>
+<li>
+<p><strong>Initiation is apoB-driven and hemodynamically localized.</strong> Human genetics (PCSK9 LoF, F009; LPA, F010) and randomized LDL-lowering (F013, F002) establish apoB/LDL causality at the highest tier; direct human coronary imaging (F007) shows low wall shear stress plus lipid content accelerates coronary plaque growth. These converge on a strong causal edge: <strong>apoB retention + disturbed flow → coronary plaque</strong>.</p>
+</li>
+<li>
+<p><strong>Progression is governed by cellular handling of lipid and dead cells.</strong> Defective <strong>MerTK efferocytosis</strong> (mouse, F008) and <strong>oxLDL-driven foam-cell formation</strong> (in vitro, F008) expand the necrotic core; <strong>SMC-to-macrophage-like transdifferentiation</strong> (mouse/human, F004) thins the fibrous cap. These are mechanistically compelling but <strong>anatomically indirect</strong> (mouse aorta, cultured cells) — they explain <em>how</em> human coronary composition arises without proving coronary causality alone.</p>
+</li>
+<li>
+<p><strong>Inflammation is an independent causal arm.</strong> CANTOS (F011) and colchicine trials (F012) reduce human coronary events <em>without</em> lipid change, while the null CIRT/methotrexate result isolates the <strong>IL-1β→IL-6→CRP</strong> axis. IL-1β can also feed back on initiation by inducing coronary-endothelial LDL transcytosis (in vitro/mouse, <a href="https://pubmed.ncbi.nlm.nih.gov/38989581/">PMID: 38989581</a>).</p>
+</li>
+<li>
+<p><strong>Terminal events are composition-, not stenosis-, dependent, with two routes.</strong> PROSPECT (F001) shows angiographically mild lesions cause future events when plaque burden/necrotic-core/thin-cap features are present; human coronary OCT (F003) resolves <strong>rupture (~2/3)</strong> vs <strong>erosion (~1/3)</strong> as biologically distinct triggers of thrombosis.</p>
+</li>
+<li>
+<p><strong>Therapeutic corollary:</strong> because stenosis is not the driver of hard events, <strong>revascularization relieves symptoms but does not reduce death/MI in stable CAD</strong> (ISCHEMIA, F017), whereas systemic apoB lowering and anti-inflammation modify the biology and reduce events.</p>
+</li>
+</ol>
+<h3>Terminal-route detail: rupture vs erosion</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Rupture</th>
+<th>Erosion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cap</td>
+<td>Thin (&lt;65 µm), disrupted</td>
+<td>Intact</td>
+</tr>
+<tr>
+<td>Necrotic core</td>
+<td>Large</td>
+<td>Small/absent</td>
+</tr>
+<tr>
+<td>Inflammation</td>
+<td>Macrophage-rich</td>
+<td>Less; neutrophil/NET-linked</td>
+</tr>
+<tr>
+<td>Matrix</td>
+<td>Lipid</td>
+<td>Proteoglycan/SMC/hyaluronan</td>
+</tr>
+<tr>
+<td>Thrombus</td>
+<td>Often occlusive</td>
+<td>Often mural/less occlusive</td>
+</tr>
+<tr>
+<td>Frequency in ACS</td>
+<td>~2/3</td>
+<td>~1/3</td>
+</tr>
+<tr>
+<td>Evidence</td>
+<td>T1 OCT/pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/29332908/">PMID: 29332908</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24631511/">PMID: 24631511</a>)</td>
+<td>T1 OCT; weaker mechanism</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Genuine competing hypotheses</h3>
+<ul>
+<li><strong>"Response-to-retention" (apoB-centric) vs "inflammation-primary":</strong> the evidence supports these as <strong>complementary, both causal</strong> arms. Best synthesis: apoB is the initiating cause; inflammation is a required amplifier (Lp(a) mediates only 1.3–4.8% of the IL-6→ASCVD effect, <a href="https://pubmed.ncbi.nlm.nih.gov/41932221/">PMID: 41932221</a>, arguing for independence).</li>
+<li><strong>Rupture-dominant vs erosion-inclusive paradigm:</strong> OCT data force inclusion of erosion as a mechanistically separate, potentially antithrombotic-manageable route.</li>
+<li><strong>Macrophage origin:</strong> whether lesional "macrophages" are monocyte- vs SMC-derived (F004) remains partly unresolved and matters for target selection.</li>
+</ul>
+<hr />
+<h2>Evidence Base (Key Literature)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16554528/">16554528</a></td>
+<td>Supports</td>
+<td>PCSK9 LoF → 88%/47% lower CHD (LDL causality)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27846344/">27846344</a></td>
+<td>Supports</td>
+<td>GLAGOV: PCSK9i regresses coronary atheroma (IVUS)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30712900/">30712900</a></td>
+<td>Supports</td>
+<td>CTT: −21% MVE per 1 mmol/L LDL</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28845751/">28845751</a></td>
+<td>Supports</td>
+<td>CANTOS: IL-1β inhibition, lipid-independent event reduction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42454467/">42454467</a></td>
+<td>Supports</td>
+<td>Colchicine (COLCOT/LoDoCo2) reduces MACE</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21247313/">21247313</a></td>
+<td>Supports</td>
+<td>PROSPECT: composition &gt; stenosis (coronary-direct)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36575921/">36575921</a></td>
+<td>Supports</td>
+<td>Low WSS + lipid → coronary plaque growth (coronary-direct)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29332908/">29332908</a></td>
+<td>Supports</td>
+<td>Rupture vs erosion terminal routes (coronary OCT)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23500326/">23500326</a></td>
+<td>Supports</td>
+<td>MESA: CAC progression predicts CHD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18334475/">18334475</a></td>
+<td>Supports</td>
+<td>INTERHEART: 9 factors = &gt;90% MI PAR</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37197843/">37197843</a></td>
+<td>Supports</td>
+<td>CHIP → ASCVD risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18451332/">18451332</a></td>
+<td>Supports (model)</td>
+<td>MerTK efferocytosis failure → necrosis (mouse)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41165871/">41165871</a></td>
+<td>Supports</td>
+<td>SMC-derived macrophage-like cells destabilize plaque</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42099494/">42099494</a></td>
+<td>Supports (null)</td>
+<td>ISCHEMIA: revascularization no death/MI benefit in stable CAD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41932221/">41932221</a></td>
+<td>Challenges/constrains</td>
+<td>Lp(a) mediates only 1.3–4.8% of IL-6→ASCVD (independence)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34530175/">34530175</a></td>
+<td>Constrains (model)</td>
+<td>Hypercholesterolemia dominates over PUFA effects</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Suggested Ontology Terms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Term</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease (anchor)</td>
+<td>coronary atherosclerosis</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0021661" target="_blank" rel="noopener noreferrer">MONDO:0021661</a></strong></td>
+</tr>
+<tr>
+<td>Disease (complication)</td>
+<td>myocardial infarction</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005068" target="_blank" rel="noopener noreferrer">MONDO:0005068</a></td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>vascular associated smooth muscle cell</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a></strong></td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>macrophage / foam cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>blood vessel endothelial cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" rel="noopener noreferrer">CL:0000071</a></td>
+</tr>
+<tr>
+<td>Process</td>
+<td>lipid storage (foam cell)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0019915" target="_blank" rel="noopener noreferrer">GO:0019915</a></strong></td>
+</tr>
+<tr>
+<td>Process</td>
+<td>nitric oxide biosynthetic process</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" rel="noopener noreferrer">GO:0006809</a></strong></td>
+</tr>
+<tr>
+<td>Process</td>
+<td>cholesterol efflux</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0033344" target="_blank" rel="noopener noreferrer">GO:0033344</a></td>
+</tr>
+<tr>
+<td>Process</td>
+<td>apoptotic cell clearance (efferocytosis)</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0043277" target="_blank" rel="noopener noreferrer">GO:0043277</a></td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td>coronary artery</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" rel="noopener noreferrer">UBERON:0001621</a></td>
+</tr>
+<tr>
+<td>Anatomy</td>
+<td>tunica intima</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0004638" target="_blank" rel="noopener noreferrer">UBERON:0004638</a></td>
+</tr>
+<tr>
+<td>Chemistry</td>
+<td>low-density lipoprotein particle</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_39026" target="_blank" rel="noopener noreferrer">CHEBI:39026</a></td>
+</tr>
+<tr>
+<td>Chemistry</td>
+<td>cholesterol</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a></td>
+</tr>
+<tr>
+<td>Phenotype (HPO)</td>
+<td>Coronary artery atherosclerosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" rel="noopener noreferrer">HP:0001677</a></td>
+</tr>
+<tr>
+<td>Phenotype (HPO)</td>
+<td>Myocardial infarction</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" rel="noopener noreferrer">HP:0001658</a></td>
+</tr>
+<tr>
+<td>Phenotype (HPO)</td>
+<td>Angina pectoris</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001681" target="_blank" rel="noopener noreferrer">HP:0001681</a></td>
+</tr>
+<tr>
+<td>Procedure (MAXO)</td>
+<td>Lipid-lowering agent therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000262" target="_blank" rel="noopener noreferrer">MAXO:0000262</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Vascular-bed indirectness.</strong> Much mechanistic detail (efferocytosis, SMC switching, shear-endothelial signaling) derives from <strong>mouse aorta or cultured cells</strong>, not epicardial coronary tissue. Per the scope guardrails, carotid/aortic human plaque and mouse-carotid disturbed-flow work (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/38639096/" target="_blank" rel="noopener noreferrer">PMID:38639096</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40594772/" target="_blank" rel="noopener noreferrer">PMID:40594772</a>) remain <strong>transferable atherosclerosis evidence only</strong>, not human coronary evidence.</li>
+<li><strong>Imaging surrogates ≠ cellular mechanism.</strong> IVUS/OCT/NIRS/CAC quantify composition and predict events but do not prove a specific cellular mediator; GLAGOV/PACMAN show plaque regression, not a demonstrated causal cell type.</li>
+<li><strong>Erosion biology underexplored.</strong> The ~1/3 of ACS due to erosion has fewer mechanistic and therapeutic data than rupture; targeted therapy is nascent.</li>
+<li><strong>Model fidelity.</strong> Dominant murine models lack spontaneous coronary rupture/thrombosis (F016); terminal-route mechanisms rest primarily on human in-vivo OCT and pathology.</li>
+<li><strong>CHIP and SMC-origin questions.</strong> Causality in humans for CHIP is association + mouse mechanism; the monocyte- vs SMC-derived macrophage question (F004) is unresolved.</li>
+<li><strong>Residual risk.</strong> Even with excellent LDL control, events persist (motivating Lp(a) and inflammation targeting); the full mediator set of residual risk is incompletely defined.</li>
+<li><strong>Citation caveat.</strong> One snippet (<a href="https://pubmed.ncbi.nlm.nih.gov/30482443/" target="_blank" rel="noopener noreferrer">PMID:30482443</a>) flagged a quote-validation mismatch and should be re-verified before KB ingestion.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Coronary-specific causal localization:</strong> apply spatial transcriptomics and genetic-lineage inference to <strong>human epicardial coronary plaques</strong> (not carotid/aortic surrogates) to test whether SMC-to-macrophage transitions and IRF7 activity localize to coronary rupture/erosion sites.</li>
+<li><strong>Erosion-directed intervention trial:</strong> OCT-guided randomization of antithrombotic-only vs stenting in confirmed erosion (extending EROSION-concept designs) with hard endpoints.</li>
+<li><strong>Lp(a)-lowering outcome readout:</strong> analyze OCEAN(a) (olpasiran) and Lp(a) HORIZON (pelacarsen) to test whether genetically causal Lp(a) reduction reduces coronary events, with plaque-composition endpoints.</li>
+<li><strong>Inflammation × lipid factorial trials:</strong> test IL-6-pathway inhibition (e.g., ziltivekimab) plus intensive LDL lowering to quantify additive coronary benefit, exploiting the demonstrated independence of the two arms (<a href="https://pubmed.ncbi.nlm.nih.gov/41932221/">PMID: 41932221</a>).</li>
+<li><strong>Efferocytosis restoration:</strong> test pro-efferocytic agents (MerTK-stabilizing or CD47-axis modulators) in large-animal coronary models (pig/NHP) with necrotic-core imaging endpoints.</li>
+<li><strong>CHIP-stratified anti-inflammatory therapy:</strong> prospectively test whether TET2/DNMT3A CHIP carriers derive enhanced benefit from IL-1β/IL-6 inhibition.</li>
+<li><strong>CAC/AI imaging integration:</strong> validate AI-derived CAC-scan biomarkers (chamber ratios, hepatic steatosis) for coronary + heart-failure risk in prospective trials.</li>
+</ol>
+<hr />
+<h3>Bottom line</h3>
+<p>Coronary atherosclerosis (<code>MONDO:0021661</code>) is an apoB-initiated, shear-patterned, inflammation-amplified intimal disease whose <strong>composition — not stenosis —</strong> governs acute risk through <strong>two distinct terminal routes (rupture and erosion)</strong>. The causal backbone (apoB via PCSK9/LPA genetics and LDL trials; IL-1β/IL-6 via CANTOS/colchicine) is proven in humans, while the cellular mechanism (SMC switching, efferocytosis, foam-cell biology) is robustly established in models/carotid tissue and awaits coronary-localized confirmation.</p>
+<p><em>Report scope locked to <code>MONDO:0021661</code> coronary atherosclerosis. Evidence tiers, vascular beds, and null/discordant results are stated explicitly per the issue-specific guardrails; reviews were treated as orientation and primary studies anchor each claim.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Coronary_Artery_Disease-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Coronary_Artery_Disease-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Coronary_Artery_Disease-falcon.html">← Coronary Artery Disease (Falcon)</a>
+                
+                
+                <a href="Coronary_Vasospasm-falcon.html">Coronary Vasospasm (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Coronary_Artery_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Coronary_Artery_Disease-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Coronary_Artery_Disease-cyberian-codex.html"><span class="provider-pill provider-cyberian">Cyberian Codex</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Coronary_Artery_Disease-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
