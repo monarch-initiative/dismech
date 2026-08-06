@@ -702,9 +702,12 @@ when the literature supports them.
 **Pathway activity state → `modifier`.** This lives on the `Descriptor` base class
 (`BiologicalProcessDescriptor`, `MolecularFunctionDescriptor`, …) and describes the node's
 state *regardless of cause* — which may be no host mutation at all. The worked example is
-`Adult_T_Cell_Leukemia_Lymphoma`: HTLV-1 Tax constitutively activates NF-kB by binding the
-IKK complex, so there is no variant anywhere in the pathway for
-`functional_impact_category` to describe.
+`Adult_T_Cell_Leukemia_Lymphoma`: HTLV-1 Tax drives NF-kB activation independently of any
+host variant, so there is nothing anywhere in the pathway for
+`functional_impact_category` to describe. (Note that the entry itself is careful *not* to
+claim a uniformly constitutive Tax signal across every established tumor — activity
+differs by clinical subtype. Guidance prose should not reintroduce a stronger claim than
+the node it points at makes.)
 
 ```yaml
 # Non-genetic GOF — viral oncoprotein drives the pathway
