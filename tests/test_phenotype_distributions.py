@@ -1045,6 +1045,11 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
     elsewhere = {
         # Real slots, but in the main dismech schema rather than this one.
         "prevalence",
+        # dismech's `Term` spells its slots `id`/`label`; this schema spells
+        # them `term_id`/`term_label`. The `Term` description names both to
+        # record the collision, so `label` resolves there and not here. (`id`
+        # needs no exemption — `Document` happens to have one.)
+        "label",
         # A LinkML metaslot, and an export field of an external tool.
         "see_also",
         "metadata",
