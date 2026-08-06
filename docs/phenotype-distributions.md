@@ -261,7 +261,12 @@ listed twice under the same qualifier, a `profile_weight` whose source declares
 no `weight_basis`, and a quoted evidence item that is not a verbatim substring of
 its cited reference.
 
-## The worked example
+## The worked examples
+
+**Start with `examples/phenotype_distributions/minimal_asthma_illustrative.yaml`** —
+one disease, one profile, three codes, and a comment on each decision the shape
+makes. Its numbers are invented, which is what its `ILLUSTRATIVE` tier says, so
+the renderer refuses to make it citable.
 
 `examples/phenotype_distributions/charmpheno_population_eds.yaml` is populated
 from a **real exported model** in the CHARMPheno dashboard's `population_eds`
