@@ -78,6 +78,44 @@ SOURCE_TO_PREFIX = {
 PAGE_SIZE = 100
 THROTTLE_S = 0.35
 
+OMICS_TYPE_TO_DATA_TYPE = {
+    "metabolomics": "METABOLOMICS",
+    "proteomics": "PROTEOMICS",
+}
+
+ORGANISM_PATTERNS = (
+    (
+        re.compile(r"\bvero(?: cells?)?\b", re.I),
+        "African green monkey",
+        "NCBITaxon:60711",
+        "Chlorocebus sabaeus",
+    ),
+    (
+        re.compile(r"\b(?:mus musculus|mice|mouse|murine)\b", re.I),
+        "mouse",
+        "NCBITaxon:10090",
+        "Mus musculus",
+    ),
+    (
+        re.compile(r"\b(?:rattus norvegicus|rats?|rat)\b", re.I),
+        "rat",
+        "NCBITaxon:10116",
+        "Rattus norvegicus",
+    ),
+    (
+        re.compile(r"\b(?:canis lupus familiaris|dogs?|canine)\b", re.I),
+        "dog",
+        "NCBITaxon:9615",
+        "Canis lupus familiaris",
+    ),
+    (
+        re.compile(r"\b(?:mesocricetus auratus|syrian hamsters?)\b", re.I),
+        "Syrian hamster",
+        "NCBITaxon:10036",
+        "Mesocricetus auratus",
+    ),
+)
+
 
 def clean_description(value: str, limit: int = 600) -> str:
     """Strip source markup and truncate only at a sentence or word boundary."""
@@ -91,6 +129,52 @@ def clean_description(value: str, limit: int = 600) -> str:
     if sentence_end >= limit // 3:
         return window[: sentence_end + 1]
     return window[:limit].rsplit(" ", 1)[0].rstrip(" ,;:")
+
+
+def infer_data_type(hit: dict) -> str:
+    """Map OmicsDI assay metadata, refining coarse tags from explicit study text."""
+    text = " ".join(
+        str(hit.get(field) or "") for field in ("title", "description")
+    ).lower()
+    mentions_metabolomics = bool(
+        re.search(
+            r"\b(?:metabolom|lipidom)\w*|\bmetabolic and proteom|\bsterols? and lipids?\b",
+            text,
+        )
+    )
+    mentions_proteomics = bool(re.search(r"\bproteom\w*", text))
+    if mentions_metabolomics and mentions_proteomics:
+        return "MULTI_OMICS"
+    if mentions_metabolomics:
+        return "METABOLOMICS"
+    if mentions_proteomics:
+        return "PROTEOMICS"
+
+    mapped = {
+        OMICS_TYPE_TO_DATA_TYPE[value.lower()]
+        for value in hit.get("omicsType") or []
+        if value.lower() in OMICS_TYPE_TO_DATA_TYPE
+    }
+    if len(mapped) == 1:
+        return mapped.pop()
+    if mapped == {"METABOLOMICS", "PROTEOMICS"}:
+        return "MULTI_OMICS"
+    return ""
+
+
+def infer_organism(hit: dict) -> dict | None:
+    """Return a conservative model-organism descriptor from OmicsDI metadata."""
+    organism_text = " ".join(
+        str(item.get("name") or "") for item in hit.get("organisms") or []
+    )
+    for text in (organism_text, str(hit.get("title") or "")):
+        for pattern, preferred_term, taxon_id, label in ORGANISM_PATTERNS:
+            if pattern.search(text):
+                return {
+                    "preferred_term": preferred_term,
+                    "term": {"id": taxon_id, "label": label},
+                }
+    return None
 
 
 def http_json(url: str, retries: int = 3):
@@ -128,6 +212,12 @@ def to_record(acc: str, hit: dict, matched: str, today: str) -> dict:
     desc = clean_description(hit.get("description") or "")
     if desc:
         rec["description"] = desc
+    organism = infer_organism(hit)
+    if organism:
+        rec["organism"] = organism
+    data_type = infer_data_type(hit)
+    if data_type:
+        rec["data_type"] = data_type
     rec["notes"] = (
         f"Located via OmicsDI, which aggregates across omics repositories; this record comes from "
         f"{hit.get('source')}. Only repositories with no other discovery route in this project and "
