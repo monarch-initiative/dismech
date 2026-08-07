@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/neurolint17030036"
+reference_id: DOI:10.3390/neurolint17030036
 title: Current Management of Aneurysmal Subarachnoid Hemorrhage
 authors:
 - Jay Max Findlay
@@ -7,6 +7,7 @@ journal: Neurology International
 year: '2025'
 doi: 10.3390/neurolint17030036
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current Management of Aneurysmal Subarachnoid Hemorrhage

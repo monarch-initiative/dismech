@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1186/s13023-021-01731-6"
+reference_id: DOI:10.1186/s13023-021-01731-6
 title: Clinical and molecular characterization of patients with adenylosuccinate lyase deficiency
 authors:
 - Gerarda Mastrogiorgio
@@ -18,6 +18,7 @@ journal: Orphanet Journal of Rare Diseases
 year: '2021'
 doi: 10.1186/s13023-021-01731-6
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical and molecular characterization of patients with adenylosuccinate lyase deficiency

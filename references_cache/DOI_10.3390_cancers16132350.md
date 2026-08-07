@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16132350"
+reference_id: DOI:10.3390/cancers16132350
 title: Evolving Precision First-Line Systemic Treatment for Patients with Unresectable Non-Small Cell Lung Cancer
 authors:
 - Tianhong Li
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16132350
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Evolving Precision First-Line Systemic Treatment for Patients with Unresectable Non-Small Cell Lung Cancer

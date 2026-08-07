@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/2633004020938061"
+reference_id: DOI:10.1177/2633004020938061
 title: "Congenital cataract: a guide to genetic and clinical management"
 authors:
 - Suzannah J. Bell
@@ -10,6 +10,7 @@ journal: Therapeutic Advances in Rare Disease
 year: '2020'
 doi: 10.1177/2633004020938061
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Congenital cataract: a guide to genetic and clinical management

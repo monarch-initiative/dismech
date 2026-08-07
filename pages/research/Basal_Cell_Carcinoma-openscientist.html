@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1110,7 +1272,7 @@
 </ul>
 <hr />
 <h2>12. Treatment</h2>
-<h3>Surgical Treatment (<a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> — surgical procedure)</h3>
+<h3>Surgical Treatment (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> — surgical procedure)</h3>
 <h4>Mohs Micrographic Surgery (Gold Standard for High-Risk BCC)</h4>
 <ul>
 <li><strong>5-year recurrence rate</strong>: 3.8% overall (95% CI: 2.8–5.0); 3.1% for primary BCC; 5.3% for recurrent BCC — from a Danish nationwide cohort of 2,203 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/39791512/">PMID: 39791512</a>)</li>
@@ -1121,7 +1283,7 @@
 <ul>
 <li>First-line for most "easy-to-treat" BCCs</li>
 <li>Complete excision with histologically confirmed margins</li>
-<li><strong><a href="http://purl.obolibrary.org/obo/MAXO_0000601" target="_blank" rel="noopener noreferrer">MAXO:0000601</a></strong> — wide excision</li>
+<li><strong><a href="https://bioregistry.io/MAXO:0000601" target="_blank" rel="noopener noreferrer">MAXO:0000601</a></strong> — wide excision</li>
 </ul>
 <h4>Other Destructive Techniques</h4>
 <ul>
@@ -1130,7 +1292,7 @@
 <li><strong>Laser ablation</strong>: Select superficial cases</li>
 </ul>
 <h3>Pharmacotherapy</h3>
-<h4>Hedgehog Pathway Inhibitors (<a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> — targeted therapy)</h4>
+<h4>Hedgehog Pathway Inhibitors (<a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> — targeted therapy)</h4>
 <details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
 <thead>
 <tr>
@@ -1161,12 +1323,12 @@
 <p><em>"Updated evidence confirms Hedgehog pathway inhibitors (HHIs) as the standard first-line therapy for advanced BCC, while programmed death-1 (PD-1) blockade with cemiplimab has established durable responses after HHI failure"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41703999/">PMID: 41703999</a>).</p>
 <p>Vismodegib median PFS was 15.1 months and median OS was 37.5 months in a facial laBCC cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/41053641/">PMID: 41053641</a>). Sonidegib showed superior real-world efficacy compared to pivotal trial data (ORR 89% vs. 60.6%) (<a href="https://pubmed.ncbi.nlm.nih.gov/40834113/">PMID: 40834113</a>). Sequential HHI therapy (switching from vismodegib to sonidegib) achieved ORR of 71% with CR of 43% (<a href="https://pubmed.ncbi.nlm.nih.gov/40834113/">PMID: 40834113</a>).</p>
 <p><strong>Resistance mechanisms</strong>: Mutations in SMO (drug-binding site alterations), GLI2 amplification, activation of alternative pathways (PI3K/AKT). SMO c.2081C&gt;G (p.P694R) may confer resistance to vismodegib but sensitivity to downstream inhibitor GANT61 (<a href="https://pubmed.ncbi.nlm.nih.gov/37552752/">PMID: 37552752</a>).</p>
-<h4>Immunotherapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000750" target="_blank" rel="noopener noreferrer">MAXO:0000750</a> — immunotherapy)</h4>
+<h4>Immunotherapy (<a href="https://bioregistry.io/MAXO:0000750" target="_blank" rel="noopener noreferrer">MAXO:0000750</a> — immunotherapy)</h4>
 <ul>
 <li><strong>Cemiplimab (anti-PD-1)</strong>: FDA-approved for patients with laBCC or mBCC who have progressed on or are intolerant to HHI therapy. <em>"Cemiplimab is the first immune checkpoint inhibitor (ICI) approved by the Food and Drug Administration for refractory BCC, marking a major breakthrough in BCC immunotherapy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39697716/">PMID: 39697716</a>). Response rate ~21% in mBCC, with durable disease control (<a href="https://pubmed.ncbi.nlm.nih.gov/40432222/">PMID: 40432222</a>).</li>
 <li><strong>Combination therapy</strong>: Cemiplimab + vismodegib shows promise — a case report demonstrated pathologic complete response with combination neoadjuvant therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/39949752/">PMID: 39949752</a>).</li>
 </ul>
-<h4>Topical Therapies (<a href="http://purl.obolibrary.org/obo/MAXO_0001058" target="_blank" rel="noopener noreferrer">MAXO:0001058</a> — topical medication)</h4>
+<h4>Topical Therapies (<a href="https://bioregistry.io/MAXO:0001058" target="_blank" rel="noopener noreferrer">MAXO:0001058</a> — topical medication)</h4>
 <p><em>"For the treatment of superficial BCC, complete clearance rates ranged from 90 to 93% for 5% 5-fluorouracil (5-FU) and 71 to 76% for imiquimod (IMQ)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36169917/">PMID: 36169917</a>).</p>
 <details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
 <thead>
@@ -1194,9 +1356,9 @@
 </tr>
 </tbody>
 </table></div></details>
-<h4>Photodynamic Therapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000940" target="_blank" rel="noopener noreferrer">MAXO:0000940</a>)</h4>
+<h4>Photodynamic Therapy (<a href="https://bioregistry.io/MAXO:0000940" target="_blank" rel="noopener noreferrer">MAXO:0000940</a>)</h4>
 <p>Effective for superficial BCC and thin nodular BCC. PDT combined with Mohs surgery may offer advantages for non-aggressive laBCC subtypes (<a href="https://pubmed.ncbi.nlm.nih.gov/40449860/">PMID: 40449860</a>).</p>
-<h4>Radiation Therapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> — radiation therapy)</h4>
+<h4>Radiation Therapy (<a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> — radiation therapy)</h4>
 <ul>
 <li><strong>Superficial radiation therapy (SRT)</strong>: IGSRT showed 2-year freedom from recurrence of 99.23% across all NMSC types; BCC recurrence 1.1% (<a href="https://pubmed.ncbi.nlm.nih.gov/39777366/">PMID: 39777366</a>)</li>
 <li><strong>Surface mold brachytherapy</strong>: Effective alternative for inoperable patients (<a href="https://pubmed.ncbi.nlm.nih.gov/39719956/">PMID: 39719956</a>)</li>
@@ -1230,7 +1392,7 @@
 <li><strong>Topical DNA repair enzymes</strong>: Photolyase-containing sunscreens reduced BCC incidence by 56% in XP patients (<a href="https://pubmed.ncbi.nlm.nih.gov/25408650/">PMID: 25408650</a>)</li>
 <li><strong>Public health education</strong>: Skin Cancer Awareness Month (May) shows seasonal increases in search interest; targeted campaigns needed for communities of color (<a href="https://pubmed.ncbi.nlm.nih.gov/38643380/">PMID: 38643380</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24485530/">PMID: 24485530</a>)</li>
 </ul>
-<p><strong><a href="http://purl.obolibrary.org/obo/MAXO_0000150" target="_blank" rel="noopener noreferrer">MAXO:0000150</a></strong> — sun protective behavior counseling</p>
+<p><strong><a href="https://bioregistry.io/MAXO:0000150" target="_blank" rel="noopener noreferrer">MAXO:0000150</a></strong> — sun protective behavior counseling</p>
 <h3>Secondary Prevention</h3>
 <ul>
 <li><strong>Full-body skin examination</strong>: Regular dermatological screening for high-risk individuals</li>
@@ -1671,27 +1833,27 @@ PROGRESSION
 <tr>
 <td><strong>Treatment</strong></td>
 <td>Surgical procedure</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a></td>
 </tr>
 <tr>
 <td><strong>Treatment</strong></td>
 <td>Targeted therapy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a></td>
+<td><a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a></td>
 </tr>
 <tr>
 <td><strong>Treatment</strong></td>
 <td>Immunotherapy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000750" target="_blank" rel="noopener noreferrer">MAXO:0000750</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000750" target="_blank" rel="noopener noreferrer">MAXO:0000750</a></td>
 </tr>
 <tr>
 <td><strong>Treatment</strong></td>
 <td>Radiation therapy</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a></td>
 </tr>
 <tr>
 <td><strong>Treatment</strong></td>
 <td>Sun protective counseling</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000150" target="_blank" rel="noopener noreferrer">MAXO:0000150</a></td>
+<td><a href="https://bioregistry.io/MAXO:0000150" target="_blank" rel="noopener noreferrer">MAXO:0000150</a></td>
 </tr>
 </tbody>
 </table></div></details>

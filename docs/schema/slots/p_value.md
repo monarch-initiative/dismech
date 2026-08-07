@@ -22,8 +22,8 @@ Alias: p_value
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [AssociationMetric](../classes/AssociationMetric.md) | Quantitative association metric and its uncertainty |  no  |
 | [GOEnrichmentTerm](../classes/GOEnrichmentTerm.md) | GO term enrichment result with statistical metrics |  no  |
+| [AssociationMetric](../classes/AssociationMetric.md) | Quantitative association metric and its uncertainty |  no  |
 
 
 

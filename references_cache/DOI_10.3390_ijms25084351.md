@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25084351"
+reference_id: DOI:10.3390/ijms25084351
 title: "Molecular Pathways of Vulnerable Carotid Plaques at Risk of Ischemic Stroke: A Narrative Review"
 authors:
 - Giuseppe Miceli
@@ -15,6 +15,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25084351
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Pathways of Vulnerable Carotid Plaques at Risk of Ischemic Stroke: A Narrative Review

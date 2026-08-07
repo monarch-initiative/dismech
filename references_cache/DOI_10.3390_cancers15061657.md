@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15061657"
+reference_id: DOI:10.3390/cancers15061657
 title: Unique Characteristics of Patients with Von Hippel–Lindau Disease Defined by Various Diagnostic Criteria
 authors:
 - Reut Halperin
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15061657
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unique Characteristics of Patients with Von Hippel–Lindau Disease Defined by Various Diagnostic Criteria
