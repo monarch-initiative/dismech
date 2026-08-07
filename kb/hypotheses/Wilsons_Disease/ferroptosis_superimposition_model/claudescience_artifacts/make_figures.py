@@ -5,9 +5,10 @@ Run:  python make_figures.py
 """
 
 import json
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 plt.rcParams.update({"font.size": 8, "axes.titlesize": 8, "figure.dpi": 300})
@@ -157,7 +158,7 @@ ax.annotate(
     fontsize=6.4,
     color="#7a3b8f",
     fontweight="bold",
-    arrowprops=dict(arrowstyle="->", color="#7a3b8f", lw=1.1),
+    arrowprops={"arrowstyle": "->", "color": "#7a3b8f", "lw": 1.1},
 )
 for lab, x, c in [
     ("Copper axis\n(WD primary lesion)", 0.06, "#c56c00"),
@@ -406,7 +407,7 @@ ax.annotate(
     color="#7a3b8f",
     fontweight="bold",
     ha="center",
-    arrowprops=dict(arrowstyle="->", color="#7a3b8f", lw=1),
+    arrowprops={"arrowstyle": "->", "color": "#7a3b8f", "lw": 1},
 )
 ax.annotate(
     "Bridge 2 \u2014 Fe-S / redox:\nCu-driven loss of Fe-S (FDX1,LIAS,ISCU,FXN)\nconverges with GSH depletion on GPX4",
@@ -416,7 +417,7 @@ ax.annotate(
     color="#2a9d5c",
     fontweight="bold",
     ha="center",
-    arrowprops=dict(arrowstyle="->", color="#2a9d5c", lw=1),
+    arrowprops={"arrowstyle": "->", "color": "#2a9d5c", "lw": 1},
 )
 h = [
     Line2D(

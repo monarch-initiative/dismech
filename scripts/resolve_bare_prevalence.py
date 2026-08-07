@@ -35,8 +35,9 @@ import argparse
 import re
 from pathlib import Path
 
-import yaml as _pyyaml
 import migrate_prevalence as M  # reuse parse/classify/upsert machinery
+
+from dismech.yaml_io import safe_load
 
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
@@ -91,7 +92,7 @@ NONPREV_RE = re.compile(
     r"lymphoma\s+diagnoses|lymphoid\s+neoplasms|ovarian\s+cancers|"
     r"acute\s+coronary\s+syndrome|domestic\s+origin|"
     r"5-?year\s+survival|overall\s+survival)\b",
-    re.I,
+    re.IGNORECASE,
 )
 
 
@@ -108,12 +109,12 @@ def evidence_rates(text):
         out.append(float(m.group(1)) * 1000)
     for m in re.finditer(
         r"([\d.]+)\s*(?:cases?|persons?|people|patients?|individuals?|births?)?\s*per\s*([\d ,]+|million|thousand)",
-        s, re.I,
+        s, re.IGNORECASE,
     ):
         den = M.DENOM_WORDS.get(m.group(2).lower()) or M._to_float(m.group(2))
         if den:
             out.append(float(m.group(1)) / den * 1e5)
-    for m in re.finditer(r"(?:1|one)\s*(?:in|:)\s*([\d ,]+)", s, re.I):
+    for m in re.finditer(r"(?:1|one)\s*(?:in|:)\s*([\d ,]+)", s, re.IGNORECASE):
         d = M._to_float(m.group(1))
         if d:
             out.append(1e5 / d)
@@ -162,7 +163,7 @@ def main():
         with open(path, "r", encoding="utf-8", newline="") as _fh:
             text = _fh.read()  # preserve CRLF/LF; never normalize
         try:
-            data = _pyyaml.safe_load(text)
+            data = safe_load(text)
         except Exception:
             continue
         if not isinstance(data, dict):

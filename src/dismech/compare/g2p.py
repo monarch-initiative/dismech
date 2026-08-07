@@ -151,7 +151,7 @@ def _g2p_name_forms(disease_name: str, gene_symbol: str) -> tuple[set[str], set[
 
 
 def _is_url(source: str) -> bool:
-    return source.startswith("http://") or source.startswith("https://")
+    return source.startswith(("http://", "https://"))
 
 
 def _read_bytes(source: str) -> bytes:

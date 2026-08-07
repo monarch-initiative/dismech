@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.02112"
+reference_id: DOI:10.1200/jco.23.02112
 title: "US Food and Drug Administration Approval Summary: Elacestrant for Estrogen Receptor–Positive, Human Epidermal Growth Factor Receptor 2–Negative, <i>ESR1</i>-Mutated Advanced or Metastatic Breast Cancer"
 authors:
 - Mirat Shah
@@ -34,6 +34,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.02112
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # US Food and Drug Administration Approval Summary: Elacestrant for Estrogen Receptor–Positive, Human Epidermal Growth Factor Receptor 2–Negative, <i>ESR1</i>-Mutated Advanced or Metastatic Breast Cancer

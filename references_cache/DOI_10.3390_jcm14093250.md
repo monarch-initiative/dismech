@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14093250"
+reference_id: DOI:10.3390/jcm14093250
 title: "Atrial Cardiomyopathy in Atrial Fibrillation: Mechanistic Pathways and Emerging Treatment Concepts"
 authors:
 - Paschalis Karakasis
@@ -13,6 +13,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14093250
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Atrial Cardiomyopathy in Atrial Fibrillation: Mechanistic Pathways and Emerging Treatment Concepts

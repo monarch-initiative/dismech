@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/brainsci12121641"
+reference_id: DOI:10.3390/brainsci12121641
 title: "Encephalocraniocutaneous Lipomatosis, a Radiological Challenge: Two Atypical Case Reports and Literature Review"
 authors:
 - Magdalena Machnikowska-Sokołowska
@@ -13,6 +13,7 @@ journal: Brain Sciences
 year: '2022'
 doi: 10.3390/brainsci12121641
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Encephalocraniocutaneous Lipomatosis, a Radiological Challenge: Two Atypical Case Reports and Literature Review

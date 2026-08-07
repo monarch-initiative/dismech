@@ -31,9 +31,10 @@ import glob
 import os
 from dataclasses import dataclass, field
 
-import yaml
 from oaklib import get_adapter
 from oaklib.datamodels.vocabulary import IS_A
+
+from dismech.yaml_io import safe_load
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GROUPINGS_DIR = os.path.join(ROOT, "kb", "groupings")
@@ -45,9 +46,8 @@ def _mondo_ids(obj):
     """Yield every MONDO id appearing as term.id anywhere under obj."""
     if isinstance(obj, dict):
         term = obj.get("term")
-        if isinstance(term, dict) and isinstance(term.get("id"), str):
-            if term["id"].startswith("MONDO:"):
-                yield term["id"]
+        if isinstance(term, dict) and isinstance(term.get("id"), str) and term["id"].startswith("MONDO:"):
+            yield term["id"]
         for v in obj.values():
             yield from _mondo_ids(v)
     elif isinstance(obj, list):
@@ -62,7 +62,7 @@ def grouping_mondo_terms(
     out = []
     for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
         with open(path) as fh:
-            data = yaml.safe_load(fh)
+            data = safe_load(fh)
         if not isinstance(data, dict):
             continue
         mappings = (data.get("mappings") or {}).get("mondo_mappings") or []
@@ -89,7 +89,7 @@ def disorder_mondo_index() -> dict[str, list[str]]:
         if path.endswith(".history"):
             continue
         with open(path) as fh:
-            data = yaml.safe_load(fh)
+            data = safe_load(fh)
         if not isinstance(data, dict):
             continue
         name = data.get("name", os.path.basename(path))
@@ -276,7 +276,7 @@ def audit_consistency(only: str | None = None) -> str:
     prim: dict[str, str] = {}
     for path in sorted(glob.glob(os.path.join(DISORDERS_DIR, "*.yaml"))):
         with open(path) as fh:
-            data = yaml.safe_load(fh)
+            data = safe_load(fh)
         if isinstance(data, dict):
             ids = list(_mondo_ids(data.get("disease_term")))
             if ids:
@@ -284,7 +284,7 @@ def audit_consistency(only: str | None = None) -> str:
     lines: list[str] = []
     for path in sorted(glob.glob(os.path.join(GROUPINGS_DIR, "*.yaml"))):
         with open(path) as fh:
-            g = yaml.safe_load(fh)
+            g = safe_load(fh)
         if not isinstance(g, dict):
             continue
         if only and only.lower() not in (g.get("name", "")).lower():

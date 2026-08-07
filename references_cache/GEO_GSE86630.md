@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE86630"
+reference_id: GEO:GSE86630
 title: Antibody profile in patients with mild and severe leptospirosis
 content_type: summary
+full_text_attempted: true
 ---
 
 # Antibody profile in patients with mild and severe leptospirosis

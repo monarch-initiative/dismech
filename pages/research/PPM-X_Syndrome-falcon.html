@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPM-X Syndrome · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PPM-X Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PPM-X Syndrome</h1>
+                
+                <p class="report-subtitle">PPM-X Syndrome: Disease-Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-01</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010235" target="_blank" rel="noopener noreferrer">MONDO:0010235</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>PPM-X Syndrome: Disease-Characteristics Research Report</h1>
+<h2>Executive summary and evidence boundary</h2>
+<p>PPM-X syndrome is an ultra-rare, X-linked, <strong>MECP2-related neurodevelopmental disorder</strong> formally represented as <strong>X-linked intellectual disability–psychosis–macroorchidism syndrome (<a href="http://purl.obolibrary.org/obo/MONDO_0010235" target="_blank" rel="noopener noreferrer">MONDO:0010235</a>)</strong>. The acronym reflects the historically defining combination of <strong>pyramidal signs, psychosis, and macroorchidism</strong>, although intellectual disability, bipolar/manic-depressive illness, and sometimes parkinsonian features are also prominent. Curated disease–target evidence identifies <strong>MECP2</strong> as the causal gene and links the entity to the foundational reports PMID <strong>11309367</strong>, <strong>11951158</strong>, and <strong>16966553</strong>. (OpenTargets Search: PPM-X syndrome)</p>
+<p>The principal molecular lesion in classic PPM-X pedigrees is the recurrent germline missense variant <strong>MECP2 p.Ala140Val (A140V)</strong>. Evidence is nevertheless based on only a few families and case reports; there are no modern population cohorts, validated clinical criteria, disease-specific biomarkers, or PPM-X interventional trials. Accordingly, this report distinguishes:</p>
+<ol>
+<li><strong>Direct PPM-X evidence:</strong> human pedigrees carrying p.Ala140Val and the A140V mouse model.</li>
+<li><strong>MECP2-spectrum evidence:</strong> biologically informative but not automatically PPM-X-specific.</li>
+<li><strong>Rett-syndrome evidence:</strong> not interchangeable with PPM-X and especially unsuitable for estimating PPM-X frequencies or treatment effects.</li>
+</ol>
+<p>The following table provides the principal knowledge-base annotations.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>domain</th>
+<th>syndrome-specific finding</th>
+<th>ontology/identifier suggestion</th>
+<th>evidence strength or caveat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identity</td>
+<td>PPM-X syndrome corresponds to <strong>X-linked intellectual disability-psychosis-macroorchidism syndrome</strong></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0010235" target="_blank" rel="noopener noreferrer">MONDO:0010235</a></strong>; disease label: X-linked intellectual disability–psychosis–macroorchidism syndrome</td>
+<td>Strong disease-entity resolution from Open Targets disease mapping; rare-disease nomenclature remains variable across MECP2 literature (OpenTargets Search: PPM-X syndrome)</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>Disease is an <strong>MECP2-related disorder</strong></td>
+<td><strong>MECP2</strong>; Ensembl <strong>ENSG00000169057</strong></td>
+<td>Strong gene–disease association in curated target–disease resources and historical literature linkage (OpenTargets Search: PPM-X syndrome)</td>
+</tr>
+<tr>
+<td>Key pathogenic variant</td>
+<td>Classic PPM-X is centered on recurrent <strong>MECP2 p.Ala140Val (A140V)</strong> missense variation</td>
+<td>HGVS protein: <strong>p.Ala140Val</strong></td>
+<td>Strong historical syndrome association, but ultra-small number of pedigrees; variant-specific evidence is much narrower than for common RTT variants (OpenTargets Search: PPM-X syndrome, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Etiology / variant class</td>
+<td>Germline <strong>missense</strong> variant affecting MeCP2 function</td>
+<td>Sequence Ontology suggestion: <strong>missense_variant</strong></td>
+<td>Syndrome-specific primary reports exist, but most mechanistic detail comes from broader MeCP2 functional literature rather than direct PPM-X experiments (OpenTargets Search: PPM-X syndrome, <a href="#ref-lyst2013rettsyndromemutations-pages-1-5">lyst2013rettsyndromemutations pages 1-5</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td><strong>X-linked</strong> inheritance with marked sex effects; males predominantly affected, females may be asymptomatic or milder depending in part on X-inactivation</td>
+<td>HPO inheritance term suggestion: <strong>X-linked inheritance</strong></td>
+<td>Strong from syndrome name and broader MECP2 male/female literature; exact penetrance for PPM-X specifically is not well quantified (<a href="#ref-brand2021theimpactof-pages-9-10">brand2021theimpactof pages 9-10</a>, <a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype: neurodevelopment</td>
+<td><strong>Intellectual disability / developmental impairment</strong> is a core syndrome component</td>
+<td>HPO suggestion: <strong>Intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>)</strong></td>
+<td>Strong syndrome-defining feature; exact severity distribution for PPM-X is not robustly quantified in modern cohorts (OpenTargets Search: PPM-X syndrome, <a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype: psychiatric</td>
+<td><strong>Psychosis and/or bipolar/manic-depressive illness</strong> are hallmark PPM-X features distinguishing it from many other MECP2 disorders</td>
+<td>HPO suggestions: <strong>Psychosis (<a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" rel="noopener noreferrer">HP:0000709</a>)</strong>; <strong>Bipolar affective disorder</strong></td>
+<td>Strong syndrome-specific historical description, but based on very few reported families/patients (OpenTargets Search: PPM-X syndrome, <a href="#ref-brand2021theimpactof-pages-9-10">brand2021theimpactof pages 9-10</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype: corticospinal</td>
+<td><strong>Pyramidal signs / spasticity</strong> reported in affected males</td>
+<td>HPO suggestions: <strong>Spasticity (<a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" rel="noopener noreferrer">HP:0001257</a>)</strong>; <strong>Pyramidal signs</strong></td>
+<td>Moderate evidence; described as part of syndrome phenotype and later family expansion, but prevalence not well established (OpenTargets Search: PPM-X syndrome, <a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype: extrapyramidal</td>
+<td><strong>Parkinsonism</strong> can occur in the PPM-X/MECP2 male spectrum</td>
+<td>HPO suggestion: <strong>Parkinsonism (<a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" rel="noopener noreferrer">HP:0001300</a>)</strong></td>
+<td>Moderate evidence; likely represents part of the broader male MECP2 phenotypic spectrum rather than universal PPM-X finding (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype: endocrine/reproductive</td>
+<td><strong>Macroorchidism</strong> is part of the defining triad/name</td>
+<td>HPO suggestion: <strong>Macroorchidism (<a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" rel="noopener noreferrer">HP:0000053</a>)</strong></td>
+<td>Strong as syndrome-defining terminology, but frequency and age-dependence in all carriers are not well quantified (OpenTargets Search: PPM-X syndrome, <a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Additional neurologic/behavioral features</td>
+<td>Speech delay, social withdrawal, anxiety, learning disability, cognitive slowing, microcephaly, rigidity and other variable male MECP2 features may occur across the spectrum</td>
+<td>HPO suggestions: <strong>Delayed speech and language development</strong>, <strong>Anxiety</strong>, <strong>Microcephaly</strong>, <strong>Rigidity</strong></td>
+<td>Mostly extrapolated from broader male MECP2 case literature; not all are validated as canonical PPM-X features (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Molecular mechanism</td>
+<td>Current understanding places MeCP2 in <strong>methylated-DNA binding and transcriptional regulation</strong>, especially via interaction with the <strong>NCoR/SMRT corepressor complex</strong>; MeCP2 dosage sensitivity is central</td>
+<td>GO suggestions: <strong>DNA-binding transcriptional regulation</strong>; <strong>chromatin organization</strong></td>
+<td>Mechanistically strong for MECP2 biology overall, but not directly proven as the complete causal chain for PPM-X p.A140V specifically; use as informed extrapolation (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-lyst2013rettsyndromemutations-pages-1-5">lyst2013rettsyndromemutations pages 1-5</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Cell type / tissue emphasis</td>
+<td>Disease biology is expected to be primarily <strong>neuronal/CNS</strong>, with highest MeCP2 abundance in neurons</td>
+<td>CL suggestion: <strong>neuron</strong>; UBERON suggestion: <strong>brain</strong></td>
+<td>Strong for MECP2 disorders generally; PPM-X-specific tissue studies are lacking (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Diagnosis is best established by <strong>molecular testing of MECP2</strong> in males/families with X-linked intellectual disability plus psychiatric and neurologic features; exome/genome sequencing can help detect atypical MECP2 presentations</td>
+<td>Gene testing target: <strong>MECP2</strong>; <a href="http://purl.obolibrary.org/obo/MONDO_0010235" target="_blank" rel="noopener noreferrer">MONDO:0010235</a></td>
+<td>Strong conceptual support; no dedicated PPM-X diagnostic guideline located. Modern sequencing is favored because male MECP2 disorders can be overlooked or mistaken for other neuropsychiatric disease (<a href="#ref-garrison2024raregeneticdiseases-pages-10-13">garrison2024raregeneticdiseases pages 10-13</a>, <a href="#ref-garrison2024raregeneticdiseases-pages-13-16">garrison2024raregeneticdiseases pages 13-16</a>, <a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>)</td>
+</tr>
+<tr>
+<td>Differential diagnosis / classification caveat</td>
+<td>PPM-X should be distinguished from <strong>classic Rett syndrome</strong>, <strong>MECP2 duplication syndrome</strong>, and other male MECP2-related neurodevelopmental disorders</td>
+<td>Related entities: RTT, MECP2 duplication syndrome</td>
+<td>Important caveat: broader MECP2 spectrum is heterogeneous, and features in males can differ substantially from classic RTT in females (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Treatment status</td>
+<td><strong>No PPM-X-specific disease-modifying therapy</strong> was identified; management appears <strong>supportive and symptom-directed</strong> (psychiatric, neurologic, developmental, rehabilitative, endocrine surveillance as indicated)</td>
+<td>NCIT suggestions: supportive care / psychiatric management / rehabilitation</td>
+<td>Evidence gap: no syndrome-specific interventional trials found. Care recommendations are inferred from rare-disease neuropsychiatric management rather than validated PPM-X protocols (<a href="#ref-garrison2024raregeneticdiseases-pages-10-13">garrison2024raregeneticdiseases pages 10-13</a>, <a href="#ref-garrison2024raregeneticdiseases-pages-13-16">garrison2024raregeneticdiseases pages 13-16</a>)</td>
+</tr>
+<tr>
+<td>MECP2/Rett therapeutics relevance</td>
+<td>Gene therapy and pathway-based Rett treatments exist in development for MECP2 disorders, but <strong>should not be considered validated for PPM-X</strong></td>
+<td>Caveat annotation: <strong>extrapolated MECP2 evidence</strong></td>
+<td>Critical distinction: Rett/MECP2-wide therapeutic data are not syndrome-specific and may not translate directly to p.A140V PPM-X because dosage and phenotype differ (<a href="#ref-collins2022rettsyndromeand-pages-13-14">collins2022rettsyndromeand pages 13-14</a>, <a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>PPM-X is <strong>ultra-rare</strong>; no reliable prevalence or incidence estimate was identified</td>
+<td>Epidemiology field: <strong>unknown / not established</strong></td>
+<td>Strong evidence of rarity, but no modern registry-based estimate; published knowledge is based mainly on a few families and case reports (<a href="#ref-garrison2024raregeneticdiseases-pages-10-13">garrison2024raregeneticdiseases pages 10-13</a>, <a href="#ref-garrison2024raregeneticdiseases-pages-13-16">garrison2024raregeneticdiseases pages 13-16</a>)</td>
+</tr>
+<tr>
+<td>Natural history</td>
+<td>Course appears <strong>chronic lifelong</strong> with childhood neurodevelopmental issues and later-emerging psychiatric/neurologic manifestations in some males</td>
+<td>HPO onset suggestions: childhood onset; progressive/variable course</td>
+<td>Moderate evidence; natural history data are sparse and mostly pedigree-based, without standardized longitudinal cohorts (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Model organism</td>
+<td>A syndrome-relevant <strong>Mecp2 A140V mouse model</strong> has been reported, including electrophysiological abnormalities</td>
+<td>Model: <strong>Mecp2 A140V mutant mouse</strong></td>
+<td>Useful for mechanism, but still a model-system approximation of human PPM-X; does not capture the full human psychiatric phenotype (OpenTargets Search: PPM-X syndrome)</td>
+</tr>
+<tr>
+<td>Knowledge-base evidence boundary</td>
+<td>For curation, separate <strong>direct PPM-X evidence</strong> (few pedigrees, A140V-linked syndrome, male phenotype) from <strong>broader MECP2/Rett evidence</strong> (mechanisms, biomarkers, therapies)</td>
+<td>Annotation suggestion: <strong>direct human evidence</strong> vs <strong>extrapolated MECP2 evidence</strong></td>
+<td>Essential caveat for accurate knowledge-base use: the latter is biologically informative but not disease-specific validation for PPM-X (OpenTargets Search: PPM-X syndrome, <a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses the most actionable knowledge-base facts for PPM-X syndrome, including identity, gene, variant, core phenotype domains, and evidence caveats. It is especially useful for distinguishing direct syndrome-specific evidence from broader MECP2/Rett extrapolations.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition</h3>
+<p>PPM-X is an allelic MECP2 disorder chiefly affecting hemizygous males. Its phenotype combines developmental/cognitive impairment with later neuropsychiatric and motor-system abnormalities. It is distinct from classic Rett syndrome, severe neonatal MECP2 encephalopathy, and MECP2 duplication syndrome, although all belong to the broader MECP2-associated spectrum. Contemporary literature explicitly separates male MECP2 presentations into severe neonatal encephalopathy, PPM-X, other syndromic/nonsyndromic intellectual disability, and MECP2 duplication syndrome. (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010235" target="_blank" rel="noopener noreferrer">MONDO:0010235</a>.</li>
+<li><strong>Preferred name:</strong> X-linked intellectual disability–psychosis–macroorchidism syndrome.</li>
+<li><strong>Synonyms:</strong> PPM-X syndrome; PPMX; X-linked intellectual disability with psychosis and macroorchidism; historically, X-linked mental retardation with psychosis, pyramidal signs/parkinsonism, and macroorchidism.</li>
+<li><strong>Gene:</strong> MECP2, Ensembl ENSG00000169057; methyl-CpG binding protein 2. (OpenTargets Search: PPM-X syndrome)</li>
+<li><strong>OMIM:</strong> commonly cross-referenced within the MECP2 allelic-disorder record <strong>MIM 300055</strong>; database implementations may not assign PPM-X a wholly independent phenotype record.</li>
+<li><strong>Orphanet, MeSH, ICD-10/ICD-11:</strong> no clearly validated, syndrome-specific identifier or billing code was established from the retrieved evidence. Cases will generally be coded under intellectual-developmental disorder, genetic syndrome, psychosis/bipolar disorder, or neurologic manifestations.</li>
+</ul>
+<p>The evidence is <strong>aggregated disease-level literature and family reports</strong>, not an EHR-derived patient dataset. Recent health-economic analyses of rare neuropsychiatric diseases are not PPM-X-specific and must not be interpreted as syndrome epidemiology. (<a href="#ref-garrison2024raregeneticdiseases-pages-10-13">garrison2024raregeneticdiseases pages 10-13</a>, <a href="#ref-garrison2024raregeneticdiseases-pages-13-16">garrison2024raregeneticdiseases pages 13-16</a>)</p>
+<p><strong>Key primary publications</strong></p>
+<ul>
+<li>Original syndrome report: PMID <strong>11309367</strong>; PubMed: <a href="https://pubmed.ncbi.nlm.nih.gov/11309367/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/11309367/</a></li>
+<li>MECP2 A140V/PPM-X report: Klauck et al., <em>American Journal of Human Genetics</em>, April 2002, DOI <a href="https://doi.org/10.1086/339553" target="_blank" rel="noopener noreferrer">https://doi.org/10.1086/339553</a>; PMID <strong>11951158</strong>.</li>
+<li>Familial male MECP2 report/phenotypic expansion: PMID <strong>16966553</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/16966553/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/16966553/</a></li>
+</ul>
+<h2>2. Etiology</h2>
+<h3>Causal factor</h3>
+<p>PPM-X is genetic, caused principally by a <strong>germline hemizygous MECP2 missense variant, p.Ala140Val</strong>, in affected males. MECP2 is X-linked; thus one altered maternal X chromosome is sufficient to expose the allele in a son. The evidence supports an allelic MECP2 disorder rather than an infectious, toxic, nutritional, or acquired disease. (OpenTargets Search: PPM-X syndrome)</p>
+<h3>Genetic risk factors</h3>
+<ul>
+<li>A maternally inherited pathogenic/likely pathogenic MECP2 allele is the major risk factor.</li>
+<li>A family history of X-linked intellectual disability, psychosis/bipolar illness, spasticity, parkinsonism, or macroorchidism increases suspicion.</li>
+<li>Female heterozygotes may be unaffected or mildly affected because of cellular mosaicism from X-chromosome inactivation (XCI). Blood XCI does not reliably predict cerebral XCI or phenotype. (<a href="#ref-brand2021theimpactof-pages-9-10">brand2021theimpactof pages 9-10</a>)</li>
+<li>Somatic mosaicism and 47,XXY can mitigate otherwise severe MECP2 phenotypes in males, but these mechanisms are more relevant to Rett-like male disease than to classic inherited A140V PPM-X. (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</li>
+</ul>
+<h3>Protective factors and modifiers</h3>
+<p>No validated PPM-X-specific protective allele, diet, exposure, medication, or lifestyle factor is known. Skewed XCI favoring the normal allele can be protective in heterozygous females, but it is a biological modifier rather than an actionable prevention strategy, and peripheral-blood XCI is an unreliable phenotype predictor. (<a href="#ref-brand2021theimpactof-pages-9-10">brand2021theimpactof pages 9-10</a>)</p>
+<p>For MECP2 disorders generally, XCI, age, BDNF polymorphisms, background genetics, and treatment can alter severity; only XCI is immediately plausible in PPM-X carrier females, and none has been quantified in PPM-X cohorts. (<a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<h3>Environment and gene–environment interaction</h3>
+<p>No reproducible environmental cause or PPM-X-specific gene–environment interaction has been demonstrated. General psychosocial stressors, medications, sleep disruption, and medical illness may affect psychiatric or motor manifestations, but they do not cause the inherited syndrome. Claims about endocrine chemicals, valproate, or other modifiers of NCoR/HDAC biology remain general mechanistic hypotheses rather than PPM-X evidence.</p>
+<h2>3. Phenotypes</h2>
+<p>Published frequencies are unavailable; terms such as “core,” “reported,” and “variable” are more defensible than percentages.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type and course</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability/developmental impairment</td>
+<td>Core; begins in childhood; severity variable</td>
+<td>Intellectual disability, <strong><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></strong>; Global developmental delay, <strong><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></strong></td>
+</tr>
+<tr>
+<td>Speech/language delay</td>
+<td>Developmental symptom; childhood onset</td>
+<td>Delayed speech and language development, <strong><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></strong></td>
+</tr>
+<tr>
+<td>Psychosis</td>
+<td>Defining psychiatric manifestation, often recognized later than developmental impairment</td>
+<td>Psychosis, <strong><a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" rel="noopener noreferrer">HP:0000709</a></strong></td>
+</tr>
+<tr>
+<td>Bipolar/manic-depressive illness</td>
+<td>Hallmark behavioral/psychiatric feature in original pedigrees</td>
+<td>Bipolar affective disorder, <strong><a href="http://purl.obolibrary.org/obo/HP_0007302" target="_blank" rel="noopener noreferrer">HP:0007302</a></strong></td>
+</tr>
+<tr>
+<td>Pyramidal signs/spasticity</td>
+<td>Neurologic sign; may be progressive</td>
+<td>Spasticity, <strong><a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" rel="noopener noreferrer">HP:0001257</a></strong>; Hyperreflexia, <strong><a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" rel="noopener noreferrer">HP:0001347</a></strong></td>
+</tr>
+<tr>
+<td>Parkinsonism/rigidity</td>
+<td>Reported later neurologic manifestation; not necessarily universal</td>
+<td>Parkinsonism, <strong><a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" rel="noopener noreferrer">HP:0001300</a></strong>; Rigidity, <strong><a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" rel="noopener noreferrer">HP:0002063</a></strong></td>
+</tr>
+<tr>
+<td>Macroorchidism</td>
+<td>Defining physical sign, generally apparent after pubertal development</td>
+<td>Macroorchidism, <strong><a href="http://purl.obolibrary.org/obo/HP_0000053" target="_blank" rel="noopener noreferrer">HP:0000053</a></strong></td>
+</tr>
+<tr>
+<td>Learning disability</td>
+<td>Variable childhood manifestation</td>
+<td>Specific learning disability, <strong><a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" rel="noopener noreferrer">HP:0001328</a></strong></td>
+</tr>
+<tr>
+<td>Anxiety/social withdrawal</td>
+<td>Variable behavioral manifestations across milder male MECP2 disease</td>
+<td>Anxiety, <strong><a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a></strong>; Social withdrawal, <strong><a href="http://purl.obolibrary.org/obo/HP_0005407" target="_blank" rel="noopener noreferrer">HP:0005407</a></strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>A recent male MECP2 case—not established as classic A140V PPM-X—illustrates why spectrum evidence must be separated: speech delay and learning disabilities preceded social withdrawal at about age 10, anxiety/depression by 17, and severe anxiety, apathy, avolition, alogia, and cognitive slowing by 34. Macroorchidism was not present in that individual. (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</p>
+<h3>Quality-of-life effects</h3>
+<p>No PPM-X-specific EQ-5D, SF-36, PROMIS, caregiver-burden, or functional-outcome study was found. Intellectual disability affects education and independent functioning; psychosis or bipolar illness can impair relationships, safety, and community participation; spasticity and parkinsonism can reduce mobility and self-care. These impacts are clinically plausible but have not been quantified for PPM-X.</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Gene and variant</h3>
+<ul>
+<li><strong>Gene:</strong> MECP2; Xq28; HGNC symbol MECP2.</li>
+<li><strong>Protein:</strong> methyl-CpG-binding protein 2.</li>
+<li><strong>Canonical PPM-X lesion:</strong> germline missense <strong>p.Ala140Val/A140V</strong>; transcript-specific cDNA notation should be reported against the laboratory transcript, preferably both current MECP2E1 and MECP2E2 references when relevant.</li>
+<li><strong>Origin:</strong> inherited germline in classic pedigrees; not a tumor-associated somatic alteration.</li>
+<li><strong>Population frequency:</strong> no reliable frequency was established in the retrieved sources. A Brazilian screen concluded that A140V was not a common explanation for intellectual disability in males, supporting rarity rather than supplying a carrier-frequency estimate.</li>
+</ul>
+<p>Variant classification should be taken from the current ClinVar submission and laboratory interpretation at the time of testing. Historical segregation and recurrence strongly support pathogenicity for the PPM-X phenotype, but ACMG/AMP classification must include transcript, segregation, population frequency, functional evidence, and phenotype specificity rather than relying on the syndrome name alone.</p>
+<h3>Protein and epigenetic biology</h3>
+<p>MeCP2 is a dosage-sensitive, predominantly neuronal nuclear protein. It binds methyl-CG and neuronal methyl-CAC sites and helps tether methylated DNA to the NCoR/SMRT transcriptional corepressor machinery through functional domains including the methyl-CpG-binding domain and NCoR-interaction region. It also influences chromatin organization, transcriptional activation/repression, splicing, and microRNA processing. (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<p>The retrieved evidence does <strong>not</strong> establish that A140V abolishes NCoR/SMRT binding. That mechanism is well demonstrated for selected Rett-causing variants and should not be assigned to A140V without variant-specific data. More generally, pathogenic MECP2 missense variants cluster in DNA-binding and NCoR-interaction domains, supporting defective chromatin-linked transcriptional regulation as a unifying mechanism. (<a href="#ref-lyst2013rettsyndromemutations-pages-1-5">lyst2013rettsyndromemutations pages 1-5</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<h3>Modifier genes, structural abnormalities, and epigenetics</h3>
+<p>No PPM-X-specific modifier gene, episignature, methylation diagnostic, translocation, inversion, or recurrent copy-number abnormality is established. MECP2 duplications cause a separate gain-of-dosage syndrome and are not PPM-X. XCI modifies expression in females, but blood-based XCI testing has limited predictive value. (<a href="#ref-brand2021theimpactof-pages-9-10">brand2021theimpactof pages 9-10</a>, <a href="#ref-collins2022rettsyndromeand-pages-4-5">collins2022rettsyndromeand pages 4-5</a>)</p>
+<h2>5. Environmental information</h2>
+<p>No causal toxin, radiation exposure, pollutant, occupation, smoking pattern, diet, alcohol exposure, exercise pattern, or infectious agent has been implicated. PPM-X is not communicable and has no zoonotic mechanism. Environmental and lifestyle management may improve general health or reduce complications but cannot prevent expression of a hemizygous causal allele.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Best-supported causal chain</h3>
+<p><strong>Germline MECP2 p.Ala140Val → altered MeCP2 function in post-mitotic neurons → abnormal interpretation of neuronal DNA methylation/chromatin state → subtle dysregulation of many activity-dependent, synaptic, trophic, and metabolic genes → disturbed neuronal maturation and excitation–inhibition/circuit homeostasis → developmental cognitive impairment → age-dependent psychiatric and corticospinal/extrapyramidal manifestations.</strong></p>
+<p>The first and last links are supported directly by human genetic segregation and phenotype. Intermediate links are inferred mainly from broader MECP2 biology and the A140V mouse, not demonstrated comprehensively in human PPM-X tissue. MeCP2 is highest in neurons, lower in astrocytes and oligodendrocytes, and MECP2 disorders involve multiregional neuronal and non-cell-autonomous glial effects without classic neurodegeneration. (<a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<h3>Suggested ontology annotations</h3>
+<ul>
+<li><strong>GO biological process:</strong> regulation of transcription by RNA polymerase II; chromatin organization; DNA methylation-dependent heterochromatin assembly; nervous-system development; regulation of synaptic transmission; learning or memory.</li>
+<li><strong>GO molecular function:</strong> methyl-CpG binding; chromatin binding; transcription-corepressor binding.</li>
+<li><strong>GO cellular component:</strong> nucleus; chromatin; nucleoplasm.</li>
+<li><strong>Cell Ontology:</strong> neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>), glutamatergic neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a></strong>), GABAergic neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" rel="noopener noreferrer">CL:0000617</a></strong>), astrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a></strong>), oligodendrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a></strong>).</li>
+</ul>
+<h3>Molecular profiling and advanced technologies</h3>
+<p>No PPM-X-specific human single-cell, spatial-transcriptomic, proteomic, metabolomic, lipidomic, epigenomic, organoid, or CRISPR-screen dataset was identified. Recent single-cell post-mortem work in Rett syndrome shows cell-type-specific expression perturbations and supports DNA-methylation-dependent regulation, but this is <strong>MECP2 loss-of-function/Rett evidence</strong>, not direct A140V PPM-X evidence. (<a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<p>A 2024 report of a different pathogenic male MECP2 variant found transcriptomic oxidative-phosphorylation changes, elevated exercise lactate, and muscle mitochondrial abnormalities. Its abstract states that evidence was observed at “multiple consistent levels,” but those results cannot be generalized to PPM-X without replication in A140V carriers. (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>)</p>
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary system:</strong> central nervous system, especially cerebral neuronal networks involved in cognition, behavior, mood, and motor control.</li>
+<li><strong>Likely motor structures:</strong> corticospinal pathways for pyramidal signs and basal-ganglia circuitry for parkinsonism; direct PPM-X neuroimaging/pathology localization is lacking.</li>
+<li><strong>Secondary structure:</strong> testes, manifested by macroorchidism; its cellular mechanism is unresolved.</li>
+<li><strong>Tissue/cell level:</strong> neurons are the best-supported primary cell population; astrocytes and oligodendrocytes are plausible contributors from broader MECP2 research.</li>
+<li><strong>Subcellular level:</strong> nucleus, chromatin, methylated DNA, and transcriptional-corepressor complexes.</li>
+<li><strong>Lateralization:</strong> no characteristic unilateral or asymmetric distribution is known.</li>
+</ul>
+<p>Suggested anatomy terms include <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002280" target="_blank" rel="noopener noreferrer">UBERON:0002280</a> central nervous system</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a> testis</strong>, cerebral cortex, corticospinal tract, and basal ganglia. MeCP2 is particularly abundant in brain neurons. (<a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<h2>8. Temporal development</h2>
+<p>PPM-X is a chronic lifelong disorder. Neurodevelopmental or learning difficulties begin in childhood; psychosis, bipolar illness, spasticity, parkinsonism, and macroorchidism may become recognizable later. A formal stage system, median onset ages, progression rate, remission rate, and critical therapeutic window have not been established.</p>
+<p>The four-stage natural history of classic Rett syndrome—early stagnation, regression at 6–18 months, plateau, and late motor deterioration—must <strong>not</strong> be imposed on PPM-X. It describes a different MECP2 phenotype. (<a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>)</p>
+<h2>9. Inheritance and population</h2>
+<h3>Inheritance</h3>
+<ul>
+<li><strong>Pattern:</strong> X-linked, historically described as X-linked recessive because males are more consistently affected.</li>
+<li><strong>Male risk:</strong> a heterozygous carrier mother has a 50% chance of transmitting the allele in each pregnancy; a son inheriting it is hemizygous, while a daughter inheriting it is heterozygous and variably affected.</li>
+<li><strong>Affected father:</strong> transmits his X chromosome to all daughters and no sons.</li>
+<li><strong>Penetrance:</strong> apparently high for neurodevelopmental manifestations in hemizygous males carrying a genuinely pathogenic family allele, but not numerically established.</li>
+<li><strong>Expressivity:</strong> variable, particularly for psychiatric and motor features and among females.</li>
+<li><strong>Anticipation:</strong> not demonstrated.</li>
+<li><strong>Germline mosaicism:</strong> theoretically possible for MECP2 variants, but no PPM-X-specific rate is known.</li>
+<li><strong>Founder effect/consanguinity:</strong> not established; consanguinity is not required for an X-linked disorder.</li>
+</ul>
+<h3>Epidemiology</h3>
+<p>No valid prevalence, incidence, carrier-frequency, ethnic enrichment, geographic distribution, or age-standardized mortality estimate exists. PPM-X should be classified as <strong>ultra-rare</strong>. Published knowledge derives from very few pedigrees rather than surveillance or registry data. The disease–gene association itself is supported by only a small evidence set in curated resources. (OpenTargets Search: PPM-X syndrome)</p>
+<p>The expected clinical sex ratio is strongly male-biased, while female heterozygotes may have mild intellectual or psychiatric manifestations or remain clinically unaffected depending partly on XCI. (<a href="#ref-brand2021theimpactof-pages-9-10">brand2021theimpactof pages 9-10</a>)</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical suspicion</h3>
+<p>Consider PPM-X in a male with:</p>
+<ol>
+<li>developmental delay, intellectual disability, or learning disorder;</li>
+<li>psychosis, bipolar illness, marked social withdrawal, or otherwise unexplained psychiatric deterioration;</li>
+<li>pyramidal signs, spasticity, rigidity, or parkinsonism;</li>
+<li>macroorchidism; and</li>
+<li>a maternal family history compatible with X-linked transmission.</li>
+</ol>
+<p>No standardized diagnostic criteria, laboratory biomarker, characteristic MRI pattern, EEG signature, biopsy finding, endocrine assay, or metabolomic profile is validated.</p>
+<h3>Molecular workflow</h3>
+<ol>
+<li><strong>First line:</strong> neurodevelopmental/intellectual-disability multigene panel including MECP2, or clinical exome/genome sequencing with copy-number calling.</li>
+<li><strong>Variant confirmation:</strong> orthogonal confirmation of MECP2 p.Ala140Val and segregation testing in the mother and informative relatives.</li>
+<li><strong>Mosaicism:</strong> if suspicion remains despite negative conventional testing, use high-depth NGS and, where appropriate, targeted digital PCR; modern male MECP2 studies show that mosaic variants can be missed during lengthy diagnostic odysseys.</li>
+<li><strong>Copy-number analysis:</strong> exon-level deletion/duplication analysis distinguishes sequence variants from MECP2 duplication syndrome.</li>
+<li><strong>CMA:</strong> useful when broader syndromic intellectual disability or an Xq28 rearrangement is suspected, but it will not reliably detect a single-nucleotide A140V variant.</li>
+<li><strong>Karyotype/FISH:</strong> reserve for suspected large rearrangement or sex-chromosome abnormality.</li>
+<li><strong>RNA sequencing:</strong> potentially useful for uncertain splice variants, not routinely required for A140V.</li>
+<li><strong>Mitochondrial and repeat-expansion tests:</strong> not routine PPM-X tests unless the phenotype independently indicates them.</li>
+</ol>
+<p>Modern expert reviews favor simultaneous multigene testing, exome/genome sequencing, and explicit mosaicism assessment for overlapping MECP2-spectrum presentations. (<a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<h3>Differential diagnosis</h3>
+<ul>
+<li>Classic or atypical Rett syndrome: developmental regression, hand stereotypies, gait and autonomic abnormalities, usually females.</li>
+<li>Severe male MECP2 encephalopathy: neonatal onset and profound neurologic disease.</li>
+<li>MECP2 duplication syndrome: hypotonia, severe developmental delay, recurrent respiratory infections, absent speech, epilepsy, and copy-number gain rather than A140V. (<a href="#ref-collins2022rettsyndromeand-pages-4-5">collins2022rettsyndromeand pages 4-5</a>)</li>
+<li>Fragile X syndrome: intellectual disability and macroorchidism, but FMR1 CGG expansion and a different behavioral/physical profile.</li>
+<li>Lujan–Fryns, Christianson, alpha-thalassemia X-linked intellectual disability, and other X-linked ID syndromes.</li>
+<li>Primary schizophrenia or bipolar disorder: lacks the syndromic developmental, neurologic, endocrine, and pedigree pattern.</li>
+<li>Wilson disease and metabolic/neurodegenerative causes of psychiatric disease plus parkinsonism.</li>
+</ul>
+<h3>Screening</h3>
+<p>There is no population or newborn screen. <strong>Cascade testing</strong> is appropriate after a familial variant is found. Carrier, prenatal, and preimplantation testing are technically feasible for a known familial MECP2 variant.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>No PPM-X-specific survival curve, life-expectancy estimate, mortality rate, five- or ten-year outcome, validated prognostic model, or prognostic biomarker exists. Morbidity is expected to arise from lifelong cognitive disability, psychiatric illness, and progressive or persistent motor impairment. Recovery to an unaffected state is not expected because the cause is constitutional, although psychiatric symptoms and complications may respond to treatment.</p>
+<p>Potential prognostic variables—unsupported by quantitative PPM-X studies—include baseline cognitive severity, age at psychiatric onset, motor progression, treatment responsiveness, family support, and access to multidisciplinary care. Rett and MECP2-duplication mortality statistics should not be transferred to PPM-X.</p>
+<h2>12. Treatment</h2>
+<h3>Current clinical management</h3>
+<p>There is <strong>no approved PPM-X-specific disease-modifying treatment</strong> and no evidence-based treatment algorithm. Care should be individualized through medical genetics, neurology, psychiatry, developmental medicine, rehabilitation, and primary care.</p>
+<ul>
+<li><strong>Psychosis/mania:</strong> standard antipsychotic or mood-stabilizing treatment with careful monitoring for extrapyramidal effects, sedation, metabolic toxicity, QT effects, and worsening rigidity. No PPM-X pharmacogenomic rule exists.</li>
+<li><strong>Anxiety/depression:</strong> psychotherapy adapted to cognitive level and cautious use of conventional medication.</li>
+<li><strong>Spasticity/rigidity/parkinsonism:</strong> physiotherapy, occupational therapy, mobility aids, and specialist-directed pharmacotherapy; response data are absent.</li>
+<li><strong>Development:</strong> individualized education, speech-language therapy, behavioral support, and supported-employment/living planning.</li>
+<li><strong>Macroorchidism:</strong> clinical examination and urology/endocrinology referral only if symptomatic or diagnostically uncertain; macroorchidism itself may require no intervention.</li>
+<li><strong>Surveillance:</strong> periodic neurologic, psychiatric, functional, sleep, nutrition, and medication-adverse-effect assessment.</li>
+</ul>
+<p>Suggested NCIt intervention concepts are <strong>Supportive Care</strong>, <strong>Genetic Counseling</strong>, <strong>Physical Therapy</strong>, <strong>Occupational Therapy</strong>, <strong>Speech Therapy</strong>, <strong>Antipsychotic Therapy</strong>, and <strong>Mood Stabilizer Therapy</strong>; these are category-level annotations, not PPM-X-approved indications.</p>
+<h3>Experimental therapies and trials</h3>
+<p>No PPM-X-specific trial was identified. Rett-focused approaches—trofinetide, BDNF/IGF1-pathway modulation, ketamine, AAV-MECP2 replacement, RNA editing, and X-reactivation—cannot be considered validated PPM-X treatments. Even within Rett models, restoring MeCP2 improves but does not always fully rescue phenotypes, and excessive MECP2 creates duplication-syndrome risk. (<a href="#ref-collins2022rettsyndromeand-pages-13-14">collins2022rettsyndromeand pages 13-14</a>, <a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>)</p>
+<p>This dosage constraint is particularly important: recent experts estimate that MECP2 below roughly 80% of normal produces deficiency phenotypes, whereas levels above approximately 140% can produce duplication-syndrome features. Those thresholds are conceptual MECP2-wide estimates, not clinical dosing targets for A140V PPM-X. (<a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>)</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> no vaccine, lifestyle modification, or prophylactic medication prevents the phenotype after inheritance.</li>
+<li><strong>Genetic prevention options:</strong> preconception counseling, maternal carrier testing, cascade testing, preimplantation genetic testing for monogenic disease, chorionic-villus sampling, or amniocentesis after informed consent.</li>
+<li><strong>Secondary prevention:</strong> early molecular diagnosis may avoid prolonged psychiatric misclassification and enable developmental, psychiatric, and mobility support before complications accumulate. Rare neuropsychiatric-disease experts advocate earlier exome-based testing, particularly when conventional psychiatric treatment fails or syndromic features are present. (<a href="#ref-garrison2024raregeneticdiseases-pages-10-13">garrison2024raregeneticdiseases pages 10-13</a>, <a href="#ref-garrison2024raregeneticdiseases-pages-13-16">garrison2024raregeneticdiseases pages 13-16</a>)</li>
+<li><strong>Tertiary prevention:</strong> monitor medication toxicity, contractures/falls, nutritional problems, social isolation, and caregiver burden.</li>
+<li><strong>Public health/environmental measures:</strong> not applicable beyond access to rare-disease diagnosis and genetic services.</li>
+</ul>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring veterinary PPM-X syndrome, breed predisposition, wildlife reservoir, zoonotic transmission, or cross-species infectious susceptibility is known. MECP2 orthologues are evolutionarily conserved across vertebrates, but laboratory genetic models—not natural animal disease—provide the comparative evidence.</p>
+<p>Relevant taxonomy suggestions include <strong>Homo sapiens, NCBI Taxon 9606</strong>, and <strong>Mus musculus, NCBI Taxon 10090</strong>. Veterinary-breed ontology annotations are not applicable.</p>
+<h2>15. Model organisms</h2>
+<h3>A140V mouse</h3>
+<p>A <strong>Mecp2 A140V knock-in mouse</strong> is the most syndrome-relevant model. Published electrophysiological work reported altered neuronal/synaptic properties, supporting A140V as a functional—not merely associative—variant. The model is useful for studying excitation–inhibition balance, synaptic physiology, neuronal morphology, and candidate interventions.</p>
+<p>Limitations are substantial: mouse behavior cannot reproduce human psychosis or bipolar illness directly; macroorchidism and age-dependent human motor decline may be incompletely modeled; genetic background and MeCP2 isoform expression affect phenotype.</p>
+<h3>Broader MECP2 models</h3>
+<p>Mecp2-null, conditional knockout, overexpression, patient-derived iPSC, neuronal culture, and organoid models establish that altered MeCP2 dosage affects chromatin regulation, BDNF signaling, dendritic growth, synapses, and network excitability. For example, MeCP2-deficient glutamatergic neurons show disrupted autocrine BDNF signaling, and BDNF re-expression can rescue cellular growth deficits. These are valuable pathway models but are not specific replicas of PPM-X A140V disease. (<a href="#ref-collins2022rettsyndromeand-pages-13-14">collins2022rettsyndromeand pages 13-14</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<h2>Recent developments, expert interpretation, and research priorities</h2>
+<p>The most authoritative recent update is the 2024 <em>Nature Reviews Disease Primers</em> review of Rett/MECP2 biology (published November 2024; DOI <a href="https://doi.org/10.1038/s41572-024-00568-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41572-024-00568-0</a>). It emphasizes MeCP2 dosage sensitivity, cell-type-specific transcriptional effects, neuronal methyl-CAC binding, and the therapeutic risk of overcorrection. It also notes that male MECP2 disease is broader than classic Rett, but it does not supply a modern PPM-X cohort. (<a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</p>
+<p>A February 2024 review (DOI <a href="https://doi.org/10.3389/fgene.2024.1332469" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fgene.2024.1332469</a>) similarly stresses that opposite MECP2 dosage disorders require opposite therapeutic solutions. That principle is directly relevant to future PPM-X treatment design, even though no A140V-directed therapy exists. (<a href="#ref-allison2024mecp2relateddisorderswhile-pages-2-4">allison2024mecp2relateddisorderswhile pages 2-4</a>)</p>
+<p>The central research needs are: an international PPM-X registry; standardized deep phenotyping of all A140V carriers; contemporary ClinVar/gnomAD reconciliation; longitudinal psychiatric and motor assessments; carrier-female XCI studies using disease-relevant models; A140V-specific chromatin, single-cell, and neuronal functional assays; and treatment studies in A140V rather than generic Mecp2-null systems.</p>
+<h2>Key conclusions for knowledge-base curation</h2>
+<ol>
+<li>Curate PPM-X as <strong><a href="http://purl.obolibrary.org/obo/MONDO_0010235" target="_blank" rel="noopener noreferrer">MONDO:0010235</a></strong>, a distinct, ultra-rare <strong>MECP2 p.Ala140Val-associated X-linked disorder</strong>, not as a synonym for Rett syndrome. (OpenTargets Search: PPM-X syndrome)</li>
+<li>Assign intellectual disability, psychosis/bipolar illness, pyramidal signs/spasticity, parkinsonism, and macroorchidism, but mark frequencies as <strong>unknown</strong>.</li>
+<li>Represent the mechanism as altered MeCP2-mediated neuronal chromatin/transcription regulation, with the intermediate pathway explicitly tagged <strong>MECP2-spectrum extrapolation</strong>. (<a href="#ref-balicza2024multilevelevidenceof-pages-2-3">balicza2024multilevelevidenceof pages 2-3</a>, <a href="#ref-gold2024rettsyndrome-pages-3-4">gold2024rettsyndrome pages 3-4</a>)</li>
+<li>Record diagnosis by molecular MECP2 testing and familial segregation; no biochemical or imaging biomarker is validated.</li>
+<li>Record treatment as supportive and symptom-directed; do not annotate Rett drugs or gene therapies as established PPM-X interventions.</li>
+<li>Mark prevalence, incidence, survival, penetrance percentage, treatment-response rates, environmental risks, protective factors, omics signatures, and PPM-X-specific clinical trials as <strong>not established</strong>.</li>
+</ol>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-opentargets-search-ppm-x-syndrome"></a>(OpenTargets Search: PPM-X syndrome): Open Targets Query (PPM-X syndrome, 1 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-gold2024rettsyndrome-pages-3-4"></a>(gold2024rettsyndrome pages 3-4): Wendy A. Gold, Alan K. Percy, Jeffrey L. Neul, Stuart R. Cobb, Lucas Pozzo-Miller, Jasmeen K. Issar, Bruria Ben-Zeev, Aglaia Vignoli, and Walter E. Kaufmann. Rett syndrome. Nature Reviews Disease Primers, Nov 2024. URL: <a href="https://doi.org/10.1038/s41572-024-00568-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41572-024-00568-0</a>, <a href="https://doi.org/10.1038/s41572-024-00568-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41572-024-00568-0</a>. This article has 82 citations.</p>
+</li>
+<li>
+<p><a id="ref-lyst2013rettsyndromemutations-pages-1-5"></a>(lyst2013rettsyndromemutations pages 1-5): Matthew J Lyst, Robert Ekiert, Daniel H Ebert, Cara Merusi, Jakub Nowak, Jim Selfridge, Jacky Guy, Nathaniel R Kastan, Nathaniel D Robinson, Flavia de Lima Alves, Juri Rappsilber, Michael E Greenberg, and Adrian Bird. Rett syndrome mutations abolish the interaction of mecp2 with the ncor/smrt co-repressor. Nature Neuroscience, 16:898-902, Jun 2013. URL: <a href="https://doi.org/10.1038/nn.3434" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nn.3434</a>, <a href="https://doi.org/10.1038/nn.3434" target="_blank" rel="noopener noreferrer">doi:10.1038/nn.3434</a>. This article has 485 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-brand2021theimpactof-pages-9-10"></a>(brand2021theimpactof pages 9-10): Boudewien A Brand, Alyssa E Blesson, and Constance L. Smith-Hicks. The impact of x-chromosome inactivation on phenotypic expression of x-linked neurodevelopmental disorders. Brain Sciences, 11:904, Jul 2021. URL: <a href="https://doi.org/10.3390/brainsci11070904" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/brainsci11070904</a>, <a href="https://doi.org/10.3390/brainsci11070904" target="_blank" rel="noopener noreferrer">doi:10.3390/brainsci11070904</a>. This article has 53 citations.</p>
+</li>
+<li>
+<p><a id="ref-allison2024mecp2relateddisorderswhile-pages-2-4"></a>(allison2024mecp2relateddisorderswhile pages 2-4): Katherine Allison, Mirjana Maletic-Savatic, and Davut Pehlivan. Mecp2-related disorders while gene-based therapies are on the horizon. Frontiers in Genetics, Feb 2024. URL: <a href="https://doi.org/10.3389/fgene.2024.1332469" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fgene.2024.1332469</a>, <a href="https://doi.org/10.3389/fgene.2024.1332469" target="_blank" rel="noopener noreferrer">doi:10.3389/fgene.2024.1332469</a>. This article has 17 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-balicza2024multilevelevidenceof-pages-2-3"></a>(balicza2024multilevelevidenceof pages 2-3): Peter Balicza, Andras Gezsi, Mariann Fedor, Judit C. Sagi, Aniko Gal, Noemi Agnes Varga, and Maria Judit Molnar. Multilevel evidence of mecp2-associated mitochondrial dysfunction and its therapeutic implications. Frontiers in Psychiatry, Jan 2024. URL: <a href="https://doi.org/10.3389/fpsyt.2023.1301272" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fpsyt.2023.1301272</a>, <a href="https://doi.org/10.3389/fpsyt.2023.1301272" target="_blank" rel="noopener noreferrer">doi:10.3389/fpsyt.2023.1301272</a>. This article has 8 citations.</p>
+</li>
+<li>
+<p><a id="ref-garrison2024raregeneticdiseases-pages-10-13"></a>(garrison2024raregeneticdiseases pages 10-13): Sheldon R. Garrison, Isaac J. Siegel, Christopher R. Takala, Sarah L. Vaithilingam, Gene W. Yang, Anthony W. Zoghbi, Madeline M. Hartig, Sreya Vadapalli, and Margaret E. Anderson. Rare genetic diseases in behavioral health: a comprehensive review of therapeutic strategies and diagnostic delay for childhood through adulthood with paired economic impact analysis. Unknown journal, Nov 2024. URL: <a href="https://doi.org/10.21203/rs.3.rs-5517122/v1" target="_blank" rel="noopener noreferrer">https://doi.org/10.21203/rs.3.rs-5517122/v1</a>, <a href="https://doi.org/10.21203/rs.3.rs-5517122/v1" target="_blank" rel="noopener noreferrer">doi:10.21203/rs.3.rs-5517122/v1</a>.</p>
+</li>
+<li>
+<p><a id="ref-garrison2024raregeneticdiseases-pages-13-16"></a>(garrison2024raregeneticdiseases pages 13-16): Sheldon R. Garrison, Isaac J. Siegel, Christopher R. Takala, Sarah L. Vaithilingam, Gene W. Yang, Anthony W. Zoghbi, Madeline M. Hartig, Sreya Vadapalli, and Margaret E. Anderson. Rare genetic diseases in behavioral health: a comprehensive review of therapeutic strategies and diagnostic delay for childhood through adulthood with paired economic impact analysis. Unknown journal, Nov 2024. URL: <a href="https://doi.org/10.21203/rs.3.rs-5517122/v1" target="_blank" rel="noopener noreferrer">https://doi.org/10.21203/rs.3.rs-5517122/v1</a>, <a href="https://doi.org/10.21203/rs.3.rs-5517122/v1" target="_blank" rel="noopener noreferrer">doi:10.21203/rs.3.rs-5517122/v1</a>.</p>
+</li>
+<li>
+<p><a id="ref-collins2022rettsyndromeand-pages-13-14"></a>(collins2022rettsyndromeand pages 13-14): Bridget E Collins and Jeffrey L Neul. Rett syndrome and mecp2 duplication syndrome: disorders of mecp2 dosage. Neuropsychiatric Disease and Treatment, 18:2813-2835, Nov 2022. URL: <a href="https://doi.org/10.2147/ndt.s371483" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/ndt.s371483</a>, <a href="https://doi.org/10.2147/ndt.s371483" target="_blank" rel="noopener noreferrer">doi:10.2147/ndt.s371483</a>. This article has 92 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-collins2022rettsyndromeand-pages-4-5"></a>(collins2022rettsyndromeand pages 4-5): Bridget E Collins and Jeffrey L Neul. Rett syndrome and mecp2 duplication syndrome: disorders of mecp2 dosage. Neuropsychiatric Disease and Treatment, 18:2813-2835, Nov 2022. URL: <a href="https://doi.org/10.2147/ndt.s371483" target="_blank" rel="noopener noreferrer">https://doi.org/10.2147/ndt.s371483</a>, <a href="https://doi.org/10.2147/ndt.s371483" target="_blank" rel="noopener noreferrer">doi:10.2147/ndt.s371483</a>. This article has 92 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/PPM-X_Syndrome-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Pouchitis-cyberian-codex.html">← Pouchitis (Cyberian Codex)</a>
+                
+                
+                <a href="PPP2R3C-Related_Gonadal_Dysgenesis_Syndrome-claude_code.html">PPP2R3C-Related Gonadal Dysgenesis Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PPM-X_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PPM-X_Syndrome-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

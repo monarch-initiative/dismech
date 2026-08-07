@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medicina60060872"
+reference_id: DOI:10.3390/medicina60060872
 title: "Clinical Features and Survival Outcome in Aggressive-Type Adult T-Cell Leukemia/Lymphoma Patients: Real-Life Experience of a Single Center from an HTLV-1 Endemic Country"
 authors:
 - Iuliana Iordan
@@ -12,6 +12,7 @@ journal: Medicina
 year: '2024'
 doi: 10.3390/medicina60060872
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical Features and Survival Outcome in Aggressive-Type Adult T-Cell Leukemia/Lymphoma Patients: Real-Life Experience of a Single Center from an HTLV-1 Endemic Country
