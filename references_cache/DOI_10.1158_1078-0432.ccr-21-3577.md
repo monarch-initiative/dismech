@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-21-3577"
-title: "Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and
-                    <i>BRCA1, BRCA2</i>
-                    , or
-                    <i>ATM</i>
-                    Alterations Identified by Testing Circulating Tumor DNA"
+reference_id: DOI:10.1158/1078-0432.ccr-21-3577
+title: "Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and <i>BRCA1, BRCA2</i> , or <i>ATM</i> Alterations Identified by Testing Circulating Tumor DNA"
 authors:
 - Nobuaki Matsubara
 - Johann de Bono
@@ -31,13 +27,10 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-21-3577
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and
-                    <i>BRCA1, BRCA2</i>
-                    , or
-                    <i>ATM</i>
-                    Alterations Identified by Testing Circulating Tumor DNA
+# Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and <i>BRCA1, BRCA2</i> , or <i>ATM</i> Alterations Identified by Testing Circulating Tumor DNA
 **Authors:** Nobuaki Matsubara, Johann de Bono, David Olmos, Giuseppe Procopio, Satoru Kawakami, Yüksel Ürün, Robbert van Alphen, Aude Flechon, Michael A. Carducci, Young Deuk Choi, Sebastien J. Hotte, Ernesto Korbenfeld, Gero Kramer, Neeraj Agarwal, Kim N. Chi, Simon Dearden, Christopher Gresty, Jinyu Kang, Christian Poehlein, Elizabeth A. Harrington, Maha Hussain
 **Journal:** Clinical Cancer Research (2023)
 **DOI:** [10.1158/1078-0432.ccr-21-3577](https://doi.org/10.1158/1078-0432.ccr-21-3577)

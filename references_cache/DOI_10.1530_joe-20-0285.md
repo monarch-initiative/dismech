@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1530/joe-20-0285"
+reference_id: DOI:10.1530/joe-20-0285
 title: Looking for new anabolic treatment from rare diseases of bone formation
 authors:
 - Michela Rossi
@@ -12,6 +12,7 @@ journal: Journal of Endocrinology
 year: '2021'
 doi: 10.1530/joe-20-0285
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Looking for new anabolic treatment from rare diseases of bone formation

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.15252/embj.2020106503"
+reference_id: DOI:10.15252/embj.2020106503
 title: The TBC1D31/praja2 complex controls primary ciliogenesis through PKA‐directed OFD1 ubiquitylation
 authors:
 - Emanuela Senatore
@@ -28,6 +28,7 @@ journal: The EMBO Journal
 year: '2021'
 doi: 10.15252/embj.2020106503
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # The TBC1D31/praja2 complex controls primary ciliogenesis through PKA‐directed OFD1 ubiquitylation

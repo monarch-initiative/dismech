@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/foods14132229"
+reference_id: DOI:10.3390/foods14132229
 title: "Arsenic in Water and Food: Toxicity and Human Exposure"
 authors:
 - Pierina Visciano
@@ -7,6 +7,7 @@ journal: Foods
 year: '2025'
 doi: 10.3390/foods14132229
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Arsenic in Water and Food: Toxicity and Human Exposure

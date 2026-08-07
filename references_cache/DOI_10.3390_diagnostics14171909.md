@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14171909"
+reference_id: DOI:10.3390/diagnostics14171909
 title: "Genetics, Pathophysiology, and Current Challenges in Von Hippel–Lindau Disease Therapeutics"
 authors:
 - Laura Gómez-Virgilio
@@ -16,6 +16,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14171909
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetics, Pathophysiology, and Current Challenges in Von Hippel–Lindau Disease Therapeutics

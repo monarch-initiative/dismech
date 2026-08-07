@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2967/jnumed.122.264860"
+reference_id: DOI:10.2967/jnumed.122.264860
 title: "SNMMI Procedure Standard/EANM Practice Guideline for SSTR PET: Imaging Neuroendocrine Tumors"
 authors:
 - Thomas A. Hope
@@ -21,6 +21,7 @@ journal: Journal of Nuclear Medicine
 year: '2023'
 doi: 10.2967/jnumed.122.264860
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # SNMMI Procedure Standard/EANM Practice Guideline for SSTR PET: Imaging Neuroendocrine Tumors
