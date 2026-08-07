@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 48</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 50</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Gorlin%20Syndrome"
@@ -3470,6 +3699,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3539,7 +3770,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">48</div>
+                <div class="stat-value">50</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3552,6 +3783,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -7462,7 +7694,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bridged Sella Turcica\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bridging of the sella turcica is a common radiographic skull-base finding in Gorlin syndrome and contributes to the characteristic craniofacial imaging profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005449\"}}, {\"id\": \"Calcification of Falx Cerebri\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic calcification of the falx cerebri is a common radiologic finding whose frequency increases with age, making it useful for diagnosis and surveillance.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005462\"}}, {\"id\": \"Cardiac Fibroma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac fibromas are benign tumors that may occur in Gorlin syndrome, sometimes detected incidentally or presenting with arrhythmias. Reported in roughly 2-3% of patients, placing them in the very-rare frequency band.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0010617\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate is an uncommon but recurrent craniofacial manifestation that broadens the developmental phenotype beyond the classic skin, jaw, and skeletal findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarsening of the facial appearance is a common part of the craniofacial gestalt in Gorlin syndrome and often co-occurs with macrocephaly, hypertelorism, and frontal bossing.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular coloboma is an infrequent but recurrent eye finding in Gorlin syndrome, supporting routine ophthalmologic surveillance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cataracts occur in approximately 18% of Gorlin syndrome patients (with combined ophthalmic abnormalities such as squint or cataract reported in up to 26% in a population-based study). Along with strabismus and hypertelorism, they represent a significant and underrecognized ophthalmologic feature warranting systematic screening.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Frontal Bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontal bossing is present in approximately 27% of NBCCS patients and contributes to the characteristic facial appearance, often co-occurring with macrocephaly and hypertelorism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002007\"}}, {\"id\": \"GLI Transcription Factor Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both PTCH1 loss (via SMO derepression) and SUFU loss (via direct release of GLI sequestration) converge on constitutive nuclear accumulation of GLI1 and GLI2. GLI1 transcriptionally activates pro-proliferative targets including CCND1, BCL2, and MYCN, and drives a positive-feedback loop by inducing PTCH1 expression. Loss of the GLI3 repressor arm (GLI3R, which requires PKA-GSK3B-BTRC-mediated partial proteolysis) compounds the transcriptional imbalance. This convergent GLI activation node links both genotypic etiologies to the full spectrum of Gorlin developmental and neoplastic phenotypes. Resistance to SMO inhibitors can emerge through amplification or activation of GLI downstream of SMO, a mechanism invisible in schema representations that bundle SMO and GLI as a single pathway node.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"basal cell of epidermis\"], \"biological_processes\": [\"smoothened signaling pathway\", \"cell population proliferation\"]}}, {\"id\": \"Gonadal Tumors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gonadal tumors occur in SUFU mutation carriers, including gonadal teratoma and testicular fibrosarcoma per GeneReviews. Reported in 11 of 172 SUFU carriers in a large collaborative cohort, with a cumulative risk of ~4.6% by age 50. Median age at diagnosis is 14 years, making this a key surveillance target in adolescent SUFU carriers. Not reported in PTCH1-related Gorlin syndrome.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SUFU-related\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010785\"}}, {\"id\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated Hedgehog pathway activity perturbs optic vesicle patterning and lens differentiation during development, providing a mechanistic bridge to the ocular phenotype in Gorlin syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye development\", \"lens fiber cell differentiation\"]}}, {\"id\": \"Hedgehog-Dependent Secondary Palate Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signaling interacts with other developmental pathways during palatal morphogenesis, and dysregulation of this program provides a mechanistic basis for cleft palate in Gorlin syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog pathway dysregulation in cranial neural crest-derived tissues perturbs the patterning and growth of facial primordia and skull-base structures, providing a developmental basis for the characteristic craniofacial gestalt.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"mesenchymal cell proliferation\"]}}, {\"id\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gorlin syndrome includes a broader benign mesenchymal tumor predisposition, particularly fibromas in the heart and ovary, consistent with constitutive Hedgehog-pathway-driven proliferative susceptibility across multiple tissues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal cell\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive Hedgehog signaling also perturbs osteoblast differentiation and skeletal patterning. Patient-derived PTCH1-mutant iPSCs show constitutive Hh activity and hypersensitivity to osteogenic induction, providing a mechanistic link to macrocephaly, rib and vertebral anomalies, pectus deformity, Sprengel anomaly, and falx calcification.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"]}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertelorism is present in approximately 42-45% of patients with Gorlin syndrome and contributes to the characteristic facial gestalt along with frontal bossing and coarse facial features that assists clinical recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Laser Ablation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Laser ablation and photodynamic therapy may be useful for treating multiple superficial BCCs with acceptable cosmetic outcomes. Less effective for nodular or aggressive subtypes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased head circumference is a common early-recognized developmental feature and may precede more specific tumor manifestations in affected children.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Medulloblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased risk of early-childhood medulloblastoma that is much higher in SUFU carriers than in PTCH1 carriers. Gorlin-associated tumors belong to the SHH subgroup and are usually desmoplastic/nodular or medulloblastoma with extensive nodularity.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002885\"}}, {\"id\": \"Meningioma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningioma occurs at significantly elevated frequency in SUFU mutation carriers (cumulative risk ~5% by age 50) compared to PTCH1 carriers (\u003c2%). It is one of the three most common neoplasms in SUFU carriers alongside medulloblastoma and BCC. Risk is further elevated following radiation exposure. Median age at meningioma diagnosis is ~44 years in SUFU carriers.\", \"meta\": {\"evidence_count\": 4, \"subtypes\": [\"SUFU-related\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002858\"}}, {\"id\": \"Multiple Basal Cell Carcinomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients typically develop multiple basal cell carcinomas, often beginning in childhood or adolescence. The number of tumors increases with age and UV exposure. BCCs may number in the hundreds over a lifetime.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002671\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus is an established but less common ocular manifestation in Gorlin syndrome and contributes to the broader ophthalmologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Odontogenic Keratocysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Keratinizing cystic lesions arising in the jaw, typically appearing in the first decade of life. Multiple jaw cysts are highly suggestive of the diagnosis. Cysts have a high recurrence rate after surgical removal.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010603\"}}, {\"id\": \"Ovarian Fibroma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ovarian fibromas occur in approximately 17-24% of affected females and can be bilateral. They are enriched in SUFU mutation carriers compared to PTCH1 carriers. They are usually incidental findings but can become large, calcified, or cause ovarian torsion. Fertility is generally unaffected.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010618\"}}, {\"id\": \"PTCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PTCH1\"], \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}], \"frequency\": \"VERY_FREQUENT\", \"association\": \"Causative (Primary)\"}}, {\"id\": \"PTCH1 Germline First-Hit Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTCH1 encodes Patched 1, a 12-pass transmembrane receptor that normally suppresses Smoothened (SMO) in the absence of Hedgehog ligand. Germline heterozygous loss-of-function mutations in PTCH1 predispose to tumors following Knudson\u0027s two-hit model. Loss of the remaining wild-type allele in somatic cells leads to constitutive Hedgehog pathway activation and tumor development.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PTCH1\"], \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline plus somatic (Knudson two-hit) loss-of-function of the tumor-suppressor negative regulator PTCH1; gene-level loss produces net Hedgehog pathway activation.\", \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}]}}}, {\"id\": \"PTCH1 Somatic Second-Hit Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic loss of the remaining wild-type PTCH1 allele in a susceptible cell \\u2014 the Knudson second hit that completes biallelic PTCH1 inactivation. Loss of heterozygosity at 9q22 is the classic mechanism in Gorlin BCCs. Once both alleles are inactivated, Smoothened is released from tonic Patched inhibition and accumulates constitutively at the primary cilium.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"basal cell of epidermis\"], \"genes\": [\"PTCH1\"], \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}]}}, {\"id\": \"Palmar Pits\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small (1-3 mm) depressed lesions on the palms representing localized defects in the stratum corneum. Present in 65-87% of patients and are highly specific for the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010610\"}}, {\"id\": \"Palmoplantar Keratinization Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Palmoplantar skin in Gorlin syndrome shows abnormal keratinization and surface differentiation, consistent with the characteristic palmar and plantar pits.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"]}}, {\"id\": \"Pectus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior chest wall deformity is part of the minor skeletal phenotype and may contribute to the recognizable physical appearance in affected children.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000766\"}}, {\"id\": \"Plantar Pits\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pits on the soles similar to palmar pits, also representing keratinization defects due to Hedgehog pathway abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010612\"}}, {\"id\": \"Rib Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid, splayed, or fused ribs are common skeletal findings and may be detected incidentally on imaging.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000772\"}}, {\"id\": \"SHH-Responsive Cerebellar Progenitor Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sonic Hedgehog normally drives proliferation of cerebellar granule cell precursors during development. In Gorlin syndrome, constitutive pathway activation in this lineage creates a substrate for early-childhood SHH medulloblastoma, particularly in SUFU-related disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar granule cell\"], \"biological_processes\": [\"cell population proliferation\", \"cerebellum development\"]}}, {\"id\": \"SMO Constitutive Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTCH1 normally suppresses Smoothened (SMO) by preventing its accumulation in the primary ciliary membrane. When PTCH1 is lost via Knudson second-hit inactivation, SMO is no longer restrained and accumulates constitutively at the cilium, triggering downstream GLI signaling. This SMO-active state is the direct molecular target of the approved Hedgehog-pathway inhibitors vismodegib and sonidegib: both drugs bind SMO and restore its inhibited conformation. SUFU-mutant Gorlin disease bypasses this node entirely, predicting reduced efficacy of SMO inhibitors for that genotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"basal cell of epidermis\"], \"biological_processes\": [\"smoothened signaling pathway\"]}}, {\"id\": \"SUFU\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SUFU\"], \"gene_terms\": [{\"label\": \"SUFU\", \"id\": \"hgnc:16466\"}], \"frequency\": \"OCCASIONAL\", \"association\": \"Causative (Alternative)\"}}, {\"id\": \"SUFU Germline Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of Gorlin syndrome cases (approximately 5%) are caused by germline mutations in SUFU (Suppressor of Fused), which encodes a negative regulator of GLI transcription factors. SUFU mutations are associated with markedly higher risk of medulloblastoma (up to 20-fold higher) compared to PTCH1 mutations, with tumors typically occurring before age 3 years.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of smoothened signaling pathway\"], \"genes\": [\"SUFU\"], \"gene_terms\": [{\"label\": \"SUFU\", \"id\": \"hgnc:16466\"}], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss-of-function of the negative regulator SUFU; because SUFU acts downstream of SMO, the gene-level loss activates GLI output independently of Smoothened (the SMO-inhibitor-resistant branch).\", \"gene_terms\": [{\"label\": \"SUFU\", \"id\": \"hgnc:16466\"}]}}}, {\"id\": \"SUFU-Associated Gonadal Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU germline loss-of-function genetically predisposes to adolescent and adult gonadal tumors (gonadal tissue), a component of the SUFU extra-cutaneous tumor spectrum distinct from ovarian fibroma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SUFU-Associated Meningioma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU germline loss-of-function genetically predisposes to meningioma (meningeal tissue), part of the extra-cutaneous tumor spectrum that distinguishes SUFU carriers from PTCH1 carriers.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"SUFU-Associated Ovarian Fibroma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU germline loss-of-function genetically predisposes to ovarian fibroma (ovarian stromal tissue), significantly enriched in SUFU carriers relative to PTCH1 carriers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sonidegib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative SMO inhibitor for locally advanced BCC. Similar mechanism and side effect profile to vismodegib.\", \"meta\": {\"therapeutic_agents\": [\"sonidegib\"]}}, {\"id\": \"Sprengel Anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated scapula (Sprengel anomaly) is an established but less common skeletal manifestation of Gorlin syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000912\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is the most frequent ophthalmologic finding in Gorlin syndrome, present in 63% of patients in a dedicated ophthalmologic study. Ocular involvement is systematically underrecognized in the syndrome and warrants routine ophthalmologic screening.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Sun Avoidance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rigorous sun protection with sunscreen, protective clothing, and sunlight avoidance is essential to reduce the development of new BCCs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical Excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of basal cell carcinomas is the primary treatment. Mohs micrographic surgery may be preferred for facial lesions to preserve tissue. Given the multiplicity of tumors, repeated surgeries are often necessary.\"}, {\"id\": \"Topical Patidegib (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patidegib is a cyclopamine-derived SMO/Hedgehog inhibitor formulated as a topical gel to deliver local anti-BCC activity while keeping systemic drug levels low, aiming to avoid the muscle spasms, dysgeusia, and alopecia that drive discontinuation of oral Hedgehog inhibitors. A randomized double-blind phase IIA trial in Gorlin syndrome suggested reduced numbers of new surgically eligible BCCs with minimal adverse effects; it remains investigational and not yet approved.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"patidegib\"]}}, {\"id\": \"Topical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical imiquimod or 5-fluorouracil may be used for superficial BCCs to reduce surgical burden.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vertebral Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral fusion, hemivertebrae, and other spinal anomalies may occur.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003468\"}}, {\"id\": \"Vismodegib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hedgehog pathway inhibitor approved for locally advanced BCC. Can reduce tumor burden in patients with multiple BCCs, but side effects (muscle spasms, dysgeusia, alopecia) limit long-term use. Tumors may regrow after discontinuation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"vismodegib\"]}}], \"edges\": [{\"source\": \"PTCH1 Germline First-Hit Loss-of-Function\", \"target\": \"PTCH1 Somatic Second-Hit Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The constitutional heterozygous PTCH1 lesion is the first of the two hits required for tumor-cell Hedgehog derepression; a somatic loss of the remaining wild-type allele in a susceptible cell completes biallelic inactivation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PTCH1 Somatic Second-Hit Loss\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic loss of PTCH1 releases SMO from tonic inhibition at the primary cilium, allowing SMO accumulation and constitutive downstream signaling\", \"hypothesis_groups\": [\"canonical_smo_dependent_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"GLI Transcription Factor Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SUFU-mediated GLI sequestration directly releases GLI1 and GLI2 to the nucleus, bypassing SMO-level regulation and making the pathway insensitive to SMO inhibitors such as vismodegib and sonidegib\", \"hypothesis_groups\": [\"sufu_smo_independent_gli_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"SUFU-Associated Meningioma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF predisposes to meningioma\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"SUFU-Associated Ovarian Fibroma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF predisposes to ovarian fibroma\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"SUFU-Associated Gonadal Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF predisposes to gonadal tumors\"}, {\"source\": \"SMO Constitutive Activation\", \"target\": \"GLI Transcription Factor Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively active SMO suppresses the PKA-GSK3B-BTRC phosphorylation cascade that processes GLI3 to its repressor form, and promotes SUFU release of GLI1/GLI2, driving their nuclear import and transcriptional activity\", \"hypothesis_groups\": [\"canonical_smo_dependent_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive GLI signaling in epidermal basal cells promotes repeated BCC initiation\", \"hypothesis_groups\": [\"canonical_smo_dependent_model\", \"gli_bypass_resistance_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Palmoplantar Keratinization Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant pathway output disrupts palmoplantar keratinocyte differentiation and surface integrity\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Odontogenic Keratocysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hedgehog dysregulation alters odontogenic epithelial growth and jaw cyst formation\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"SHH-Responsive Cerebellar Progenitor Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess pathway output sustains proliferation in cerebellar precursors\", \"hypothesis_groups\": [\"sufu_smo_independent_gli_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental Hedgehog hyperactivity perturbs craniofacial and skeletal patterning\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental Hedgehog dysregulation perturbs neural-crest-driven growth and patterning of the face and skull base\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated Hedgehog output alters optic vesicle patterning and lens differentiation during eye development\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Dependent Secondary Palate Development Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal Hedgehog signaling perturbs palatal morphogenesis and increases cleft risk\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive pathway activation broadens susceptibility to benign mesenchymal tumors such as fibromas\"}, {\"source\": \"Palmoplantar Keratinization Abnormalities\", \"target\": \"Palmar Pits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal palmoplantar epithelial defects manifest clinically as palmar pits\"}, {\"source\": \"Palmoplantar Keratinization Abnormalities\", \"target\": \"Plantar Pits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Similar keratinization defects on the soles produce plantar pits\"}, {\"source\": \"SHH-Responsive Cerebellar Progenitor Expansion\", \"target\": \"Medulloblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent SHH dependence in cerebellar precursor populations drives infant medulloblastoma risk\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered craniofacial growth contributes to enlarged head circumference\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Rib Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal axial skeletal patterning can produce bifid, splayed, or fused ribs\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Vertebral Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal vertebral development leads to segmentation and shape defects\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Pectus Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chest wall development is perturbed as part of the skeletal phenotype\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Sprengel Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shoulder girdle patterning defects contribute to elevated scapula morphology\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Calcification of Falx Cerebri\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic intracranial calcification reflects abnormal ossification and calcification responses\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered craniofacial growth contributes to enlarged head circumference\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal facial primordia patterning widens the orbital spacing\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Frontal Bossing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated skull and forehead growth contributes to frontal prominence\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative craniofacial patterning defects produce the recognizable coarse facies\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Bridged Sella Turcica\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base patterning abnormalities contribute to sellar bridging on imaging\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental ocular abnormalities can manifest as abnormal ocular alignment\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Congenital Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens differentiation defects increase cataract susceptibility\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early visual-system developmental abnormalities can contribute to nystagmus\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted optic vesicle and fissure patterning predispose to coloboma\"}, {\"source\": \"Hedgehog-Dependent Secondary Palate Development Disruption\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed palatal development increases the risk of clefting\"}, {\"source\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"target\": \"Cardiac Fibroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Benign mesenchymal tumor susceptibility can manifest as cardiac fibroma\"}, {\"source\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"target\": \"Ovarian Fibroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same fibroma predisposition contributes to ovarian fibroma risk\"}, {\"source\": \"SUFU-Associated Meningioma Predisposition\", \"target\": \"Meningioma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF drives meningeal tumor development\"}, {\"source\": \"SUFU-Associated Ovarian Fibroma Predisposition\", \"target\": \"Ovarian Fibroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF drives ovarian stromal fibroma development\"}, {\"source\": \"SUFU-Associated Gonadal Tumor Predisposition\", \"target\": \"Gonadal Tumors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF drives adolescent gonadal tumor development\"}, {\"source\": \"Surgical Excision\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical Excision\", \"target\": \"Odontogenic Keratocysts\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vismodegib\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vismodegib\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sonidegib\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sonidegib\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical Patidegib (Investigational)\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Patidegib (Investigational)\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Laser Ablation Therapy\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical Therapy\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sun Avoidance\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PTCH1\", \"target\": \"PTCH1 Germline First-Hit Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTCH1\", \"target\": \"PTCH1 Somatic Second-Hit Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SUFU\", \"target\": \"SUFU Germline Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bridged Sella Turcica\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bridging of the sella turcica is a common radiographic skull-base finding in Gorlin syndrome and contributes to the characteristic craniofacial imaging profile.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005449\"}}, {\"id\": \"Calcification of Falx Cerebri\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic calcification of the falx cerebri is a common radiologic finding whose frequency increases with age, making it useful for diagnosis and surveillance.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005462\"}}, {\"id\": \"Cardiac Fibroma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac fibromas are benign tumors that may occur in Gorlin syndrome, sometimes detected incidentally or presenting with arrhythmias. Reported in roughly 2-3% of patients, placing them in the very-rare frequency band.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0010617\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate is an uncommon but recurrent craniofacial manifestation that broadens the developmental phenotype beyond the classic skin, jaw, and skeletal findings.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coarsening of the facial appearance is a common part of the craniofacial gestalt in Gorlin syndrome and often co-occurs with macrocephaly, hypertelorism, and frontal bossing.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular coloboma is an infrequent but recurrent eye finding in Gorlin syndrome, supporting routine ophthalmologic surveillance.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital cataracts occur in approximately 18% of Gorlin syndrome patients (with combined ophthalmic abnormalities such as squint or cataract reported in up to 26% in a population-based study). Along with strabismus and hypertelorism, they represent a significant and underrecognized ophthalmologic feature warranting systematic screening.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Frontal Bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frontal bossing is present in approximately 27% of NBCCS patients and contributes to the characteristic facial appearance, often co-occurring with macrocephaly and hypertelorism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002007\"}}, {\"id\": \"GLI Transcription Factor Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both PTCH1 loss (via SMO derepression) and SUFU loss (via direct release of GLI sequestration) converge on constitutive nuclear accumulation of GLI1 and GLI2. GLI1 transcriptionally activates pro-proliferative targets including CCND1, BCL2, and MYCN, and drives a positive-feedback loop by inducing PTCH1 expression. Loss of the GLI3 repressor arm (GLI3R, which requires PKA-GSK3B-BTRC-mediated partial proteolysis) compounds the transcriptional imbalance. This convergent GLI activation node links both genotypic etiologies to the full spectrum of Gorlin developmental and neoplastic phenotypes. Resistance to SMO inhibitors can emerge through amplification or activation of GLI downstream of SMO, a mechanism invisible in schema representations that bundle SMO and GLI as a single pathway node.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"basal cell of epidermis\"], \"biological_processes\": [\"smoothened signaling pathway\", \"cell population proliferation\"]}}, {\"id\": \"Gonadal Tumors\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gonadal tumors occur in SUFU mutation carriers, including gonadal teratoma and testicular fibrosarcoma per GeneReviews. Reported in 11 of 172 SUFU carriers in a large collaborative cohort, with a cumulative risk of ~4.6% by age 50. Median age at diagnosis is 14 years, making this a key surveillance target in adolescent SUFU carriers. Not reported in PTCH1-related Gorlin syndrome.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"SUFU-related\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010785\"}}, {\"id\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated Hedgehog pathway activity perturbs optic vesicle patterning and lens differentiation during development, providing a mechanistic bridge to the ocular phenotype in Gorlin syndrome.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye development\", \"lens fiber cell differentiation\"]}}, {\"id\": \"Hedgehog-Dependent Secondary Palate Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog signaling interacts with other developmental pathways during palatal morphogenesis, and dysregulation of this program provides a mechanistic basis for cleft palate in Gorlin syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hedgehog pathway dysregulation in cranial neural crest-derived tissues perturbs the patterning and growth of facial primordia and skull-base structures, providing a developmental basis for the characteristic craniofacial gestalt.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural crest cell\"], \"biological_processes\": [\"neural crest cell migration\", \"mesenchymal cell proliferation\"]}}, {\"id\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gorlin syndrome includes a broader benign mesenchymal tumor predisposition, particularly fibromas in the heart and ovary, consistent with constitutive Hedgehog-pathway-driven proliferative susceptibility across multiple tissues.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mesenchymal cell\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive Hedgehog signaling also perturbs osteoblast differentiation and skeletal patterning. Patient-derived PTCH1-mutant iPSCs show constitutive Hh activity and hypersensitivity to osteogenic induction, providing a mechanistic link to macrocephaly, rib and vertebral anomalies, pectus deformity, Sprengel anomaly, and falx calcification.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"]}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertelorism is present in approximately 42-45% of patients with Gorlin syndrome and contributes to the characteristic facial gestalt along with frontal bossing and coarse facial features that assists clinical recognition.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Ionizing Radiation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Patients with Gorlin syndrome are exquisitely sensitive to ionizing radiation, which can induce numerous BCCs in the radiation field. Radiotherapy should be avoided when possible, including for medulloblastoma treatment.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Laser Ablation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Laser ablation and photodynamic therapy may be useful for treating multiple superficial BCCs with acceptable cosmetic outcomes. Less effective for nodular or aggressive subtypes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased head circumference is a common early-recognized developmental feature and may precede more specific tumor manifestations in affected children.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Medulloblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased risk of early-childhood medulloblastoma that is much higher in SUFU carriers than in PTCH1 carriers. Gorlin-associated tumors belong to the SHH subgroup and are usually desmoplastic/nodular or medulloblastoma with extensive nodularity.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002885\"}}, {\"id\": \"Meningioma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningioma occurs at significantly elevated frequency in SUFU mutation carriers (cumulative risk ~5% by age 50) compared to PTCH1 carriers (\u003c2%). It is one of the three most common neoplasms in SUFU carriers alongside medulloblastoma and BCC. Risk is further elevated following radiation exposure. Median age at meningioma diagnosis is ~44 years in SUFU carriers.\", \"meta\": {\"evidence_count\": 4, \"subtypes\": [\"SUFU-related\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002858\"}}, {\"id\": \"Multiple Basal Cell Carcinomas\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients typically develop multiple basal cell carcinomas, often beginning in childhood or adolescence. The number of tumors increases with age and UV exposure. BCCs may number in the hundreds over a lifetime.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002671\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nystagmus is an established but less common ocular manifestation in Gorlin syndrome and contributes to the broader ophthalmologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Odontogenic Keratocysts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Keratinizing cystic lesions arising in the jaw, typically appearing in the first decade of life. Multiple jaw cysts are highly suggestive of the diagnosis. Cysts have a high recurrence rate after surgical removal.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010603\"}}, {\"id\": \"Ovarian Fibroma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ovarian fibromas occur in approximately 17-24% of affected females and can be bilateral. They are enriched in SUFU mutation carriers compared to PTCH1 carriers. They are usually incidental findings but can become large, calcified, or cause ovarian torsion. Fertility is generally unaffected.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0010618\"}}, {\"id\": \"PTCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"PTCH1\"], \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}], \"frequency\": \"VERY_FREQUENT\", \"association\": \"Causative (Primary)\"}}, {\"id\": \"PTCH1 Germline First-Hit Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTCH1 encodes Patched 1, a 12-pass transmembrane receptor that normally suppresses Smoothened (SMO) in the absence of Hedgehog ligand. Germline heterozygous loss-of-function mutations in PTCH1 predispose to tumors following Knudson\u0027s two-hit model. Loss of the remaining wild-type allele in somatic cells leads to constitutive Hedgehog pathway activation and tumor development.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PTCH1\"], \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Germline plus somatic (Knudson two-hit) loss-of-function of the tumor-suppressor negative regulator PTCH1; gene-level loss produces net Hedgehog pathway activation.\", \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}]}}}, {\"id\": \"PTCH1 Somatic Second-Hit Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatic loss of the remaining wild-type PTCH1 allele in a susceptible cell \\u2014 the Knudson second hit that completes biallelic PTCH1 inactivation. Loss of heterozygosity at 9q22 is the classic mechanism in Gorlin BCCs. Once both alleles are inactivated, Smoothened is released from tonic Patched inhibition and accumulates constitutively at the primary cilium.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"basal cell of epidermis\"], \"genes\": [\"PTCH1\"], \"gene_terms\": [{\"label\": \"PTCH1\", \"id\": \"hgnc:9585\"}]}}, {\"id\": \"Palmar Pits\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small (1-3 mm) depressed lesions on the palms representing localized defects in the stratum corneum. Present in 65-87% of patients and are highly specific for the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010610\"}}, {\"id\": \"Palmoplantar Keratinization Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Palmoplantar skin in Gorlin syndrome shows abnormal keratinization and surface differentiation, consistent with the characteristic palmar and plantar pits.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"keratinization\"]}}, {\"id\": \"Pectus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anterior chest wall deformity is part of the minor skeletal phenotype and may contribute to the recognizable physical appearance in affected children.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000766\"}}, {\"id\": \"Plantar Pits\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pits on the soles similar to palmar pits, also representing keratinization defects due to Hedgehog pathway abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010612\"}}, {\"id\": \"Rib Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid, splayed, or fused ribs are common skeletal findings and may be detected incidentally on imaging.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000772\"}}, {\"id\": \"SHH-Responsive Cerebellar Progenitor Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sonic Hedgehog normally drives proliferation of cerebellar granule cell precursors during development. In Gorlin syndrome, constitutive pathway activation in this lineage creates a substrate for early-childhood SHH medulloblastoma, particularly in SUFU-related disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar granule cell\"], \"biological_processes\": [\"cell population proliferation\", \"cerebellum development\"]}}, {\"id\": \"SMO Constitutive Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PTCH1 normally suppresses Smoothened (SMO) by preventing its accumulation in the primary ciliary membrane. When PTCH1 is lost via Knudson second-hit inactivation, SMO is no longer restrained and accumulates constitutively at the cilium, triggering downstream GLI signaling. This SMO-active state is the direct molecular target of the approved Hedgehog-pathway inhibitors vismodegib and sonidegib: both drugs bind SMO and restore its inhibited conformation. SUFU-mutant Gorlin disease bypasses this node entirely, predicting reduced efficacy of SMO inhibitors for that genotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"basal cell of epidermis\"], \"biological_processes\": [\"smoothened signaling pathway\"]}}, {\"id\": \"SUFU\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SUFU\"], \"gene_terms\": [{\"label\": \"SUFU\", \"id\": \"hgnc:16466\"}], \"frequency\": \"OCCASIONAL\", \"association\": \"Causative (Alternative)\"}}, {\"id\": \"SUFU Germline Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of Gorlin syndrome cases (approximately 5%) are caused by germline mutations in SUFU (Suppressor of Fused), which encodes a negative regulator of GLI transcription factors. SUFU mutations are associated with markedly higher risk of medulloblastoma (up to 20-fold higher) compared to PTCH1 mutations, with tumors typically occurring before age 3 years.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"negative regulation of smoothened signaling pathway\"], \"genes\": [\"SUFU\"], \"gene_terms\": [{\"label\": \"SUFU\", \"id\": \"hgnc:16466\"}], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss-of-function of the negative regulator SUFU; because SUFU acts downstream of SMO, the gene-level loss activates GLI output independently of Smoothened (the SMO-inhibitor-resistant branch).\", \"gene_terms\": [{\"label\": \"SUFU\", \"id\": \"hgnc:16466\"}]}}}, {\"id\": \"SUFU-Associated Gonadal Tumor Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU germline loss-of-function genetically predisposes to adolescent and adult gonadal tumors (gonadal tissue), a component of the SUFU extra-cutaneous tumor spectrum distinct from ovarian fibroma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"SUFU-Associated Meningioma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU germline loss-of-function genetically predisposes to meningioma (meningeal tissue), part of the extra-cutaneous tumor spectrum that distinguishes SUFU carriers from PTCH1 carriers.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"SUFU-Associated Ovarian Fibroma Predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUFU germline loss-of-function genetically predisposes to ovarian fibroma (ovarian stromal tissue), significantly enriched in SUFU carriers relative to PTCH1 carriers.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sonidegib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative SMO inhibitor for locally advanced BCC. Similar mechanism and side effect profile to vismodegib.\", \"meta\": {\"therapeutic_agents\": [\"sonidegib\"]}}, {\"id\": \"Sprengel Anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated scapula (Sprengel anomaly) is an established but less common skeletal manifestation of Gorlin syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000912\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is the most frequent ophthalmologic finding in Gorlin syndrome, present in 63% of patients in a dedicated ophthalmologic study. Ocular involvement is systematically underrecognized in the syndrome and warrants routine ophthalmologic screening.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Sun Avoidance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rigorous sun protection with sunscreen, protective clothing, and sunlight avoidance is essential to reduce the development of new BCCs.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Surgical Excision\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of basal cell carcinomas is the primary treatment. Mohs micrographic surgery may be preferred for facial lesions to preserve tissue. Given the multiplicity of tumors, repeated surgeries are often necessary.\"}, {\"id\": \"Topical Patidegib (Investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patidegib is a cyclopamine-derived SMO/Hedgehog inhibitor formulated as a topical gel to deliver local anti-BCC activity while keeping systemic drug levels low, aiming to avoid the muscle spasms, dysgeusia, and alopecia that drive discontinuation of oral Hedgehog inhibitors. A randomized double-blind phase IIA trial in Gorlin syndrome suggested reduced numbers of new surgically eligible BCCs with minimal adverse effects; it remains investigational and not yet approved.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"patidegib\"]}}, {\"id\": \"Topical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Topical imiquimod or 5-fluorouracil may be used for superficial BCCs to reduce surgical burden.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ultraviolet Radiation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"UV exposure accelerates development and increases the number of basal cell carcinomas in affected individuals. Sun protection is a critical component of management.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vertebral Anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral fusion, hemivertebrae, and other spinal anomalies may occur.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003468\"}}, {\"id\": \"Vismodegib\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hedgehog pathway inhibitor approved for locally advanced BCC. Can reduce tumor burden in patients with multiple BCCs, but side effects (muscle spasms, dysgeusia, alopecia) limit long-term use. Tumors may regrow after discontinuation.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"vismodegib\"]}}], \"edges\": [{\"source\": \"PTCH1 Germline First-Hit Loss-of-Function\", \"target\": \"PTCH1 Somatic Second-Hit Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The constitutional heterozygous PTCH1 lesion is the first of the two hits required for tumor-cell Hedgehog derepression; a somatic loss of the remaining wild-type allele in a susceptible cell completes biallelic inactivation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PTCH1 Somatic Second-Hit Loss\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic loss of PTCH1 releases SMO from tonic inhibition at the primary cilium, allowing SMO accumulation and constitutive downstream signaling\", \"hypothesis_groups\": [\"canonical_smo_dependent_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"GLI Transcription Factor Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of SUFU-mediated GLI sequestration directly releases GLI1 and GLI2 to the nucleus, bypassing SMO-level regulation and making the pathway insensitive to SMO inhibitors such as vismodegib and sonidegib\", \"hypothesis_groups\": [\"sufu_smo_independent_gli_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"SUFU-Associated Meningioma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF predisposes to meningioma\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"SUFU-Associated Ovarian Fibroma Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF predisposes to ovarian fibroma\"}, {\"source\": \"SUFU Germline Mutations\", \"target\": \"SUFU-Associated Gonadal Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF predisposes to gonadal tumors\"}, {\"source\": \"SMO Constitutive Activation\", \"target\": \"GLI Transcription Factor Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutively active SMO suppresses the PKA-GSK3B-BTRC phosphorylation cascade that processes GLI3 to its repressor form, and promotes SUFU release of GLI1/GLI2, driving their nuclear import and transcriptional activity\", \"hypothesis_groups\": [\"canonical_smo_dependent_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive GLI signaling in epidermal basal cells promotes repeated BCC initiation\", \"hypothesis_groups\": [\"canonical_smo_dependent_model\", \"gli_bypass_resistance_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Palmoplantar Keratinization Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant pathway output disrupts palmoplantar keratinocyte differentiation and surface integrity\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Odontogenic Keratocysts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hedgehog dysregulation alters odontogenic epithelial growth and jaw cyst formation\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"SHH-Responsive Cerebellar Progenitor Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess pathway output sustains proliferation in cerebellar precursors\", \"hypothesis_groups\": [\"sufu_smo_independent_gli_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental Hedgehog hyperactivity perturbs craniofacial and skeletal patterning\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental Hedgehog dysregulation perturbs neural-crest-driven growth and patterning of the face and skull base\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated Hedgehog output alters optic vesicle patterning and lens differentiation during eye development\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Dependent Secondary Palate Development Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal Hedgehog signaling perturbs palatal morphogenesis and increases cleft risk\"}, {\"source\": \"GLI Transcription Factor Activation\", \"target\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive pathway activation broadens susceptibility to benign mesenchymal tumors such as fibromas\"}, {\"source\": \"Palmoplantar Keratinization Abnormalities\", \"target\": \"Palmar Pits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal palmoplantar epithelial defects manifest clinically as palmar pits\"}, {\"source\": \"Palmoplantar Keratinization Abnormalities\", \"target\": \"Plantar Pits\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Similar keratinization defects on the soles produce plantar pits\"}, {\"source\": \"SHH-Responsive Cerebellar Progenitor Expansion\", \"target\": \"Medulloblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent SHH dependence in cerebellar precursor populations drives infant medulloblastoma risk\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered craniofacial growth contributes to enlarged head circumference\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Rib Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal axial skeletal patterning can produce bifid, splayed, or fused ribs\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Vertebral Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal vertebral development leads to segmentation and shape defects\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Pectus Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chest wall development is perturbed as part of the skeletal phenotype\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Sprengel Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Shoulder girdle patterning defects contribute to elevated scapula morphology\"}, {\"source\": \"Hedgehog-Driven Osteogenic Dysregulation\", \"target\": \"Calcification of Falx Cerebri\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic intracranial calcification reflects abnormal ossification and calcification responses\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered craniofacial growth contributes to enlarged head circumference\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal facial primordia patterning widens the orbital spacing\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Frontal Bossing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated skull and forehead growth contributes to frontal prominence\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative craniofacial patterning defects produce the recognizable coarse facies\"}, {\"source\": \"Hedgehog-Driven Craniofacial Patterning Dysregulation\", \"target\": \"Bridged Sella Turcica\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skull-base patterning abnormalities contribute to sellar bridging on imaging\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental ocular abnormalities can manifest as abnormal ocular alignment\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Congenital Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lens differentiation defects increase cataract susceptibility\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early visual-system developmental abnormalities can contribute to nystagmus\"}, {\"source\": \"Hedgehog-Dependent Ocular Developmental Dysregulation\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted optic vesicle and fissure patterning predispose to coloboma\"}, {\"source\": \"Hedgehog-Dependent Secondary Palate Development Disruption\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disturbed palatal development increases the risk of clefting\"}, {\"source\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"target\": \"Cardiac Fibroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Benign mesenchymal tumor susceptibility can manifest as cardiac fibroma\"}, {\"source\": \"Hedgehog-Driven Mesenchymal Tumor Predisposition\", \"target\": \"Ovarian Fibroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same fibroma predisposition contributes to ovarian fibroma risk\"}, {\"source\": \"SUFU-Associated Meningioma Predisposition\", \"target\": \"Meningioma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF drives meningeal tumor development\"}, {\"source\": \"SUFU-Associated Ovarian Fibroma Predisposition\", \"target\": \"Ovarian Fibroma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF drives ovarian stromal fibroma development\"}, {\"source\": \"SUFU-Associated Gonadal Tumor Predisposition\", \"target\": \"Gonadal Tumors\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUFU germline LOF drives adolescent gonadal tumor development\"}, {\"source\": \"Ultraviolet Radiation\", \"target\": \"PTCH1 Somatic Second-Hit Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The germline first hit is inherited and unavoidable; ultraviolet light supplies the somatic second hit in sun-exposed skin, via DNA photoproducts and their mis-repair. That is why tumour burden tracks sun exposure in an otherwise fixed genotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ionizing Radiation\", \"target\": \"PTCH1 Somatic Second-Hit Loss\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Therapeutic irradiation supplies the same somatic second hit through DNA double-strand breaks, which is why radiotherapy in these patients produces basal cell carcinomas within the treated field.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Surgical Excision\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical Excision\", \"target\": \"Odontogenic Keratocysts\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Vismodegib\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vismodegib\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sonidegib\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sonidegib\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical Patidegib (Investigational)\", \"target\": \"SMO Constitutive Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Topical Patidegib (Investigational)\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Laser Ablation Therapy\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Topical Therapy\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sun Avoidance\", \"target\": \"Multiple Basal Cell Carcinomas\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PTCH1\", \"target\": \"PTCH1 Germline First-Hit Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTCH1\", \"target\": \"PTCH1 Somatic Second-Hit Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SUFU\", \"target\": \"SUFU Germline Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7512,7 +7744,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cardiac-fibroma" data-dismech-node="Cardiac Fibroma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cardiac Fibroma
 
@@ -7582,7 +7814,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-odontogenic-keratocysts" data-dismech-node="Odontogenic Keratocysts" data-dismech-type="phenotype">
                     <div class="item-name">
                         Odontogenic Keratocysts
 
@@ -7650,7 +7882,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Strabismus
 
@@ -7711,7 +7943,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-cataracts" data-dismech-node="Congenital Cataracts" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital Cataracts
 
@@ -7794,7 +8026,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nystagmus
 
@@ -7855,7 +8087,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coloboma" data-dismech-node="Coloboma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coloboma
 
@@ -7916,7 +8148,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glaucoma" data-dismech-node="Glaucoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Glaucoma
 
@@ -7977,7 +8209,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertelorism" data-dismech-node="Hypertelorism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertelorism
 
@@ -8069,7 +8301,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-fibroma" data-dismech-node="Ovarian Fibroma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ovarian Fibroma
 
@@ -8185,7 +8417,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-macrocephaly" data-dismech-node="Macrocephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Macrocephaly
 
@@ -8268,7 +8500,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-frontal-bossing" data-dismech-node="Frontal Bossing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Frontal Bossing
 
@@ -8351,7 +8583,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse Facial Features" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coarse Facial Features
 
@@ -8412,7 +8644,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Palate
 
@@ -8482,7 +8714,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-basal-cell-carcinomas" data-dismech-node="Multiple Basal Cell Carcinomas" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multiple Basal Cell Carcinomas
 
@@ -8563,7 +8795,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palmar-pits" data-dismech-node="Palmar Pits" data-dismech-type="phenotype">
                     <div class="item-name">
                         Palmar Pits
 
@@ -8644,7 +8876,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-plantar-pits" data-dismech-node="Plantar Pits" data-dismech-type="phenotype">
                     <div class="item-name">
                         Plantar Pits
 
@@ -8705,7 +8937,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-milia" data-dismech-node="Facial Milia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial Milia
 
@@ -8773,7 +9005,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-brachydactyly" data-dismech-node="Brachydactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Brachydactyly
 
@@ -8843,7 +9075,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rib-anomalies" data-dismech-node="Rib Anomalies" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rib Anomalies
 
@@ -8948,7 +9180,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vertebral-anomalies" data-dismech-node="Vertebral Anomalies" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vertebral Anomalies
 
@@ -9009,7 +9241,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -9092,7 +9324,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-calcification-of-falx-cerebri" data-dismech-node="Calcification of Falx Cerebri" data-dismech-type="phenotype">
                     <div class="item-name">
                         Calcification of Falx Cerebri
 
@@ -9204,7 +9436,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-medulloblastoma" data-dismech-node="Medulloblastoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Medulloblastoma
 
@@ -9307,7 +9539,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-meningioma" data-dismech-node="Meningioma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Meningioma
 
@@ -9423,7 +9655,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-melanocytic-nevi" data-dismech-node="Melanocytic Nevi" data-dismech-type="phenotype">
                     <div class="item-name">
                         Melanocytic Nevi
 
@@ -9484,7 +9716,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-deformity" data-dismech-node="Pectus Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Deformity
 
@@ -9545,7 +9777,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sprengel-anomaly" data-dismech-node="Sprengel Anomaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sprengel Anomaly
 
@@ -9606,7 +9838,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gonadal-tumors" data-dismech-node="Gonadal Tumors" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gonadal Tumors
 
@@ -9667,7 +9899,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bridged-sella-turcica" data-dismech-node="Bridged Sella Turcica" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bridged Sella Turcica
 
@@ -9767,7 +9999,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptch1" data-dismech-node="PTCH1" data-dismech-type="genetic">
                 <div class="item-name">
                     PTCH1
 
@@ -9874,9 +10106,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptch2" data-dismech-node="PTCH2" data-dismech-type="genetic">
                 <div class="item-name">
                     PTCH2
 
@@ -9943,9 +10176,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sufu" data-dismech-node="SUFU" data-dismech-type="genetic">
                 <div class="item-name">
                     SUFU
 
@@ -10030,9 +10264,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -10044,7 +10282,7 @@
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surgical-excision" data-dismech-node="Surgical Excision" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgical Excision
                 </div>
@@ -10118,7 +10356,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vismodegib" data-dismech-node="Vismodegib" data-dismech-type="treatment">
                 <div class="item-name">
                     Vismodegib
                 </div>
@@ -10266,7 +10504,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sonidegib" data-dismech-node="Sonidegib" data-dismech-type="treatment">
                 <div class="item-name">
                     Sonidegib
                 </div>
@@ -10364,7 +10602,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-topical-patidegib-investigational" data-dismech-node="Topical Patidegib (Investigational)" data-dismech-type="treatment">
                 <div class="item-name">
                     Topical Patidegib (Investigational)
                 </div>
@@ -10516,7 +10754,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-laser-ablation-therapy" data-dismech-node="Laser Ablation Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Laser Ablation Therapy
                 </div>
@@ -10609,7 +10847,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-topical-therapy" data-dismech-node="Topical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Topical Therapy
                 </div>
@@ -10702,7 +10940,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sun-avoidance" data-dismech-node="Sun Avoidance" data-dismech-type="treatment">
                 <div class="item-name">
                     Sun Avoidance
                 </div>
@@ -10795,7 +11033,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
@@ -10852,7 +11090,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-ultraviolet-radiation" data-dismech-node="Ultraviolet Radiation" data-dismech-type="environmental">
                 <div class="item-name">Ultraviolet Radiation</div>
 
 
@@ -10892,9 +11130,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">PTCH1 Somatic Second-Hit Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The germline first hit is inherited and unavoidable; ultraviolet light supplies the somatic second hit in sun-exposed skin, via DNA photoproducts and their mis-repair. That is why tumour burden tracks sun exposure in an otherwise fixed genotype.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12007715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12007715" target="_blank">PMID:12007715</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"p53 and PTCH mutations were detected at a frequency of 33 and 40%, respectively, and the mutations were predominantly UV-signature transition, C--&gt;T transitions at dipyrimidine sites and CC--&gt;TT tandem mutations."</div>
+
+
+                <div class="evidence-explanation">PTCH mutations recovered from basal cell carcinomas carry the C to T and CC to TT changes at dipyrimidine sites that only ultraviolet light produces, so ultraviolet exposure is the mutagen inactivating the gene. The series is sporadic disease; the inference here is that the same mutagenic route supplies the somatic hit in germline carriers.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-ionizing-radiation" data-dismech-node="Ionizing Radiation" data-dismech-type="environmental">
                 <div class="item-name">Ionizing Radiation</div>
 
 
@@ -10953,6 +11244,59 @@
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">PTCH1 Somatic Second-Hit Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Therapeutic irradiation supplies the same somatic second hit through DNA double-strand breaks, which is why radiotherapy in these patients produces basal cell carcinomas within the treated field.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6837723" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6837723" target="_blank">PMID:6837723</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical follow-up of these patients, treated with radiotherapy, revealed a predisposition to radiogenic basal cell carcinomas with an unusually short latent period of 6 months to 3 years."</div>
+
+
+                <div class="evidence-explanation">Documents a predisposition to radiogenic basal cell carcinomas in irradiated patients, tumours arising in the field where radiation delivered the somatic damage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -12596,6 +12940,27 @@ genetic:
     meningioma compared to PTCH1 mutations, but lower rates of jaw cysts.
 environmental:
 - name: Ultraviolet Radiation
+  influences_mechanisms:
+  - target: PTCH1 Somatic Second-Hit Loss
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The germline first hit is inherited and unavoidable; ultraviolet light
+      supplies the somatic second hit in sun-exposed skin, via DNA
+      photoproducts and their mis-repair. That is why tumour burden tracks sun
+      exposure in an otherwise fixed genotype.
+    evidence:
+    - reference: PMID:12007715
+      reference_title: &#34;Mutations of the p53 and PTCH gene in basal cell carcinomas: UV mutation signature and strand bias.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;p53 and PTCH mutations were detected at a frequency of 33 and 40%, respectively, and the mutations were predominantly UV-signature transition, C--&gt;T transitions at dipyrimidine sites and CC--&gt;TT tandem mutations.&#34;
+      explanation: &gt;-
+        PTCH mutations recovered from basal cell carcinomas carry the C to T and
+        CC to TT changes at dipyrimidine sites that only ultraviolet light
+        produces, so ultraviolet exposure is the mutagen inactivating the gene.
+        The series is sporadic disease; the inference here is that the same
+        mutagenic route supplies the somatic hit in germline carriers.
   description: &gt;-
     UV exposure accelerates development and increases the number of basal cell carcinomas
     in affected individuals. Sun protection is a critical component of management.
@@ -12606,6 +12971,24 @@ environmental:
     snippet: &#34;Patients with NBCCS should strictly avoid an excessive sun exposure.&#34;
     explanation: Clinical recommendation to avoid sun exposure to prevent BCC development.
 - name: Ionizing Radiation
+  influences_mechanisms:
+  - target: PTCH1 Somatic Second-Hit Loss
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Therapeutic irradiation supplies the same somatic second hit through DNA
+      double-strand breaks, which is why radiotherapy in these patients
+      produces basal cell carcinomas within the treated field.
+    evidence:
+    - reference: PMID:6837723
+      reference_title: &#34;Cultured diploid fibroblasts from patients with the nevoid basal cell carcinoma syndrome are hypersensitive to killing by ionizing radiation.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Clinical follow-up of these patients, treated with radiotherapy, revealed a predisposition to radiogenic basal cell carcinomas with an unusually short latent period of 6 months to 3 years.&#34;
+      explanation: &gt;-
+        Documents a predisposition to radiogenic basal cell carcinomas in
+        irradiated patients, tumours arising in the field where radiation
+        delivered the somatic damage.
   description: &gt;-
     Patients with Gorlin syndrome are exquisitely sensitive to ionizing radiation,
     which
@@ -14056,7 +14439,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gorlin Syndrome", "mondoId": "MONDO:0007187", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gorlin_Syndrome", "yamlRevision": "d787d6ff8d0d"};
+        const OS_CONFIG = {"diseaseName": "Gorlin Syndrome", "mondoId": "MONDO:0007187", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gorlin_Syndrome", "yamlRevision": "20b7e9a39b81"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

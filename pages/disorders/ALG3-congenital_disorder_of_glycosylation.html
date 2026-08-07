@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=ALG3-congenital%20disorder%20of%20glycosylation"
@@ -3370,7 +3599,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                ALG3-CDG (formerly CDG-Id) is a severe autosomal recessive congenital disorder of glycosylation caused by deficiency of the endoplasmic reticulum alpha-1,3-mannosyltransferase ALG3. The enzyme adds the sixth mannose to the growing lipid-linked oligosaccharide, so its loss truncates the precursor glycan at Man5GlcNAc2 and produces a distinctive N-glycan signature found in no other CDG. Affected individuals have severe neurological involvement with epilepsy, microcephaly and hypotonia, together with ocular, skeletal, gastrointestinal, endocrine and renal involvement. Mortality is substantial and is recorded with its source under progression.
+                ALG3-CDG (formerly CDG-Id) is a severe autosomal recessive congenital disorder of glycosylation caused by deficiency of the endoplasmic reticulum alpha-1,3-mannosyltransferase ALG3. The enzyme adds the sixth mannose to the growing lipid-linked oligosaccharide, so its loss truncates the precursor glycan at Man5GlcNAc2 and produces a characteristic N-glycan signature. Affected individuals have severe neurological involvement with epilepsy, microcephaly and hypotonia, together with ocular, skeletal, gastrointestinal, endocrine and renal involvement. Mortality is substantial and is recorded with its source under progression.
             </p>
 
         </header>
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3482,7 +3713,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3492,7 +3723,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3511,7 +3742,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">28</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3526,10 +3757,11 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3544,7 +3776,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3704,7 +3936,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">ALG3-CDG does not simply fail to glycosylate: it transfers a short, wrong-shaped glycan, and the resulting N-glycan spectrum is reported to be unique among the CDGs. That raises the possibility that the truncated glycan is actively harmful rather than merely insufficient, which would explain why a block partway along the assembly line is so severe. Distinguishing loss of function from gain of a bad glycan matters therapeutically, because the two imply opposite strategies: supplying the missing sugar versus preventing transfer of the truncated precursor.</div>
+                <div class="item-desc" style="margin-top: 10px;">ALG3-CDG does not simply fail to glycosylate: it transfers a short, abnormal glycan, and the resulting N-glycan spectrum is disease characteristic. Patient fibroblasts now establish chronic UPR and ERAD activation, but do not distinguish toxicity of the truncated glycan from the consequences of missing mature glycans. That raises the possibility that the truncated glycan is actively harmful rather than merely insufficient, which would explain why a block partway along the assembly line is so severe. Distinguishing loss of function from gain of a bad glycan matters therapeutically, because the two imply opposite strategies: supplying the missing sugar versus preventing transfer of the truncated precursor.</div>
 
 
                 <div class="experiment-section">
@@ -3786,6 +4018,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38597022" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38597022" target="_blank">PMID:38597022</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this study, we provide evidence that the unfolded protein response (UPR) and ER-associated degradation activities are increased in ALG3-CDG patient-derived cultured skin fibroblasts"</div>
+
+
+                <div class="evidence-explanation">Establishes the ER-stress phenotype motivating the question, but does not resolve whether truncated-glycan transfer or mature-glycan deficiency is causal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -3825,7 +4089,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">The combined deficiency of hybrid glycans and of extension beyond Man5GlcNAc2 is described as unique to ALG3-CDG, which establishes it as a diagnostic fingerprint. What is not established is whether the magnitude of that deviation tracks clinical severity across the roughly 40 reported individuals, or whether it would move under any intervention. Without that, any future trial in this ultra-rare disorder has no surrogate endpoint and would have to rely on clinical outcomes in a population where about half die neonatally.</div>
+                <div class="item-desc" style="margin-top: 10px;">The combined deficiency of hybrid glycans and of extension beyond Man5GlcNAc2 is described as unique to ALG3-CDG, which establishes it as a diagnostic fingerprint. What is not established is whether the magnitude of that deviation tracks clinical severity across the small published population, or whether it would move under any intervention. Without that, any future trial in this ultra-rare disorder has no surrogate endpoint and would have to rely on clinical outcomes in a population where about half die neonatally.</div>
 
 
                 <div class="experiment-section">
@@ -3907,6 +4171,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33583022" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33583022" target="_blank">PMID:33583022</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The degree of elevation of the mono/di oligo ratio of transferrin may correlate with severity and/or age, as seen in other CDGs, but we do not have enough power to definitively illustrate this."</div>
+
+
+                <div class="evidence-explanation">The cohort raises the biomarker hypothesis but explicitly reports insufficient power to establish the correlation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -3919,7 +4215,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alg3-alpha-1-3-mannosyltransferase-deficiency" data-dismech-node="ALG3 Alpha-1,3-Mannosyltransferase Deficiency" data-dismech-type="pathophysiology">
@@ -4067,10 +4363,10 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23791010" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:10581255" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23791010" target="_blank">PMID:23791010</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10581255" target="_blank">PMID:10581255</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -4080,10 +4376,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"ALG3-CDG (CDG-Id), due to a defect in endoplasmic reticulum (ER) mannosyltransferase VI, is one of the less common types of CDG-I."</div>
+                <div class="evidence-snippet">"Here we show that the molecular defect in the index patient is a missense mutation in the gene encoding the mannosyltransferase that transfers mannose from dolichyl-phosphate mannose on to the lipid-linked oligosaccharide (LLO) intermediate Man(5)GlcNAc(2)-PP-dolichol."</div>
 
 
-                <div class="evidence-explanation">Identifies the specific ER mannosyltransferase step and places the disorder within the CDG type I group.</div>
+                <div class="evidence-explanation">The foundational human molecular study identifies ALG3 as the mannosyltransferase acting on the Man5GlcNAc2 lipid-linked intermediate.</div>
 
 
 
@@ -4099,7 +4395,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncated-man5glcnac2-lipid-linked-precursor" data-dismech-node="Truncated Man5GlcNAc2 Lipid-Linked Precursor" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncated Man5GlcNAc2 Lipid-Linked Precursor</div>
 
-                <div class="item-desc">The lipid-linked oligosaccharide cannot be extended beyond Man5GlcNAc2. What is transferred onto nascent proteins is therefore a short, wrong-shaped glycan rather than no glycan at all. The downstream N-glycan profile shows combined deficiency of hybrid glycans and of extension beyond Man5GlcNAc2, and that specific combination is reported to be unique to ALG3-CDG, making the biochemistry diagnostic rather than merely confirmatory.</div>
+                <div class="item-desc">ALG3 deficiency causes Man5GlcNAc2-PP-dolichol to accumulate, while the leaky enzymatic defect permits some full-length precursor formation. Truncated oligosaccharides are transferred alongside full-length species, and later Golgi processing generates characteristic Man3-4 structures. The combined deficiency of hybrid glycans and extension beyond Man5GlcNAc2 is a disease-characteristic biochemical fingerprint.</div>
 
 
 
@@ -4168,9 +4464,31 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10581255" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10581255" target="_blank">PMID:10581255</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The defect results in the accumulation of the LLO intermediate and, due to its leaky nature, a residual formation of full-length LLOs."</div>
+
+
+                <div class="evidence-explanation">Establishes both Man5-linked precursor accumulation and residual full-length precursor formation, avoiding an absolute assembly-block claim.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:33583022" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4216,6 +4534,8 @@
 
             </div>
 
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4268,35 +4588,6 @@
 
 
 
-                    <span class="tag tag-bio">
-                        protein O-linked glycosylation
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0006493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006493">GO:0006493</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↓ DECREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
                 </div>
 
 
@@ -4308,6 +4599,22 @@
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Constitutive IRE1-Mediated Unfolded Protein Response and ERAD</span>
+
+	                            <span class="crosslink-desc">Defective N-glycan extension chronically activates ER protein-quality control in patient-derived fibroblasts.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">IGF-1 Axis Hypoglycosylation and Reduced Availability</span>
+
+	                            <span class="crosslink-desc">Hypoglycosylation affects proIGF-1 processing and IGF-1 receptor abundance in patient-derived fibroblasts.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Multisystem Glycoprotein Dysfunction</span>
@@ -4345,6 +4652,292 @@
 
 
                 <div class="evidence-explanation">Documents the type 1 transferrin pattern that reports protein hypoglycosylation in an ALG3-CDG patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-ire1-mediated-unfolded-protein-response-and-erad" data-dismech-node="Constitutive IRE1-Mediated Unfolded Protein Response and ERAD" data-dismech-type="pathophysiology">
+                <div class="item-name">Constitutive IRE1-Mediated Unfolded Protein Response and ERAD</div>
+
+                <div class="item-desc">ALG3-CDG patient-derived skin fibroblasts have constitutively increased unfolded-protein-response and ER-associated-degradation activity, with the UPR mediated through the IRE1-alpha branch. This supplies a demonstrated cellular stress mechanism between abnormal N-glycans and tissue dysfunction.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        skin fibroblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        IRE1-mediated unfolded protein response
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0036498" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036498">GO:0036498</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        ER-associated degradation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036503">GO:0036503</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Multisystem Glycoprotein Dysfunction</span>
+
+	                            <span class="crosslink-desc">Chronic ER quality-control activation is a plausible contributor to organ dysfunction, but the tissue-specific intermediates remain unresolved.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38597022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38597022" target="_blank">PMID:38597022</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this study, we provide evidence that the unfolded protein response (UPR) and ER-associated degradation activities are increased in ALG3-CDG patient-derived cultured skin fibroblasts and there is constitutive activation of UPR mediated by the IRE1-α pathway."</div>
+
+
+                <div class="evidence-explanation">Directly demonstrates increased UPR, ERAD and constitutive IRE1-alpha signaling in patient-derived cultured fibroblasts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-igf-1-axis-hypoglycosylation-and-reduced-availability" data-dismech-node="IGF-1 Axis Hypoglycosylation and Reduced Availability" data-dismech-type="pathophysiology">
+                <div class="item-name">IGF-1 Axis Hypoglycosylation and Reduced Availability</div>
+
+                <div class="item-desc">In fibroblasts from two individuals with ALG3-CDG, proIGF-1 was hypoglycosylated, IGF-1 secretion and IGF-1 receptor abundance were reduced, and circulating IGF-1 was low. These observations identify an ALG3-relevant growth-factor axis, but the study explicitly leaves its contribution to growth failure and endocrine phenotypes unresolved.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        dermal fibroblast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failure to thrive</span>
+
+	                            <span class="crosslink-desc">Reduced IGF-1 availability could contribute to impaired growth, but the study explicitly leaves this clinical consequence unresolved.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35211808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35211808" target="_blank">PMID:35211808</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ALG3-CDG, ALG8-CDG, GMPPB-CDG and some PMM2-CDG fibroblasts showed hypoglycosylation of the proIGF-1Ea and lower IGF-1 secretion when compared with control (CTR)."</div>
+
+
+                <div class="evidence-explanation">Supports proIGF-1 hypoglycosylation and reduced secretion in ALG3-CDG patient fibroblasts.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35211808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35211808" target="_blank">PMID:35211808</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lower IGF-1 serum concentration was observed in ALG3-CDG, ALG8-CDG and in some patients with PMM2-CDG, supporting our in vitro data."</div>
+
+
+                <div class="evidence-explanation">Human serum measurements corroborate reduced IGF-1 availability, while not establishing its clinical consequences.</div>
 
 
 
@@ -4418,6 +5011,96 @@
 	                            <span class="crosslink-meta">Retinal Ganglion Cell Loss and Optic Nerve Involvement</span>
 
 	                            <span class="crosslink-desc">Among the affected systems, the eye shows a specifically neuroretinal degeneration rather than a purely structural anomaly.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Seizure</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microcephaly</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebellar vermis hypoplasia</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Multiple joint contractures</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Feeding difficulties</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Strabismus</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Central hypothyroidism</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Adrenal insufficiency</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Nephrocalcinosis</span>
+
+	                            <span class="crosslink-desc">Renal involvement is part of the observed multisystem phenotype, although the intervening glycoproteins are unknown.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent infections</span>
+
+	                            <span class="crosslink-desc">Recurrent infections accompany multisystem dysfunction, but available immune testing does not establish a single causal pathway.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aortic root dilatation</span>
+
+	                            <span class="crosslink-desc">Aortic root involvement is documented clinically without a resolved glycoprotein or connective-tissue mechanism.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dilated cardiomyopathy</span>
 
 
 	                        </div>
@@ -4533,11 +5216,32 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Optic atrophy</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Optic nerve hypoplasia</span>
+
+	                            <span class="crosslink-desc">Optic nerve hypoplasia is co-located with the disease-specific ocular evidence, without asserting that retinal ganglion-cell loss causes the developmental anomaly.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4558,6 +5262,28 @@
 
 
                 <div class="evidence-explanation">Provides cell-level imaging evidence for the neuroretinal nature of the ocular phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34090370" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34090370" target="_blank">PMID:34090370</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Literature review shows that visual impairment in ALG3-CDG is most commonly linked to optic nerve hypoplasia."</div>
+
+
+                <div class="evidence-explanation">The disease-focused ophthalmic review identifies optic nerve hypoplasia as the most common reported substrate of visual impairment.</div>
 
 
 
@@ -4595,7 +5321,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ALG3\"], \"gene_terms\": [{\"label\": \"ALG3\", \"id\": \"hgnc:23056\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ALG3 Alpha-1,3-Mannosyltransferase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG3 is the endoplasmic reticulum alpha-1,3-mannosyltransferase (historically mannosyltransferase VI) that transfers the sixth mannose residue onto the growing lipid-linked oligosaccharide on the luminal face of the ER. Biallelic loss of function stalls assembly at that exact step, which is the organ-specific substitution this entry makes against the conserved CDG module: the module\u0027s generic assembly defect is here a single, positionally defined missing sugar.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"], \"molecular_functions\": [\"alpha-1,3-mannosyltransferase activity\"], \"genes\": [\"ALG3\"], \"gene_terms\": [{\"label\": \"ALG3\", \"id\": \"hgnc:23056\"}]}}, {\"id\": \"Baseline multisystem evaluation and monitoring\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy exists. The management recommendation that emerged from the expanded phenotype is proactive rather than reactive: baseline endocrine, renal, cardiac and immunological evaluation at the time of diagnosis, with ongoing monitoring, because these systems are involved more often than the historical description suggested.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level convergence: severe neurological involvement, ocular anomalies, dysmorphism, skeletal anomalies and feeding difficulties, with endocrine, renal, cardiac and immunological involvement recognized more recently. The breadth is what makes baseline multisystem evaluation at diagnosis the recommended approach rather than symptom-led referral.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Protein Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nascent glycoproteins receive abnormal or absent N-glycans, detectable clinically as a type 1 transferrin isoelectric focusing pattern. From this node ALG3-CDG rejoins the conserved CDG pathway without substitution: the consequences are those of any hypoglycosylation state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Retinal Ganglion Cell Loss and Optic Nerve Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype is more than an incidental anomaly. Imaging in an ALG3-CDG patient showed profound retinal ganglion cell loss with inner retinal layer thinning alongside fundus hypopigmentation and optic disc pallor, so the visual impairment is a neuroretinal degeneration rather than a refractive or structural problem alone.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"]}}, {\"id\": \"Truncated Man5GlcNAc2 Lipid-Linked Precursor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lipid-linked oligosaccharide cannot be extended beyond Man5GlcNAc2. What is transferred onto nascent proteins is therefore a short, wrong-shaped glycan rather than no glycan at all. The downstream N-glycan profile shows combined deficiency of hybrid glycans and of extension beyond Man5GlcNAc2, and that specific combination is reported to be unique to ALG3-CDG, making the biochemistry diagnostic rather than merely confirmatory.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"]}}], \"edges\": [{\"source\": \"ALG3 Alpha-1,3-Mannosyltransferase Deficiency\", \"target\": \"Truncated Man5GlcNAc2 Lipid-Linked Precursor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocking the sixth mannose transfer leaves the precursor arrested at Man5GlcNAc2.\"}, {\"source\": \"Truncated Man5GlcNAc2 Lipid-Linked Precursor\", \"target\": \"Protein Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transfer of a truncated glycan onto nascent glycoproteins yields abnormally glycosylated mature protein.\"}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread glycoprotein dysfunction produces the multisystem clinical phenotype.\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Retinal Ganglion Cell Loss and Optic Nerve Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Among the affected systems, the eye shows a specifically neuroretinal degeneration rather than a purely structural anomaly.\"}, {\"source\": \"Baseline multisystem evaluation and monitoring\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ALG3\", \"target\": \"ALG3 Alpha-1,3-Mannosyltransferase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALG3\"], \"gene_terms\": [{\"label\": \"ALG3\", \"id\": \"hgnc:23056\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ALG3 Alpha-1,3-Mannosyltransferase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG3 is the endoplasmic reticulum alpha-1,3-mannosyltransferase (historically mannosyltransferase VI) that transfers the sixth mannose residue onto the growing lipid-linked oligosaccharide on the luminal face of the ER. Biallelic loss of function stalls assembly at that exact step, which is the organ-specific substitution this entry makes against the conserved CDG module: the module\u0027s generic assembly defect is here a single, positionally defined missing sugar.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"], \"molecular_functions\": [\"alpha-1,3-mannosyltransferase activity\"], \"genes\": [\"ALG3\"], \"gene_terms\": [{\"label\": \"ALG3\", \"id\": \"hgnc:23056\"}]}}, {\"id\": \"Adrenal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central adrenal insufficiency, part of the pituitary-axis involvement that in two individuals amounted to panhypopituitarism.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000846\"}}, {\"id\": \"Antiseizure management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures are typically intractable and non-febrile with variable semiology, and are managed with multiple antiseizure drugs. No pattern of drug efficacy could be discerned across the reported cases, so agent choice remains empiric. Ketogenic diet and cannabidiol are represented separately because their evidence and modalities differ from general pharmacotherapy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Aortic root dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild aortic-root dilatation was newly observed in four members of the 2021 cohort without other signs of connective-tissue dysplasia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Cannabidiol for ALG3-CDG with Lennox-Gastaut syndrome\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In one 2025 case with concurrent ALG3-CDG and Lennox-Gastaut syndrome, cannabidiol plus dietary management produced seizure freedom for more than 13 months with EEG and developmental improvement. This is promising single-case evidence specific to the comorbid LGS context, not a general efficacy claim for ALG3-CDG epilepsy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"cannabidiol\"]}}, {\"id\": \"Central hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Endocrine involvement was previously unreported in ALG3-CDG and was present in more than half the cohort, including central hypothyroidism, central adrenal insufficiency and growth hormone deficiency with consequent hypoglycaemia. This is the finding that drives the baseline endocrine evaluation recommendation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011787\"}}, {\"id\": \"Cerebellar vermis hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cerebellar vermis hypoplasia with cortical atrophy, part of the structural brain involvement and a recurrent CDG neuroimaging theme.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001320\"}}, {\"id\": \"Constitutive IRE1-Mediated Unfolded Protein Response and ERAD\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG3-CDG patient-derived skin fibroblasts have constitutively increased unfolded-protein-response and ER-associated-degradation activity, with the UPR mediated through the IRE1-alpha branch. This supplies a demonstrated cellular stress mechanism between abnormal N-glycans and tissue dysfunction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skin fibroblast\"], \"biological_processes\": [\"IRE1-mediated unfolded protein response\", \"ER-associated degradation\"]}}, {\"id\": \"Dilated cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dilated cardiomyopathy has been documented in one ALG3-CDG participant in a 305-person CDG natural-history cohort. It is retained as a rare but serious manifestation without a frequency band.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001644\"}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Failure to thrive with weight below the second percentile, requiring tube feeding in a subset.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastrointestinal problems affect most of the cohort, with feeding difficulties in six of eight and failure to thrive in four of eight, three of whom required tube feeding. This is the practical reason nutrition assessment is part of the recommended baseline evaluation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay dominates the clinical picture, but its degree varies widely: some individuals have profound delay across all domains, while others reach adult neurocognitive abilities equivalent to an average age of seven to nine years. No frequency band is assigned because the cited cohort describes severity variation without a disorder-wide denominator for developmental delay.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia completes the core neurological triad with epilepsy and microcephaly in the source\u0027s own framing of the frequent features.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"IGF-1 Axis Hypoglycosylation and Reduced Availability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In fibroblasts from two individuals with ALG3-CDG, proIGF-1 was hypoglycosylated, IGF-1 secretion and IGF-1 receptor abundance were reduced, and circulating IGF-1 was low. These observations identify an ALG3-relevant growth-factor axis, but the study explicitly leaves its contribution to growth failure and endocrine phenotypes unresolved.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"]}}, {\"id\": \"Ketogenic diet for intractable epilepsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A ketogenic diet controlled or markedly reduced drug-resistant seizures in a pair of affected twins during ten months of follow-up. This is direct but very small case-series evidence, and hypoglycaemia risk requires caution.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly accompanies the developmental delay and, with cortical atrophy and cerebellar vermis hypoplasia, reflects a structural brain phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Multiple joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint contractures and clubfeet may be present from birth, part of a broad skeletal phenotype that also includes arthrogryposis, scoliosis, hip dysplasia, camptodactyly and overlapping digits, seen in eight of the ten cohort individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002828\"}}, {\"id\": \"Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level convergence: severe neurological involvement, ocular anomalies, dysmorphism, skeletal anomalies and feeding difficulties, with endocrine, renal, cardiac and immunological involvement recognized more recently. The breadth is what makes baseline multisystem evaluation at diagnosis the recommended approach rather than symptom-led referral.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Nephrocalcinosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural renal involvement is newly recognized in ALG3-CDG and includes nephrocalcinosis, nephromegaly, cystic kidneys and duplex kidney, which is why baseline renal evaluation is recommended.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000121\"}}, {\"id\": \"Optic atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic disc pallor with fundus hypopigmentation and optic nerve hypoplasia, accompanied by retinal ganglion cell loss on optical coherence tomography.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000648\"}}, {\"id\": \"Optic nerve hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Optic nerve hypoplasia is the most commonly identified cause of visual impairment in the published ophthalmic review, and may coexist with retinal ganglion-cell loss and optic-disc pallor.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000609\"}}, {\"id\": \"Protein Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nascent glycoproteins receive abnormal or absent N-glycans, detectable clinically as a type 1 transferrin isoelectric focusing pattern. From this node ALG3-CDG rejoins the conserved CDG pathway without substitution: the consequences are those of any hypoglycosylation state.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent infection, predominantly upper and lower respiratory, affects three quarters of the cohort, and is one of the reasons baseline immunological evaluation is now recommended at diagnosis. Only one evaluated individual had a specific antibody deficiency; another similarly affected individual had recurrent infections despite a normal immunological workup. The computable phenotype is therefore recurrent infection rather than a generalized immunodeficiency assertion.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Retinal Ganglion Cell Loss and Optic Nerve Involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype is more than an incidental anomaly. Imaging in an ALG3-CDG patient showed profound retinal ganglion cell loss with inner retinal layer thinning alongside fundus hypopigmentation and optic disc pallor, so the visual impairment is a neuroretinal degeneration rather than a refractive or structural problem alone.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal ganglion cell\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is a core neurological manifestation and a major contributor to morbidity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Strabismus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Strabismus is, with optic atrophy, one of the two most frequent ocular abnormalities.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000486\"}}, {\"id\": \"Truncated Man5GlcNAc2 Lipid-Linked Precursor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ALG3 deficiency causes Man5GlcNAc2-PP-dolichol to accumulate, while the leaky enzymatic defect permits some full-length precursor formation. Truncated oligosaccharides are transferred alongside full-length species, and later Golgi processing generates characteristic Man3-4 structures. The combined deficiency of hybrid glycans and extension beyond Man5GlcNAc2 is a disease-characteristic biochemical fingerprint.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\"]}}], \"edges\": [{\"source\": \"ALG3 Alpha-1,3-Mannosyltransferase Deficiency\", \"target\": \"Truncated Man5GlcNAc2 Lipid-Linked Precursor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocking the sixth mannose transfer leaves the precursor arrested at Man5GlcNAc2.\"}, {\"source\": \"Truncated Man5GlcNAc2 Lipid-Linked Precursor\", \"target\": \"Protein Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transfer of a truncated glycan onto nascent glycoproteins yields abnormally glycosylated mature protein.\"}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Constitutive IRE1-Mediated Unfolded Protein Response and ERAD\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective N-glycan extension chronically activates ER protein-quality control in patient-derived fibroblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"IGF-1 Axis Hypoglycosylation and Reduced Availability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoglycosylation affects proIGF-1 processing and IGF-1 receptor abundance in patient-derived fibroblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread glycoprotein dysfunction produces the multisystem clinical phenotype.\"}, {\"source\": \"Constitutive IRE1-Mediated Unfolded Protein Response and ERAD\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic ER quality-control activation is a plausible contributor to organ dysfunction, but the tissue-specific intermediates remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"IGF-1 Axis Hypoglycosylation and Reduced Availability\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 availability could contribute to impaired growth, but the study explicitly leaves this clinical consequence unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Retinal Ganglion Cell Loss and Optic Nerve Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Among the affected systems, the eye shows a specifically neuroretinal degeneration rather than a purely structural anomaly.\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Cerebellar vermis hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Multiple joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Strabismus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Central hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Adrenal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Nephrocalcinosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal involvement is part of the observed multisystem phenotype, although the intervening glycoproteins are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent infections accompany multisystem dysfunction, but available immune testing does not establish a single causal pathway.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Aortic root dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aortic root involvement is documented clinically without a resolved glycoprotein or connective-tissue mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multisystem Glycoprotein Dysfunction\", \"target\": \"Dilated cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Retinal Ganglion Cell Loss and Optic Nerve Involvement\", \"target\": \"Optic atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Ganglion Cell Loss and Optic Nerve Involvement\", \"target\": \"Optic nerve hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic nerve hypoplasia is co-located with the disease-specific ocular evidence, without asserting that retinal ganglion-cell loss causes the developmental anomaly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure management\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet for intractable epilepsy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cannabidiol for ALG3-CDG with Lennox-Gastaut syndrome\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ALG3\", \"target\": \"ALG3 Alpha-1,3-Mannosyltransferase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4608,29 +5334,31 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">14</span>
+                <span class="card-count">17</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4639,11 +5367,140 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-root-dilatation" data-dismech-node="Aortic root dilatation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aortic root dilatation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Aortic root aneurysm
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002616">HP:0002616</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33583022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33583022" target="_blank">PMID:33583022</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Aortic root dilatation (Z score &gt;2), with no other signs of connective tissue dysplasia, has been observed in four of our subjects"</div>
+
+
+                <div class="evidence-explanation">Four observations in the ten-person cohort support a FREQUENT band and the need for cardiac baseline assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dilated-cardiomyopathy" data-dismech-node="Dilated cardiomyopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dilated cardiomyopathy
+
+
+                    <span class="phenotype-id">
+                        Dilated cardiomyopathy
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38917675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38917675" target="_blank">PMID:38917675</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dilated cardiomyopathy was observed in three patients, two with PGM1-CDG and one with ALG3-CDG"</div>
+
+
+                <div class="evidence-explanation">Directly documents dilated cardiomyopathy in one molecularly confirmed ALG3-CDG participant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
                         Feeding difficulties
 
@@ -4706,14 +5563,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-adrenal-insufficiency" data-dismech-node="Adrenal insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Adrenal insufficiency
 
@@ -4755,10 +5612,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"including central hypothyroidism, central adrenal insufficiency, growth hormone deficiency, and subsequent hypoglycemia"</div>
+                <div class="evidence-snippet">"Additionally, two of our newly reported individuals have panhypopituitarism (hypothyroidism, growth hormone deficiency, and adrenal insufficiency); both are on hormone replacement therapy."</div>
 
 
-                <div class="evidence-explanation">Names central adrenal insufficiency among the endocrine abnormalities.</div>
+                <div class="evidence-explanation">Quantifies adrenal insufficiency within panhypopituitarism in two members of the ten-person cohort, supporting an OCCASIONAL band.</div>
 
 
 
@@ -4776,14 +5633,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-atrophy" data-dismech-node="Optic atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Optic atrophy
 
@@ -4842,7 +5699,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Strabismus
 
@@ -4905,14 +5762,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
@@ -4975,26 +5832,26 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent infections" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Immunodeficiency
+                        Recurrent infections
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
                     <span class="phenotype-id">
-                        Immunodeficiency
+                        Recurrent infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002721">HP:0002721</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002719">HP:0002719</a>
 
 
                     </span>
@@ -5027,7 +5884,7 @@
                 <div class="evidence-snippet">"we expand the symptomatology of ALG3-CDG to now include endocrine abnormalities, neural tube defects, mild aortic root dilatation, immunodeficiency, and renal anomalies"</div>
 
 
-                <div class="evidence-explanation">Establishes immunodeficiency among the newly recognized manifestations.</div>
+                <div class="evidence-explanation">Establishes immune-system involvement while the more specific phenotype is grounded by the cohort&#39;s recurrent-infection count below.</div>
 
 
 
@@ -5067,14 +5924,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotonia
 
@@ -5137,18 +5994,16 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global developmental delay
-
-                        <span class="phenotype-freq">FREQUENT</span>
 
 
                     <span class="phenotype-id">
@@ -5169,31 +6024,9 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33583022" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33583022" target="_blank">PMID:33583022</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Individuals with ALG3-CDG frequently exhibit severe neurological involvement (epilepsy, microcephaly, and hypotonia)"</div>
-
-
-                <div class="evidence-explanation">Establishes severe neurological involvement as a frequent core feature.</div>
-
-
-
-            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:23791010" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5249,7 +6082,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizure
 
@@ -5310,7 +6143,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-vermis-hypoplasia" data-dismech-node="Cerebellar vermis hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebellar vermis hypoplasia
 
@@ -5371,14 +6204,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to thrive
 
@@ -5441,14 +6274,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multiple-joint-contractures" data-dismech-node="Multiple joint contractures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multiple joint contractures
 
@@ -5531,7 +6364,66 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-hypoplasia" data-dismech-node="Optic nerve hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Optic nerve hypoplasia
+
+
+                    <span class="phenotype-id">
+                        Optic nerve hypoplasia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000609">HP:0000609</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34090370" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34090370" target="_blank">PMID:34090370</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"optic nerve atrophy/hypoplasia observed in 11 patients including the current study"</div>
+
+
+                <div class="evidence-explanation">The review found the combined category of optic nerve atrophy or hypoplasia in 11 individuals. No frequency band is assigned to hypoplasia alone because the source does not disaggregate those findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-central-hypothyroidism" data-dismech-node="Central hypothyroidism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Central hypothyroidism
 
@@ -5573,10 +6465,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Previously unreported endocrine abnormalities were present in more than half of our cohort, including central hypothyroidism, central adrenal insufficiency, growth hormone deficiency, and subsequent hypoglycemia."</div>
+                <div class="evidence-snippet">"Four of our subjects had central hypothyroidism with three requiring hormone replacement."</div>
 
 
-                <div class="evidence-explanation">Quantifies endocrine involvement at more than half the cohort and names the specific axes affected.</div>
+                <div class="evidence-explanation">Quantifies central hypothyroidism in four members of the ten-person cohort, supporting a FREQUENT band.</div>
 
 
 
@@ -5592,7 +6484,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nephrocalcinosis
 
@@ -5692,7 +6584,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-alg3" data-dismech-node="ALG3" data-dismech-type="genetic">
                 <div class="item-name">
                     ALG3
 
@@ -5724,7 +6616,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5750,14 +6642,62 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:34090370" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34090370" target="_blank">PMID:34090370</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thirty-three variants in 43 subjects with ALG3-CDG have been reported."</div>
+
+
+                <div class="evidence-explanation">Updates the 2021 literature count and variant spectrum beyond the earlier 40-person cohort summary.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41089746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41089746" target="_blank">PMID:41089746</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole exome sequencing confirmed a diagnosis of ALG3-CDG with compound heterozygous variants: c.165C &gt; T (p.Gly55=) and c.1060C &gt; T (p.Arg354Cys) in the ALG3 gene"</div>
+
+
+                <div class="evidence-explanation">A 2025 molecularly confirmed case adds contemporary compound-heterozygous evidence to the allelic spectrum.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5766,10 +6706,10 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiseizure-management" data-dismech-node="Antiseizure management" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiseizure management
                 </div>
@@ -5804,9 +6744,26 @@
 
 
 
-                <div class="item-desc">Seizures are typically intractable and non-febrile with variable semiology, and are managed with multiple antiepileptic drugs. A ketogenic diet has been used and suggested as an option for intractable epilepsy, and one individual received a vagus nerve stimulator. No pattern of drug efficacy could be discerned across the reported cases, so the choice remains empiric.</div>
+                <div class="item-desc">Seizures are typically intractable and non-febrile with variable semiology, and are managed with multiple antiseizure drugs. No pattern of drug efficacy could be discerned across the reported cases, so agent choice remains empiric. Ketogenic diet and cannabidiol are represented separately because their evidence and modalities differ from general pharmacotherapy.</div>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Seizure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
+                    </span>
+
+                </div>
 
 
 
@@ -5868,7 +6825,235 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ketogenic-diet-for-intractable-epilepsy" data-dismech-node="Ketogenic diet for intractable epilepsy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Ketogenic diet for intractable epilepsy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">dietary intervention</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15447" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15447">NCIT:C15447</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">A ketogenic diet controlled or markedly reduced drug-resistant seizures in a pair of affected twins during ten months of follow-up. This is direct but very small case-series evidence, and hypoglycaemia risk requires caution.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Seizure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32389449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32389449" target="_blank">PMID:32389449</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our patients were the first patients with ALG3-CDG whose intractable epilepsies were controlled by ketogenic diet."</div>
+
+
+                <div class="evidence-explanation">Direct disease-specific twin case report supports seizure control with a ketogenic diet, without implying population-level efficacy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32389449" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32389449" target="_blank">PMID:32389449</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, CDG patients already have a tendency for hypoglycemia due to hyperinsulinism and it should be kept in mind that ketogenic diet may also potentiate this effect"</div>
+
+
+                <div class="evidence-explanation">Qualifies the treatment with a disease-relevant safety concern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-cannabidiol-for-alg3-cdg-with-lennox-gastaut-syndrome" data-dismech-node="Cannabidiol for ALG3-CDG with Lennox-Gastaut syndrome" data-dismech-type="treatment">
+                <div class="item-name">
+                    Cannabidiol for ALG3-CDG with Lennox-Gastaut syndrome
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+                    <span class="tag tag-treatment">
+                        cannabidiol
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:69478">CHEBI:69478</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">In one 2025 case with concurrent ALG3-CDG and Lennox-Gastaut syndrome, cannabidiol plus dietary management produced seizure freedom for more than 13 months with EEG and developmental improvement. This is promising single-case evidence specific to the comorbid LGS context, not a general efficacy claim for ALG3-CDG epilepsy.</div>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Seizure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39831946" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39831946" target="_blank">PMID:39831946</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cannabidiol therapy, combined with dietary management, led to seizure freedom for over 13 months, significant EEG improvement, and enhanced developmental outcomes."</div>
+
+
+                <div class="evidence-explanation">Supports the reported outcome in a single ALG3-CDG/LGS case while the description preserves its limited scope.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-developmental-therapies" data-dismech-node="Developmental therapies" data-dismech-type="treatment">
                 <div class="item-name">
                     Developmental therapies
                 </div>
@@ -5968,7 +7153,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-baseline-multisystem-evaluation-and-monitoring" data-dismech-node="Baseline multisystem evaluation and monitoring" data-dismech-type="treatment">
                 <div class="item-name">
                     Baseline multisystem evaluation and monitoring
                 </div>
@@ -6007,31 +7192,13 @@
                 <div class="item-desc">No disease-modifying therapy exists. The management recommendation that emerged from the expanded phenotype is proactive rather than reactive: baseline endocrine, renal, cardiac and immunological evaluation at the time of diagnosis, with ongoing monitoring, because these systems are involved more often than the historical description suggested.</div>
 
 
-                <div class="item-meta" style="margin-top: 8px;">
-                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
-
-                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
-                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            INHIBITS
-                        </span>
-                        <strong style="color: #5b21b6;">Multisystem Glycoprotein Dysfunction</strong>
-
-                        <span style="color: #7c3aed;"> &mdash; Surveillance detects the downstream organ consequences of hypoglycosylation rather than addressing the enzymatic block.</span>
-
-
-
-
-                    </div>
-
-                </div>
-
 
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6057,6 +7224,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:38917675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38917675" target="_blank">PMID:38917675</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cardiac surveillance, including an echocardiogram and EKG, should be conducted at the time of diagnosis, annually throughout the first 5 years, followed by check-ups every 2-3 years if no concerns arise until adulthood."</div>
+
+
+                <div class="evidence-explanation">Adds a contemporary CDG natural-history recommendation for structured cardiac surveillance after documenting ALG3-CDG cardiomyopathy.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -6076,10 +7265,10 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
                 <h2 class="card-title">Biochemical Markers</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-antithrombin-iii" data-dismech-node="Antithrombin III" data-dismech-type="biochemical">
                 <div class="item-name">
                     Antithrombin III
 
@@ -6126,11 +7315,80 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-transaminases" data-dismech-node="Serum transaminases" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum transaminases
 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(INCREASED)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33583022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33583022" target="_blank">PMID:33583022</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hepatopathy consisted of mild trans-aminitis (ALT 47-149"</div>
+
+
+                <div class="evidence-explanation">Directly identifies hepatopathy as mild transaminitis and quantifies the reported ALT elevation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33583022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33583022" target="_blank">PMID:33583022</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"6-40 IU/L, AST 55-128; RR 5-41IU/L)"</div>
+
+
+                <div class="evidence-explanation">Separately quantifies the reported AST elevation without conflating it with the albumin abnormality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-albumin" data-dismech-node="Serum albumin" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Serum albumin
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
 
                 </div>
 
@@ -6157,10 +7415,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"and hypoalbuminemia (2.6-3.7; RR 3.8-5.4 g/dL)"</div>
+                <div class="evidence-snippet">"6-40 IU/L, AST 55-128; RR 5-41IU/L) and hypoalbuminemia (2.6-3.7; RR 3.8-5.4 g/dL)."</div>
 
 
-                <div class="evidence-explanation">Quantifies the hepatic biochemical abnormalities against reference ranges.</div>
+                <div class="evidence-explanation">Directly quantifies hypoalbuminaemia against the reported reference range.</div>
 
 
 
@@ -6209,8 +7467,8 @@ description: &gt;-
   of glycosylation caused by deficiency of the endoplasmic reticulum
   alpha-1,3-mannosyltransferase ALG3. The enzyme adds the sixth mannose to the
   growing lipid-linked oligosaccharide, so its loss truncates the precursor
-  glycan at Man5GlcNAc2 and produces a distinctive N-glycan signature found in no
-  other CDG. Affected individuals have severe neurological involvement with
+  glycan at Man5GlcNAc2 and produces a characteristic N-glycan signature.
+  Affected individuals have severe neurological involvement with
   epilepsy, microcephaly and hypotonia, together with ocular, skeletal,
   gastrointestinal, endocrine and renal involvement. Mortality is substantial
   and is recorded with its source under progression.
@@ -6276,14 +7534,14 @@ pathophysiology:
       label: dolichol-linked oligosaccharide biosynthetic process
     modifier: DECREASED
   evidence:
-  - reference: PMID:23791010
-    reference_title: &#34;ALG3-CDG (CDG-Id): clinical, biochemical and molecular findings in two siblings.&#34;
+  - reference: PMID:10581255
+    reference_title: &#34;Carbohydrate deficient glycoprotein syndrome type IV: deficiency of dolichyl-P-Man:Man(5)GlcNAc(2)-PP-dolichyl mannosyltransferase.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ALG3-CDG (CDG-Id), due to a defect in endoplasmic reticulum (ER) mannosyltransferase VI, is one of the less common types of CDG-I.&#34;
+    snippet: &#34;Here we show that the molecular defect in the index patient is a missense mutation in the gene encoding the mannosyltransferase that transfers mannose from dolichyl-phosphate mannose on to the lipid-linked oligosaccharide (LLO) intermediate Man(5)GlcNAc(2)-PP-dolichol.&#34;
     explanation: &gt;-
-      Identifies the specific ER mannosyltransferase step and places the disorder
-      within the CDG type I group.
+      The foundational human molecular study identifies ALG3 as the
+      mannosyltransferase acting on the Man5GlcNAc2 lipid-linked intermediate.
   downstream:
   - target: Truncated Man5GlcNAc2 Lipid-Linked Precursor
     description: &gt;-
@@ -6292,12 +7550,12 @@ pathophysiology:
 - name: Truncated Man5GlcNAc2 Lipid-Linked Precursor
   biological_scale: MOLECULAR
   description: &gt;-
-    The lipid-linked oligosaccharide cannot be extended beyond Man5GlcNAc2. What
-    is transferred onto nascent proteins is therefore a short, wrong-shaped
-    glycan rather than no glycan at all. The downstream N-glycan profile shows
-    combined deficiency of hybrid glycans and of extension beyond Man5GlcNAc2,
-    and that specific combination is reported to be unique to ALG3-CDG, making
-    the biochemistry diagnostic rather than merely confirmatory.
+    ALG3 deficiency causes Man5GlcNAc2-PP-dolichol to accumulate, while the
+    leaky enzymatic defect permits some full-length precursor formation.
+    Truncated oligosaccharides are transferred alongside full-length species,
+    and later Golgi processing generates characteristic Man3-4 structures. The
+    combined deficiency of hybrid glycans and extension beyond Man5GlcNAc2 is a
+    disease-characteristic biochemical fingerprint.
   biological_processes:
   - preferred_term: dolichol-linked oligosaccharide biosynthetic process
     term:
@@ -6305,6 +7563,14 @@ pathophysiology:
       label: dolichol-linked oligosaccharide biosynthetic process
     modifier: DECREASED
   evidence:
+  - reference: PMID:10581255
+    reference_title: &#34;Carbohydrate deficient glycoprotein syndrome type IV: deficiency of dolichyl-P-Man:Man(5)GlcNAc(2)-PP-dolichyl mannosyltransferase.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The defect results in the accumulation of the LLO intermediate and, due to its leaky nature, a residual formation of full-length LLOs.&#34;
+    explanation: &gt;-
+      Establishes both Man5-linked precursor accumulation and residual
+      full-length precursor formation, avoiding an absolute assembly-block claim.
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
     supports: SUPPORT
@@ -6321,6 +7587,14 @@ pathophysiology:
     explanation: &gt;-
       Establishes the diagnostic specificity of the glycan signature, which
       distinguishes ALG3-CDG from other CDG within the same module.
+  - reference: PMID:41089746
+    reference_title: &#34;Insights into ALG3-CDG: A case study combining glycan profiling and genetic analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The results revealed an abnormal N-glycan profile, characterized by an increased relative abundance of truncated mannosylated structures (Hex3HexNAc2 and Hex4HexNAc2) and a decreased presence of higher-order mannose structures (Hex6-8HexNAc2).&#34;
+    explanation: &gt;-
+      A 2025 case independently confirms increased truncated Man3-4 structures
+      and depletion of higher-mannose glycans.
   downstream:
   - target: Protein Hypoglycosylation
     description: &gt;-
@@ -6334,11 +7608,6 @@ pathophysiology:
     term:
       id: GO:0006487
       label: protein N-linked glycosylation
-    modifier: DECREASED
-  - preferred_term: protein O-linked glycosylation
-    term:
-      id: GO:0006493
-      label: protein O-linked glycosylation
     modifier: DECREASED
   description: &gt;-
     Nascent glycoproteins receive abnormal or absent N-glycans, detectable
@@ -6355,10 +7624,96 @@ pathophysiology:
       Documents the type 1 transferrin pattern that reports protein
       hypoglycosylation in an ALG3-CDG patient.
   downstream:
+  - target: Constitutive IRE1-Mediated Unfolded Protein Response and ERAD
+    causal_link_type: DIRECT
+    description: &gt;-
+      Defective N-glycan extension chronically activates ER protein-quality
+      control in patient-derived fibroblasts.
+  - target: IGF-1 Axis Hypoglycosylation and Reduced Availability
+    causal_link_type: DIRECT
+    description: &gt;-
+      Hypoglycosylation affects proIGF-1 processing and IGF-1 receptor abundance
+      in patient-derived fibroblasts.
   - target: Multisystem Glycoprotein Dysfunction
     description: &gt;-
       Widespread glycoprotein dysfunction produces the multisystem clinical
       phenotype.
+- name: Constitutive IRE1-Mediated Unfolded Protein Response and ERAD
+  biological_scale: CELLULAR
+  mechanism_confidence: PROVISIONAL
+  description: &gt;-
+    ALG3-CDG patient-derived skin fibroblasts have constitutively increased
+    unfolded-protein-response and ER-associated-degradation activity, with the
+    UPR mediated through the IRE1-alpha branch. This supplies a demonstrated
+    cellular stress mechanism between abnormal N-glycans and tissue dysfunction.
+  cell_types:
+  - preferred_term: skin fibroblast
+    term:
+      id: CL:0002620
+      label: skin fibroblast
+  biological_processes:
+  - preferred_term: IRE1-mediated unfolded protein response
+    term:
+      id: GO:0036498
+      label: IRE1-mediated unfolded protein response
+    modifier: INCREASED
+  - preferred_term: ER-associated degradation
+    term:
+      id: GO:0036503
+      label: ERAD pathway
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:38597022
+    reference_title: Deficient glycan extension and endoplasmic reticulum stresses in ALG3-CDG.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;In this study, we provide evidence that the unfolded protein response (UPR) and ER-associated degradation activities are increased in ALG3-CDG patient-derived cultured skin fibroblasts and there is constitutive activation of UPR mediated by the IRE1-α pathway.&#34;
+    explanation: &gt;-
+      Directly demonstrates increased UPR, ERAD and constitutive IRE1-alpha
+      signaling in patient-derived cultured fibroblasts.
+  downstream:
+  - target: Multisystem Glycoprotein Dysfunction
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Chronic ER quality-control activation is a plausible contributor to organ
+      dysfunction, but the tissue-specific intermediates remain unresolved.
+- name: IGF-1 Axis Hypoglycosylation and Reduced Availability
+  biological_scale: CELLULAR
+  mechanism_confidence: PROVISIONAL
+  description: &gt;-
+    In fibroblasts from two individuals with ALG3-CDG, proIGF-1 was
+    hypoglycosylated, IGF-1 secretion and IGF-1 receptor abundance were reduced,
+    and circulating IGF-1 was low. These observations identify an ALG3-relevant
+    growth-factor axis, but the study explicitly leaves its contribution to
+    growth failure and endocrine phenotypes unresolved.
+  cell_types:
+  - preferred_term: dermal fibroblast
+    term:
+      id: CL:0002620
+      label: skin fibroblast
+  evidence:
+  - reference: PMID:35211808
+    reference_title: Defective IGF-1 prohormone N-glycosylation and reduced IGF-1 receptor signaling activation in congenital disorders of glycosylation.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;ALG3-CDG, ALG8-CDG, GMPPB-CDG and some PMM2-CDG fibroblasts showed hypoglycosylation of the proIGF-1Ea and lower IGF-1 secretion when compared with control (CTR).&#34;
+    explanation: &gt;-
+      Supports proIGF-1 hypoglycosylation and reduced secretion in ALG3-CDG
+      patient fibroblasts.
+  - reference: PMID:35211808
+    reference_title: Defective IGF-1 prohormone N-glycosylation and reduced IGF-1 receptor signaling activation in congenital disorders of glycosylation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Lower IGF-1 serum concentration was observed in ALG3-CDG, ALG8-CDG and in some patients with PMM2-CDG, supporting our in vitro data.&#34;
+    explanation: &gt;-
+      Human serum measurements corroborate reduced IGF-1 availability, while
+      not establishing its clinical consequences.
+  downstream:
+  - target: Failure to thrive
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Reduced IGF-1 availability could contribute to impaired growth, but the
+      study explicitly leaves this clinical consequence unresolved.
 - name: Multisystem Glycoprotein Dysfunction
   biological_scale: ORGANISM
   conforms_to: &#34;congenital_disorder_of_glycosylation#Multisystem Glycoprotein Dysfunction&#34;
@@ -6396,6 +7751,43 @@ pathophysiology:
     description: &gt;-
       Among the affected systems, the eye shows a specifically neuroretinal
       degeneration rather than a purely structural anomaly.
+  - target: Global developmental delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Seizure
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Microcephaly
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Cerebellar vermis hypoplasia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Multiple joint contractures
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Hypotonia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Feeding difficulties
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Strabismus
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Central hypothyroidism
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Adrenal insufficiency
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Nephrocalcinosis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Renal involvement is part of the observed multisystem phenotype, although
+      the intervening glycoproteins are unknown.
+  - target: Recurrent infections
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Recurrent infections accompany multisystem dysfunction, but available
+      immune testing does not establish a single causal pathway.
+  - target: Aortic root dilatation
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Aortic root involvement is documented clinically without a resolved
+      glycoprotein or connective-tissue mechanism.
+  - target: Dilated cardiomyopathy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 - name: Retinal Ganglion Cell Loss and Optic Nerve Involvement
   biological_scale: TISSUE
   description: &gt;-
@@ -6418,6 +7810,23 @@ pathophysiology:
     explanation: &gt;-
       Provides cell-level imaging evidence for the neuroretinal nature of the
       ocular phenotype.
+  - reference: PMID:34090370
+    reference_title: &#34;ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Literature review shows that visual impairment in ALG3-CDG is most commonly linked to optic nerve hypoplasia.&#34;
+    explanation: &gt;-
+      The disease-focused ophthalmic review identifies optic nerve hypoplasia as
+      the most common reported substrate of visual impairment.
+  downstream:
+  - target: Optic atrophy
+    causal_link_type: DIRECT
+  - target: Optic nerve hypoplasia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Optic nerve hypoplasia is co-located with the disease-specific ocular
+      evidence, without asserting that retinal ganglion-cell loss causes the
+      developmental anomaly.
 phenotypes:
 - name: Global developmental delay
   category: Neurologic
@@ -6425,22 +7834,15 @@ phenotypes:
     Developmental delay dominates the clinical picture, but its degree varies
     widely: some individuals have profound delay across all domains, while
     others reach adult neurocognitive abilities equivalent to an average age of
-    seven to nine years. The band is set from the source&#39;s own qualitative
-    wording (&#34;frequently exhibit&#34;) rather than a counted denominator.
-  frequency: FREQUENT
+    seven to nine years. No frequency band is assigned because the cited cohort
+    describes severity variation without a disorder-wide denominator for
+    developmental delay.
   phenotype_term:
     preferred_term: Global developmental delay
     term:
       id: HP:0001263
       label: Global developmental delay
   evidence:
-  - reference: PMID:33583022
-    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Individuals with ALG3-CDG frequently exhibit severe neurological involvement (epilepsy, microcephaly, and hypotonia)&#34;
-    explanation: &gt;-
-      Establishes severe neurological involvement as a frequent core feature.
   - reference: PMID:23791010
     reference_title: &#34;ALG3-CDG (CDG-Id): clinical, biochemical and molecular findings in two siblings.&#34;
     supports: SUPPORT
@@ -6562,6 +7964,27 @@ phenotypes:
     explanation: &gt;-
       Documents the optic disc and fundus findings underpinning the optic
       neuropathy.
+- name: Optic nerve hypoplasia
+  category: Ophthalmologic
+  description: &gt;-
+    Optic nerve hypoplasia is the most commonly identified cause of visual
+    impairment in the published ophthalmic review, and may coexist with retinal
+    ganglion-cell loss and optic-disc pallor.
+  phenotype_term:
+    preferred_term: Optic nerve hypoplasia
+    term:
+      id: HP:0000609
+      label: Optic nerve hypoplasia
+  evidence:
+  - reference: PMID:34090370
+    reference_title: &#34;ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;optic nerve atrophy/hypoplasia observed in 11 patients including the current study&#34;
+    explanation: &gt;-
+      The review found the combined category of optic nerve atrophy or
+      hypoplasia in 11 individuals. No frequency band is assigned to hypoplasia
+      alone because the source does not disaggregate those findings.
 - name: Hypotonia
   category: Neurologic
   description: &gt;-
@@ -6662,10 +8085,10 @@ phenotypes:
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Previously unreported endocrine abnormalities were present in more than half of our cohort, including central hypothyroidism, central adrenal insufficiency, growth hormone deficiency, and subsequent hypoglycemia.&#34;
+    snippet: &#34;Four of our subjects had central hypothyroidism with three requiring hormone replacement.&#34;
     explanation: &gt;-
-      Quantifies endocrine involvement at more than half the cohort and names
-      the specific axes affected.
+      Quantifies central hypothyroidism in four members of the ten-person
+      cohort, supporting a FREQUENT band.
 - name: Adrenal insufficiency
   category: Endocrine
   description: &gt;-
@@ -6682,9 +8105,10 @@ phenotypes:
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;including central hypothyroidism, central adrenal insufficiency, growth hormone deficiency, and subsequent hypoglycemia&#34;
+    snippet: &#34;Additionally, two of our newly reported individuals have panhypopituitarism (hypothyroidism, growth hormone deficiency, and adrenal insufficiency); both are on hormone replacement therapy.&#34;
     explanation: &gt;-
-      Names central adrenal insufficiency among the endocrine abnormalities.
+      Quantifies adrenal insufficiency within panhypopituitarism in two members
+      of the ten-person cohort, supporting an OCCASIONAL band.
 - name: Nephrocalcinosis
   category: Genitourinary
   description: &gt;-
@@ -6705,21 +8129,22 @@ phenotypes:
     snippet: &#34;Nephrocalcinosis has been seen in both P2 and P3; P3 has nephromegaly and cystic kidneys, while P6 had duplex kidney&#34;
     explanation: &gt;-
       Documents the specific structural renal anomalies observed in the cohort.
-- name: Immunodeficiency
+- name: Recurrent infections
   category: Immunologic
   description: &gt;-
     Recurrent infection, predominantly upper and lower respiratory, affects three
     quarters of the cohort, and is one of the reasons baseline immunological
-    evaluation is now recommended at diagnosis. Notably the two individuals who
-    had formal immunological evaluation had normal immunoglobulins and normal
-    T, B and NK cell numbers, so the mechanism is not a simple quantitative
-    immune deficiency.
+    evaluation is now recommended at diagnosis. Only one evaluated individual
+    had a specific antibody deficiency; another similarly affected individual
+    had recurrent infections despite a normal immunological workup. The
+    computable phenotype is therefore recurrent infection rather than a
+    generalized immunodeficiency assertion.
   frequency: FREQUENT
   phenotype_term:
-    preferred_term: Immunodeficiency
+    preferred_term: Recurrent infections
     term:
-      id: HP:0002721
-      label: Immunodeficiency
+      id: HP:0002719
+      label: Recurrent infections
   evidence:
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
@@ -6727,7 +8152,8 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;we expand the symptomatology of ALG3-CDG to now include endocrine abnormalities, neural tube defects, mild aortic root dilatation, immunodeficiency, and renal anomalies&#34;
     explanation: &gt;-
-      Establishes immunodeficiency among the newly recognized manifestations.
+      Establishes immune-system involvement while the more specific phenotype
+      is grounded by the cohort&#39;s recurrent-infection count below.
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
     supports: SUPPORT
@@ -6736,6 +8162,46 @@ phenotypes:
     explanation: &gt;-
       Quantifies recurrent infection at 6 of 8 individuals, supporting a
       FREQUENT band, while noting how few had formal immunological workup.
+- name: Aortic root dilatation
+  category: Cardiovascular
+  description: &gt;-
+    Mild aortic-root dilatation was newly observed in four members of the 2021
+    cohort without other signs of connective-tissue dysplasia.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Aortic root dilatation
+    term:
+      id: HP:0002616
+      label: Aortic root aneurysm
+  evidence:
+  - reference: PMID:33583022
+    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Aortic root dilatation (Z score &gt;2), with no other signs of connective tissue dysplasia, has been observed in four of our subjects&#34;
+    explanation: &gt;-
+      Four observations in the ten-person cohort support a FREQUENT band and
+      the need for cardiac baseline assessment.
+- name: Dilated cardiomyopathy
+  category: Cardiovascular
+  description: &gt;-
+    Dilated cardiomyopathy has been documented in one ALG3-CDG participant in a
+    305-person CDG natural-history cohort. It is retained as a rare but serious
+    manifestation without a frequency band.
+  phenotype_term:
+    preferred_term: Dilated cardiomyopathy
+    term:
+      id: HP:0001644
+      label: Dilated cardiomyopathy
+  evidence:
+  - reference: PMID:38917675
+    reference_title: &#34;Cardiomyopathy, an uncommon phenotype of congenital disorders of glycosylation: Recommendations for baseline screening and follow-up evaluation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Dilated cardiomyopathy was observed in three patients, two with PGM1-CDG and one with ALG3-CDG&#34;
+    explanation: &gt;-
+      Directly documents dilated cardiomyopathy in one molecularly confirmed
+      ALG3-CDG participant.
 biochemical:
 - name: Antithrombin III
   presence: DECREASED
@@ -6761,18 +8227,40 @@ biochemical:
 - name: Serum transaminases
   presence: INCREASED
   notes: &gt;-
-    Mild transaminitis with hypoalbuminaemia constitutes the hepatic
-    involvement, which is milder here than in some other CDG types.
+    Mild transaminitis constitutes hepatic involvement, which is milder here
+    than in some other CDG types.
     ALT 47-149 IU/L (reference range 6-40) and AST 55-128 IU/L (reference range
-    5-41), with albumin 2.6-3.7 g/dL (reference range 3.8-5.4).
+    5-41).
   evidence:
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;and hypoalbuminemia (2.6-3.7; RR 3.8-5.4 g/dL)&#34;
+    snippet: &#34;Hepatopathy consisted of mild trans-aminitis (ALT 47-149&#34;
     explanation: &gt;-
-      Quantifies the hepatic biochemical abnormalities against reference ranges.
+      Directly identifies hepatopathy as mild transaminitis and quantifies the
+      reported ALT elevation.
+  - reference: PMID:33583022
+    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;6-40 IU/L, AST 55-128; RR 5-41IU/L)&#34;
+    explanation: &gt;-
+      Separately quantifies the reported AST elevation without conflating it
+      with the albumin abnormality.
+- name: Serum albumin
+  presence: DECREASED
+  notes: &gt;-
+    Hypoalbuminaemia was reported at 2.6-3.7 g/dL against a reference range of
+    3.8-5.4 g/dL.
+  evidence:
+  - reference: PMID:33583022
+    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;6-40 IU/L, AST 55-128; RR 5-41IU/L) and hypoalbuminemia (2.6-3.7; RR 3.8-5.4 g/dL).&#34;
+    explanation: &gt;-
+      Directly quantifies hypoalbuminaemia against the reported reference range.
 genetic:
 - name: ALG3
   gene_term:
@@ -6784,9 +8272,9 @@ genetic:
   relationship_type: CAUSATIVE
   notes: &gt;-
     Encodes the ER alpha-1,3-mannosyltransferase that adds the sixth mannose to
-    the lipid-linked oligosaccharide. The disorder remains rare: a 2021 series of
-    10 new individuals with 11 novel variants brought the world total to about
-    40 reported individuals.
+    the lipid-linked oligosaccharide. A 2021 ophthalmic review counted 33
+    pathogenic or likely pathogenic variants among 43 individuals, and later
+    disease-specific reports continue to expand the allelic spectrum.
   evidence:
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
@@ -6796,30 +8284,56 @@ genetic:
     explanation: &gt;-
       Establishes the variant spectrum and the size of the reported world
       literature.
+  - reference: PMID:34090370
+    reference_title: &#34;ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thirty-three variants in 43 subjects with ALG3-CDG have been reported.&#34;
+    explanation: &gt;-
+      Updates the 2021 literature count and variant spectrum beyond the earlier
+      40-person cohort summary.
+  - reference: PMID:41089746
+    reference_title: &#34;Insights into ALG3-CDG: A case study combining glycan profiling and genetic analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Whole exome sequencing confirmed a diagnosis of ALG3-CDG with compound heterozygous variants: c.165C &gt; T (p.Gly55=) and c.1060C &gt; T (p.Arg354Cys) in the ALG3 gene&#34;
+    explanation: &gt;-
+      A 2025 molecularly confirmed case adds contemporary compound-heterozygous
+      evidence to the allelic spectrum.
 prevalence:
 - population: Worldwide
   measure_type: CASES_IN_LITERATURE
   prevalence_class: ULTRA_RARE
   notes: &gt;-
-    About 40 individuals reported worldwide as of 2021. Population prevalence is
-    unknown and the published-case count must not be converted into one.
+    Forty-three individuals had been reported by the June 2021 ophthalmic
+    review. New disease-specific cases appeared in 2025, so 43 is a dated lower
+    bound rather than a current total. Population prevalence remains unknown;
+    later mechanistic cohorts may overlap prior cases and are not summed here.
   evidence:
-  - reference: PMID:33583022
-    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
+  - reference: PMID:34090370
+    reference_title: &#34;ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;bringing the total to 40 reported individuals&#34;
+    snippet: &#34;Thirty-three variants in 43 subjects with ALG3-CDG have been reported.&#34;
     explanation: &gt;-
-      Anchors the size of the published literature, the only occurrence measure
-      available.
+      Anchors the last explicitly enumerated literature count while avoiding its
+      conversion to population prevalence.
+  - reference: PMID:39831946
+    reference_title: First case report of effective and safe application of cannabidiol to treat concurrent ALG3-CDG and Lennox-Gastaut Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This study presents the first reported case of a Korean patient with Alpha-1,3-Mannosyltransferase-Congenital Disorder of Glycosylation (ALG3-CDG)&#34;
+    explanation: &gt;-
+      Demonstrates that additional disease-specific cases were published after
+      the 43-person review, making that count a lower bound.
 progression:
 - phase: Neonatal and early mortality
   notes: &gt;-
     Almost half of reported individuals die before or during the neonatal
-    period. The picture is not uniform, however: seven of the ten individuals in
-    the 2021 cohort were alive at reporting, and the neonatal-death cluster is
-    associated with the p.Arg171Gln variant, so mortality appears
-    genotype-influenced rather than uniform across the disorder.
+    period. Survival is nevertheless variable, including survival into
+    adulthood. All nine reported individuals homozygous for p.Arg171Gln died
+    very early, a possible genotype association; outside that cluster the
+    largest cohort found no clear genotype-phenotype correlation.
   evidence:
   - reference: PMID:34090370
     reference_title: &#34;ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings.&#34;
@@ -6829,6 +8343,15 @@ progression:
     explanation: &gt;-
       Source for the mortality statement, which previously appeared only as an
       unevidenced sentence in the entry description.
+  - reference: PMID:33583022
+    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All of these nine cases with this genotype passed away very early in life&#34;
+    explanation: &gt;-
+      Supports the observed p.Arg171Gln homozygote mortality cluster, classified
+      as PARTIAL because the authors call the correlation possible and found no
+      broader clear genotype-phenotype relationship.
 diagnosis:
 - name: Transferrin isoelectric focusing
   description: &gt;-
@@ -6853,7 +8376,9 @@ diagnosis:
     N-glycan analysis shows combined deficiency of hybrid glycans and of
     extension beyond Man5GlcNAc2, a pattern reported to be unique to ALG3-CDG.
     This makes glycan profiling potentially diagnostic rather than merely
-    supportive within the CDG group.
+    supportive within the CDG group. However, a 2024 study predicts that one
+    processed ALG3-CDG glycan has the same molecular weight as a truncated
+    MGAT2-CDG glycan, so mass alone may not distinguish every species.
   diagnosis_term:
     preferred_term: N-glycan profiling
     term:
@@ -6867,6 +8392,22 @@ diagnosis:
     snippet: &#34;This spectrum of N-glycan changes is unique to ALG3-CDG.&#34;
     explanation: &gt;-
       Establishes the diagnostic specificity of the ALG3-CDG glycan signature.
+  - reference: PMID:41089746
+    reference_title: &#34;Insights into ALG3-CDG: A case study combining glycan profiling and genetic analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;This presented case highlights the importance of glycan profiling and genetic analysis in diagnosing congenital disorders of glycosylation, facilitating early intervention and management.&#34;
+    explanation: &gt;-
+      A 2025 case supports combined glycan profiling and genetic analysis in the
+      contemporary diagnostic workflow.
+  - reference: PMID:38597022
+    reference_title: Deficient glycan extension and endoplasmic reticulum stresses in ALG3-CDG.
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &#34;We predict it to be a mono-antennary glycan with the same molecular weight as the truncated glycan described in MGAT2-CDG.&#34;
+    explanation: &gt;-
+      Qualifies mass-based specificity because one predicted processed ALG3
+      glycan collides in molecular weight with a truncated MGAT2-CDG glycan.
 - name: Molecular genetic testing
   description: &gt;-
     Biallelic ALG3 variants confirm the diagnosis, and molecular testing is what
@@ -6890,16 +8431,21 @@ treatments:
 - name: Antiseizure management
   description: &gt;-
     Seizures are typically intractable and non-febrile with variable semiology,
-    and are managed with multiple antiepileptic drugs. A ketogenic diet has been
-    used and suggested as an option for intractable epilepsy, and one individual
-    received a vagus nerve stimulator. No pattern of drug efficacy could be
-    discerned across the reported cases, so the choice remains empiric.
+    and are managed with multiple antiseizure drugs. No pattern of drug efficacy
+    could be discerned across the reported cases, so agent choice remains
+    empiric. Ketogenic diet and cannabidiol are represented separately because
+    their evidence and modalities differ from general pharmacotherapy.
   therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+  target_phenotypes:
+  - preferred_term: Seizure
+    term:
+      id: HP:0001250
+      label: Seizure
   evidence:
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
@@ -6917,6 +8463,70 @@ treatments:
     explanation: &gt;-
       Records explicitly that no drug-efficacy pattern could be established,
       which is why no specific agent is recommended.
+- name: Ketogenic diet for intractable epilepsy
+  description: &gt;-
+    A ketogenic diet controlled or markedly reduced drug-resistant seizures in
+    a pair of affected twins during ten months of follow-up. This is direct but
+    very small case-series evidence, and hypoglycaemia risk requires caution.
+  therapeutic_modality: BEHAVIORAL
+  treatment_term:
+    preferred_term: dietary intervention
+    term:
+      id: NCIT:C15447
+      label: Dietary Intervention
+  target_phenotypes:
+  - preferred_term: Seizure
+    term:
+      id: HP:0001250
+      label: Seizure
+  evidence:
+  - reference: PMID:32389449
+    reference_title: Successful treatment of intractable epilepsy with ketogenic diet therapy in twins with ALG3-CDG.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our patients were the first patients with ALG3-CDG whose intractable epilepsies were controlled by ketogenic diet.&#34;
+    explanation: &gt;-
+      Direct disease-specific twin case report supports seizure control with a
+      ketogenic diet, without implying population-level efficacy.
+  - reference: PMID:32389449
+    reference_title: Successful treatment of intractable epilepsy with ketogenic diet therapy in twins with ALG3-CDG.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;However, CDG patients already have a tendency for hypoglycemia due to hyperinsulinism and it should be kept in mind that ketogenic diet may also potentiate this effect&#34;
+    explanation: &gt;-
+      Qualifies the treatment with a disease-relevant safety concern.
+- name: Cannabidiol for ALG3-CDG with Lennox-Gastaut syndrome
+  description: &gt;-
+    In one 2025 case with concurrent ALG3-CDG and Lennox-Gastaut syndrome,
+    cannabidiol plus dietary management produced seizure freedom for more than
+    13 months with EEG and developmental improvement. This is promising
+    single-case evidence specific to the comorbid LGS context, not a general
+    efficacy claim for ALG3-CDG epilepsy.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: cannabidiol
+      term:
+        id: CHEBI:69478
+        label: cannabidiol
+  target_phenotypes:
+  - preferred_term: Seizure
+    term:
+      id: HP:0001250
+      label: Seizure
+  evidence:
+  - reference: PMID:39831946
+    reference_title: First case report of effective and safe application of cannabidiol to treat concurrent ALG3-CDG and Lennox-Gastaut Syndrome.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cannabidiol therapy, combined with dietary management, led to seizure freedom for over 13 months, significant EEG improvement, and enhanced developmental outcomes.&#34;
+    explanation: &gt;-
+      Supports the reported outcome in a single ALG3-CDG/LGS case while the
+      description preserves its limited scope.
 - name: Developmental therapies
   description: &gt;-
     Physical, occupational and speech therapy are part of the recommended
@@ -6956,12 +8566,6 @@ treatments:
     term:
       id: NCIT:C15747
       label: Supportive Care
-  target_mechanisms:
-  - target: Multisystem Glycoprotein Dysfunction
-    treatment_effect: INHIBITS
-    description: &gt;-
-      Surveillance detects the downstream organ consequences of hypoglycosylation
-      rather than addressing the enzymatic block.
   evidence:
   - reference: PMID:33583022
     reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
@@ -6970,6 +8574,14 @@ treatments:
     snippet: &#34;These expanded features of ALG3-CDG facilitate diagnosis and suggest that optimal management should include baseline endocrine, renal, cardiac, and immunological evaluation at the time of diagnosis and with ongoing monitoring.&#34;
     explanation: &gt;-
       States the multisystem baseline evaluation and monitoring recommendation.
+  - reference: PMID:38917675
+    reference_title: &#34;Cardiomyopathy, an uncommon phenotype of congenital disorders of glycosylation: Recommendations for baseline screening and follow-up evaluation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Cardiac surveillance, including an echocardiogram and EKG, should be conducted at the time of diagnosis, annually throughout the first 5 years, followed by check-ups every 2-3 years if no concerns arise until adulthood.&#34;
+    explanation: &gt;-
+      Adds a contemporary CDG natural-history recommendation for structured
+      cardiac surveillance after documenting ALG3-CDG cardiomyopathy.
 discussions:
 - discussion_id: gap_alg3_truncated_versus_absent_glycan
   kind: KNOWLEDGE_GAP
@@ -6983,13 +8595,26 @@ discussions:
   - pathophysiology#Protein Hypoglycosylation
   rationale: &gt;-
     ALG3-CDG does not simply fail to glycosylate: it transfers a short,
-    wrong-shaped glycan, and the resulting N-glycan spectrum is reported to be
-    unique among the CDGs. That raises the possibility that the truncated glycan
-    is actively harmful rather than merely insufficient, which would explain why
-    a block partway along the assembly line is so severe. Distinguishing loss of
-    function from gain of a bad glycan matters therapeutically, because the two
-    imply opposite strategies: supplying the missing sugar versus preventing
-    transfer of the truncated precursor.
+    abnormal glycan, and the resulting N-glycan spectrum is disease
+    characteristic. Patient fibroblasts now establish chronic UPR and ERAD
+    activation, but do not distinguish toxicity of the truncated glycan from
+    the consequences of missing mature glycans. That raises the possibility
+    that the truncated glycan is actively harmful rather than merely
+    insufficient, which would explain why a block partway along the assembly
+    line is so severe. Distinguishing loss of function from gain of a bad glycan
+    matters therapeutically, because the two imply opposite strategies:
+    supplying the missing sugar versus preventing transfer of the truncated
+    precursor.
+  evidence:
+  - reference: PMID:38597022
+    reference_title: Deficient glycan extension and endoplasmic reticulum stresses in ALG3-CDG.
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &#34;In this study, we provide evidence that the unfolded protein response (UPR) and ER-associated degradation activities are increased in ALG3-CDG patient-derived cultured skin fibroblasts&#34;
+    explanation: &gt;-
+      Establishes the ER-stress phenotype motivating the question, but does not
+      resolve whether truncated-glycan transfer or mature-glycan deficiency is
+      causal.
   proposed_experiments:
   - experiment_id: exp_alg3_truncated_glycan_toxicity
     name: Comparing truncated-glycan transfer against no-transfer in ALG3-deficient cells
@@ -7019,11 +8644,20 @@ discussions:
     The combined deficiency of hybrid glycans and of extension beyond Man5GlcNAc2
     is described as unique to ALG3-CDG, which establishes it as a diagnostic
     fingerprint. What is not established is whether the magnitude of that
-    deviation tracks clinical severity across the roughly 40 reported
-    individuals, or whether it would move under any intervention. Without that,
+    deviation tracks clinical severity across the small published population,
+    or whether it would move under any intervention. Without that,
     any future trial in this ultra-rare disorder has no surrogate endpoint and
     would have to rely on clinical outcomes in a population where about half die
     neonatally.
+  evidence:
+  - reference: PMID:33583022
+    reference_title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The degree of elevation of the mono/di oligo ratio of transferrin may correlate with severity and/or age, as seen in other CDGs, but we do not have enough power to definitively illustrate this.&#34;
+    explanation: &gt;-
+      The cohort raises the biomarker hypothesis but explicitly reports
+      insufficient power to establish the correlation.
   proposed_experiments:
   - experiment_id: exp_alg3_glycan_severity_correlation
     name: Correlating quantitative N-glycan deviation with clinical severity across the reported ALG3-CDG cohort
@@ -7040,10 +8674,26 @@ discussions:
     would_refute:
     - Glycan profile is invariant across severities, confining it to a purely diagnostic role
 references:
+- reference: PMID:10581255
+  title: &#34;Carbohydrate deficient glycoprotein syndrome type IV: deficiency of dolichyl-P-Man:Man(5)GlcNAc(2)-PP-dolichyl mannosyltransferase&#34;
+- reference: PMID:23791010
+  title: &#34;ALG3-CDG (CDG-Id): clinical, biochemical and molecular findings in two siblings&#34;
+- reference: PMID:32389449
+  title: Successful treatment of intractable epilepsy with ketogenic diet therapy in twins with ALG3-CDG
 - reference: PMID:33583022
   title: &#34;Expanding the phenotype, genotype and biochemical knowledge of ALG3-CDG&#34;
 - reference: PMID:34090370
   title: &#34;ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings&#34;
+- reference: PMID:35211808
+  title: Defective IGF-1 prohormone N-glycosylation and reduced IGF-1 receptor signaling activation in congenital disorders of glycosylation
+- reference: PMID:38597022
+  title: Deficient glycan extension and endoplasmic reticulum stresses in ALG3-CDG
+- reference: PMID:38917675
+  title: &#34;Cardiomyopathy, an uncommon phenotype of congenital disorders of glycosylation: Recommendations for baseline screening and follow-up evaluation&#34;
+- reference: PMID:39831946
+  title: First case report of effective and safe application of cannabidiol to treat concurrent ALG3-CDG and Lennox-Gastaut Syndrome
+- reference: PMID:41089746
+  title: &#34;Insights into ALG3-CDG: A case study combining glycan profiling and genetic analysis&#34;
 </pre>
             </div>
         </div>
@@ -7059,7 +8709,58 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">2</span>
+                    <span class="card-count">10</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/10581255" target="_blank">PMID:10581255</a>
+                            </div>
+
+                            <div class="reference-title">Carbohydrate deficient glycoprotein syndrome type IV: deficiency of dolichyl-P-Man:Man(5)GlcNAc(2)-PP-dolichyl mannosyltransferase</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23791010" target="_blank">PMID:23791010</a>
+                            </div>
+
+                            <div class="reference-title">ALG3-CDG (CDG-Id): clinical, biochemical and molecular findings in two siblings</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/32389449" target="_blank">PMID:32389449</a>
+                            </div>
+
+                            <div class="reference-title">Successful treatment of intractable epilepsy with ketogenic diet therapy in twins with ALG3-CDG</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -7087,6 +8788,91 @@ references:
                             </div>
 
                             <div class="reference-title">ALG3-CDG: a patient with novel variants and review of the genetic and ophthalmic findings</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35211808" target="_blank">PMID:35211808</a>
+                            </div>
+
+                            <div class="reference-title">Defective IGF-1 prohormone N-glycosylation and reduced IGF-1 receptor signaling activation in congenital disorders of glycosylation</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38597022" target="_blank">PMID:38597022</a>
+                            </div>
+
+                            <div class="reference-title">Deficient glycan extension and endoplasmic reticulum stresses in ALG3-CDG</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38917675" target="_blank">PMID:38917675</a>
+                            </div>
+
+                            <div class="reference-title">Cardiomyopathy, an uncommon phenotype of congenital disorders of glycosylation: Recommendations for baseline screening and follow-up evaluation</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39831946" target="_blank">PMID:39831946</a>
+                            </div>
+
+                            <div class="reference-title">First case report of effective and safe application of cannabidiol to treat concurrent ALG3-CDG and Lennox-Gastaut Syndrome</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41089746" target="_blank">PMID:41089746</a>
+                            </div>
+
+                            <div class="reference-title">Insights into ALG3-CDG: A case study combining glycan profiling and genetic analysis</div>
 
                         </div>
 
@@ -8056,7 +9842,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ALG3-congenital disorder of glycosylation", "mondoId": "MONDO:0010998", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALG3-congenital_disorder_of_glycosylation", "yamlRevision": "1bcc881b5aae"};
+        const OS_CONFIG = {"diseaseName": "ALG3-congenital disorder of glycosylation", "mondoId": "MONDO:0010998", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALG3-congenital_disorder_of_glycosylation", "yamlRevision": "420ca041a58b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3470,6 +3699,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3534,6 +3765,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#variants">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -6504,7 +6744,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual Disability
 
@@ -6605,7 +6845,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Developmental Delay
 
@@ -6688,7 +6928,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drug-resistant-focal-seizures" data-dismech-node="Drug-Resistant Focal Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Drug-Resistant Focal Seizures
 
@@ -6771,7 +7011,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tonic-seizures" data-dismech-node="Tonic Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tonic Seizures
 
@@ -6830,7 +7070,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-cerebral-atrophy" data-dismech-node="Progressive Cerebral Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Cerebral Atrophy
 
@@ -6929,7 +7169,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-hypomyelination" data-dismech-node="Cerebral Hypomyelination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral Hypomyelination
 
@@ -6988,7 +7228,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-speech" data-dismech-node="Absent Speech" data-dismech-type="phenotype">
                     <div class="item-name">
                         Absent Speech
 
@@ -7047,7 +7287,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor Delay
 
@@ -7115,7 +7355,7 @@
                     <span class="cat-count">10</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-and-epileptic-encephalopathy" data-dismech-node="Developmental and Epileptic Encephalopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Developmental and Epileptic Encephalopathy
 
@@ -7198,7 +7438,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonic-seizures-and-multifocal-myoclonus" data-dismech-node="Myoclonic Seizures and Multifocal Myoclonus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myoclonic Seizures and Multifocal Myoclonus
 
@@ -7279,7 +7519,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multifocal-and-generalized-epileptiform-eeg-abnormality" data-dismech-node="Multifocal and Generalized Epileptiform EEG Abnormality" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multifocal and Generalized Epileptiform EEG Abnormality
 
@@ -7360,7 +7600,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-slow-disorganized-eeg-background" data-dismech-node="Slow Disorganized EEG Background" data-dismech-type="phenotype">
                     <div class="item-name">
                         Slow Disorganized EEG Background
 
@@ -7419,7 +7659,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin Corpus Callosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin Corpus Callosum
 
@@ -7478,7 +7718,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Axial Hypotonia
 
@@ -7537,7 +7777,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-appendicular-hypertonia" data-dismech-node="Appendicular Hypertonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Appendicular Hypertonia
 
@@ -7596,7 +7836,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyporeflexia" data-dismech-node="Hyporeflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyporeflexia
 
@@ -7655,7 +7895,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkinetic-movement-disorder" data-dismech-node="Hyperkinetic Movement Disorder" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperkinetic Movement Disorder
 
@@ -7716,7 +7956,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral Visual Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral Visual Impairment
 
@@ -7814,7 +8054,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-grin2a" data-dismech-node="GRIN2A" data-dismech-type="genetic">
                 <div class="item-name">
                     GRIN2A
 
@@ -7901,7 +8141,348 @@
     </details>
 
 
+
             </div>
+
+        </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+        <div class="card" id="variants">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🔬</div>
+                <h2 class="card-title">Variants</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+    <div class="item-box variant-box anchor-target" id="variant-grin2a-p-leu812met-c-2434c-a" data-dismech-node="GRIN2A p.Leu812Met (c.2434C&gt;A)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        GRIN2A p.Leu812Met (c.2434C&gt;A)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: GRIN2A
+
+
+    <a href="https://bioregistry.io/hgnc:4585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4585">hgnc:4585</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">De novo missense variant in the linker connecting the ligand-binding domain to the M4 transmembrane region. Increases NMDA-receptor charge transfer via an approximately eightfold increase in glutamate potency and a comparable increase in glycine potency, with a partial reduction in magnesium block. Receptors carrying it remain sensitive to memantine, which was the basis for successful adjunct memantine therapy in the index patient.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">NMDA glutamate receptor activity</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">gain-of-function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Increased agonist potency and increased charge transfer through GluN2A-L812M-containing NMDA receptors.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24839611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24839611" target="_blank">PMID:24839611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Receptors containing GluN2A-L812M showed an eightfold reduction in EC50 (i.e., increased potency) for glutamate"</div>
+
+
+                <div class="evidence-explanation">Quantifies the gain-of-function effect on glutamate potency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-grin2a-p-asn615lys-c-1845c-a" data-dismech-node="GRIN2A p.Asn615Lys (c.1845C&gt;A)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        GRIN2A p.Asn615Lys (c.1845C&gt;A)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: GRIN2A
+
+
+    <a href="https://bioregistry.io/hgnc:4585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4585">hgnc:4585</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">De novo missense variant near the apex of the pore-lining M2 reentrant loop, identified in the index girl with GRIN2A early-onset epileptic encephalopathy. It eliminates the voltage-dependent extracellular magnesium block at physiological concentrations while also reducing calcium permeability. Unlike p.Leu812Met, agonist potency is unchanged, and dextromethorphan and dextrorphan are more rather than less potent on N615K-containing receptors, illustrating that channel-blocker choice is variant-specific.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">NMDA glutamate receptor voltage-dependent magnesium block</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">gain-of-function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Loss of the voltage-dependent magnesium block, permitting NMDA-receptor-mediated current at resting membrane potentials, with a concomitant decrease in calcium permeability.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20890276" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20890276" target="_blank">PMID:20890276</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"receptor currents revealed a loss of the Mg²(+) block and a decrease in Ca²(+) permeability"</div>
+
+
+                <div class="evidence-explanation">Defines the biophysical consequence of p.N615K.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24839611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24839611" target="_blank">PMID:24839611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"showed enhanced potency on N615K-containing NMDARs in comparison to wild-type NMDARs"</div>
+
+
+                <div class="evidence-explanation">Shows that channel-blocker pharmacology differs between GRIN2A gain-of-function variants, so blocker selection is variant-specific.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-grin2a-p-ser644gly" data-dismech-node="GRIN2A p.Ser644Gly" data-dismech-type="genetic">
+
+    <div class="item-name">
+        GRIN2A p.Ser644Gly
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: GRIN2A
+
+
+    <a href="https://bioregistry.io/hgnc:4585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4585">hgnc:4585</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">De novo missense variant identified in a child with GRIN2A developmental and epileptic encephalopathy and modelled with a knock-in mouse. Confers enhanced agonist potency and markedly slowed deactivation after synaptic glutamate clearance, prolonging NMDA-receptor-mediated synaptic currents.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">NMDA glutamate receptor deactivation kinetics</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">gain-of-function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Enhanced agonist potency and slow deactivation, with prolonged NMDA-receptor-mediated synaptic current deactivation in heterozygous hippocampal slices.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32577763" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32577763" target="_blank">PMID:32577763</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NMDA receptor-mediated synaptic currents in heterozygous hippocampal slices also showed a prolonged deactivation time course."</div>
+
+
+                <div class="evidence-explanation">Confirms the slowed-deactivation gain-of-function mechanism at native synapses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
 
         </div>
 
@@ -7915,7 +8496,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-seizure-medication" data-dismech-node="Anti-Seizure Medication" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-Seizure Medication
                 </div>
@@ -8014,7 +8595,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-memantine-nmda-receptor-channel-blockade-for-gain-of-function-variants" data-dismech-node="Memantine (NMDA Receptor Channel Blockade for Gain-of-Function Variants)" data-dismech-type="treatment">
                 <div class="item-name">
                     Memantine (NMDA Receptor Channel Blockade for Gain-of-Function Variants)
                 </div>
@@ -8204,7 +8785,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-l-serine-supplementation-nmda-receptor-co-agonist-for-loss-of-function-variants" data-dismech-node="L-Serine Supplementation (NMDA Receptor Co-Agonist for Loss-of-Function Variants)" data-dismech-type="treatment">
                 <div class="item-name">
                     L-Serine Supplementation (NMDA Receptor Co-Agonist for Loss-of-Function Variants)
                 </div>
@@ -8394,7 +8975,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-radiprodil-investigational-glun2b-selective-negative-allosteric-modulator" data-dismech-node="Radiprodil (Investigational GluN2B-Selective Negative Allosteric Modulator)" data-dismech-type="treatment">
                 <div class="item-name">
                     Radiprodil (Investigational GluN2B-Selective Negative Allosteric Modulator)
                 </div>
@@ -8582,7 +9163,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-speech-and-language-therapy" data-dismech-node="Speech and Language Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Speech and Language Therapy
                 </div>
@@ -8660,7 +9241,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-supportive-care" data-dismech-node="Multidisciplinary Supportive Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary Supportive Care
                 </div>

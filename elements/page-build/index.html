@@ -1528,6 +1528,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../dataset-curation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dataset Curation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../browser-extension/" class="md-nav__link">
         
   
@@ -2885,6 +2913,62 @@
     
   
     Design: Class A surrogacy provenance for kidney surrogate endpoints (CKD eGFR, PKD TKV)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-06-26-proposal-a-modifier-enum-pato/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Proposal A — ModifierEnum PATO Bindings + GOF/LOF Implementation Plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-06-26-modifier-enum-pato-gof-lof-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design: ModifierEnum PATO Bindings + GOF/LOF Enum Values (Proposal A — PhenoCAM v2.5)
   
 
     
@@ -22979,20 +23063,52 @@ whose <code>page_url</code> 404s. <a href="https://github.com/monarch-initiative
 published 205 such dead links (1,826 KB entries vs. 1,621 rendered pages).</p>
 <p>Two mechanisms now close that gap:</p>
 <ol>
-<li><strong>Self-healing escalation.</strong> After an incremental render, the workflow runs
-   <code>classify_page_build.py --check-page-drift</code>, which compares the number of
-   <code>kb/disorders/*.yaml</code> inputs with the number of <code>pages/disorders/*.html</code>
-   files. They are 1:1 in a healthy tree (page filenames are
-   <code>slugify(disease name).html</code>, and slugs are unique). Any inequality means an
-   earlier build under- or over-rendered, and the workflow escalates to
-   <code>just gen-pages</code> in the same run. The check runs <em>after</em> rendering on purpose —
-   before it, every disorder-adding push looks drifted and would escalate.</li>
-<li><strong>A hard gate before publishing.</strong> After <code>just gen-browser-data</code>, the workflow
+<li>
+<p><strong>Self-healing escalation.</strong> After an incremental render, the workflow runs
+   <code>classify_page_build.py --check-page-drift</code>, which compares the KB with the
+   rendered pages on two axes:</p>
+</li>
+<li>
+<p><strong>Count.</strong> The number of <code>kb/disorders/*.yaml</code> inputs against the number of
+     <code>pages/disorders/*.html</code> files. They are 1:1 in a healthy tree (page
+     filenames are <code>slugify(disease name).html</code>, and slugs are unique), so any
+     inequality means an earlier build under- or over-rendered.</p>
+</li>
+<li><strong>Content.</strong> Every page is stamped with <code>sha256(source yaml)[:12]</code> — the
+     renderer computes it for the OpenScientist panel and the template emits it
+     as <code>yamlRevision</code> — so comparing that stamp against a fresh digest of the
+     file says whether a page is <em>current</em>, not merely <em>present</em>.</li>
+</ol>
+<p>The check runs <em>after</em> rendering on purpose — before it, every
+   disorder-adding push looks drifted and would escalate.</p>
+<p>The content axis was added after the count axis proved blind to the more
+   common failure. A build's checkout is a snapshot and a full build takes
+   30–60 minutes, so a KB merge landing mid-build is simply absent from it; the
+   resulting page keeps older content while the file counts stay perfectly
+   equal. Worse, it does not heal: the <code>auto/generate-pages</code> branch is rebuilt
+   from <code>main</code>'s already-stale pages on every run and force-pushed, so a
+   12-minute incremental build silently overwrote a 32-minute full rebuild that
+   had just corrected 29 pages. On 2026-08-07 that left the whole
+   <a href="https://github.com/monarch-initiative/dismech/issues/8085">#8085</a>
+   environmental-pathograph backfill invisible on the site with 1,871 YAMLs and
+   1,871 pages — zero count drift. See
+   <a href="https://github.com/monarch-initiative/dismech/issues/8033">#8033</a> and
+   <a href="https://github.com/monarch-initiative/dismech/pull/8140">PR #8140</a>.</p>
+<p><strong>Repair is proportional.</strong> Pure staleness — the counts already agree and
+   re-rendering the drifted entries would land on exactly the stale pages — is
+   healed by rendering only those (measured: 1m28s for 29) rather than everything
+   (~30–60 min); the checker writes that worklist with <code>--stale-files-out</code> and
+   reports <code>heal=targeted</code>. A count mismatch, or an orphan page left by a
+   rename, reports <code>heal=full</code>, because only a full build prunes. A targeted
+   heal is re-checked afterwards and falls back to a full rebuild if drift
+   survives. Without the cheap path, a repo whose merges outpace a full build
+   would sit in permanent full-rebuild mode.
+2. <strong>A hard gate before publishing.</strong> After <code>just gen-browser-data</code>, the workflow
    runs <a href="https://github.com/monarch-initiative/dismech/blob/main/scripts/check_browser_data_links.py"><code>just check-browser-links</code></a>,
    which resolves every <code>page_url</code> in <code>window.searchData</code> against the filesystem
-   and <strong>fails the job</strong> if any target is missing. A count comparison cannot see
-   a rename that keeps the counts equal but changes a slug; this can.</li>
-</ol>
+   and <strong>fails the job</strong> if any target is missing. The drift check escalates and
+   repairs; this one refuses to publish, and it is checking a different thing —
+   the links <code>data.js</code> actually emits, rather than the KB/page correspondence.</p>
 <p>The gate also catches a second, sneakier shape: a page that renders perfectly on
 the build machine but is dropped from the commit by <code>.gitignore</code>, and so never
 reaches the published site. That is a <em>permanent</em> dead link, invisible to both an

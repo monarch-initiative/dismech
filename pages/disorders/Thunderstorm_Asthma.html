@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Thunderstorm%20Asthma"
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3505,10 +3736,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -4471,7 +4703,7 @@ outbreaks reported globally over the last four decades."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allergen Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allergen-specific immunotherapy (e.g., to ryegrass pollen) is an immunological strategy to reduce individual susceptibility in sensitized patients at risk of thunderstorm asthma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast-cell-derived mediators provoke airway smooth muscle contraction (bronchospasm), mucosal edema, and mucus hypersecretion, producing acute variable airflow obstruction. Because exposure is sudden and intense and affects many sensitized individuals simultaneously, the result is an epidemic of acute, sometimes near-fatal, asthma attacks within a short window.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"goblet cell\"], \"biological_processes\": [\"airway smooth muscle contraction\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled corticosteroids for control and systemic corticosteroids for acute severe exacerbations reduce airway inflammation. Preventive inhaled corticosteroid use in at-risk pollen-allergic patients is part of risk reduction strategies.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The respirable allergen-bearing particles released by ruptured pollen are small enough to bypass upper-airway filtration and deposit on the bronchial epithelium of the lower airways, delivering a sudden, high allergen dose directly to the asthmatic effector site. This explains why pollen \\u2014 long linked to asthma despite grains being too large to reach the bronchi \\u2014 can trigger lower-airway disease under thunderstorm conditions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"]}}, {\"id\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In individuals sensitized to grass pollen (and/or Alternaria) allergens, the inhaled respirable allergen cross-links allergen-specific IgE bound to high-affinity receptors on airway mucosal mast cells, triggering degranulation and release of histamine, leukotrienes, and prostaglandins (type I immediate hypersensitivity). Recruitment of eosinophils and type 2 helper T cells amplifies the type 2 inflammatory response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\", \"eosinophil\", \"T-helper 2 cell\"], \"biological_processes\": [\"type I hypersensitivity\", \"mast cell degranulation\", \"type 2 immune response\"]}}, {\"id\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line rescue therapy for acute bronchospasm during a thunderstorm asthma attack; inhaled SABAs (e.g., salbutamol/albuterol) relax airway smooth muscle. Patients with pollen allergy, including those with only seasonal rhinitis, should have access to reliever therapy and be warned about exposure during thunderstorms in the pollen season.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"salbutamol (albuterol)\"]}}, {\"id\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During a thunderstorm in the pollen season, dry updrafts entrain whole pollen grains into the high humidity at the cloud base, where the grains imbibe water and rupture by osmotic shock; cold downdrafts and outflows then carry the fragments to ground level and concentrate them in a shallow band of air. This releases respirable allergenic particles (cytoplasmic starch granules and other paucimicronic components, ~0.5-2.5 \\u00b5m) from grains that are themselves too large (\u003e10 \\u00b5m) to enter the lower airways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to osmotic stress (pollen grain rupture)\"]}}], \"edges\": [{\"source\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"target\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture converts non-respirable pollen grains into respirable allergen-laden aerosols capable of penetrating the lower airways.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a sensitized airway, deposited allergen cross-links specific IgE on mucosal mast cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mast-cell mediators induce airway smooth muscle contraction, mucus secretion, and edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allergen Immunotherapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allergen Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allergen-specific immunotherapy (e.g., to ryegrass pollen) is an immunological strategy to reduce individual susceptibility in sensitized patients at risk of thunderstorm asthma.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mast-cell-derived mediators provoke airway smooth muscle contraction (bronchospasm), mucosal edema, and mucus hypersecretion, producing acute variable airflow obstruction. Because exposure is sudden and intense and affects many sensitized individuals simultaneously, the result is an epidemic of acute, sometimes near-fatal, asthma attacks within a short window.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"goblet cell\"], \"biological_processes\": [\"airway smooth muscle contraction\"]}}, {\"id\": \"Corticosteroid Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled corticosteroids for control and systemic corticosteroids for acute severe exacerbations reduce airway inflammation. Preventive inhaled corticosteroid use in at-risk pollen-allergic patients is part of risk reduction strategies.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The respirable allergen-bearing particles released by ruptured pollen are small enough to bypass upper-airway filtration and deposit on the bronchial epithelium of the lower airways, delivering a sudden, high allergen dose directly to the asthmatic effector site. This explains why pollen \\u2014 long linked to asthma despite grains being too large to reach the bronchi \\u2014 can trigger lower-airway disease under thunderstorm conditions.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"bronchial epithelial cell\"]}}, {\"id\": \"Grass (Ryegrass) Pollen Sensitization and Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sensitization to grass pollen \\u2014 ryegrass (Lolium perenne) in particular \\u2014 together with acute outdoor exposure during the storm is a core risk factor. In the Melbourne cohort, ryegrass pollen sensitization was present in 100% of assessed patients.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In individuals sensitized to grass pollen (and/or Alternaria) allergens, the inhaled respirable allergen cross-links allergen-specific IgE bound to high-affinity receptors on airway mucosal mast cells, triggering degranulation and release of histamine, leukotrienes, and prostaglandins (type I immediate hypersensitivity). Recruitment of eosinophils and type 2 helper T cells amplifies the type 2 inflammatory response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"mast cell\", \"eosinophil\", \"T-helper 2 cell\"], \"biological_processes\": [\"type I hypersensitivity\", \"mast cell degranulation\", \"type 2 immune response\"]}}, {\"id\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line rescue therapy for acute bronchospasm during a thunderstorm asthma attack; inhaled SABAs (e.g., salbutamol/albuterol) relax airway smooth muscle. Patients with pollen allergy, including those with only seasonal rhinitis, should have access to reliever therapy and be warned about exposure during thunderstorms in the pollen season.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"salbutamol (albuterol)\"]}}, {\"id\": \"Outdoor Mold (Alternaria/Cladosporium) Sensitization\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Sensitization to outdoor fungal spores, especially Alternaria alternata (and Cladosporium), is an additional and in some settings dominant risk factor; spore counts rise during thunderstorms.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During a thunderstorm in the pollen season, dry updrafts entrain whole pollen grains into the high humidity at the cloud base, where the grains imbibe water and rupture by osmotic shock; cold downdrafts and outflows then carry the fragments to ground level and concentrate them in a shallow band of air. This releases respirable allergenic particles (cytoplasmic starch granules and other paucimicronic components, ~0.5-2.5 \\u00b5m) from grains that are themselves too large (\u003e10 \\u00b5m) to enter the lower airways.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to osmotic stress (pollen grain rupture)\"]}}, {\"id\": \"Thunderstorm During Pollen Season\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The defining trigger: a thunderstorm (specifically its cold outflow) in the grass-pollen or outdoor-mold season. Outbreaks are tightly, temporally linked to thunderstorm activity and do not occur outside pollen/spore seasons.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}], \"edges\": [{\"source\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"target\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture converts non-respirable pollen grains into respirable allergen-laden aerosols capable of penetrating the lower airways.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deep Airway Deposition of Paucimicronic Allergen Particles\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In a sensitized airway, deposited allergen cross-links specific IgE on mucosal mast cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mast-cell mediators induce airway smooth muscle contraction, mucus secretion, and edema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thunderstorm During Pollen Season\", \"target\": \"Thunderstorm Concentration and Osmotic Rupture of Pollen Grains\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The storm is not a background condition here, it is the mechanism: outflow concentrates intact pollen at ground level and the humidity ruptures the grains osmotically. Exposure and the physical event this node describes are the same thing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Grass (Ryegrass) Pollen Sensitization and Exposure\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Pre-existing ryegrass-specific IgE is what converts inhaled pollen fragments into mast cell degranulation. Without sensitization the same particle load produces no attack, which is why this targets the IgE step rather than the deposition step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outdoor Mold (Alternaria/Cladosporium) Sensitization\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Mould sensitization marks a population at elevated risk of epidemic asthma alongside the grass-pollen arm, but the cited evidence is predictive rather than mechanistic and does not establish mould as the particle driving these events.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)\", \"target\": \"Bronchoconstriction and Acute Airflow Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroid Therapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allergen Immunotherapy\", \"target\": \"IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4505,7 +4737,7 @@ outbreaks reported globally over the last four decades."</div>
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wheezing" data-dismech-node="Wheezing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Wheezing
 
@@ -4567,7 +4799,7 @@ often severe"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnea
 
@@ -4646,7 +4878,7 @@ hospital admission, and intensive care admission."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cough
 
@@ -4715,7 +4947,7 @@ associated with grass pollination, particularly after moist weather conditions."
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-asthma-exacerbation" data-dismech-node="Acute Asthma Exacerbation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute Asthma Exacerbation
 
@@ -4793,7 +5025,7 @@ of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6)."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-allergic-rhinitis" data-dismech-node="Allergic Rhinitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Allergic Rhinitis
 
@@ -4854,7 +5086,7 @@ of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6)."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-airway-obstruction" data-dismech-node="Airway Obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Airway Obstruction
 
@@ -4932,7 +5164,7 @@ downdraught from a thunderstorm"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-near-fatal-respiratory-failure" data-dismech-node="Near-Fatal Respiratory Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Near-Fatal Respiratory Failure
 
@@ -5027,6 +5259,9 @@ ETSA deaths are evaluated."</div>
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5036,7 +5271,7 @@ ETSA deaths are evaluated."</div>
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-inhaled-short-acting-beta-2-agonist-bronchodilator" data-dismech-node="Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)" data-dismech-type="treatment">
                 <div class="item-name">
                     Inhaled Short-Acting Beta-2 Agonist (Bronchodilator)
                 </div>
@@ -5147,7 +5382,7 @@ prevent ETSA are discussed"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroid-therapy" data-dismech-node="Corticosteroid Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroid Therapy
                 </div>
@@ -5257,7 +5492,7 @@ prevent ETSA are discussed"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-allergen-immunotherapy" data-dismech-node="Allergen Immunotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Allergen Immunotherapy
                 </div>
@@ -5352,7 +5587,7 @@ prevent ETSA are discussed"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-exposure-avoidance-and-public-health-warning" data-dismech-node="Exposure Avoidance and Public Health Warning" data-dismech-type="treatment">
                 <div class="item-name">
                     Exposure Avoidance and Public Health Warning
                 </div>
@@ -5444,7 +5679,7 @@ immunological risk reduction and preventive strategies."</div>
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-thunderstorm-during-pollen-season" data-dismech-node="Thunderstorm During Pollen Season" data-dismech-type="environmental">
                 <div class="item-name">Thunderstorm During Pollen Season</div>
 
 
@@ -5488,9 +5723,84 @@ The association was strongest in late spring and summer."</div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Thunderstorm Concentration and Osmotic Rupture of Pollen Grains</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The storm is not a background condition here, it is the mechanism: outflow concentrates intact pollen at ground level and the humidity ruptures the grains osmotically. Exposure and the physical event this node describes are the same thing.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11359963" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11359963" target="_blank">PMID:11359963</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thunderstorm outflows were detected on 33% of epidemic days and only 3% of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6). The association was strongest in late spring and summer."</div>
+
+
+                <div class="evidence-explanation">Thunderstorm outflows were present on a third of epidemic days versus 3% of control days, a fifteenfold odds ratio tying the meteorological event to the epidemics.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="evidence-item" data-dismech-evidence="PMID:26765082" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26765082" target="_blank">PMID:26765082</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"thunderstorms can concentrate pollen grains at ground level which may then release allergenic particles of respirable size in the atmosphere after their rupture by osmotic shock"</div>
+
+
+                <div class="evidence-explanation">Covers the second half of this node, which the epidemiological evidence above does not: the storm both concentrates grains at ground level and ruptures them osmotically to release respirable allergenic particles.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-grass-ryegrass-pollen-sensitization-and-exposure" data-dismech-node="Grass (Ryegrass) Pollen Sensitization and Exposure" data-dismech-type="environmental">
                 <div class="item-name">Grass (Ryegrass) Pollen Sensitization and Exposure</div>
 
 
@@ -5534,9 +5844,62 @@ asthma."</div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Pre-existing ryegrass-specific IgE is what converts inhaled pollen fragments into mast cell degranulation. Without sensitization the same particle load produces no attack, which is why this targets the IgE step rather than the deposition step.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29229087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29229087" target="_blank">PMID:29229087</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We conclude that ryegrass pollen sensitization, clinical allergic rhinitis, and acute allergen exposure constitute a risk-factor &#39;trifecta&#39; for thunderstorm asthma."</div>
+
+
+                <div class="evidence-explanation">Identifies ryegrass pollen sensitization, allergic rhinitis and acute allergen exposure as jointly constituting the risk, the IgE-dependent arm this node represents.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-outdoor-mold-alternaria-cladosporium-sensitization" data-dismech-node="Outdoor Mold (Alternaria/Cladosporium) Sensitization" data-dismech-type="environmental">
                 <div class="item-name">Outdoor Mold (Alternaria/Cladosporium) Sensitization</div>
 
 
@@ -5580,6 +5943,59 @@ likely to be the important factor in thunderstorm-related asthma."</div>
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Mould sensitization marks a population at elevated risk of epidemic asthma alongside the grass-pollen arm, but the cited evidence is predictive rather than mechanistic and does not establish mould as the particle driving these events.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17624415" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17624415" target="_blank">PMID:17624415</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alternaria alternata sensitivity is a compelling predictor of epidemic asthma in patients with seasonal asthma and grass pollen allergy and is likely to be the important factor in thunderstorm-related asthma."</div>
+
+
+                <div class="evidence-explanation">Reports Alternaria sensitivity as a compelling predictor of epidemic asthma in seasonal asthma patients, a predictive association rather than a demonstrated trigger.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -6001,6 +6417,34 @@ phenotypes:
 
 environmental:
 - name: Thunderstorm During Pollen Season
+  influences_mechanisms:
+  - target: Thunderstorm Concentration and Osmotic Rupture of Pollen Grains
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The storm is not a background condition here, it is the mechanism:
+      outflow concentrates intact pollen at ground level and the humidity
+      ruptures the grains osmotically. Exposure and the physical event this
+      node describes are the same thing.
+    evidence:
+    - reference: PMID:11359963
+      reference_title: &#34;Thunderstorm outflows preceding epidemics of asthma during spring and summer.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Thunderstorm outflows were detected on 33% of epidemic days and only 3% of control days (odds ratio 15.0, 95% confidence interval 6.0 to 37.6). The association was strongest in late spring and summer.&#34;
+      explanation: &gt;-
+        Thunderstorm outflows were present on a third of epidemic days versus
+        3% of control days, a fifteenfold odds ratio tying the meteorological
+        event to the epidemics.
+    - reference: PMID:26765082
+      reference_title: &#34;Thunderstorm-related asthma: what happens and why.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;thunderstorms can concentrate pollen grains at ground level which may then release allergenic particles of respirable size in the atmosphere after their rupture by osmotic shock&#34;
+      explanation: &gt;-
+        Covers the second half of this node, which the epidemiological evidence
+        above does not: the storm both concentrates grains at ground level and
+        ruptures them osmotically to release respirable allergenic particles.
   description: &gt;-
     The defining trigger: a thunderstorm (specifically its cold outflow) in
     the grass-pollen or outdoor-mold season. Outbreaks are tightly,
@@ -6018,6 +6462,25 @@ environmental:
       Quantifies the thunderstorm-outflow association with epidemic asthma
       days and its seasonal (pollen-season) confinement.
 - name: Grass (Ryegrass) Pollen Sensitization and Exposure
+  influences_mechanisms:
+  - target: IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Pre-existing ryegrass-specific IgE is what converts inhaled pollen
+      fragments into mast cell degranulation. Without sensitization the same
+      particle load produces no attack, which is why this targets the IgE step
+      rather than the deposition step.
+    evidence:
+    - reference: PMID:29229087
+      reference_title: &#34;Who&#39;s at risk of thunderstorm asthma? The ryegrass pollen trifecta and lessons learnt from the Melbourne thunderstorm epidemic.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We conclude that ryegrass pollen sensitization, clinical allergic rhinitis, and acute allergen exposure constitute a risk-factor &#39;trifecta&#39; for thunderstorm asthma.&#34;
+      explanation: &gt;-
+        Identifies ryegrass pollen sensitization, allergic rhinitis and acute
+        allergen exposure as jointly constituting the risk, the IgE-dependent
+        arm this node represents.
   description: &gt;-
     Sensitization to grass pollen — ryegrass (Lolium perenne) in particular —
     together with acute outdoor exposure during the storm is a core risk
@@ -6035,6 +6498,25 @@ environmental:
       Identifies the ryegrass-sensitization / allergic-rhinitis / acute-exposure
       &#34;trifecta&#34; as the susceptibility profile for thunderstorm asthma.
 - name: Outdoor Mold (Alternaria/Cladosporium) Sensitization
+  influences_mechanisms:
+  - target: IgE-Mediated Mast Cell Activation and Type 2 Airway Inflammation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Mould sensitization marks a population at elevated risk of epidemic
+      asthma alongside the grass-pollen arm, but the cited evidence is
+      predictive rather than mechanistic and does not establish mould as the
+      particle driving these events.
+    evidence:
+    - reference: PMID:17624415
+      reference_title: &#34;Epidemic asthma and the role of the fungal mold Alternaria alternata.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Alternaria alternata sensitivity is a compelling predictor of epidemic asthma in patients with seasonal asthma and grass pollen allergy and is likely to be the important factor in thunderstorm-related asthma.&#34;
+      explanation: &gt;-
+        Reports Alternaria sensitivity as a compelling predictor of epidemic
+        asthma in seasonal asthma patients, a predictive association rather
+        than a demonstrated trigger.
   description: &gt;-
     Sensitization to outdoor fungal spores, especially Alternaria alternata
     (and Cladosporium), is an additional and in some settings dominant risk
@@ -6759,7 +7241,7 @@ Cascading immune and environmental insults cause severe epithelial damage, goble
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thunderstorm Asthma", "mondoId": "MONDO:0004784", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thunderstorm_Asthma", "yamlRevision": "7c81ef1c04c2"};
+        const OS_CONFIG = {"diseaseName": "Thunderstorm Asthma", "mondoId": "MONDO:0004784", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thunderstorm_Asthma", "yamlRevision": "c7cbd4c51199"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

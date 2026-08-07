@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 35</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 37</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Double%20Outlet%20Right%20Ventricle"
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3511,7 +3742,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">35</div>
+                <div class="stat-value">37</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3524,6 +3755,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -6370,7 +6602,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial switch operation with VSD-to-pulmonary-root baffle\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The preferred anatomic repair for the Taussig-Bing (subpulmonary VSD) form, and also used for selected non-committed VSDs. The ventricular septal defect is baffled to the pulmonary root, which then becomes the neo-aorta after the great arteries are transected and switched with coronary transfer, so the intraventricular tunnel is short and does not impinge on the tricuspid valve. Concomitant aortic arch repair is required in a large minority. In the largest reported single-centre series (225 children) early mortality was 12.9 per cent with 10-year survival of 85 per cent; a smaller 34-patient series reported 11 per cent hospital mortality. Reintervention, most often for pulmonary stenosis, is common.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DORV originates in the two extracardiac progenitor populations that build the cardiac outflow tract. Cardiac neural crest cells delaminate from the dorsal neural tube, migrate through the caudal pharyngeal arches into the distal outflow tract and condense to form the aorticopulmonary septum, while second-heart-field progenitors are added to the arterial pole and provide the myocardium that elongates and rotates the outflow tract. Genetic lesions (chromosomal, transcription-factor, planar-cell-polarity, ciliary) and teratogenic exposures that perturb neural crest migration or second-heart-field addition converge on this step. DORV and tetralogy of Fallot are the two conotruncal phenotypes that most directly report this disturbance.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory cardiac neural crest cell\", \"cardiac muscle cell\"], \"biological_processes\": [\"cardiac neural crest cell migration involved in outflow tract morphogenesis\", \"cardiac neural crest cell development involved in outflow tract morphogenesis\"], \"role\": \"trigger\", \"locations\": [\"outflow tract\"]}}, {\"id\": \"Coarctation of aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aortic isthmus, part of the spectrum of aortic arch obstruction that accompanies DORV, particularly the Taussig-Bing form in which reduced fetal flow through the systemic outlet limits arch growth.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001680\"}}, {\"id\": \"Complete atrioventricular canal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A common atrioventricular valve with a shared atrioventricular junction, frequently accompanying DORV in the laterality-associated form. Its presence complicates baffle construction and often mandates single-ventricle palliation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001674\"}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congestive heart failure driven by pulmonary overcirculation and ventricular volume overload when pulmonary outflow is unobstructed; also a late postoperative problem after Rastelli-type repair with conduit obstruction and right ventricular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central cyanosis, typically neonatal or early infantile. It is most severe in the Taussig-Bing (subpulmonary VSD) form, where desaturated systemic venous blood is streamed into the aorta, and in any DORV with significant pulmonary stenosis. Hypercyanotic spells resembling those of tetralogy of Fallot may occur.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct upstream route to DORV runs through the left-right organiser. Motile monocilia at the embryonic node generate leftward flow that establishes the NODAL laterality cascade; failure of this step randomises cardiac looping and the spatial relationship of the great arteries. This is the mechanism behind Van Praagh type III DORV, the form associated with heterotaxy and atrial isomerism, and explains why laterality genes (ZIC3, CFC1, FOXJ1, NODAL-pathway genes) recur in DORV cohorts. Because a randomised or abnormal loop misplaces the ventricles relative to the arterial poles, it produces the same double-outlet connection by a different developmental route than a primary neural-crest defect.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"determination of left/right symmetry\", \"heart looping\", \"cilium movement\"], \"role\": \"trigger\"}}, {\"id\": \"Diuretic therapy for pulmonary overcirculation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive diuresis is used to control the pulmonary overcirculation and congestive physiology of DORV with an unobstructed pulmonary outflow while awaiting repair; escalation to respiratory support and intubation may be required.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"furosemide\"]}}, {\"id\": \"Double Outlet Ventriculo-Arterial Connection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining lesion: both arterial trunks arise entirely or predominantly from the morphologic right ventricle. Because the left ventricle has lost its direct arterial outlet, an interventricular communication is obligatory for viable left ventricular egress; a ventricular septal defect (or, in the setting of an atrioventricular septal defect, the common interventricular communication) is therefore present in almost every case. When the interventricular communication is restrictive or absent, the left ventricle receives no adequate outlet and becomes hypoplastic.\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\", \"locations\": [\"heart right ventricle\", \"aorta\", \"pulmonary artery\"]}}, {\"id\": \"Double outlet right ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining anatomic lesion: both great arteries arise entirely or predominantly from the morphologic right ventricle, with a ventricular septal defect as the only left ventricular outlet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001719\"}}, {\"id\": \"Failure of Outflow Tract Rotation and Alignment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normally the arterial pole rotates during looping so the aorta swings rightward and posteriorly over the left ventricle while the pulmonary trunk is displaced anteriorly and leftward. This rotation is driven in part by asymmetric addition of second-heart-field myocardium at the pulmonary side of the outflow tract, which pushes the pulmonary orifice into a higher, more frontal position relative to the aortic orifice (the \\\"pulmonary push\\\"). Deficient or disorganised right ventricular outflow tract expansion leaves the rotation incomplete, so the aortic root is never transferred across the ventricular septum and remains supported by the right ventricle.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"outflow tract morphogenesis\"], \"role\": \"mediator\", \"locations\": [\"outflow tract\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain in infancy resulting from the increased metabolic demand of heart failure combined with feeding difficulty, characteristic of the overcirculated forms of DORV before repair.\", \"meta\": {\"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor and prolonged feeding in infancy, driven by the tachypnoea and increased work of breathing that accompany pulmonary overcirculation. It is the proximate cause of the reduced caloric intake that, with the raised metabolic demand of heart failure, produces failure to thrive in the unrepaired overcirculated forms of DORV.\", \"meta\": {\"term_id\": \"HP:0011968\"}}, {\"id\": \"Heterotaxy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal left-right arrangement of the thoracic and abdominal viscera with atrial isomerism, present in the laterality-associated (Van Praagh type III) form of DORV. Its presence carries additional conduction, splenic and venous anomalies and worsens surgical risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030853\"}}, {\"id\": \"Hypoplastic left ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An underdeveloped left ventricle, arising when the interventricular communication is restrictive, remote or absent so that fetal left ventricular filling and ejection are reduced. It is the principal determinant of ineligibility for biventricular repair.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004383\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced systemic arterial oxygen saturation resulting from obligatory intracardiac mixing, aggravated when pulmonary blood flow is restricted or when streaming directs desaturated blood preferentially to the aorta.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Interrupted aortic arch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete discontinuity of the aortic arch, the most severe expression of the arch obstruction associated with DORV and particularly with the Taussig-Bing anomaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011611\"}}, {\"id\": \"Intraventricular baffle repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard biventricular repair for a committed ventricular septal defect: a patch tunnel is constructed from the left ventricle through the VSD to the aortic valve, restoring a series circulation. For a perimembranous or subaortic defect the tunnel is relatively straight and can usually be built through the right atrium; for a doubly committed defect a right ventriculotomy or transpulmonary approach is generally required. A restrictive VSD is enlarged by resecting the ventriculo-infundibular fold and conal septum to prevent late subaortic obstruction. Repair is recommended within the first six months of life to limit the effects of pulmonary overcirculation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Kawashima procedure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An intraventricular repair for DORV-TGA in which the ventricular septal defect is baffled to the aortic valve with patch enlargement of the ventriculotomy, after complete resection of the conus. It suits patients with side-by-side great arteries whose coronary anatomy precludes root translocation, and patients whose pulmonary valve is not of adequate size to support the systemic circulation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When the interventricular communication is restrictive, remote from both arterial roots, or absent, fetal left ventricular filling and ejection are reduced and the left ventricle fails to grow. The same anatomic circumstances that limit left ventricular growth, together with straddling or hypoplastic atrioventricular valves and multiple ventricular septal defects, also make an unobstructed intraventricular baffle impossible. This node is therefore the hinge on which the entire management pathway turns: it converts DORV from a biventricular repair problem into a single-ventricle palliation problem.\", \"meta\": {\"evidence_count\": 3, \"role\": \"outcome\", \"locations\": [\"heart left ventricle\"]}}, {\"id\": \"Nikaidoh procedure and root translocation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Posterior translocation of the aortic root, or double root translocation, creates a straight left ventricular outflow tract when routing the VSD to the aorta is not possible or would require a long akinetic tunnel at risk of late subaortic stenosis. It is favoured for remote ventricular septal defects, straddling atrioventricular valves and significant right ventricular hypoplasia. A pulmonary annulus smaller than 5 mm and a coronary artery crossing the right ventricular outflow tract at the transection level are contraindications.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"All left ventricular output must traverse the ventricular septal defect into the right ventricle, so systemic and pulmonary venous returns mix obligatorily. The clinical expression depends on where the defect sits. With a subaortic defect, oxygenated left ventricular blood streams preferentially into the adjacent aorta and desaturated right ventricular blood into the pulmonary artery, giving a large-VSD physiology with only mild desaturation but marked pulmonary overcirculation. With a subpulmonary (Taussig-Bing) defect the streaming is reversed: oxygenated blood is directed into the pulmonary artery while desaturated systemic venous blood is ejected into the aorta, producing transposition-like physiology with early profound cyanosis. Any superimposed pulmonary stenosis restricts pulmonary blood flow and shifts even a subaortic defect toward cyanosis.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"locations\": [\"interventricular septum\", \"heart right ventricle\", \"heart left ventricle\"]}}, {\"id\": \"Outlet Septum Attachment Determines VSD Commitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because both arterial trunks are supported by the right ventricle, the outlet septum is itself a right ventricular structure, and the channel between the ventricles is roofed by the inner heart curvature. It is therefore the attachment of the outlet septum, muscular or fibrous, that determines to which subarterial outlet the interventricular communication is committed: the cranial limb of the septomarginal trabeculation gives a subaortic defect, the caudal limb a subpulmonary defect, and the inner heart curvature a doubly committed defect, while defects lying outside the limbs of the trabeculation are non-committed. This single anatomic variable, rather than the DORV label, determines the streaming physiology and the repair strategy.\", \"meta\": {\"evidence_count\": 4, \"role\": \"effector\", \"locations\": [\"interventricular septum\"]}}, {\"id\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The muscular outlet septum partitions the two infundibula, and its displacement into either outflow tract creates subvalvar obstruction. Deviation into the subpulmonary outflow produces subpulmonary and pulmonary stenosis, the lesion that gives a subaortic-VSD heart its Fallot-type physiology. Deviation into the subaortic outflow, or a subpulmonary VSD that diverts fetal left ventricular flow away from the systemic outlet, produces subaortic stenosis and is associated with hypoplasia of the aortic arch, coarctation and interrupted aortic arch, the lesions that dominate the Taussig-Bing anomaly. Chronic obstruction to right ventricular ejection also drives right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"locations\": [\"outflow tract\", \"aorta\"]}}, {\"id\": \"Palliative control of pulmonary blood flow\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Interim procedures used before definitive repair, or as the first stage of a single-ventricle pathway, to balance pulmonary and systemic flow: pulmonary artery banding when there is overcirculation, and a systemic-to-pulmonary (central) shunt or ductal stent when pulmonary blood flow is inadequate. Balloon atrial septostomy is used urgently when a desaturated infant has inadequate atrial-level mixing and a poor cardiac output state.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Persistence of the Subaortic Conus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the normal heart the subpulmonary conus persists while the subaortic conal free wall resorbs, allowing the aortic valve to descend into fibrous continuity with the mitral valve. In DORV the subaortic conus characteristically persists, producing bilateral (subaortic and subpulmonary) infundibula and abolishing aorto-mitral fibrous continuity, so the aortic root remains elevated on a muscular sleeve above the right ventricle. This is the conal basis of the classical \\\"50% rule\\\": what is really being measured is whether conal muscle still interposes between the arterial root and the left ventricle. The criterion is not absolute, because DORV also occurs with fibrous continuity between the arterial and atrioventricular valves, so bilateral conus is sufficient but not necessary for the diagnosis.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"conus arteriosus morphogenesis\", \"outflow tract septum morphogenesis\"], \"role\": \"mediator\", \"locations\": [\"conus arteriosus\", \"mitral valve\"]}}, {\"id\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the absence of pulmonary stenosis, the postnatal fall in pulmonary vascular resistance allows a torrential left-to-right shunt through the ventricular septal defect and into the pulmonary artery. The resulting pulmonary overcirculation produces tachypnoea, feeding difficulty and failure to thrive within the first weeks of life, ventricular volume overload and congestive heart failure, and, if repair is delayed beyond infancy, progressive pulmonary vascular remodelling and irreversible pulmonary arterial hypertension. This is the rationale for completing biventricular repair within the first six months of life or, when repair must be deferred, for interim pulmonary artery banding.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated pulmonary arterial pressure from sustained high-flow, high-pressure pulmonary circulation. If repair is delayed, obstructive pulmonary vascular remodelling becomes irreversible and precludes both biventricular repair and Fontan palliation.\", \"meta\": {\"term_id\": \"HP:0002092\"}}, {\"id\": \"Pulmonic stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstruction of the right ventricular outflow tract, most often from deviation of the muscular outlet septum into the subpulmonary infundibulum, but also valvar or supravalvar. It is the single most common associated lesion and converts an overcirculated DORV into a cyanotic one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001642\"}}, {\"id\": \"Rastelli-type repair with right ventricle to pulmonary artery conduit\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When pulmonary outflow obstruction is valvar and the pulmonary valve cannot support the systemic circulation, the ventricular septal defect is baffled to the aorta and right ventricle to pulmonary artery continuity is restored with a valved conduit (Rastelli) or, in the REV variant, by direct anastomosis of the pulmonary trunk to the infundibulum after a LeCompte manoeuvre. Somatic outgrowth and stenosis of the conduit make reoperation predictable, and Rastelli-type repair carries higher late mortality and reintervention risk than other pathways.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Right ventricular hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophy of the morphologic right ventricle, which supports both arterial trunks and is additionally pressure-loaded when outflow obstruction is present. In the Fallot-type subgroup the electrocardiogram shows right axis deviation with right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001667\"}}, {\"id\": \"Single-ventricle palliation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When a safe biventricular route cannot be constructed, staged univentricular palliation is used: initial control of pulmonary blood flow with a systemic-to-pulmonary shunt, ductal stent or pulmonary artery band, then a bidirectional cavopulmonary connection, then total cavopulmonary (Fontan) completion at two to three years of age. Any restrictive ventricular septal defect should be enlarged at or before Fontan completion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Subvalvular aortic stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subaortic obstruction produced by posterior deviation of the outlet septum, by a restrictive interventricular communication, or by a long non-contractile intraventricular baffle after repair. It is characteristic of the subpulmonary-VSD (Taussig-Bing) form and is also a recognised late postoperative complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001682\"}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid breathing from pulmonary congestion and increased pulmonary blood flow, typically emerging over the first weeks of life as pulmonary vascular resistance falls.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002789\"}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An interventricular communication is present in almost every case of DORV and is the sole outlet from the left ventricle. Its position relative to the arterial roots defines the anatomic subtypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"target\": \"Failure of Outflow Tract Rotation and Alignment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient or disorganised neural crest and second-heart-field contribution leaves the outflow tract unable to elongate and rotate normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"target\": \"Persistence of the Subaortic Conus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed conotruncal maturation prevents the normal resorption of the subaortic conal free wall.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"conotruncal maturation and conal remodelling\"]}, {\"source\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"target\": \"Failure of Outflow Tract Rotation and Alignment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Randomised or abnormal looping misplaces the ventricles relative to the arterial poles, so the outflow tract cannot align normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"target\": \"Heterotaxy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same left-right organiser failure that misaligns the outflow tract also randomises visceral and atrial situs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"target\": \"Complete atrioventricular canal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laterality-associated DORV frequently carries a common atrioventricular valve, the atrioventricular canal defect characteristic of atrial isomerism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial isomerism and endocardial cushion malalignment\"]}, {\"source\": \"Failure of Outflow Tract Rotation and Alignment\", \"target\": \"Persistence of the Subaortic Conus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete rotation leaves the aortic root above persistent subaortic conal musculature rather than above the left ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Outflow Tract Rotation and Alignment\", \"target\": \"Double Outlet Ventriculo-Arterial Connection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to transfer the aortic root across the ventricular septum leaves both arterial trunks supported by the right ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of the Subaortic Conus\", \"target\": \"Double Outlet Ventriculo-Arterial Connection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A persistent muscular subaortic conus keeps the aortic root committed to the right ventricle instead of the left. This route is characteristic but not obligatory, since DORV also occurs with arterial-to-atrioventricular valvar fibrous continuity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of aorto-mitral fibrous continuity\"]}, {\"source\": \"Double Outlet Ventriculo-Arterial Connection\", \"target\": \"Outlet Septum Attachment Determines VSD Commitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With both roots on the right ventricle the outlet septum is necessarily a right ventricular structure, and its attachment determines which arterial root the interventricular communication faces.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Double Outlet Ventriculo-Arterial Connection\", \"target\": \"Double outlet right ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The double-outlet ventriculo-arterial connection is the defining anatomic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Double Outlet Ventriculo-Arterial Connection\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a direct left ventricular arterial outlet makes an interventricular communication obligatory for viable left ventricular egress.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Attachment Determines VSD Commitment\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The position of the interventricular communication relative to the arterial roots dictates how left ventricular blood streams once it crosses the septum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Attachment Determines VSD Commitment\", \"target\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Displacement of the outlet septum toward one arterial root both commits the VSD to the other root and narrows the outflow it encroaches upon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Attachment Determines VSD Commitment\", \"target\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A restrictive or remote interventricular communication limits fetal left ventricular filling and ejection, so the left ventricle fails to grow.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced left ventricular flow during fetal life\"]}, {\"source\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Streaming of desaturated systemic venous blood into the aorta, or restricted pulmonary blood flow, produces central cyanosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obligatory intracardiac mixing lowers systemic arterial oxygen saturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"target\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When pulmonary outflow is unobstructed, the fall in pulmonary vascular resistance after birth drives a large left-to-right shunt.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Pulmonic stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deviation of the outlet septum into the subpulmonary outflow narrows the right ventricular outflow tract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Subvalvular aortic stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deviation of the outlet septum into the subaortic outflow narrows the systemic outlet.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Coarctation of aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced antegrade fetal flow through the systemic outlet is associated with aortic arch hypoplasia and coarctation, especially in the Taussig-Bing form.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced fetal systemic outflow tract flow\"]}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Interrupted aortic arch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The most severe expression of the same reduced fetal systemic flow is interruption of the aortic arch.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced fetal systemic outflow tract flow\"]}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Right ventricular hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic pressure load from subvalvar or valvar outflow obstruction produces right ventricular hypertrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular volume overload from the large shunt produces congestive heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased pulmonary blood flow and pulmonary congestion produce tachypnoea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachypnoea and the increased work of breathing imposed by pulmonary overcirculation interrupt sucking and swallowing, so infants tire and feed poorly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"tachypnoea and increased work of breathing during feeds\"]}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The metabolic cost of heart failure combined with feeding difficulty causes poor weight gain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased metabolic demand and reduced caloric intake\"]}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained high-flow, high-pressure pulmonary circulation drives obstructive pulmonary vascular remodelling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"pulmonary vascular remodelling\"]}, {\"source\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"target\": \"Hypoplastic left ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced fetal left ventricular flow through a restrictive or remote interventricular communication results in an underdeveloped left ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diuretic therapy for pulmonary overcirculation\", \"target\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Palliative control of pulmonary blood flow\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kawashima procedure\", \"target\": \"Persistence of the Subaortic Conus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intraventricular baffle repair\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arterial switch operation with VSD-to-pulmonary-root baffle\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rastelli-type repair with right ventricle to pulmonary artery conduit\", \"target\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nikaidoh procedure and root translocation\", \"target\": \"Double Outlet Ventriculo-Arterial Connection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Single-ventricle palliation\", \"target\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arterial switch operation with VSD-to-pulmonary-root baffle\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The preferred anatomic repair for the Taussig-Bing (subpulmonary VSD) form, and also used for selected non-committed VSDs. The ventricular septal defect is baffled to the pulmonary root, which then becomes the neo-aorta after the great arteries are transected and switched with coronary transfer, so the intraventricular tunnel is short and does not impinge on the tricuspid valve. Concomitant aortic arch repair is required in a large minority. In the largest reported single-centre series (225 children) early mortality was 12.9 per cent with 10-year survival of 85 per cent; a smaller 34-patient series reported 11 per cent hospital mortality. Reintervention, most often for pulmonary stenosis, is common.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DORV originates in the two extracardiac progenitor populations that build the cardiac outflow tract. Cardiac neural crest cells delaminate from the dorsal neural tube, migrate through the caudal pharyngeal arches into the distal outflow tract and condense to form the aorticopulmonary septum, while second-heart-field progenitors are added to the arterial pole and provide the myocardium that elongates and rotates the outflow tract. Genetic lesions (chromosomal, transcription-factor, planar-cell-polarity, ciliary) and teratogenic exposures that perturb neural crest migration or second-heart-field addition converge on this step. DORV and tetralogy of Fallot are the two conotruncal phenotypes that most directly report this disturbance.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory cardiac neural crest cell\", \"cardiac muscle cell\"], \"biological_processes\": [\"cardiac neural crest cell migration involved in outflow tract morphogenesis\", \"cardiac neural crest cell development involved in outflow tract morphogenesis\"], \"role\": \"trigger\", \"locations\": [\"outflow tract\"]}}, {\"id\": \"Coarctation of aorta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Narrowing of the aortic isthmus, part of the spectrum of aortic arch obstruction that accompanies DORV, particularly the Taussig-Bing form in which reduced fetal flow through the systemic outlet limits arch growth.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001680\"}}, {\"id\": \"Complete atrioventricular canal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A common atrioventricular valve with a shared atrioventricular junction, frequently accompanying DORV in the laterality-associated form. Its presence complicates baffle construction and often mandates single-ventricle palliation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001674\"}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congestive heart failure driven by pulmonary overcirculation and ventricular volume overload when pulmonary outflow is unobstructed; also a late postoperative problem after Rastelli-type repair with conduit obstruction and right ventricular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001635\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central cyanosis, typically neonatal or early infantile. It is most severe in the Taussig-Bing (subpulmonary VSD) form, where desaturated systemic venous blood is streamed into the aorta, and in any DORV with significant pulmonary stenosis. Hypercyanotic spells resembling those of tetralogy of Fallot may occur.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct upstream route to DORV runs through the left-right organiser. Motile monocilia at the embryonic node generate leftward flow that establishes the NODAL laterality cascade; failure of this step randomises cardiac looping and the spatial relationship of the great arteries. This is the mechanism behind Van Praagh type III DORV, the form associated with heterotaxy and atrial isomerism, and explains why laterality genes (ZIC3, CFC1, FOXJ1, NODAL-pathway genes) recur in DORV cohorts. Because a randomised or abnormal loop misplaces the ventricles relative to the arterial poles, it produces the same double-outlet connection by a different developmental route than a primary neural-crest defect.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"determination of left/right symmetry\", \"heart looping\", \"cilium movement\"], \"role\": \"trigger\"}}, {\"id\": \"Diuretic therapy for pulmonary overcirculation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aggressive diuresis is used to control the pulmonary overcirculation and congestive physiology of DORV with an unobstructed pulmonary outflow while awaiting repair; escalation to respiratory support and intubation may be required.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"furosemide\"]}}, {\"id\": \"Double Outlet Ventriculo-Arterial Connection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining lesion: both arterial trunks arise entirely or predominantly from the morphologic right ventricle. Because the left ventricle has lost its direct arterial outlet, an interventricular communication is obligatory for viable left ventricular egress; a ventricular septal defect (or, in the setting of an atrioventricular septal defect, the common interventricular communication) is therefore present in almost every case. When the interventricular communication is restrictive or absent, the left ventricle receives no adequate outlet and becomes hypoplastic.\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\", \"locations\": [\"heart right ventricle\", \"aorta\", \"pulmonary artery\"]}}, {\"id\": \"Double outlet right ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining anatomic lesion: both great arteries arise entirely or predominantly from the morphologic right ventricle, with a ventricular septal defect as the only left ventricular outlet.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001719\"}}, {\"id\": \"Failure of Outflow Tract Rotation and Alignment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normally the arterial pole rotates during looping so the aorta swings rightward and posteriorly over the left ventricle while the pulmonary trunk is displaced anteriorly and leftward. This rotation is driven in part by asymmetric addition of second-heart-field myocardium at the pulmonary side of the outflow tract, which pushes the pulmonary orifice into a higher, more frontal position relative to the aortic orifice (the \\\"pulmonary push\\\"). Deficient or disorganised right ventricular outflow tract expansion leaves the rotation incomplete, so the aortic root is never transferred across the ventricular septum and remains supported by the right ventricle.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"outflow tract morphogenesis\"], \"role\": \"mediator\", \"locations\": [\"outflow tract\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor weight gain in infancy resulting from the increased metabolic demand of heart failure combined with feeding difficulty, characteristic of the overcirculated forms of DORV before repair.\", \"meta\": {\"term_id\": \"HP:0001508\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor and prolonged feeding in infancy, driven by the tachypnoea and increased work of breathing that accompany pulmonary overcirculation. It is the proximate cause of the reduced caloric intake that, with the raised metabolic demand of heart failure, produces failure to thrive in the unrepaired overcirculated forms of DORV.\", \"meta\": {\"term_id\": \"HP:0011968\"}}, {\"id\": \"Heterotaxy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal left-right arrangement of the thoracic and abdominal viscera with atrial isomerism, present in the laterality-associated (Van Praagh type III) form of DORV. Its presence carries additional conduction, splenic and venous anomalies and worsens surgical risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030853\"}}, {\"id\": \"Hypoplastic left ventricle\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An underdeveloped left ventricle, arising when the interventricular communication is restrictive, remote or absent so that fetal left ventricular filling and ejection are reduced. It is the principal determinant of ineligibility for biventricular repair.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004383\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced systemic arterial oxygen saturation resulting from obligatory intracardiac mixing, aggravated when pulmonary blood flow is restricted or when streaming directs desaturated blood preferentially to the aorta.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Interrupted aortic arch\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete discontinuity of the aortic arch, the most severe expression of the arch obstruction associated with DORV and particularly with the Taussig-Bing anomaly.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011611\"}}, {\"id\": \"Intraventricular baffle repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard biventricular repair for a committed ventricular septal defect: a patch tunnel is constructed from the left ventricle through the VSD to the aortic valve, restoring a series circulation. For a perimembranous or subaortic defect the tunnel is relatively straight and can usually be built through the right atrium; for a doubly committed defect a right ventriculotomy or transpulmonary approach is generally required. A restrictive VSD is enlarged by resecting the ventriculo-infundibular fold and conal septum to prevent late subaortic obstruction. Repair is recommended within the first six months of life to limit the effects of pulmonary overcirculation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Kawashima procedure\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An intraventricular repair for DORV-TGA in which the ventricular septal defect is baffled to the aortic valve with patch enlargement of the ventriculotomy, after complete resection of the conus. It suits patients with side-by-side great arteries whose coronary anatomy precludes root translocation, and patients whose pulmonary valve is not of adequate size to support the systemic circulation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When the interventricular communication is restrictive, remote from both arterial roots, or absent, fetal left ventricular filling and ejection are reduced and the left ventricle fails to grow. The same anatomic circumstances that limit left ventricular growth, together with straddling or hypoplastic atrioventricular valves and multiple ventricular septal defects, also make an unobstructed intraventricular baffle impossible. This node is therefore the hinge on which the entire management pathway turns: it converts DORV from a biventricular repair problem into a single-ventricle palliation problem.\", \"meta\": {\"evidence_count\": 3, \"role\": \"outcome\", \"locations\": [\"heart left ventricle\"]}}, {\"id\": \"Maternal diabetes mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Maternal diabetes is a recurrently reported non-genetic risk factor for DORV in both the human case literature and animal studies of DORV teratogenesis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nikaidoh procedure and root translocation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Posterior translocation of the aortic root, or double root translocation, creates a straight left ventricular outflow tract when routing the VSD to the aorta is not possible or would require a long akinetic tunnel at risk of late subaortic stenosis. It is favoured for remote ventricular septal defects, straddling atrioventricular valves and significant right ventricular hypoplasia. A pulmonary annulus smaller than 5 mm and a coronary artery crossing the right ventricular outflow tract at the transection level are contraindications.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"All left ventricular output must traverse the ventricular septal defect into the right ventricle, so systemic and pulmonary venous returns mix obligatorily. The clinical expression depends on where the defect sits. With a subaortic defect, oxygenated left ventricular blood streams preferentially into the adjacent aorta and desaturated right ventricular blood into the pulmonary artery, giving a large-VSD physiology with only mild desaturation but marked pulmonary overcirculation. With a subpulmonary (Taussig-Bing) defect the streaming is reversed: oxygenated blood is directed into the pulmonary artery while desaturated systemic venous blood is ejected into the aorta, producing transposition-like physiology with early profound cyanosis. Any superimposed pulmonary stenosis restricts pulmonary blood flow and shifts even a subaortic defect toward cyanosis.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\", \"locations\": [\"interventricular septum\", \"heart right ventricle\", \"heart left ventricle\"]}}, {\"id\": \"Outlet Septum Attachment Determines VSD Commitment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because both arterial trunks are supported by the right ventricle, the outlet septum is itself a right ventricular structure, and the channel between the ventricles is roofed by the inner heart curvature. It is therefore the attachment of the outlet septum, muscular or fibrous, that determines to which subarterial outlet the interventricular communication is committed: the cranial limb of the septomarginal trabeculation gives a subaortic defect, the caudal limb a subpulmonary defect, and the inner heart curvature a doubly committed defect, while defects lying outside the limbs of the trabeculation are non-committed. This single anatomic variable, rather than the DORV label, determines the streaming physiology and the repair strategy.\", \"meta\": {\"evidence_count\": 4, \"role\": \"effector\", \"locations\": [\"interventricular septum\"]}}, {\"id\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The muscular outlet septum partitions the two infundibula, and its displacement into either outflow tract creates subvalvar obstruction. Deviation into the subpulmonary outflow produces subpulmonary and pulmonary stenosis, the lesion that gives a subaortic-VSD heart its Fallot-type physiology. Deviation into the subaortic outflow, or a subpulmonary VSD that diverts fetal left ventricular flow away from the systemic outlet, produces subaortic stenosis and is associated with hypoplasia of the aortic arch, coarctation and interrupted aortic arch, the lesions that dominate the Taussig-Bing anomaly. Chronic obstruction to right ventricular ejection also drives right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"locations\": [\"outflow tract\", \"aorta\"]}}, {\"id\": \"Palliative control of pulmonary blood flow\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Interim procedures used before definitive repair, or as the first stage of a single-ventricle pathway, to balance pulmonary and systemic flow: pulmonary artery banding when there is overcirculation, and a systemic-to-pulmonary (central) shunt or ductal stent when pulmonary blood flow is inadequate. Balloon atrial septostomy is used urgently when a desaturated infant has inadequate atrial-level mixing and a poor cardiac output state.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Persistence of the Subaortic Conus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the normal heart the subpulmonary conus persists while the subaortic conal free wall resorbs, allowing the aortic valve to descend into fibrous continuity with the mitral valve. In DORV the subaortic conus characteristically persists, producing bilateral (subaortic and subpulmonary) infundibula and abolishing aorto-mitral fibrous continuity, so the aortic root remains elevated on a muscular sleeve above the right ventricle. This is the conal basis of the classical \\\"50% rule\\\": what is really being measured is whether conal muscle still interposes between the arterial root and the left ventricle. The criterion is not absolute, because DORV also occurs with fibrous continuity between the arterial and atrioventricular valves, so bilateral conus is sufficient but not necessary for the diagnosis.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"conus arteriosus morphogenesis\", \"outflow tract septum morphogenesis\"], \"role\": \"mediator\", \"locations\": [\"conus arteriosus\", \"mitral valve\"]}}, {\"id\": \"Prenatal teratogen exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal exposure to ethanol, retinoids, theophylline and valproate has been implicated in DORV teratogenesis in animal studies. Retinoic acid is particularly plausible mechanistically because tightly bounded retinoic acid signalling is required to maintain and differentiate the second-heart-field progenitors that elongate and septate the outflow tract, so both deficient and excessive signalling perturb the same morphogenetic step that DORV reports.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the absence of pulmonary stenosis, the postnatal fall in pulmonary vascular resistance allows a torrential left-to-right shunt through the ventricular septal defect and into the pulmonary artery. The resulting pulmonary overcirculation produces tachypnoea, feeding difficulty and failure to thrive within the first weeks of life, ventricular volume overload and congestive heart failure, and, if repair is delayed beyond infancy, progressive pulmonary vascular remodelling and irreversible pulmonary arterial hypertension. This is the rationale for completing biventricular repair within the first six months of life or, when repair must be deferred, for interim pulmonary artery banding.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated pulmonary arterial pressure from sustained high-flow, high-pressure pulmonary circulation. If repair is delayed, obstructive pulmonary vascular remodelling becomes irreversible and precludes both biventricular repair and Fontan palliation.\", \"meta\": {\"term_id\": \"HP:0002092\"}}, {\"id\": \"Pulmonic stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Obstruction of the right ventricular outflow tract, most often from deviation of the muscular outlet septum into the subpulmonary infundibulum, but also valvar or supravalvar. It is the single most common associated lesion and converts an overcirculated DORV into a cyanotic one.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001642\"}}, {\"id\": \"Rastelli-type repair with right ventricle to pulmonary artery conduit\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When pulmonary outflow obstruction is valvar and the pulmonary valve cannot support the systemic circulation, the ventricular septal defect is baffled to the aorta and right ventricle to pulmonary artery continuity is restored with a valved conduit (Rastelli) or, in the REV variant, by direct anastomosis of the pulmonary trunk to the infundibulum after a LeCompte manoeuvre. Somatic outgrowth and stenosis of the conduit make reoperation predictable, and Rastelli-type repair carries higher late mortality and reintervention risk than other pathways.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Right ventricular hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypertrophy of the morphologic right ventricle, which supports both arterial trunks and is additionally pressure-loaded when outflow obstruction is present. In the Fallot-type subgroup the electrocardiogram shows right axis deviation with right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001667\"}}, {\"id\": \"Single-ventricle palliation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"When a safe biventricular route cannot be constructed, staged univentricular palliation is used: initial control of pulmonary blood flow with a systemic-to-pulmonary shunt, ductal stent or pulmonary artery band, then a bidirectional cavopulmonary connection, then total cavopulmonary (Fontan) completion at two to three years of age. Any restrictive ventricular septal defect should be enlarged at or before Fontan completion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Subvalvular aortic stenosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subaortic obstruction produced by posterior deviation of the outlet septum, by a restrictive interventricular communication, or by a long non-contractile intraventricular baffle after repair. It is characteristic of the subpulmonary-VSD (Taussig-Bing) form and is also a recognised late postoperative complication.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001682\"}}, {\"id\": \"Tachypnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rapid breathing from pulmonary congestion and increased pulmonary blood flow, typically emerging over the first weeks of life as pulmonary vascular resistance falls.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002789\"}}, {\"id\": \"Ventricular septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"An interventricular communication is present in almost every case of DORV and is the sole outlet from the left ventricle. Its position relative to the arterial roots defines the anatomic subtypes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001629\"}}], \"edges\": [{\"source\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"target\": \"Failure of Outflow Tract Rotation and Alignment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deficient or disorganised neural crest and second-heart-field contribution leaves the outflow tract unable to elongate and rotate normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"target\": \"Persistence of the Subaortic Conus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perturbed conotruncal maturation prevents the normal resorption of the subaortic conal free wall.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"conotruncal maturation and conal remodelling\"]}, {\"source\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"target\": \"Failure of Outflow Tract Rotation and Alignment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Randomised or abnormal looping misplaces the ventricles relative to the arterial poles, so the outflow tract cannot align normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"target\": \"Heterotaxy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same left-right organiser failure that misaligns the outflow tract also randomises visceral and atrial situs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disturbed Left-Right Patterning and Cardiac Looping\", \"target\": \"Complete atrioventricular canal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Laterality-associated DORV frequently carries a common atrioventricular valve, the atrioventricular canal defect characteristic of atrial isomerism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"atrial isomerism and endocardial cushion malalignment\"]}, {\"source\": \"Failure of Outflow Tract Rotation and Alignment\", \"target\": \"Persistence of the Subaortic Conus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete rotation leaves the aortic root above persistent subaortic conal musculature rather than above the left ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Outflow Tract Rotation and Alignment\", \"target\": \"Double Outlet Ventriculo-Arterial Connection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to transfer the aortic root across the ventricular septum leaves both arterial trunks supported by the right ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of the Subaortic Conus\", \"target\": \"Double Outlet Ventriculo-Arterial Connection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A persistent muscular subaortic conus keeps the aortic root committed to the right ventricle instead of the left. This route is characteristic but not obligatory, since DORV also occurs with arterial-to-atrioventricular valvar fibrous continuity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"loss of aorto-mitral fibrous continuity\"]}, {\"source\": \"Double Outlet Ventriculo-Arterial Connection\", \"target\": \"Outlet Septum Attachment Determines VSD Commitment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With both roots on the right ventricle the outlet septum is necessarily a right ventricular structure, and its attachment determines which arterial root the interventricular communication faces.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Double Outlet Ventriculo-Arterial Connection\", \"target\": \"Double outlet right ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The double-outlet ventriculo-arterial connection is the defining anatomic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Double Outlet Ventriculo-Arterial Connection\", \"target\": \"Ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of a direct left ventricular arterial outlet makes an interventricular communication obligatory for viable left ventricular egress.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Attachment Determines VSD Commitment\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The position of the interventricular communication relative to the arterial roots dictates how left ventricular blood streams once it crosses the septum.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Attachment Determines VSD Commitment\", \"target\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Displacement of the outlet septum toward one arterial root both commits the VSD to the other root and narrows the outflow it encroaches upon.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Attachment Determines VSD Commitment\", \"target\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A restrictive or remote interventricular communication limits fetal left ventricular filling and ejection, so the left ventricle fails to grow.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced left ventricular flow during fetal life\"]}, {\"source\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Streaming of desaturated systemic venous blood into the aorta, or restricted pulmonary blood flow, produces central cyanosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obligatory intracardiac mixing lowers systemic arterial oxygen saturation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"target\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When pulmonary outflow is unobstructed, the fall in pulmonary vascular resistance after birth drives a large left-to-right shunt.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Pulmonic stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deviation of the outlet septum into the subpulmonary outflow narrows the right ventricular outflow tract.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Subvalvular aortic stenosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deviation of the outlet septum into the subaortic outflow narrows the systemic outlet.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Coarctation of aorta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced antegrade fetal flow through the systemic outlet is associated with aortic arch hypoplasia and coarctation, especially in the Taussig-Bing form.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced fetal systemic outflow tract flow\"]}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Interrupted aortic arch\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The most severe expression of the same reduced fetal systemic flow is interruption of the aortic arch.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced fetal systemic outflow tract flow\"]}, {\"source\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"target\": \"Right ventricular hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic pressure load from subvalvar or valvar outflow obstruction produces right ventricular hypertrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular volume overload from the large shunt produces congestive heart failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Tachypnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased pulmonary blood flow and pulmonary congestion produce tachypnoea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachypnoea and the increased work of breathing imposed by pulmonary overcirculation interrupt sucking and swallowing, so infants tire and feed poorly.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"tachypnoea and increased work of breathing during feeds\"]}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The metabolic cost of heart failure combined with feeding difficulty causes poor weight gain.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"increased metabolic demand and reduced caloric intake\"]}, {\"source\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained high-flow, high-pressure pulmonary circulation drives obstructive pulmonary vascular remodelling.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"pulmonary vascular remodelling\"]}, {\"source\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"target\": \"Hypoplastic left ventricle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced fetal left ventricular flow through a restrictive or remote interventricular communication results in an underdeveloped left ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal diabetes mellitus\", \"target\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal diabetes disturbs the neural crest and second heart field populations that build the outflow tract. Support is animal-derived, so this is recorded as a predisposing association pending human data.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal teratogen exposure\", \"target\": \"Cardiac Neural Crest and Second Heart Field Disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Ethanol, retinoids, theophylline and valproate are implicated as a group acting on the same neural crest and second heart field populations, without a single shared mechanism being established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diuretic therapy for pulmonary overcirculation\", \"target\": \"Pulmonary Overcirculation and Ventricular Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Palliative control of pulmonary blood flow\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Kawashima procedure\", \"target\": \"Persistence of the Subaortic Conus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intraventricular baffle repair\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Arterial switch operation with VSD-to-pulmonary-root baffle\", \"target\": \"Obligatory Intracardiac Mixing and VSD-Dependent Streaming\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rastelli-type repair with right ventricle to pulmonary artery conduit\", \"target\": \"Outlet Septum Malalignment and Outflow Tract Obstruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nikaidoh procedure and root translocation\", \"target\": \"Double Outlet Ventriculo-Arterial Connection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Single-ventricle palliation\", \"target\": \"Left Ventricular Hypoplasia and Loss of Biventricular Repair Substrate\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6412,7 +6644,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-septal-defect" data-dismech-node="Ventricular septal defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ventricular septal defect
 
@@ -6473,7 +6705,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonic-stenosis" data-dismech-node="Pulmonic stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonic stenosis
 
@@ -6534,7 +6766,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarctation-of-aorta" data-dismech-node="Coarctation of aorta" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coarctation of aorta
 
@@ -6617,7 +6849,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive heart failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congestive heart failure
 
@@ -6676,7 +6908,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary arterial hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary arterial hypertension
 
@@ -6714,7 +6946,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
                         Feeding difficulties
 
@@ -6752,7 +6984,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cyanosis" data-dismech-node="Cyanosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cyanosis
 
@@ -6820,7 +7052,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoxemia" data-dismech-node="Hypoxemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoxemia
 
@@ -6879,7 +7111,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tachypnea" data-dismech-node="Tachypnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tachypnea
 
@@ -6947,7 +7179,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to thrive
 
@@ -6985,7 +7217,7 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-double-outlet-right-ventricle" data-dismech-node="Double outlet right ventricle" data-dismech-type="phenotype">
                     <div class="item-name">
                         Double outlet right ventricle
 
@@ -7046,7 +7278,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-subvalvular-aortic-stenosis" data-dismech-node="Subvalvular aortic stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Subvalvular aortic stenosis
 
@@ -7105,7 +7337,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interrupted-aortic-arch" data-dismech-node="Interrupted aortic arch" data-dismech-type="phenotype">
                     <div class="item-name">
                         Interrupted aortic arch
 
@@ -7164,7 +7396,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-hypertrophy" data-dismech-node="Right ventricular hypertrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Right ventricular hypertrophy
 
@@ -7223,7 +7455,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-left-ventricle" data-dismech-node="Hypoplastic left ventricle" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoplastic left ventricle
 
@@ -7306,7 +7538,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heterotaxy" data-dismech-node="Heterotaxy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Heterotaxy
 
@@ -7387,7 +7619,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-complete-atrioventricular-canal-defect" data-dismech-node="Complete atrioventricular canal defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Complete atrioventricular canal defect
 
@@ -7485,7 +7717,7 @@
                 <span class="card-count">12</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chromosomal-aneuploidy-and-copy-number-variation" data-dismech-node="Chromosomal aneuploidy and copy number variation" data-dismech-type="genetic">
                 <div class="item-name">
                     Chromosomal aneuploidy and copy number variation
 
@@ -7559,9 +7791,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tbx1" data-dismech-node="TBX1" data-dismech-type="genetic">
                 <div class="item-name">
                     TBX1
 
@@ -7646,9 +7879,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-zic3" data-dismech-node="ZIC3" data-dismech-type="genetic">
                 <div class="item-name">
                     ZIC3
 
@@ -7735,9 +7969,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cfc1" data-dismech-node="CFC1" data-dismech-type="genetic">
                 <div class="item-name">
                     CFC1
 
@@ -7800,9 +8035,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nkx2-5" data-dismech-node="NKX2-5" data-dismech-type="genetic">
                 <div class="item-name">
                     NKX2-5
 
@@ -7865,9 +8101,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gata4" data-dismech-node="GATA4" data-dismech-type="genetic">
                 <div class="item-name">
                     GATA4
 
@@ -7952,9 +8189,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mef2c" data-dismech-node="MEF2C" data-dismech-type="genetic">
                 <div class="item-name">
                     MEF2C
 
@@ -8041,9 +8279,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tbx20" data-dismech-node="TBX20" data-dismech-type="genetic">
                 <div class="item-name">
                     TBX20
 
@@ -8130,9 +8369,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chd7" data-dismech-node="CHD7" data-dismech-type="genetic">
                 <div class="item-name">
                     CHD7
 
@@ -8219,9 +8459,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lrp1" data-dismech-node="LRP1" data-dismech-type="genetic">
                 <div class="item-name">
                     LRP1
 
@@ -8284,9 +8525,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-foxj1" data-dismech-node="FOXJ1" data-dismech-type="genetic">
                 <div class="item-name">
                     FOXJ1
 
@@ -8373,9 +8615,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-shroom3" data-dismech-node="SHROOM3" data-dismech-type="genetic">
                 <div class="item-name">
                     SHROOM3
 
@@ -8460,9 +8703,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8474,7 +8721,7 @@
                 <span class="card-count">10</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prostaglandin-e1" data-dismech-node="Prostaglandin E1" data-dismech-type="treatment">
                 <div class="item-name">
                     Prostaglandin E1
                 </div>
@@ -8590,7 +8837,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-diuretic-therapy-for-pulmonary-overcirculation" data-dismech-node="Diuretic therapy for pulmonary overcirculation" data-dismech-type="treatment">
                 <div class="item-name">
                     Diuretic therapy for pulmonary overcirculation
                 </div>
@@ -8702,7 +8949,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-palliative-control-of-pulmonary-blood-flow" data-dismech-node="Palliative control of pulmonary blood flow" data-dismech-type="treatment">
                 <div class="item-name">
                     Palliative control of pulmonary blood flow
                 </div>
@@ -8819,7 +9066,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-kawashima-procedure" data-dismech-node="Kawashima procedure" data-dismech-type="treatment">
                 <div class="item-name">
                     Kawashima procedure
                 </div>
@@ -8936,7 +9183,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-intraventricular-baffle-repair" data-dismech-node="Intraventricular baffle repair" data-dismech-type="treatment">
                 <div class="item-name">
                     Intraventricular baffle repair
                 </div>
@@ -9053,7 +9300,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-arterial-switch-operation-with-vsd-to-pulmonary-root-baffle" data-dismech-node="Arterial switch operation with VSD-to-pulmonary-root baffle" data-dismech-type="treatment">
                 <div class="item-name">
                     Arterial switch operation with VSD-to-pulmonary-root baffle
                 </div>
@@ -9194,7 +9441,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rastelli-type-repair-with-right-ventricle-to-pulmonary-artery-conduit" data-dismech-node="Rastelli-type repair with right ventricle to pulmonary artery conduit" data-dismech-type="treatment">
                 <div class="item-name">
                     Rastelli-type repair with right ventricle to pulmonary artery conduit
                 </div>
@@ -9311,7 +9558,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nikaidoh-procedure-and-root-translocation" data-dismech-node="Nikaidoh procedure and root translocation" data-dismech-type="treatment">
                 <div class="item-name">
                     Nikaidoh procedure and root translocation
                 </div>
@@ -9428,7 +9675,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-single-ventricle-palliation" data-dismech-node="Single-ventricle palliation" data-dismech-type="treatment">
                 <div class="item-name">
                     Single-ventricle palliation
                 </div>
@@ -9545,7 +9792,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-evaluation-and-counselling" data-dismech-node="Genetic evaluation and counselling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic evaluation and counselling
                 </div>
@@ -9634,7 +9881,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-maternal-diabetes-mellitus" data-dismech-node="Maternal diabetes mellitus" data-dismech-type="environmental">
                 <div class="item-name">Maternal diabetes mellitus</div>
 
 
@@ -9676,9 +9923,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Cardiac Neural Crest and Second Heart Field Disruption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Maternal diabetes disturbs the neural crest and second heart field populations that build the outflow tract. Support is animal-derived, so this is recorded as a predisposing association pending human data.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18456715" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18456715" target="_blank">PMID:18456715</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Animal studies implicate maternal diabetes and prenatal exposure to ethanol, retinoids, theophylline, and valproate in DORV teratogenesis."</div>
+
+
+                <div class="evidence-explanation">Animal studies implicate maternal diabetes in this malformation. Support is PARTIAL because the evidence is experimental animal work and the claim here concerns human development.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-prenatal-teratogen-exposure" data-dismech-node="Prenatal teratogen exposure" data-dismech-type="environmental">
                 <div class="item-name">Prenatal teratogen exposure</div>
 
 
@@ -9719,6 +10019,59 @@
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Cardiac Neural Crest and Second Heart Field Disruption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Ethanol, retinoids, theophylline and valproate are implicated as a group acting on the same neural crest and second heart field populations, without a single shared mechanism being established.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18456715" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18456715" target="_blank">PMID:18456715</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Animal studies implicate maternal diabetes and prenatal exposure to ethanol, retinoids, theophylline, and valproate in DORV teratogenesis."</div>
+
+
+                <div class="evidence-explanation">Animal studies implicate prenatal ethanol, retinoid, theophylline and valproate exposure in this malformation. Support is PARTIAL because the evidence is experimental animal work.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -12207,6 +12560,24 @@ genetic:
       typed as a susceptibility rather than a causative locus.
 environmental:
 - name: Maternal diabetes mellitus
+  influences_mechanisms:
+  - target: Cardiac Neural Crest and Second Heart Field Disruption
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Maternal diabetes disturbs the neural crest and second heart field
+      populations that build the outflow tract. Support is animal-derived, so
+      this is recorded as a predisposing association pending human data.
+    evidence:
+    - reference: PMID:18456715
+      reference_title: &#34;Double outlet right ventricle: aetiologies and associations.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Animal studies implicate maternal diabetes and prenatal exposure to ethanol, retinoids, theophylline, and valproate in DORV teratogenesis.&#34;
+      explanation: &gt;-
+        Animal studies implicate maternal diabetes in this malformation.
+        Support is PARTIAL because the evidence is experimental animal work
+        and the claim here concerns human development.
   description: &gt;-
     Maternal diabetes is a recurrently reported non-genetic risk factor for DORV in
     both the human case literature and animal studies of DORV teratogenesis.
@@ -12224,6 +12595,24 @@ environmental:
       teratogenesis; the supporting studies cited are animal studies, hence
       MODEL_ORGANISM.
 - name: Prenatal teratogen exposure
+  influences_mechanisms:
+  - target: Cardiac Neural Crest and Second Heart Field Disruption
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Ethanol, retinoids, theophylline and valproate are implicated as a group
+      acting on the same neural crest and second heart field populations,
+      without a single shared mechanism being established.
+    evidence:
+    - reference: PMID:18456715
+      reference_title: &#34;Double outlet right ventricle: aetiologies and associations.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;Animal studies implicate maternal diabetes and prenatal exposure to ethanol, retinoids, theophylline, and valproate in DORV teratogenesis.&#34;
+      explanation: &gt;-
+        Animal studies implicate prenatal ethanol, retinoid, theophylline and
+        valproate exposure in this malformation. Support is PARTIAL because
+        the evidence is experimental animal work.
   description: &gt;-
     Prenatal exposure to ethanol, retinoids, theophylline and valproate has been
     implicated in DORV teratogenesis in animal studies. Retinoic acid is
@@ -13969,7 +14358,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Double Outlet Right Ventricle", "mondoId": "MONDO:0018089", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Double_Outlet_Right_Ventricle", "yamlRevision": "a9df28ef91ac"};
+        const OS_CONFIG = {"diseaseName": "Double Outlet Right Ventricle", "mondoId": "MONDO:0018089", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Double_Outlet_Right_Ventricle", "yamlRevision": "bc4295ce92d7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

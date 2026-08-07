@@ -38,7 +38,7 @@ If the case seems nuanced, consult issue #1430 for further guidance.
 
 **Do NOT second-guess deterministic validation.**
 
-The dismech CI pipeline runs `just validate`, `just validate-terms`, and `just validate-references` on every PR. If a file passes those checks, it is schema-valid and structurally correct. The reviewer's job is NOT to re-inspect the output of these checks — that is redundant and leads to false positives.
+The dismech CI pipeline runs `just validate-disorders` on every PR's changed disorder files, which batches schema, ontology-term, and reference/snippet validation in one pass. If a file passes those checks, it is schema-valid and structurally correct. The reviewer's job is NOT to re-inspect the output of these checks — that is redundant and leads to false positives.
 
 Concretely:
 - **Do not flag empty YAML keys** (e.g., `datasets:` with no content). In LinkML, a null value, an empty list, and a missing key are semantically equivalent. If validation passes, the entry is valid.

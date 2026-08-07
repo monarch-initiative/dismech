@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3335,7 +3564,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Anal%20Canal%20Carcinoma"
@@ -3462,6 +3691,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3499,7 +3730,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3512,6 +3743,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4751,7 +4983,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anal squamous cell carcinoma cells frequently express PD-L1 and PD-1 is expressed on tumor-infiltrating T cells, consistent with adaptive immune resistance to anti-tumor immunity. This mechanism is the therapeutic rationale for PD-1 blockade (pembrolizumab, nivolumab) in recurrent or metastatic disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Anal Canal Squamous Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive squamous cell carcinoma of the anal canal is the defining histopathologic feature of HPV-associated anal canal cancer.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006763\"}}, {\"id\": \"Anal Intraepithelial Neoplasia Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-driven dysplasia of the anal squamous epithelium progresses through a spectrum of anal intraepithelial neoplasia (AIN1, AIN2, AIN3 / high-grade squamous intraepithelial lesion) to invasive anal squamous cell carcinoma. High-grade lesions carry a significant risk of progression, particularly in immunosuppressed patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Anal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain is among the multiple symptoms commonly experienced by patients with anal canal cancer over the course of their disease, as documented in palliative care studies of colorectal and anal malignancies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500005\"}}, {\"id\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints and apoptotic responses in infected anal squamous epithelial cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"apoptotic process\"]}}, {\"id\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors and driving uncontrolled cell cycle progression in anal squamous epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"G1/S transition of mitotic cell cycle\", \"cell population proliferation\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined loss of p53 and pRB function, along with HPV-associated chromosomal aberrations, drives accumulation of genetic alterations and progression from anal intraepithelial neoplasia to invasive squamous cell carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"HPV Infection of Anal Squamous Epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-risk HPV (predominantly HPV-16) infects basal stratified squamous epithelial cells of the anal canal, typically at the anal transformation zone where squamous and columnar epithelia meet. Persistent infection over years to decades is the necessary first step in HPV-driven anal carcinogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"locations\": [\"anal canal\"]}}, {\"id\": \"Immune Checkpoint Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 inhibitors such as pembrolizumab and nivolumab have demonstrated activity in recurrent or metastatic anal canal squamous cell carcinoma and are used in the second-line and beyond setting.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pembrolizumab\"]}}, {\"id\": \"Inguinal Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anal canal cancer below the dentate line drains preferentially to inguinal lymph nodes; palpable inguinal lymphadenopathy may indicate regional metastatic involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034751\"}}, {\"id\": \"Rectal Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bright red bleeding per rectum is the most common presenting symptom of anal canal cancer and frequently prompts initial evaluation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002573\"}}], \"edges\": [{\"source\": \"HPV Infection of Anal Squamous Epithelium\", \"target\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent HPV infection enables sustained E6 expression\"}, {\"source\": \"HPV Infection of Anal Squamous Epithelium\", \"target\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent HPV infection enables sustained E7 expression\"}, {\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"p53 loss permits cells with damaged DNA to survive and proliferate\"}, {\"source\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained proliferation in the setting of impaired checkpoints\"}, {\"source\": \"Genomic Instability\", \"target\": \"Anal Intraepithelial Neoplasia Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic alterations drive progression from AIN to invasive carcinoma\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive HPV-driven anal squamous cell carcinoma upregulates PD-L1 and engages adaptive immune resistance to evade anti-tumor T cell responses.\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Anal Canal Squamous Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HPV-driven dysplasia progression culminates in invasive anal canal squamous carcinoma, the defining neoplastic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Rectal Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive anal canal squamous carcinoma commonly presents with bleeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Anal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anal canal cancer can produce anal or perirectal pain as a local symptom.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Inguinal Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary tumor progression can involve inguinal nodes, producing inguinal lymphadenopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"regional lymphatic metastasis to inguinal nodes\"]}, {\"source\": \"Immune Checkpoint Inhibitor Therapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Anal squamous cell carcinoma cells frequently express PD-L1 and PD-1 is expressed on tumor-infiltrating T cells, consistent with adaptive immune resistance to anti-tumor immunity. This mechanism is the therapeutic rationale for PD-1 blockade (pembrolizumab, nivolumab) in recurrent or metastatic disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Anal Canal Squamous Carcinoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive squamous cell carcinoma of the anal canal is the defining histopathologic feature of HPV-associated anal canal cancer.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006763\"}}, {\"id\": \"Anal Intraepithelial Neoplasia Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-driven dysplasia of the anal squamous epithelium progresses through a spectrum of anal intraepithelial neoplasia (AIN1, AIN2, AIN3 / high-grade squamous intraepithelial lesion) to invasive anal squamous cell carcinoma. High-grade lesions carry a significant risk of progression, particularly in immunosuppressed patients.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Anal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain is among the multiple symptoms commonly experienced by patients with anal canal cancer over the course of their disease, as documented in palliative care studies of colorectal and anal malignancies.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500005\"}}, {\"id\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E6 oncoprotein binds to the cellular E3 ubiquitin ligase E6AP and targets p53 for proteasomal degradation. Loss of p53 function eliminates DNA damage checkpoints and apoptotic responses in infected anal squamous epithelial cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\", \"apoptotic process\"]}}, {\"id\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The HPV E7 oncoprotein binds to and inactivates the retinoblastoma protein (pRB), releasing E2F transcription factors and driving uncontrolled cell cycle progression in anal squamous epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"biological_processes\": [\"G1/S transition of mitotic cell cycle\", \"cell population proliferation\"]}}, {\"id\": \"Genomic Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined loss of p53 and pRB function, along with HPV-associated chromosomal aberrations, drives accumulation of genetic alterations and progression from anal intraepithelial neoplasia to invasive squamous cell carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA damage response\"]}}, {\"id\": \"HIV Infection / Immunosuppression\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"HIV infection and other forms of chronic immunosuppression (including iatrogenic immunosuppression in solid organ transplant recipients) markedly increase the risk of HPV-associated anal cancer, with the highest incidence in men who have sex with men living with HIV.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"HPV Infection of Anal Squamous Epithelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-risk HPV (predominantly HPV-16) infects basal stratified squamous epithelial cells of the anal canal, typically at the anal transformation zone where squamous and columnar epithelia meet. Persistent infection over years to decades is the necessary first step in HPV-driven anal carcinogenesis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"stratified squamous epithelial cell of anal canal\"], \"locations\": [\"anal canal\"]}}, {\"id\": \"Human Papillomavirus Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Persistent infection with high-risk HPV, particularly HPV-16, is the necessary causal exposure for the great majority of anal canal squamous cell carcinomas.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Immune Checkpoint Inhibitor Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 inhibitors such as pembrolizumab and nivolumab have demonstrated activity in recurrent or metastatic anal canal squamous cell carcinoma and are used in the second-line and beyond setting.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pembrolizumab\"]}}, {\"id\": \"Inguinal Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anal canal cancer below the dentate line drains preferentially to inguinal lymph nodes; palpable inguinal lymphadenopathy may indicate regional metastatic involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034751\"}}, {\"id\": \"Receptive Anal Intercourse\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A history of receptive anal intercourse is a sexual-behavior risk factor for anal squamous cell carcinoma, reflecting increased exposure to high-risk anogenital HPV at the anal transformation zone. In a population-based case-control study this exposure was strongly associated with anal cancer in both men who were not exclusively heterosexual and women.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rectal Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bright red bleeding per rectum is the most common presenting symptom of anal canal cancer and frequently prompts initial evaluation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002573\"}}, {\"id\": \"Tobacco Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is an established risk factor for anal canal squamous cell carcinoma, independent of HPV exposure.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"HPV Infection of Anal Squamous Epithelium\", \"target\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent HPV infection enables sustained E6 expression\"}, {\"source\": \"HPV Infection of Anal Squamous Epithelium\", \"target\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent HPV infection enables sustained E7 expression\"}, {\"source\": \"E6 Oncoprotein-Mediated p53 Degradation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"p53 loss permits cells with damaged DNA to survive and proliferate\"}, {\"source\": \"E7 Oncoprotein-Mediated pRB Inactivation\", \"target\": \"Genomic Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained proliferation in the setting of impaired checkpoints\"}, {\"source\": \"Genomic Instability\", \"target\": \"Anal Intraepithelial Neoplasia Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genomic alterations drive progression from AIN to invasive carcinoma\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive HPV-driven anal squamous cell carcinoma upregulates PD-L1 and engages adaptive immune resistance to evade anti-tumor T cell responses.\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Anal Canal Squamous Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HPV-driven dysplasia progression culminates in invasive anal canal squamous carcinoma, the defining neoplastic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Rectal Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive anal canal squamous carcinoma commonly presents with bleeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Anal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anal canal cancer can produce anal or perirectal pain as a local symptom.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anal Intraepithelial Neoplasia Progression\", \"target\": \"Inguinal Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Primary tumor progression can involve inguinal nodes, producing inguinal lymphadenopathy.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"regional lymphatic metastasis to inguinal nodes\"]}, {\"source\": \"Human Papillomavirus Infection\", \"target\": \"HPV Infection of Anal Squamous Epithelium\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Persistent high-risk HPV is the necessary cause of this cancer, and the entry models the infection itself as the initiating node, so this link is an identity rather than a causal step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"HIV Infection / Immunosuppression\", \"target\": \"HPV Infection of Anal Squamous Epithelium\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Immunosuppression does not cause the infection; it prevents its clearance, converting transient HPV into the persistent infection this node requires. That is why risk concentrates so sharply in people living with HIV.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tobacco Smoking\", \"target\": \"Anal Intraepithelial Neoplasia Progression\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking raises risk independently of HPV exposure and sexual behaviour, so it targets progression of established neoplasia rather than acquisition of the virus. No mediating step is identified in the cited study.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Receptive Anal Intercourse\", \"target\": \"HPV Infection of Anal Squamous Epithelium\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Not a carcinogen but the route of acquisition: it is how the virus reaches anal squamous epithelium in the first place, with sexual transmission as the known intervening step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Immune Checkpoint Inhibitor Therapy\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4785,7 +5017,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rectal-bleeding" data-dismech-node="Rectal Bleeding" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rectal Bleeding
 
@@ -4875,7 +5107,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anal-pain" data-dismech-node="Anal Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anal Pain
 
@@ -4934,7 +5166,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anal-canal-squamous-carcinoma" data-dismech-node="Anal Canal Squamous Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anal Canal Squamous Carcinoma
 
@@ -4993,7 +5225,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inguinal-lymphadenopathy" data-dismech-node="Inguinal Lymphadenopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Inguinal Lymphadenopathy
 
@@ -5091,7 +5323,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tp53" data-dismech-node="TP53" data-dismech-type="genetic">
                 <div class="item-name">
                     TP53
 
@@ -5135,9 +5367,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pik3ca" data-dismech-node="PIK3CA" data-dismech-type="genetic">
                 <div class="item-name">
                     PIK3CA
 
@@ -5181,9 +5414,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5195,7 +5432,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hpv-vaccination" data-dismech-node="HPV Vaccination" data-dismech-type="treatment">
                 <div class="item-name">
                     HPV Vaccination
                 </div>
@@ -5273,7 +5510,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-chemoradiation-nigro-regimen" data-dismech-node="Chemoradiation (Nigro regimen)" data-dismech-type="treatment">
                 <div class="item-name">
                     Chemoradiation (Nigro regimen)
                 </div>
@@ -5402,7 +5639,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-salvage-abdominoperineal-resection" data-dismech-node="Salvage Abdominoperineal Resection" data-dismech-type="treatment">
                 <div class="item-name">
                     Salvage Abdominoperineal Resection
                 </div>
@@ -5480,7 +5717,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-immune-checkpoint-inhibitor-therapy" data-dismech-node="Immune Checkpoint Inhibitor Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Immune Checkpoint Inhibitor Therapy
                 </div>
@@ -5659,7 +5896,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-human-papillomavirus-infection" data-dismech-node="Human Papillomavirus Infection" data-dismech-type="environmental">
                 <div class="item-name">Human Papillomavirus Infection</div>
 
 
@@ -5701,9 +5938,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">HPV Infection of Anal Squamous Epithelium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Persistent high-risk HPV is the necessary cause of this cancer, and the entry models the infection itself as the initiating node, so this link is an identity rather than a causal step.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42101137" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42101137" target="_blank">PMID:42101137</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anal cancer, caused by persistent infection with oncogenic human papillomavirus (HPV), is rare in the general population."</div>
+
+
+                <div class="evidence-explanation">States that anal cancer is caused by persistent infection with oncogenic human papillomavirus, the infection this node represents.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-hiv-infection-immunosuppression" data-dismech-node="HIV Infection / Immunosuppression" data-dismech-type="environmental">
                 <div class="item-name">HIV Infection / Immunosuppression</div>
 
 
@@ -5745,9 +6035,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">HPV Infection of Anal Squamous Epithelium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Immunosuppression does not cause the infection; it prevents its clearance, converting transient HPV into the persistent infection this node requires. That is why risk concentrates so sharply in people living with HIV.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42101137" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42101137" target="_blank">PMID:42101137</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"certain groups, such as men who have sex with men living with HIV, are at much higher risk"</div>
+
+
+                <div class="evidence-explanation">Reports much higher risk among men who have sex with men living with HIV, the group in whom impaired clearance permits persistent infection.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoking" data-dismech-node="Tobacco Smoking" data-dismech-type="environmental">
                 <div class="item-name">Tobacco Smoking</div>
 
 
@@ -5789,9 +6132,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Anal Intraepithelial Neoplasia Progression</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Smoking raises risk independently of HPV exposure and sexual behaviour, so it targets progression of established neoplasia rather than acquisition of the virus. No mediating step is identified in the cited study.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15241823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15241823" target="_blank">PMID:15241823</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Current smokers among men and women were at particularly high risk for anal cancer, independent of age and other risk factors"</div>
+
+
+                <div class="evidence-explanation">Reports current smokers at particularly high risk for anal cancer independent of age and other factors, an effect separate from viral acquisition.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-receptive-anal-intercourse" data-dismech-node="Receptive Anal Intercourse" data-dismech-type="environmental">
                 <div class="item-name">Receptive Anal Intercourse</div>
 
 
@@ -5833,6 +6229,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">HPV Infection of Anal Squamous Epithelium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Not a carcinogen but the route of acquisition: it is how the virus reaches anal squamous epithelium in the first place, with sexual transmission as the known intervening step.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15241823" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15241823" target="_blank">PMID:15241823</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"receptive anal intercourse was related strongly to the risk of anal cancer"</div>
+
+
+                <div class="evidence-explanation">Reports receptive anal intercourse as strongly related to anal cancer risk, the transmission route that delivers the virus to this epithelium.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -5847,7 +6296,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hpv-dna-testing" data-dismech-node="HPV DNA Testing" data-dismech-type="biochemical">
                 <div class="item-name">
                     HPV DNA Testing
 
@@ -5860,7 +6309,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-p16-immunohistochemistry" data-dismech-node="p16 Immunohistochemistry" data-dismech-type="biochemical">
                 <div class="item-name">
                     p16 Immunohistochemistry
 
@@ -5991,6 +6440,23 @@ infectious_agent:
       label: Human papillomavirus 16
 environmental:
 - name: Human Papillomavirus Infection
+  influences_mechanisms:
+  - target: HPV Infection of Anal Squamous Epithelium
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Persistent high-risk HPV is the necessary cause of this cancer, and the
+      entry models the infection itself as the initiating node, so this link
+      is an identity rather than a causal step.
+    evidence:
+    - reference: PMID:42101137
+      reference_title: &#34;Causative Human Papillomavirus (HPV) Genotypes of Anal Cancers in Australian Cisgender Women.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Anal cancer, caused by persistent infection with oncogenic human papillomavirus (HPV), is rare in the general population.&#34;
+      explanation: &gt;-
+        States that anal cancer is caused by persistent infection with
+        oncogenic human papillomavirus, the infection this node represents.
   description: &gt;-
     Persistent infection with high-risk HPV, particularly HPV-16, is the
     necessary causal exposure for the great majority of anal canal squamous
@@ -6006,6 +6472,25 @@ environmental:
       Supports persistent oncogenic HPV infection as the necessary causal
       environmental exposure for anal cancer.
 - name: HIV Infection / Immunosuppression
+  influences_mechanisms:
+  - target: HPV Infection of Anal Squamous Epithelium
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Immunosuppression does not cause the infection; it prevents its
+      clearance, converting transient HPV into the persistent infection this
+      node requires. That is why risk concentrates so sharply in people living
+      with HIV.
+    evidence:
+    - reference: PMID:42101137
+      reference_title: &#34;Causative Human Papillomavirus (HPV) Genotypes of Anal Cancers in Australian Cisgender Women.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;certain groups, such as men who have sex with men living with HIV, are at much higher risk&#34;
+      explanation: &gt;-
+        Reports much higher risk among men who have sex with men living with
+        HIV, the group in whom impaired clearance permits persistent
+        infection.
   description: &gt;-
     HIV infection and other forms of chronic immunosuppression (including
     iatrogenic immunosuppression in solid organ transplant recipients)
@@ -6022,6 +6507,25 @@ environmental:
       Supports HIV infection (particularly in MSM) as a major risk
       modifier for anal cancer.
 - name: Tobacco Smoking
+  influences_mechanisms:
+  - target: Anal Intraepithelial Neoplasia Progression
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Smoking raises risk independently of HPV exposure and sexual behaviour,
+      so it targets progression of established neoplasia rather than
+      acquisition of the virus. No mediating step is identified in the cited
+      study.
+    evidence:
+    - reference: PMID:15241823
+      reference_title: &#34;Human papillomavirus, smoking, and sexual practices in the etiology of anal cancer.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Current smokers among men and women were at particularly high risk for anal cancer, independent of age and other risk factors&#34;
+      explanation: &gt;-
+        Reports current smokers at particularly high risk for anal cancer
+        independent of age and other factors, an effect separate from viral
+        acquisition.
   description: &gt;-
     Cigarette smoking is an established risk factor for anal canal squamous
     cell carcinoma, independent of HPV exposure.
@@ -6037,6 +6541,24 @@ environmental:
       as an independent risk factor for anal cancer in both men and women,
       independent of HPV-related sexual exposures.
 - name: Receptive Anal Intercourse
+  influences_mechanisms:
+  - target: HPV Infection of Anal Squamous Epithelium
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Not a carcinogen but the route of acquisition: it is how the virus
+      reaches anal squamous epithelium in the first place, with sexual
+      transmission as the known intervening step.
+    evidence:
+    - reference: PMID:15241823
+      reference_title: &#34;Human papillomavirus, smoking, and sexual practices in the etiology of anal cancer.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;receptive anal intercourse was related strongly to the risk of anal cancer&#34;
+      explanation: &gt;-
+        Reports receptive anal intercourse as strongly related to anal cancer
+        risk, the transmission route that delivers the virus to this
+        epithelium.
   description: &gt;-
     A history of receptive anal intercourse is a sexual-behavior risk factor
     for anal squamous cell carcinoma, reflecting increased exposure to
@@ -6958,7 +7480,7 @@ recurrent or metastatic disease (PMID:35114169).</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Anal Canal Carcinoma", "mondoId": "MONDO:0007108", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anal_Canal_Carcinoma", "yamlRevision": "9071de8677c7"};
+        const OS_CONFIG = {"diseaseName": "Anal Canal Carcinoma", "mondoId": "MONDO:0007108", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Anal_Canal_Carcinoma", "yamlRevision": "c5c5d64b1d76"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

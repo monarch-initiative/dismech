@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 24</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Chorioamnionitis"
@@ -3471,6 +3700,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3524,10 +3755,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">24</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -6379,7 +6611,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alarmin Release and Sterile Intra-amniotic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endogenous danger signals released by cellular stress or cell death in the membranes engage the same innate receptors as microbial products, producing an inflammatory lesion indistinguishable from the infectious one in the absence of demonstrable organisms. This arm is not a curiosity: in cohorts of preterm labor it is detected more often than microbial invasion itself, and it is the reason chorioamnionitis is modeled here as an inflammatory rather than a purely infectious final common pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Anaerobic Coverage for Cesarean Delivery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clindamycin or metronidazole added at cord clamp when delivery is by cesarean, extending coverage to the anaerobes prominent in polymicrobial intraamniotic infection.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"clindamycin\", \"metronidazole\"]}}, {\"id\": \"Antenatal Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betamethasone or dexamethasone for fetal maturation. Administered at eligible gestational ages even in the presence of chorioamnionitis, where the net benefit favours administration.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"betamethasone\"]}}, {\"id\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Organisms colonize the choriodecidual space and then cross into the amniotic fluid. The infection is characteristically polymicrobial and dominated by genital mycoplasmas, which is why culture-based diagnosis systematically underestimates it. Invasion is the step that distinguishes true intraamniotic infection from sterile intra-amniotic inflammation.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"amniotic fluid\", \"fetal membrane\"]}}, {\"id\": \"Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A regimen selected to cover the genital mycoplasmas that dominate the microbiology and that are not covered by ampicillin. Reported to reduce intra-amniotic inflammation and infection on follow-up amniocentesis, which challenges the default assumption that demonstrated intra-amniotic infection always mandates immediate delivery.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ceftriaxone\", \"clarithromycin\", \"metronidazole\"]}}, {\"id\": \"Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A separate, non-neutrophilic arm that shares the anatomical site and the name. Maternal CD8+ T cells infiltrate the chorioamniotic membranes and can induce trophoblast apoptosis, in a process framed as rejection of the fetal semiallograft rather than as infection. It is the most common placental lesion in late spontaneous preterm birth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"locations\": [\"fetal membrane\"]}}, {\"id\": \"Early-Onset Neonatal Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive bacterial infection of the newborn within the first 72 hours, associated with both the clinical and histologic forms of the disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040187\"}}, {\"id\": \"Fetal Inflammatory Response Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A systemic inflammatory response mounted by the fetus itself, defined operationally by elevated fetal or cord plasma IL-6 and pathologically by funisitis or chorionic vasculitis. It is the fetal counterpart of the adult systemic inflammatory response syndrome, it is multi-organ, and it is the mechanistic bridge between an obstetric infection and lifelong neurodevelopmental and respiratory disability.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal neutrophils migrate into the walls of the umbilical vessels and chorionic plate vessels. Unlike the maternal lesion this represents the fetus\u0027s own response, and it is the histologic hallmark of systemic fetal inflammation. It predicts neonatal outcome considerably better than the maternal lesion does.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"umbilical cord\"]}}, {\"id\": \"Fetal Pulmonary Inflammation and Arrested Alveolarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal lung exposure to infected amniotic fluid and inflammatory cytokines produces pneumonitis and a dissociation between functional and structural maturation: surfactant production is induced while alveolarization and microvascular development are suppressed, the arrested-development phenotype underlying bronchopulmonary dysplasia. The strength of this association in humans is genuinely contested, and the entry records that dispute rather than smoothing it over.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Universal antenatal vaginal-rectal GBS culture at 36 0/7 to 37 6/7 weeks, with intrapartum penicillin for those who screen positive. This is prevention rather than treatment: it targets the ascending-invasion node before it is reached, and it is the reason Streptococcus agalactiae is a far less common cause of early-onset neonatal sepsis than its virulence would otherwise predict.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"penicillin G\"]}}, {\"id\": \"Intrapartum Ampicillin and Gentamicin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intrapartum regimen when intraamniotic infection is suspected or confirmed, given to reduce neonatal sepsis. Treatment is directed at the ascending-invasion node rather than at the inflammatory response itself.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ampicillin\", \"gentamicin\"]}}, {\"id\": \"MMP-Mediated Chorioamniotic Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophil-derived matrix metalloproteinase-8 (neutrophil collagenase) and MMP-9, together with elastase, degrade the collagen scaffold of the amniochorion while tissue inhibitors of metalloproteinases fall. Amniotic fluid MMP-8 is correspondingly a sensitive marker of intra-amniotic infection.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Inflammatory Response and Acute Chorioamnionitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diffuse maternal neutrophil infiltration of the chorioamniotic membranes. This is the maternal arm of the histologic lesion and the one that gives the disease its name. Its frequency is steeply gestational-age dependent, which is the single most important epidemiological fact about the lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"fetal membrane\", \"amnion\"]}}, {\"id\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of tensile strength in the amniochorion leads to rupture before the onset of labor. This closes a vicious circle: rupture removes the remaining physical barrier and permits further ascending colonization, so preterm prelabor rupture of membranes is both a consequence and a cause of intra-amniotic infection.\\n\", \"meta\": {\"locations\": [\"fetal membrane\"]}}, {\"id\": \"Microglial Activation and Preterm White Matter Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal systemic inflammation activates microglia; pre-oligodendrocytes, which are exquisitely vulnerable in the 23 to 32 week window, die by oxidative and excitotoxic injury and myelination fails. This is the cellular substrate of periventricular leukomalacia and of the cerebral palsy that follows.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Assembly of the NLRP3 inflammasome activates caspase-1, which both matures pro-IL-1 beta and IL-18 and cleaves gasdermin D. Gasdermin D pores drive pyroptosis of amnion and decidual cells, releasing further alarmins and closing a self-amplifying loop. This is the step that converts a local signal into a syndrome: transcription alone yields inactive pro-IL-1 beta, so without this node the mechanism by which the cytokine becomes biologically active is unexplained. The node is engaged in both the infectious and the sterile arm, which is part of why the two are indistinguishable downstream.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-1 beta production\"]}}, {\"id\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils migrate along the chemokine gradient toward the amniotic cavity. Crucially the traffic has two separate sources: maternal neutrophils enter from decidual vessels through chorion into amnion, while fetal neutrophils later cross chorionic plate and umbilical vessels. This directional two-source migration is what the histologic lesion actually consists of.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"]}}, {\"id\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Toll-like receptors on amnion epithelium, chorionic trophoblast, decidual stromal cells, and resident macrophages read both microbial products and endogenous danger signals. TLR2 and TLR4 expression in the chorioamniotic membranes is increased in the presence of histologic chorioamnionitis. This node is the convergence point that makes the infectious and sterile arms mechanistically indistinguishable downstream.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chorionic trophoblast cell\", \"decidual cell\"], \"biological_processes\": [\"toll-like receptor signaling pathway\", \"response to lipopolysaccharide\"]}}, {\"id\": \"Preterm Labor and Birth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delivery before 37 completed weeks. Intrauterine infection and inflammation account for a substantial share of spontaneous preterm births, and the proportion rises as gestational age at delivery falls.\\n\"}, {\"id\": \"Proinflammatory Cytokine and Chemokine Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate receptor signaling drives production of IL-1 beta, IL-6, TNF, and the neutrophil chemokine IL-8 within the membranes and decidua. Amniotic fluid IL-6 rises accordingly and is the operational marker of intra-amniotic inflammation. This node is the amplification step that converts a local signal into a syndrome, and it is the branch point from which the chemotactic, uterotonic, and matrix-degrading arms diverge.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cytokine production involved in inflammatory response\"]}}, {\"id\": \"Prostaglandin Synthesis and Myometrial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines upregulate prostaglandin synthesis while the enzyme that normally degrades prostaglandins is downregulated, and gap-junction and oxytocin-receptor expression rise. The quiescent myometrium is converted into a contractile syncytium, driving labor at a gestational age at which it should not be occurring.\\n\", \"meta\": {\"biological_processes\": [\"prostaglandin biosynthetic process\"]}}, {\"id\": \"Reduced Myometrial Contractility at Term\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At term the inflammatory milieu is associated with the opposite uterine behavior from the preterm case: decreased uterine activity, failure to progress in labor, higher cesarean rates, and postpartum uterine atony with hemorrhage. This is curated as a distinct node rather than as a sign-reversing edge on the uterotonic arm, because the mechanisms are separated by gestational age and receptor context rather than contradicting one another.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vaginal Dysbiosis and Cervical Barrier Breach\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of Lactobacillus dominance and overgrowth of anaerobes associated with bacterial vaginosis lowers the chemical and ecological barrier at the cervix, permitting organisms of the lower genital tract to reach the choriodecidual interface. Instrumentation of the cervix during labor, prolonged rupture of membranes, and cerclage act on the same step by breaching the mechanical barrier.\\n\", \"meta\": {\"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Vaginal Dysbiosis and Cervical Barrier Breach\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breach of the cervical barrier permits ascent of lower genital tract organisms into the choriodecidual space and amniotic cavity.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"target\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microbial products including lipopolysaccharide and mycoplasmal lipoproteins engage innate pattern recognition receptors on membrane and decidual cells.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alarmin Release and Sterile Intra-amniotic Inflammation\", \"target\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alarmins converge on the same innate receptor machinery engaged by microbial ligands.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"target\": \"Proinflammatory Cytokine and Chemokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toll-like receptor engagement is signal 1, the priming step: it drives NF-kB-dependent transcription of the inflammatory cytokine and chemokine program, including inactive pro-IL-1 beta.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"target\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Priming also licenses the cell to assemble the NLRP3 inflammasome, which when triggered constitutes signal 2 and converts the primed pro-IL-1 beta into its mature form.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"target\": \"Proinflammatory Cytokine and Chemokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caspase-1 maturation of IL-1 beta supplies the biologically active cytokine that drives the downstream chemotactic and uterotonic arms.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"target\": \"Alarmin Release and Sterile Intra-amniotic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyroptotic lysis of amnion and decidual cells releases further intracellular alarmins, feeding back onto the sterile trigger node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-8 and related chemokines establish the gradient that recruits neutrophils.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"Prostaglandin Synthesis and Myometrial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-1 beta and TNF upregulate prostaglandin synthesis and myometrial activation.\\n\", \"hypothesis_groups\": [\"preterm_uterotonic_activation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"MMP-Mediated Chorioamniotic Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine signaling induces matrix metalloproteinases that degrade the membrane collagen scaffold.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"Reduced Myometrial Contractility at Term\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At term, the same inflammatory mediator load is associated with decreased uterine activity and dysfunctional labor rather than with effective contraction. The intermediates that determine the direction of this effect are not established.\\n\", \"hypothesis_groups\": [\"term_myometrial_suppression\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"target\": \"Maternal Inflammatory Response and Acute Chorioamnionitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal neutrophil infiltration of chorion and amnion produces the maternal inflammatory response lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"target\": \"Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal neutrophil migration into umbilical and chorionic plate vessels produces the fetal inflammatory response lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis\", \"target\": \"Fetal Inflammatory Response Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The local fetal vascular lesion is the histologic counterpart of the systemic fetal inflammatory syndrome.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prostaglandin Synthesis and Myometrial Activation\", \"target\": \"Preterm Labor and Birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prostaglandin-driven myometrial activation produces preterm contractions and delivery.\\n\", \"hypothesis_groups\": [\"preterm_uterotonic_activation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MMP-Mediated Chorioamniotic Matrix Degradation\", \"target\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Collagen degradation reduces the tensile strength of the fetal membranes.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"target\": \"Preterm Labor and Birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Preterm prelabor rupture of membranes precipitates preterm delivery.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture removes the barrier to further ascending colonization, feeding back onto the invasion node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Inflammatory Response Syndrome\", \"target\": \"Microglial Activation and Preterm White Matter Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating fetal cytokines activate microglia and injure the vulnerable pre-oligodendrocyte population of the preterm white matter.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Systemic fetal cytokinemia\", \"Blood-brain barrier permeability change\"]}, {\"source\": \"Fetal Inflammatory Response Syndrome\", \"target\": \"Fetal Pulmonary Inflammation and Arrested Alveolarization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aspirated infected amniotic fluid and circulating cytokines inflame the fetal lung and disturb alveolar and microvascular development.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fetal pneumonitis\"]}, {\"source\": \"Fetal Inflammatory Response Syndrome\", \"target\": \"Early-Onset Neonatal Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal systemic inflammation and microbial exposure predispose to early-onset invasive neonatal infection.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection\", \"target\": \"Preterm Labor and Birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic chorioamnionitis is the most common placental lesion of late spontaneous preterm birth, though the intermediate steps from T-cell infiltration to the onset of labor are not established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intrapartum Ampicillin and Gentamicin\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anaerobic Coverage for Cesarean Delivery\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antenatal Corticosteroids\", \"target\": \"Fetal Pulmonary Inflammation and Arrested Alveolarization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alarmin Release and Sterile Intra-amniotic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endogenous danger signals released by cellular stress or cell death in the membranes engage the same innate receptors as microbial products, producing an inflammatory lesion indistinguishable from the infectious one in the absence of demonstrable organisms. This arm is not a curiosity: in cohorts of preterm labor it is detected more often than microbial invasion itself, and it is the reason chorioamnionitis is modeled here as an inflammatory rather than a purely infectious final common pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\"}}, {\"id\": \"Anaerobic Coverage for Cesarean Delivery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clindamycin or metronidazole added at cord clamp when delivery is by cesarean, extending coverage to the anaerobes prominent in polymicrobial intraamniotic infection.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"clindamycin\", \"metronidazole\"]}}, {\"id\": \"Antenatal Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betamethasone or dexamethasone for fetal maturation. Administered at eligible gestational ages even in the presence of chorioamnionitis, where the net benefit favours administration.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"betamethasone\"]}}, {\"id\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Organisms colonize the choriodecidual space and then cross into the amniotic fluid. The infection is characteristically polymicrobial and dominated by genital mycoplasmas, which is why culture-based diagnosis systematically underestimates it. Invasion is the step that distinguishes true intraamniotic infection from sterile intra-amniotic inflammation.\\n\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"amniotic fluid\", \"fetal membrane\"]}}, {\"id\": \"Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A regimen selected to cover the genital mycoplasmas that dominate the microbiology and that are not covered by ampicillin. Reported to reduce intra-amniotic inflammation and infection on follow-up amniocentesis, which challenges the default assumption that demonstrated intra-amniotic infection always mandates immediate delivery.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ceftriaxone\", \"clarithromycin\", \"metronidazole\"]}}, {\"id\": \"Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A separate, non-neutrophilic arm that shares the anatomical site and the name. Maternal CD8+ T cells infiltrate the chorioamniotic membranes and can induce trophoblast apoptosis, in a process framed as rejection of the fetal semiallograft rather than as infection. It is the most common placental lesion in late spontaneous preterm birth.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"locations\": [\"fetal membrane\"]}}, {\"id\": \"Early-Onset Neonatal Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Invasive bacterial infection of the newborn within the first 72 hours, associated with both the clinical and histologic forms of the disease.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040187\"}}, {\"id\": \"Fetal Inflammatory Response Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A systemic inflammatory response mounted by the fetus itself, defined operationally by elevated fetal or cord plasma IL-6 and pathologically by funisitis or chorionic vasculitis. It is the fetal counterpart of the adult systemic inflammatory response syndrome, it is multi-organ, and it is the mechanistic bridge between an obstetric infection and lifelong neurodevelopmental and respiratory disability.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal neutrophils migrate into the walls of the umbilical vessels and chorionic plate vessels. Unlike the maternal lesion this represents the fetus\u0027s own response, and it is the histologic hallmark of systemic fetal inflammation. It predicts neonatal outcome considerably better than the maternal lesion does.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"umbilical cord\"]}}, {\"id\": \"Fetal Pulmonary Inflammation and Arrested Alveolarization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal lung exposure to infected amniotic fluid and inflammatory cytokines produces pneumonitis and a dissociation between functional and structural maturation: surfactant production is induced while alveolarization and microvascular development are suppressed, the arrested-development phenotype underlying bronchopulmonary dysplasia. The strength of this association in humans is genuinely contested, and the entry records that dispute rather than smoothing it over.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Universal antenatal vaginal-rectal GBS culture at 36 0/7 to 37 6/7 weeks, with intrapartum penicillin for those who screen positive. This is prevention rather than treatment: it targets the ascending-invasion node before it is reached, and it is the reason Streptococcus agalactiae is a far less common cause of early-onset neonatal sepsis than its virulence would otherwise predict.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"penicillin G\"]}}, {\"id\": \"Intrapartum Ampicillin and Gentamicin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard intrapartum regimen when intraamniotic infection is suspected or confirmed, given to reduce neonatal sepsis. Treatment is directed at the ascending-invasion node rather than at the inflammatory response itself.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"ampicillin\", \"gentamicin\"]}}, {\"id\": \"MMP-Mediated Chorioamniotic Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophil-derived matrix metalloproteinase-8 (neutrophil collagenase) and MMP-9, together with elastase, degrade the collagen scaffold of the amniochorion while tissue inhibitors of metalloproteinases fall. Amniotic fluid MMP-8 is correspondingly a sensitive marker of intra-amniotic infection.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Maternal Inflammatory Response and Acute Chorioamnionitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diffuse maternal neutrophil infiltration of the chorioamniotic membranes. This is the maternal arm of the histologic lesion and the one that gives the disease its name. Its frequency is steeply gestational-age dependent, which is the single most important epidemiological fact about the lesion.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"fetal membrane\", \"amnion\"]}}, {\"id\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of tensile strength in the amniochorion leads to rupture before the onset of labor. This closes a vicious circle: rupture removes the remaining physical barrier and permits further ascending colonization, so preterm prelabor rupture of membranes is both a consequence and a cause of intra-amniotic infection.\\n\", \"meta\": {\"locations\": [\"fetal membrane\"]}}, {\"id\": \"Microglial Activation and Preterm White Matter Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal systemic inflammation activates microglia; pre-oligodendrocytes, which are exquisitely vulnerable in the 23 to 32 week window, die by oxidative and excitotoxic injury and myelination fails. This is the cellular substrate of periventricular leukomalacia and of the cerebral palsy that follows.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Assembly of the NLRP3 inflammasome activates caspase-1, which both matures pro-IL-1 beta and IL-18 and cleaves gasdermin D. Gasdermin D pores drive pyroptosis of amnion and decidual cells, releasing further alarmins and closing a self-amplifying loop. This is the step that converts a local signal into a syndrome: transcription alone yields inactive pro-IL-1 beta, so without this node the mechanism by which the cytokine becomes biologically active is unexplained. The node is engaged in both the infectious and the sterile arm, which is part of why the two are indistinguishable downstream.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"interleukin-1 beta production\"]}}, {\"id\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils migrate along the chemokine gradient toward the amniotic cavity. Crucially the traffic has two separate sources: maternal neutrophils enter from decidual vessels through chorion into amnion, while fetal neutrophils later cross chorionic plate and umbilical vessels. This directional two-source migration is what the histologic lesion actually consists of.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil chemotaxis\"]}}, {\"id\": \"Obstetric Instrumentation and Prolonged Labor\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The dominant modifiable exposures here are procedural and mechanical rather than chemical: repeated digital vaginal examinations, prolonged rupture of membranes, internal fetal or uterine monitoring, and long total labor. Each either breaches the cervical barrier or prolongs the breach, which is why they act on the trigger node of this entry\u0027s pathograph and why minimizing examinations after rupture is standard prevention advice.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Oral and Periodontal Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Periodontal disease provides a hematogenous rather than ascending route into the amniotic cavity, which is how an oral anaerobe such as Fusobacterium nucleatum reaches the fetal membranes. This is the documented exception to the ascending-infection route that the rest of the entry models.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Toll-like receptors on amnion epithelium, chorionic trophoblast, decidual stromal cells, and resident macrophages read both microbial products and endogenous danger signals. TLR2 and TLR4 expression in the chorioamniotic membranes is increased in the presence of histologic chorioamnionitis. This node is the convergence point that makes the infectious and sterile arms mechanistically indistinguishable downstream.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chorionic trophoblast cell\", \"decidual cell\"], \"biological_processes\": [\"toll-like receptor signaling pathway\", \"response to lipopolysaccharide\"]}}, {\"id\": \"Preterm Labor and Birth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Delivery before 37 completed weeks. Intrauterine infection and inflammation account for a substantial share of spontaneous preterm births, and the proportion rises as gestational age at delivery falls.\\n\"}, {\"id\": \"Proinflammatory Cytokine and Chemokine Production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate receptor signaling drives production of IL-1 beta, IL-6, TNF, and the neutrophil chemokine IL-8 within the membranes and decidua. Amniotic fluid IL-6 rises accordingly and is the operational marker of intra-amniotic inflammation. This node is the amplification step that converts a local signal into a syndrome, and it is the branch point from which the chemotactic, uterotonic, and matrix-degrading arms diverge.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cytokine production involved in inflammatory response\"]}}, {\"id\": \"Prostaglandin Synthesis and Myometrial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines upregulate prostaglandin synthesis while the enzyme that normally degrades prostaglandins is downregulated, and gap-junction and oxytocin-receptor expression rise. The quiescent myometrium is converted into a contractile syncytium, driving labor at a gestational age at which it should not be occurring.\\n\", \"meta\": {\"biological_processes\": [\"prostaglandin biosynthetic process\"]}}, {\"id\": \"Reduced Myometrial Contractility at Term\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At term the inflammatory milieu is associated with the opposite uterine behavior from the preterm case: decreased uterine activity, failure to progress in labor, higher cesarean rates, and postpartum uterine atony with hemorrhage. This is curated as a distinct node rather than as a sign-reversing edge on the uterotonic arm, because the mechanisms are separated by gestational age and receptor context rather than contradicting one another.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Vaginal Dysbiosis and Cervical Barrier Breach\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of Lactobacillus dominance and overgrowth of anaerobes associated with bacterial vaginosis lowers the chemical and ecological barrier at the cervix, permitting organisms of the lower genital tract to reach the choriodecidual interface. Instrumentation of the cervix during labor, prolonged rupture of membranes, and cerclage act on the same step by breaching the mechanical barrier.\\n\", \"meta\": {\"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Vaginal Dysbiosis and Cervical Barrier Breach\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breach of the cervical barrier permits ascent of lower genital tract organisms into the choriodecidual space and amniotic cavity.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"target\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microbial products including lipopolysaccharide and mycoplasmal lipoproteins engage innate pattern recognition receptors on membrane and decidual cells.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alarmin Release and Sterile Intra-amniotic Inflammation\", \"target\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alarmins converge on the same innate receptor machinery engaged by microbial ligands.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"target\": \"Proinflammatory Cytokine and Chemokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Toll-like receptor engagement is signal 1, the priming step: it drives NF-kB-dependent transcription of the inflammatory cytokine and chemokine program, including inactive pro-IL-1 beta.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pattern Recognition Receptor Activation at the Maternal-Fetal Interface\", \"target\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Priming also licenses the cell to assemble the NLRP3 inflammasome, which when triggered constitutes signal 2 and converts the primed pro-IL-1 beta into its mature form.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"target\": \"Proinflammatory Cytokine and Chemokine Production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Caspase-1 maturation of IL-1 beta supplies the biologically active cytokine that drives the downstream chemotactic and uterotonic arms.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NLRP3 Inflammasome Activation and Pyroptosis\", \"target\": \"Alarmin Release and Sterile Intra-amniotic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pyroptotic lysis of amnion and decidual cells releases further intracellular alarmins, feeding back onto the sterile trigger node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-8 and related chemokines establish the gradient that recruits neutrophils.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"Prostaglandin Synthesis and Myometrial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-1 beta and TNF upregulate prostaglandin synthesis and myometrial activation.\\n\", \"hypothesis_groups\": [\"preterm_uterotonic_activation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"MMP-Mediated Chorioamniotic Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine signaling induces matrix metalloproteinases that degrade the membrane collagen scaffold.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proinflammatory Cytokine and Chemokine Production\", \"target\": \"Reduced Myometrial Contractility at Term\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At term, the same inflammatory mediator load is associated with decreased uterine activity and dysfunctional labor rather than with effective contraction. The intermediates that determine the direction of this effect are not established.\\n\", \"hypothesis_groups\": [\"term_myometrial_suppression\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"target\": \"Maternal Inflammatory Response and Acute Chorioamnionitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maternal neutrophil infiltration of chorion and amnion produces the maternal inflammatory response lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neutrophil Chemotaxis into the Chorioamniotic Membranes\", \"target\": \"Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal neutrophil migration into umbilical and chorionic plate vessels produces the fetal inflammatory response lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis\", \"target\": \"Fetal Inflammatory Response Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The local fetal vascular lesion is the histologic counterpart of the systemic fetal inflammatory syndrome.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prostaglandin Synthesis and Myometrial Activation\", \"target\": \"Preterm Labor and Birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prostaglandin-driven myometrial activation produces preterm contractions and delivery.\\n\", \"hypothesis_groups\": [\"preterm_uterotonic_activation\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MMP-Mediated Chorioamniotic Matrix Degradation\", \"target\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Collagen degradation reduces the tensile strength of the fetal membranes.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"target\": \"Preterm Labor and Birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Preterm prelabor rupture of membranes precipitates preterm delivery.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Membrane Weakening and Preterm Prelabor Rupture of Membranes\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rupture removes the barrier to further ascending colonization, feeding back onto the invasion node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fetal Inflammatory Response Syndrome\", \"target\": \"Microglial Activation and Preterm White Matter Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating fetal cytokines activate microglia and injure the vulnerable pre-oligodendrocyte population of the preterm white matter.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Systemic fetal cytokinemia\", \"Blood-brain barrier permeability change\"]}, {\"source\": \"Fetal Inflammatory Response Syndrome\", \"target\": \"Fetal Pulmonary Inflammation and Arrested Alveolarization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aspirated infected amniotic fluid and circulating cytokines inflame the fetal lung and disturb alveolar and microvascular development.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fetal pneumonitis\"]}, {\"source\": \"Fetal Inflammatory Response Syndrome\", \"target\": \"Early-Onset Neonatal Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal systemic inflammation and microbial exposure predispose to early-onset invasive neonatal infection.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection\", \"target\": \"Preterm Labor and Birth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic chorioamnionitis is the most common placental lesion of late spontaneous preterm birth, though the intermediate steps from T-cell infiltration to the onset of labor are not established.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Obstetric Instrumentation and Prolonged Labor\", \"target\": \"Vaginal Dysbiosis and Cervical Barrier Breach\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Repeated vaginal examination and prolonged membrane exposure breach the mechanical barrier itself, which is why the risk scales with the number of examinations rather than with any single procedure. It targets the barrier node rather than the invasion node downstream of it, so the contrast with the periodontal route is preserved: instrumentation goes through the cervical barrier, whereas oral organisms bypass it entirely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oral and Periodontal Infection\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A haematogenous rather than ascending route, and the exception to this entry\u0027s usual model: oral Fusobacterium can seed the amniotic cavity from the bloodstream. Recorded as predisposing because the evidence is a single case demonstration rather than an established pathway.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intrapartum Ampicillin and Gentamicin\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anaerobic Coverage for Cesarean Delivery\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antenatal Corticosteroids\", \"target\": \"Fetal Pulmonary Inflammation and Arrested Alveolarization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis\", \"target\": \"Ascending Microbial Invasion of the Amniotic Cavity\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6423,7 +6655,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-maternal-leukocytosis" data-dismech-node="Maternal Leukocytosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Maternal Leukocytosis
 
@@ -6491,7 +6723,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-maternal-tachycardia" data-dismech-node="Maternal Tachycardia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Maternal Tachycardia
 
@@ -6559,7 +6791,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-loss" data-dismech-node="Sensorineural Hearing Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural Hearing Loss
 
@@ -6627,7 +6859,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-neonatal-sepsis" data-dismech-node="Early-Onset Neonatal Sepsis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Early-Onset Neonatal Sepsis
 
@@ -6695,7 +6927,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-maternal-fever" data-dismech-node="Maternal Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Maternal Fever
 
@@ -6787,7 +7019,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-preterm-birth" data-dismech-node="Preterm Birth" data-dismech-type="phenotype">
                     <div class="item-name">
                         Preterm Birth
 
@@ -6855,7 +7087,7 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-rupture-of-membranes" data-dismech-node="Premature Rupture of Membranes" data-dismech-type="phenotype">
                     <div class="item-name">
                         Premature Rupture of Membranes
 
@@ -6882,7 +7114,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periventricular-leukomalacia" data-dismech-node="Periventricular Leukomalacia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Periventricular Leukomalacia
 
@@ -6963,7 +7195,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intraventricular-hemorrhage" data-dismech-node="Intraventricular Hemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intraventricular Hemorrhage
 
@@ -7022,7 +7254,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-palsy" data-dismech-node="Cerebral Palsy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral Palsy
 
@@ -7103,7 +7335,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-lung-disease-of-prematurity" data-dismech-node="Chronic Lung Disease of Prematurity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Lung Disease of Prematurity
 
@@ -7162,7 +7394,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postpartum-endometritis" data-dismech-node="Postpartum Endometritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Postpartum Endometritis
 
@@ -7243,7 +7475,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fetal-tachycardia" data-dismech-node="Fetal Tachycardia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fetal Tachycardia
 
@@ -7302,7 +7534,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malodorous-amniotic-fluid-or-vaginal-discharge" data-dismech-node="Malodorous Amniotic Fluid or Vaginal Discharge" data-dismech-type="phenotype">
                     <div class="item-name">
                         Malodorous Amniotic Fluid or Vaginal Discharge
 
@@ -7361,7 +7593,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinopathy-of-prematurity" data-dismech-node="Retinopathy of Prematurity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinopathy of Prematurity
 
@@ -7453,6 +7685,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7462,7 +7697,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-intrapartum-ampicillin-and-gentamicin" data-dismech-node="Intrapartum Ampicillin and Gentamicin" data-dismech-type="treatment">
                 <div class="item-name">
                     Intrapartum Ampicillin and Gentamicin
                 </div>
@@ -7610,7 +7845,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anaerobic-coverage-for-cesarean-delivery" data-dismech-node="Anaerobic Coverage for Cesarean Delivery" data-dismech-type="treatment">
                 <div class="item-name">
                     Anaerobic Coverage for Cesarean Delivery
                 </div>
@@ -7736,7 +7971,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ceftriaxone-clarithromycin-and-metronidazole-eradication-regimen" data-dismech-node="Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen" data-dismech-type="treatment">
                 <div class="item-name">
                     Ceftriaxone, Clarithromycin and Metronidazole Eradication Regimen
                 </div>
@@ -7896,7 +8131,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antenatal-corticosteroids" data-dismech-node="Antenatal Corticosteroids" data-dismech-type="treatment">
                 <div class="item-name">
                     Antenatal Corticosteroids
                 </div>
@@ -8010,7 +8245,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-group-b-streptococcal-screening-and-intrapartum-antibiotic-prophylaxis" data-dismech-node="Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis" data-dismech-type="treatment">
                 <div class="item-name">
                     Group B Streptococcal Screening and Intrapartum Antibiotic Prophylaxis
                 </div>
@@ -8168,7 +8403,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-delivery" data-dismech-node="Delivery" data-dismech-type="treatment">
                 <div class="item-name">
                     Delivery
                 </div>
@@ -8232,7 +8467,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-obstetric-instrumentation-and-prolonged-labor" data-dismech-node="Obstetric Instrumentation and Prolonged Labor" data-dismech-type="environmental">
                 <div class="item-name">Obstetric Instrumentation and Prolonged Labor</div>
 
 
@@ -8275,9 +8510,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Vaginal Dysbiosis and Cervical Barrier Breach</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Repeated vaginal examination and prolonged membrane exposure breach the mechanical barrier itself, which is why the risk scales with the number of examinations rather than with any single procedure. It targets the barrier node rather than the invasion node downstream of it, so the contrast with the periodontal route is preserved: instrumentation goes through the cervical barrier, whereas oral organisms bypass it entirely.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2782335" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2782335" target="_blank">PMID:2782335</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Logistic regression analysis identified four variables independently associated with intraamniotic infection: the number of vaginal examinations, duration of ruptured membranes, use of internal monitors, and duration of total labor."</div>
+
+
+                <div class="evidence-explanation">Identifies the number of vaginal examinations among the variables independently associated with intraamniotic infection, the ascending route this node describes.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-oral-and-periodontal-infection" data-dismech-node="Oral and Periodontal Infection" data-dismech-type="environmental">
                 <div class="item-name">Oral and Periodontal Infection</div>
 
 
@@ -8320,6 +8608,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Ascending Microbial Invasion of the Amniotic Cavity</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A haematogenous rather than ascending route, and the exception to this entry&#39;s usual model: oral Fusobacterium can seed the amniotic cavity from the bloodstream. Recorded as predisposing because the evidence is a single case demonstration rather than an established pathway.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23115747" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23115747" target="_blank">PMID:23115747</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to its role in periodontal disease and preterm birth, our case demonstrates that intrauterine infection with Fusobacterium nucleatum can result in severe disease at term."</div>
+
+
+                <div class="evidence-explanation">Reports a case of intrauterine infection with Fusobacterium linked to periodontal disease, a documented but singular demonstration of the oral route.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -8334,7 +8675,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-amniotic-fluid-interleukin-6" data-dismech-node="Amniotic Fluid Interleukin-6" data-dismech-type="biochemical">
                 <div class="item-name">
                     Amniotic Fluid Interleukin-6
 
@@ -8381,7 +8722,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-amniotic-fluid-matrix-metalloproteinase-8" data-dismech-node="Amniotic Fluid Matrix Metalloproteinase-8" data-dismech-type="biochemical">
                 <div class="item-name">
                     Amniotic Fluid Matrix Metalloproteinase-8
 
@@ -8428,7 +8769,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-fetal-plasma-interleukin-6" data-dismech-node="Fetal Plasma Interleukin-6" data-dismech-type="biochemical">
                 <div class="item-name">
                     Fetal Plasma Interleukin-6
 
@@ -10023,6 +10364,27 @@ stages:
 
 environmental:
 - name: Obstetric Instrumentation and Prolonged Labor
+  influences_mechanisms:
+  - target: Vaginal Dysbiosis and Cervical Barrier Breach
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Repeated vaginal examination and prolonged membrane exposure breach the
+      mechanical barrier itself, which is why the risk scales with the number
+      of examinations rather than with any single procedure. It targets the
+      barrier node rather than the invasion node downstream of it, so the
+      contrast with the periodontal route is preserved: instrumentation goes
+      through the cervical barrier, whereas oral organisms bypass it entirely.
+    evidence:
+    - reference: PMID:2782335
+      reference_title: &#34;Risk factors for intraamniotic infection: a prospective epidemiologic study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Logistic regression analysis identified four variables independently associated with intraamniotic infection: the number of vaginal examinations, duration of ruptured membranes, use of internal monitors, and duration of total labor.&#34;
+      explanation: &gt;-
+        Identifies the number of vaginal examinations among the variables
+        independently associated with intraamniotic infection, the ascending
+        route this node describes.
   description: &gt;
     The dominant modifiable exposures here are procedural and mechanical rather
     than chemical: repeated digital vaginal examinations, prolonged rupture of
@@ -10047,6 +10409,25 @@ environmental:
       cervical-barrier trigger node.
 
 - name: Oral and Periodontal Infection
+  influences_mechanisms:
+  - target: Ascending Microbial Invasion of the Amniotic Cavity
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      A haematogenous rather than ascending route, and the exception to this
+      entry&#39;s usual model: oral Fusobacterium can seed the amniotic cavity
+      from the bloodstream. Recorded as predisposing because the evidence is a
+      single case demonstration rather than an established pathway.
+    evidence:
+    - reference: PMID:23115747
+      reference_title: &#34;Acute chorioamnionitis at term caused by the oral pathogen Fusobacterium nucleatum.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In addition to its role in periodontal disease and preterm birth, our case demonstrates that intrauterine infection with Fusobacterium nucleatum can result in severe disease at term.&#34;
+      explanation: &gt;-
+        Reports a case of intrauterine infection with Fusobacterium linked to
+        periodontal disease, a documented but singular demonstration of the
+        oral route.
   description: &gt;
     Periodontal disease provides a hematogenous rather than ascending route into
     the amniotic cavity, which is how an oral anaerobe such as Fusobacterium
@@ -12043,7 +12424,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chorioamnionitis", "mondoId": "MONDO:0000409", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chorioamnionitis", "yamlRevision": "3be35637b8a9"};
+        const OS_CONFIG = {"diseaseName": "Chorioamnionitis", "mondoId": "MONDO:0000409", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chorioamnionitis", "yamlRevision": "c4e71f560ea9"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

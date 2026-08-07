@@ -64,7 +64,15 @@ uv run python -m dismech.render kb/disorders/Asthma.yaml
 # Fetch and cache a reference (PMID, DOI, NCT) — NEVER create cache files manually
 just fetch-reference PMID:12345678
 
-# Validate references for a single file
+# Check evidence snippets against the local reference cache (seconds; use this
+# in the curation loop — takes any number of files)
+just count-verified-snippets kb/disorders/Asthma.yaml
+
+# Pre-PR sweep: schema + terms + references over every changed file in one
+# batched pass (slow — run once at the end, not per edit). This is what CI runs.
+just validate-disorders kb/disorders/Asthma.yaml kb/disorders/Cholera.yaml
+
+# Reference validation for a single file (also slow; permits full-text matches)
 just validate-references kb/disorders/Asthma.yaml
 
 # List all available commands
@@ -1482,8 +1490,9 @@ Always check that a PMID actually corresponds to the paper you think it does:
 # Check cached abstract (if previously fetched)
 cat references_cache/pmid_12345678.md
 
-# Or fetch fresh and validate
-just validate-references kb/disorders/MyDisease.yaml
+# Or fetch it, then check your snippets against the cache
+just fetch-reference PMID:12345678
+just count-verified-snippets kb/disorders/MyDisease.yaml
 ```
 
 ### 2a. Deep-Research (Falcon/DR) Tool Outputs — Extra Verification Needed
@@ -1499,7 +1508,7 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
 
 **Mandatory verification workflow for any curation step sourced from DR:**
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
-2. For **each snippet**: manually verify it is an exact substring of the abstract by comparing against the cached file in `references_cache/PMID_XXXX.md`
+2. For **each snippet**: verify it is an exact substring of the abstract — `just count-verified-snippets kb/disorders/YourDisease.yaml` does this against the cached file in `references_cache/PMID_XXXX.md` in seconds, and names any snippet it cannot find
 3. For **each ontology term** (HP, GO, CL, CHEBI, NCIT): verify the term exists and its canonical label matches `term.label` by running `just validate-terms kb/disorders/YourDisease.yaml`
 4. Run the full validation suite before committing (see Validation Workflow below)
 
@@ -1597,25 +1606,102 @@ the preflight checks an individual *report*.
 
 ### 3. Validation Workflow
 
-Before committing changes to any disorder file:
+There are two loops here, and mixing them up is what makes people skip checks
+(issue #8119). The **curation loop** runs after every edit and must stay fast;
+the **pre-PR sweep** runs once, at the end, and is allowed to be slow.
+
+**Curation loop — run after each edit to a disorder file:**
 
 ```bash
 # 1. Schema validation (structure correct)
 just validate kb/disorders/MyDisease.yaml
 
-# 2. Reference validation (snippets match abstracts)
-just validate-references kb/disorders/MyDisease.yaml
+# 2. Snippet check against the local reference cache (seconds, offline)
+just count-verified-snippets kb/disorders/MyDisease.yaml
 
 # 3. Term validation (ontology IDs/labels correct)
 just validate-terms kb/disorders/MyDisease.yaml
 ```
 
+`count-verified-snippets` takes **any number of files**, so a whole curation
+tranche is one invocation:
+
+```bash
+just count-verified-snippets kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
+#   Snippets checked: 376/376 verified against cached references
+```
+
+**Pre-PR sweep — run ONCE over every changed file, before opening or updating a PR:**
+
+```bash
+just validate-disorders kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
+```
+
+`validate-disorders` is variadic and batched — schema, terms, and references in
+one pass over all the files you name — and it is **exactly what CI runs** on the
+changed disorder files (`.github/workflows/main.yaml` → `just validate-disorders
+${changed_files}`). Running it locally over your whole tranche is the closest
+thing to a CI dry run, and it pays the reference-cache cost once instead of once
+per file. Note it passes `--no-full-text`, so a snippet that only appears in a
+paper's full text (not the cached abstract) fails here even if a plain
+`validate-references` run accepted it — better to learn that before pushing.
+
+`just validate-references <file>` is still available for a single file, for
+non-disorder targets, and for the full-text-permitting check; `just
+validate-references-all` sweeps the entire KB.
+
+**Why the split.** `just validate-references` on a single entry (Cholera, 187
+snippets) was measured at **65 minutes** — against 1.4 seconds for
+`count-verified-snippets` over that entry plus Asthma together (376 snippets).
+Two costs stack up. Every recipe that calls the reference validator first
+re-normalizes the whole `references_cache/` (tens of thousands of files); then
+the validator tries to download full text for each citation, and most publisher
+PDFs answer with a 403 or simply hang until a 30-60 second connect timeout
+expires. That second cost dominates: the 65-minute run burned under a minute of
+actual CPU. It is also why `validate-disorders` is so much cheaper — its
+`--no-full-text` flag skips those doomed downloads entirely.
+
+That wall-clock cost is exactly what tempts a curator (or an agent) into
+recording the check as run when it was killed partway — which happened, and cost
+four correction commits to retract (#8119). `count-verified-snippets` walks the
+same evidence pairs with the same matching rules and finishes in seconds, so
+there is no reason to skip the per-edit check; batching the pre-PR sweep means
+you pay the slow cost once.
+
+**What each one actually gives you:**
+
+| | `count-verified-snippets` | `validate-disorders` / `validate-references` |
+|---|---|---|
+| Speed | seconds | minutes to over an hour per file |
+| Network | never — cache only | fetches missing references, and full text unless `--no-full-text` |
+| Checks snippet is in the cited reference | yes | yes |
+| Reports uncached references | yes, counted in the summary | fetches them instead |
+| Also checks schema + ontology terms | no | `validate-disorders` does |
+| Gates (exit code) | only with `--strict` | yes — authoritative |
+
+`count-verified-snippets` is **advisory**: `linkml-reference-validator` stays the
+sole authority on pass/fail. The fast check is the per-edit signal, not a
+replacement for the pre-PR sweep.
+
+**Never claim a check you did not finish.** History records and PR bodies are
+append-only provenance. Name a check only after you have read its output. If you
+ran the fast check instead of the slow one, say which — reporting `Snippets
+checked: N/N verified` is a perfectly good statement of what you did, and an
+honest smaller claim beats a retracted larger one.
+
 **Reading the reference-validation summary:** `Total checks: 0` on a passing file
 does **not** mean nothing was checked — the upstream counter reports *issues
 found*, so it is 0 by definition on a clean run (issue #7252). The affirmative
 signal is the `Snippets checked: N/N verified against cached references` line the
-wrapper appends. Run it standalone with `just count-verified-snippets <file>`.
-Do not "fix" the validator on the basis of a zero here.
+wrapper appends — the same line `count-verified-snippets` prints directly. Do not
+"fix" the validator on the basis of a zero here.
+
+**Caveat both checks share:** reference prefixes listed under `skip_prefixes` in
+`conf/reference_validator_config.yaml` — dataset accessions (GEO, PRIDE, morphic,
+…) but also `DOI:` — are not snippet-checked by either tool (#7514).
+`count-verified-snippets` at least *reports* them —
+`N skipped by prefix` in the summary — so a DOI-heavy entry does not look more
+verified than it is.
 
 ### 4. When Evidence Cannot Be Verified
 
@@ -1689,11 +1775,14 @@ Reference cache files in `references_cache/` are created EXCLUSIVELY by `linkml-
 # 1. Fetch and cache the reference (creates references_cache/PMID_12345678.md)
 just fetch-reference PMID:12345678
 
-# 2. Validate that your snippet matches the cached abstract
-just validate-references kb/disorders/MyDisease.yaml
+# 2. Check that your snippet matches the cached abstract (fast, offline)
+just count-verified-snippets kb/disorders/MyDisease.yaml
 
-# 3. If validation fails, fix the snippet or find a different PMID
+# 3. If a snippet is not found, fix it or find a different PMID
 just validate kb/disorders/MyDisease.yaml
+
+# 4. Once, before opening the PR: the full (slow) batched sweep CI also runs
+just validate-disorders kb/disorders/MyDisease.yaml
 ```
 
 **Why this matters:**
@@ -1704,8 +1793,12 @@ just validate kb/disorders/MyDisease.yaml
 **What agents MUST do:**
 1. Add YAML with `reference: PMID:XXXX` and a snippet
 2. Run `just fetch-reference PMID:XXXX` for each new PMID cited
-3. Run `just validate-references kb/disorders/YourFile.yaml`
-4. If snippet doesn't match, fix it to be an exact quote or find a different PMID
+3. Run `just count-verified-snippets kb/disorders/YourFile.yaml` — it is offline,
+   so a PMID you forgot to fetch shows up as `not cached locally` rather than
+   passing quietly
+4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
+5. Run `just validate-disorders <every changed file>` once before opening the PR
+   (see "Validation Workflow" for why this is the end-of-run check)
 
 **Deterministic cache contract check (dismech#871):**
 `just check-reference-cache-frontmatter` validates that every
