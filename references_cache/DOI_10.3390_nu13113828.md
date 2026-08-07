@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/nu13113828"
+reference_id: DOI:10.3390/nu13113828
 title: "Glycogen Storage Disease Type Ia: Current Management Options, Burden and Unmet Needs"
 authors:
 - Terry G. J. Derks
@@ -21,6 +21,7 @@ journal: Nutrients
 year: '2021'
 doi: 10.3390/nu13113828
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Glycogen Storage Disease Type Ia: Current Management Options, Burden and Unmet Needs

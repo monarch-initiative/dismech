@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2023012499"
+reference_id: DOI:10.1182/bloodadvances.2023012499
 title: O-glycan determinants regulate VWF trafficking to Weibel-Palade bodies
 authors:
 - Ellie Karampini
@@ -14,6 +14,7 @@ journal: Blood Advances
 year: '2024'
 doi: 10.1182/bloodadvances.2023012499
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # O-glycan determinants regulate VWF trafficking to Weibel-Palade bodies

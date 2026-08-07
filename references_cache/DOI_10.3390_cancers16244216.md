@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16244216"
+reference_id: DOI:10.3390/cancers16244216
 title: "Molecular Subtypes of Vulvar Squamous Cell Carcinoma: The Significance of HPV-Independent/p53 Wild Type"
 authors:
 - Lars-Christian Horn
@@ -19,6 +19,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16244216
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Subtypes of Vulvar Squamous Cell Carcinoma: The Significance of HPV-Independent/p53 Wild Type

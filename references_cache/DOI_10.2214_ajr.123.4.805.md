@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.2214/ajr.123.4.805"
+reference_id: DOI:10.2214/ajr.123.4.805
 title: THE KNIEST SYNDROME
 authors:
 - RALPH S. LACHMAN
@@ -14,6 +14,7 @@ journal: American Journal of Roentgenology
 year: '1975'
 doi: 10.2214/ajr.123.4.805
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # THE KNIEST SYNDROME

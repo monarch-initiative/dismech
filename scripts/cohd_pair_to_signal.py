@@ -17,12 +17,11 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 import yaml
-
 
 DEFAULT_BASE_URL = "https://cohd-api.transltr.io"
 DEFAULT_DATASET_ID = 3
@@ -273,7 +272,7 @@ def build_signal(
     limited_precision = bool(n_pair is not None and n_pair < precision_threshold)
 
     notes_parts = [
-        f"Generated from COHD on {datetime.now(timezone.utc).isoformat()}",
+        f"Generated from COHD on {datetime.now(UTC).isoformat()}",
         f"dataset_id={dataset_id} ({dataset_name})",
     ]
     if n_a is not None:

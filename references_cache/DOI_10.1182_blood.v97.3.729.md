@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood.v97.3.729"
+reference_id: DOI:10.1182/blood.v97.3.729
 title: Activated fibroblast growth factor receptor 3 is an oncogene that contributes to tumor progression in multiple myeloma
 authors:
 - Marta Chesi
@@ -14,6 +14,7 @@ journal: Blood
 year: '2001'
 doi: 10.1182/blood.v97.3.729
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Activated fibroblast growth factor receptor 3 is an oncogene that contributes to tumor progression in multiple myeloma

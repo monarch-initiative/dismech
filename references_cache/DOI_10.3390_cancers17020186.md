@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17020186"
+reference_id: DOI:10.3390/cancers17020186
 title: "Management of Patients with Vulvar Cancers: A Systematic Comparison of International Guidelines (NCCN–ASCO–ESGO–BGCS–IGCS–FIGO–French Guidelines–RCOG)"
 authors:
 - Stefano Restaino
@@ -22,6 +22,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17020186
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of Patients with Vulvar Cancers: A Systematic Comparison of International Guidelines (NCCN–ASCO–ESGO–BGCS–IGCS–FIGO–French Guidelines–RCOG)

@@ -8,12 +8,13 @@ generates Mermaid flowchart code and pathograph JSON for visualization.
 """
 
 import json
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 @dataclass
@@ -65,6 +66,27 @@ NODE_COLORS = {
     "computational_model": "#ecfccb",  # lime-100
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
+
+# EnvironmentalEffectEnum value to pathograph edge predicate. A protective or
+# merely predisposing exposure must not be drawn as if it triggered the
+# mechanism, so the effect is carried in the predicate itself.
+ENVIRONMENTAL_EFFECT_PREDICATES = {
+    "TRIGGERS": "triggers",
+    "EXACERBATES": "exacerbates",
+    "PREDISPOSES": "predisposes_to",
+    "PROTECTS_AGAINST": "protects_against",
+    "MODULATES": "modulates",
+}
+
+# Used when environmental_effect is absent: a direction-neutral link, so an
+# unqualified exposure is never silently asserted to be causative.
+DEFAULT_ENVIRONMENTAL_PREDICATE = "influences"
+
+# Every predicate an environmental edge can carry, for consumers that reason
+# about them as a group (export styling, QC coverage) rather than one at a time.
+ENVIRONMENTAL_PREDICATES: frozenset[str] = frozenset(
+    ENVIRONMENTAL_EFFECT_PREDICATES.values()
+) | {DEFAULT_ENVIRONMENTAL_PREDICATE}
 
 
 def _sanitize_node_id(name: str) -> str:
@@ -173,9 +195,7 @@ def _genetic_item_infers_mechanism_edges(item: dict[str, Any]) -> bool:
     """Return whether a genetic item should auto-link to matching mechanisms."""
     relationship_type = item.get("relationship_type")
     if isinstance(relationship_type, str):
-        if relationship_type.upper() in _NON_CONTRIBUTING_RELATIONSHIP_TYPES:
-            return False
-        return True
+        return relationship_type.upper() not in _NON_CONTRIBUTING_RELATIONSHIP_TYPES
 
     association = item.get("association")
     if not isinstance(association, str):
@@ -224,10 +244,15 @@ def _resolve_descriptor_target(
     return None
 
 
-def _iter_variant_items(
+def iter_variant_items(
     disorder: dict[str, Any],
 ) -> list[tuple[str | None, dict[str, Any]]]:
-    """Iterate over disease-level and gene-nested variants."""
+    """Iterate over disease-level and gene-nested variants.
+
+    Public because it is the parity contract between the pathograph and the
+    HTML renderer: both must walk exactly the same variants or a variant node
+    ends up with no card (see issues #8037, #8032).
+    """
     items: list[tuple[str | None, dict[str, Any]]] = []
 
     for variant in disorder.get("variants", []) or []:
@@ -284,7 +309,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     description=item.get("description"),
                 )
 
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         name = variant.get("name")
         if not name:
             continue
@@ -375,6 +400,31 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         ),
                     )
                 )
+
+    # Collect edges from environmental factors to the mechanisms they act on
+    for item in disorder.get("environmental", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("name")
+        if not source:
+            continue
+
+        for link in item.get("influences_mechanisms", []) or []:
+            if not isinstance(link, dict) or "target" not in link:
+                continue
+            graph.edges.append(
+                Edge(
+                    source=source,
+                    target=str(link["target"]),
+                    predicate=ENVIRONMENTAL_EFFECT_PREDICATES.get(
+                        link.get("environmental_effect"),
+                        DEFAULT_ENVIRONMENTAL_PREDICATE,
+                    ),
+                    source_type="environmental",
+                    description=link.get("description"),
+                    causal_link_type=link.get("causal_link_type"),
+                )
+            )
 
     # Collect edges from treatment links
     for item in disorder.get("treatments", []) or []:
@@ -473,6 +523,32 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                 )
             )
 
+    # Collect observational phenotype readout links (investigation/test-result
+    # phenotypes reporting on an underlying mechanism, e.g. an abnormal ERG).
+    for item in disorder.get("phenotypes", []) or []:
+        if not isinstance(item, dict):
+            continue
+        phenotype_name = item.get("name")
+        if not phenotype_name:
+            continue
+
+        for readout in item.get("reports_on", []) or []:
+            if not isinstance(readout, dict) or "target" not in readout:
+                continue
+            graph.edges.append(
+                Edge(
+                    source=str(readout["target"]),
+                    target=phenotype_name,
+                    predicate="readout",
+                    source_type="phenotype",
+                    description=readout.get("description")
+                    or readout.get("interpretation"),
+                    relationship=readout.get("relationship"),
+                    direction=readout.get("direction"),
+                    endpoint_context=readout.get("endpoint_context"),
+                )
+            )
+
     # Collect edges from genetic factors to linked mechanisms
     for item in disorder.get("genetic", []) or []:
         if not isinstance(item, dict):
@@ -498,7 +574,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             )
 
     # Collect edges from variants to their genes or directly linked mechanisms
-    for parent_name, variant in _iter_variant_items(disorder):
+    for parent_name, variant in iter_variant_items(disorder):
         source = variant.get("name")
         if not source:
             continue
@@ -586,9 +662,7 @@ def generate_mermaid(graph: CausalGraph) -> str:
         source_id = node_ids[edge.source]
         target_id = node_ids[edge.target]
         # Use dashed line for edges to orphan targets
-        if edge.target in graph.orphan_targets:
-            lines.append(f"    {source_id} -.-> {target_id}")
-        elif edge.predicate == "readout":
+        if edge.target in graph.orphan_targets or edge.predicate == "readout":
             lines.append(f"    {source_id} -.-> {target_id}")
         else:
             lines.append(f"    {source_id} --> {target_id}")
@@ -793,6 +867,24 @@ def _extract_node_metadata(item: dict[str, Any]) -> dict[str, Any]:
                 if k in readout and readout[k] is not None
             }
             for readout in readouts
+            if isinstance(readout, dict) and readout.get("target")
+        ]
+    reports_on = item.get("reports_on", []) or []
+    if reports_on:
+        meta["reports_on"] = [
+            {
+                k: readout[k]
+                for k in (
+                    "target",
+                    "relationship",
+                    "direction",
+                    "endpoint_context",
+                    "interpretation",
+                    "description",
+                )
+                if k in readout and readout[k] is not None
+            }
+            for readout in reports_on
             if isinstance(readout, dict) and readout.get("target")
         ]
 
@@ -1079,7 +1171,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and "name" in item:
                 item_lookup[item["name"]] = item
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         if "name" in variant:
             item_lookup[variant["name"]] = variant
     model_links_by_target = _collect_experimental_model_links(disorder)
@@ -1188,7 +1280,7 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
         if yaml_path.name.endswith(".history.yaml"):
             continue
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
@@ -1222,14 +1314,14 @@ def main():
                 for issue in disorder_issues:
                     print(f"  - {issue}")
                 print()
-            exit(1)
+            sys.exit(1)
         else:
             print("All disorders have valid causal graphs.")
 
     elif args.show:
         yaml_path = Path(args.show)
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         mermaid_code = generate_mermaid(graph)
