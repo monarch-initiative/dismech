@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/thorax-2023-220455"
+reference_id: DOI:10.1136/thorax-2023-220455
 title: Lower airway microbiota in COPD and healthy controls
 authors:
 - Solveig Tangedal
@@ -15,6 +15,7 @@ journal: Thorax
 year: '2024'
 doi: 10.1136/thorax-2023-220455
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Lower airway microbiota in COPD and healthy controls

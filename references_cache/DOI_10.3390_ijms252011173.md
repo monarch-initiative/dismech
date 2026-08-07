@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms252011173"
+reference_id: DOI:10.3390/ijms252011173
 title: Identification of Genetic Variants Associated with Hereditary Thoracic Aortic Diseases (HTADs) Using Next Generation Sequencing (NGS) Technology and Genotype–Phenotype Correlations
 authors:
 - Lăcrămioara Ionela Butnariu
@@ -16,6 +16,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms252011173
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Identification of Genetic Variants Associated with Hereditary Thoracic Aortic Diseases (HTADs) Using Next Generation Sequencing (NGS) Technology and Genotype–Phenotype Correlations

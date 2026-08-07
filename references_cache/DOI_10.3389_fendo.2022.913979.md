@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fendo.2022.913979"
+reference_id: DOI:10.3389/fendo.2022.913979
 title: Aberrant activation of TGF-β1 induces high bone turnover via Rho GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease
 authors:
 - Qi Chen
@@ -19,6 +19,7 @@ journal: Frontiers in Endocrinology
 year: '2022'
 doi: 10.3389/fendo.2022.913979
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aberrant activation of TGF-β1 induces high bone turnover via Rho GTPases-mediated cytoskeletal remodeling in Camurati-Engelmann disease

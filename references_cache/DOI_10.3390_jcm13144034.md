@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13144034"
+reference_id: DOI:10.3390/jcm13144034
 title: "The Role of HIF-1α in Retinopathy of Prematurity: A Review of Current Literature"
 authors:
 - Monika Modrzejewska
@@ -9,6 +9,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13144034
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of HIF-1α in Retinopathy of Prematurity: A Review of Current Literature

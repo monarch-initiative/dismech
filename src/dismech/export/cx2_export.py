@@ -19,19 +19,22 @@ from typing import Any
 from urllib.parse import urlparse
 
 import networkx as nx
-import yaml
 from ndex2.client import Ndex2
 from ndex2.cx2 import CX2Network, CX2NetworkXFactory
 
 from dismech.graph import (
+    DEFAULT_ENVIRONMENTAL_PREDICATE,
+    ENVIRONMENTAL_EFFECT_PREDICATES,
+    ENVIRONMENTAL_PREDICATES,
     _build_section_lookup,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
-    _iter_variant_items,
     _resolve_descriptor_target,
     build_causal_graph,
     graph_to_json,
+    iter_variant_items,
 )
+from dismech.yaml_io import safe_load, safe_load_path
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +224,53 @@ EDGE_STYLE_BY_PREDICATE = {
         target_arrow_shape="circle",
         width=2,
     ),
+    # Environmental exposure -> mechanism. Green so exposures read as the
+    # upstream entry points they are; the protective case gets a tee head so it
+    # is never mistaken for a causal arrow.
+    "triggers": EdgeStyle(
+        color="#059669",
+        line_style="solid",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "exacerbates": EdgeStyle(
+        color="#059669",
+        line_style="solid",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "predisposes_to": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    "protects_against": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "modulates": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="diamond",
+        width=2,
+    ),
+    "influences": EdgeStyle(
+        color="#059669",
+        line_style="dashed",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
 }
+
+# Predicates whose edges carry a meaningful `causal_link_type`, so an INDIRECT
+# link should be dashed to show the omitted intermediates. Environmental edges
+# belong here because EnvironmentalMechanismTarget invites curators to record
+# directness. Re-dashing an already-dashed environmental style is a no-op, so
+# adding them cannot clobber the styles above.
+INDIRECT_DASHABLE_PREDICATES = {"causes", "leads_to"} | set(ENVIRONMENTAL_PREDICATES)
 
 VISUAL_PROPERTIES = {
     "default": {
@@ -362,7 +411,7 @@ VISUAL_EDITOR_PROPERTIES = {
 def load_disorder(yaml_path: Path) -> dict[str, Any]:
     """Load a disorder YAML file."""
     with open(yaml_path) as stream:
-        data = yaml.safe_load(stream)
+        data = safe_load(stream)
     if not isinstance(data, dict):
         raise ValueError(f"Expected mapping in {yaml_path}")
     return data
@@ -373,7 +422,7 @@ def _load_prefix_map() -> dict[str, str]:
     """Load CURIE prefix mappings from the schema."""
     if not _SCHEMA_PATH.exists():
         return {}
-    data = yaml.safe_load(_SCHEMA_PATH.read_text())
+    data = safe_load_path(_SCHEMA_PATH)
     prefixes = data.get("prefixes", {}) if isinstance(data, dict) else {}
     return {
         prefix: base
@@ -958,6 +1007,30 @@ def _build_edge_detail_lookup(
                 },
             )
 
+    for item in disorder.get("environmental", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source_name = item.get("name")
+        if not source_name:
+            continue
+        parent_evidence = item.get("evidence")
+        for link in item.get("influences_mechanisms", []) or []:
+            if not isinstance(link, dict) or "target" not in link:
+                continue
+            add_detail(
+                source_name,
+                str(link["target"]),
+                ENVIRONMENTAL_EFFECT_PREDICATES.get(
+                    link.get("environmental_effect"),
+                    DEFAULT_ENVIRONMENTAL_PREDICATE,
+                ),
+                {
+                    "description": link.get("description"),
+                    "evidence": link.get("evidence") or parent_evidence,
+                    "causal_link_type": link.get("causal_link_type"),
+                },
+            )
+
     for item in disorder.get("treatments", []) or []:
         if not isinstance(item, dict):
             continue
@@ -1065,7 +1138,7 @@ def _build_edge_detail_lookup(
                 },
             )
 
-    for parent_name, variant in _iter_variant_items(disorder):
+    for parent_name, variant in iter_variant_items(disorder):
         source_name = variant.get("name")
         if not source_name:
             continue
@@ -1271,7 +1344,9 @@ def _edge_style(
             )
 
     causal_link_type = str(detail.get("causal_link_type") or "")
-    if predicate in {"causes", "leads_to"} and causal_link_type.startswith("INDIRECT"):
+    if predicate in INDIRECT_DASHABLE_PREDICATES and causal_link_type.startswith(
+        "INDIRECT"
+    ):
         return EdgeStyle(
             color=style.color,
             line_style="dashed",
@@ -1596,7 +1671,7 @@ def disorder_to_cx2(
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and item.get("name"):
                 item_lookup[str(item["name"])] = item
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         if isinstance(variant, dict) and variant.get("name"):
             item_lookup[str(variant["name"])] = variant
 

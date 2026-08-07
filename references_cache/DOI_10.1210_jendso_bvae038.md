@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/jendso/bvae038"
+reference_id: DOI:10.1210/jendso/bvae038
 title: Patient Sex and Origin Influence Distribution of Driver Genes and Clinical Presentation of Paraganglioma
 authors:
 - Susan Richter
@@ -8,6 +8,7 @@ journal: Journal of the Endocrine Society
 year: '2024'
 doi: 10.1210/jendso/bvae038
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Patient Sex and Origin Influence Distribution of Driver Genes and Clinical Presentation of Paraganglioma

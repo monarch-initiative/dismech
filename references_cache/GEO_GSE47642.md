@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE47642"
+reference_id: GEO:GSE47642
 title: Kindler syndrome microarray study
 content_type: summary
+full_text_attempted: true
 ---
 
 # Kindler syndrome microarray study

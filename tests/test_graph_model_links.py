@@ -295,6 +295,76 @@ def test_build_causal_graph_includes_biomarker_readout_links() -> None:
     ]
 
 
+def test_build_causal_graph_includes_phenotype_readout_links() -> None:
+    """Investigation-readout phenotypes should link to the mechanism they report on.
+
+    An abnormal-test phenotype (e.g. an abnormal electroretinogram) that carries
+    ``reports_on`` should add an observational (dashed) edge from the target
+    mechanism to the phenotype, rather than floating as a disconnected node — and
+    without asserting a causal ``downstream`` relationship.
+    """
+    disorder = {
+        "name": "Example Retinopathy",
+        "pathophysiology": [{"name": "Photoreceptor Degeneration"}],
+        "phenotypes": [
+            {
+                "name": "Abnormal electroretinogram",
+                "phenotype_term": {
+                    "preferred_term": "Abnormal electroretinogram",
+                    "term": {"id": "HP:0000512", "label": "Abnormal electroretinogram"},
+                },
+                "reports_on": [
+                    {
+                        "target": "Photoreceptor Degeneration",
+                        "relationship": "READOUT_OF",
+                        "direction": "NEGATIVE",
+                        "endpoint_context": "DIAGNOSTIC",
+                        "interpretation": "Reduced ERG responses track photoreceptor loss.",
+                    }
+                ],
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    # Observational readout edge: mechanism -.-> readout phenotype.
+    assert (
+        "Photoreceptor Degeneration",
+        "Abnormal electroretinogram",
+        "readout",
+    ) in edges
+    # The phenotype is not an orphan and carries no causal downstream edge.
+    assert "Abnormal electroretinogram" not in graph.orphan_targets
+
+    data = json.loads(graph_to_json(graph, disorder))
+    edge = next(
+        edge
+        for edge in data["edges"]
+        if edge["source"] == "Photoreceptor Degeneration"
+        and edge["target"] == "Abnormal electroretinogram"
+    )
+    assert edge["predicate"] == "readout"
+    assert edge["relationship"] == "READOUT_OF"
+    assert edge["direction"] == "NEGATIVE"
+    assert edge["endpoint_context"] == "DIAGNOSTIC"
+
+    node = next(
+        node for node in data["nodes"] if node["id"] == "Abnormal electroretinogram"
+    )
+    assert node["node_type"] == "phenotype"
+    assert node["meta"]["reports_on"] == [
+        {
+            "target": "Photoreceptor Degeneration",
+            "relationship": "READOUT_OF",
+            "direction": "NEGATIVE",
+            "endpoint_context": "DIAGNOSTIC",
+            "interpretation": "Reduced ERG responses track photoreceptor loss.",
+        }
+    ]
+
+
 def test_graph_to_json_includes_hypothesis_group_edge_metadata() -> None:
     """Pathograph edges should preserve curated hypothesis group links."""
     disorder = {
@@ -368,3 +438,69 @@ def test_graph_to_json_includes_matching_histopathology_terms() -> None:
             "term_label": "Fibrotic Stroma Formation",
         }
     ]
+
+
+def test_build_causal_graph_includes_environmental_mechanism_links() -> None:
+    """Environmental factors linked via influences_mechanisms should enter the pathograph."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Airway Inflammation"},
+            {"name": "Allergic Sensitization"},
+        ],
+        "environmental": [
+            {
+                "name": "Tobacco smoke exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Airway Inflammation",
+                        "environmental_effect": "EXACERBATES",
+                        "causal_link_type": "DIRECT",
+                        "description": "Smoke amplifies ongoing airway inflammation.",
+                    }
+                ],
+            },
+            {
+                "name": "Early-life farm microbial exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Allergic Sensitization",
+                        "environmental_effect": "PROTECTS_AGAINST",
+                    }
+                ],
+            },
+            {
+                "name": "Unlinked contextual exposure",
+            },
+            {
+                "name": "Undirected exposure",
+                "influences_mechanisms": [{"target": "Airway Inflammation"}],
+            },
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    assert ("Tobacco smoke exposure", "Airway Inflammation", "exacerbates") in edges
+    assert (
+        "Early-life farm microbial exposure",
+        "Allergic Sensitization",
+        "protects_against",
+    ) in edges
+    # An unqualified link must not be asserted as causative.
+    assert ("Undirected exposure", "Airway Inflammation", "influences") in edges
+    assert not graph.integrity_issues
+
+    data = json.loads(graph_to_json(graph, disorder))
+    node_types = {node["id"]: node["node_type"] for node in data["nodes"]}
+    assert node_types["Tobacco smoke exposure"] == "environmental"
+    assert node_types["Early-life farm microbial exposure"] == "environmental"
+    # Environmental entries with no mechanism link stay out of the pathograph.
+    assert "Unlinked contextual exposure" not in node_types
+
+    smoke_edge = next(
+        edge for edge in data["edges"] if edge["source"] == "Tobacco smoke exposure"
+    )
+    assert smoke_edge["causal_link_type"] == "DIRECT"
+    assert smoke_edge["description"] == "Smoke amplifies ongoing airway inflammation."

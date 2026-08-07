@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25137367"
+reference_id: DOI:10.3390/ijms25137367
 title: Coding and Non-Coding Transcriptomic Landscape of Aortic Complications in Marfan Syndrome
 authors:
 - Nathasha Samali Udugampolage
@@ -12,6 +12,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25137367
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Coding and Non-Coding Transcriptomic Landscape of Aortic Complications in Marfan Syndrome

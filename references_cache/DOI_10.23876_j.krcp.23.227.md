@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.23876/j.krcp.23.227"
+reference_id: DOI:10.23876/j.krcp.23.227
 title: Precision medicine for focal segmental glomerulosclerosis
 authors:
 - Yi Xie
@@ -8,6 +8,7 @@ journal: Kidney Research and Clinical Practice
 year: '2024'
 doi: 10.23876/j.krcp.23.227
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Precision medicine for focal segmental glomerulosclerosis

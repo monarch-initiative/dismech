@@ -10,12 +10,15 @@ from pathlib import Path
 from typing import Any
 
 import typer
-import yaml
 
-from .support import default_kb_dir
-from .support import get_disease_term_id
-from .support import iter_disease_files
-from .support import load_yaml_object
+from dismech.yaml_io import safe_load
+
+from .support import (
+    default_kb_dir,
+    get_disease_term_id,
+    iter_disease_files,
+    load_yaml_object,
+)
 
 app = typer.Typer(
     name="dismech-mondo-prioritize",
@@ -292,7 +295,7 @@ def build_coverage_index(kb_dir: Path) -> CoverageIndex:
 def load_config(path: Path | None = None) -> dict[str, Any]:
     """Load prioritizer config, defaulting to the repo config."""
     config_path = path or _DEFAULT_CONFIG_PATH
-    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    payload = safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"Config at {config_path} must be a YAML object")
     return payload

@@ -29,6 +29,20 @@ Classification (per changed path):
 
 A deletion (``D``) or rename (``R``) of a LOCAL page input forces full so stale
 pages are removed.
+
+``--check-page-drift`` is a second, diff-independent mode used *after* an
+incremental render: it reports whether the rendered ``pages/disorders/*.html``
+count still matches the ``kb/disorders/*.yaml`` count, and the workflow escalates
+to a full rebuild when it does not. Incremental builds are scoped to one push's
+``event.before..sha`` range, but ``concurrency.cancel-in-progress: false``
+collapses queued runs, so the disorder YAMLs of a collapsed push are never
+rendered — while ``app/data.js`` (always rebuilt in full) picks them up anyway.
+That drift is what left 205 dead browser links in PR #7903; the count mismatch is
+the cheap, always-available signal that it has happened.
+
+The check runs *after* rendering on purpose. Before the render, a push that adds
+a disorder always shows one more YAML than page, so a pre-render check would
+escalate every curation push to full and defeat the incremental build entirely.
 """
 
 from __future__ import annotations
@@ -89,13 +103,7 @@ def _is_local_page_input(path: str) -> bool:
             and "/" not in path[len(prefix):]
         ):
             return True
-    if (
-        path.startswith("research/")
-        and path.endswith(".md")
-        and "/" not in path[len("research/"):]
-    ):
-        return True
-    return False
+    return bool(path.startswith("research/") and path.endswith(".md") and "/" not in path[len("research/"):])
 
 
 def _is_neutral(path: str) -> bool:
@@ -106,9 +114,7 @@ def _is_neutral(path: str) -> bool:
     if path in NEUTRAL_EXACT:
         return True
     # Top-level markdown/readme etc. never feeds page rendering.
-    if "/" not in path and path.endswith(".md"):
-        return True
-    return False
+    return bool("/" not in path and path.endswith(".md"))
 
 
 def _is_global(path: str) -> bool:
@@ -134,15 +140,14 @@ def classify(entries: list[tuple[str, str]]) -> Decision:
 
     for status, path in entries:
         status = (status or "").strip().upper()
-        deleted_or_renamed = status.startswith("D") or status.startswith("R")
+        deleted_or_renamed = status.startswith(("D", "R"))
 
         if _is_global(path):
             reasons.append(f"global input changed: {path}")
             continue
         if _is_local_page_input(path):
             if deleted_or_renamed and (
-                path.startswith(("kb/disorders/", "kb/comorbidities/", "kb/modules/"))
-                or path.startswith("research/")
+                path.startswith(("kb/disorders/", "kb/comorbidities/", "kb/modules/", "research/"))
             ):
                 reasons.append(f"page input {status} (removed/renamed): {path}")
                 continue
@@ -158,6 +163,52 @@ def classify(entries: list[tuple[str, str]]) -> Decision:
     if reasons:
         return Decision(mode="full", reasons=reasons)
     return Decision(mode="incremental", disorder_files=sorted(disorder_files))
+
+
+def count_disorder_inputs(disorders_dir: Path) -> int:
+    """Count the ``kb/disorders/*.yaml`` files that each render one page."""
+    return sum(
+        1
+        for path in disorders_dir.glob("*.yaml")
+        if not path.name.endswith(".history.yaml")
+    )
+
+
+#: Pages in the disorder directory that do not correspond to a disorder YAML.
+#: ``render._prune_orphan_pages`` keeps these (``keep_names``), so counting them
+#: would leave the KB and page counts permanently unequal and escalate every
+#: build to full forever. None exists today; this keeps that true if one lands.
+NON_DISORDER_PAGES = frozenset({"index.html"})
+
+
+def count_rendered_pages(pages_dir: Path) -> int:
+    """Count the rendered per-disorder ``pages/disorders/*.html`` files."""
+    return sum(
+        1 for path in pages_dir.glob("*.html") if path.name not in NON_DISORDER_PAGES
+    )
+
+
+def detect_page_drift(disorders_dir: Path, pages_dir: Path) -> str | None:
+    """Return a reason to force a full build when pages have drifted from the KB.
+
+    Page filenames are ``slugify(disease name).html`` and slugs are unique, so
+    the KB and the rendered page set are 1:1 in a healthy tree *once the current
+    build's pages have been written*. Any inequality then means an earlier
+    incremental build under- or over-rendered; a full rebuild is the only thing
+    that heals it. A missing directory also fails safe to full.
+    """
+    if not pages_dir.is_dir():
+        return f"rendered pages directory missing: {pages_dir}"
+    if not disorders_dir.is_dir():
+        return f"disorder input directory missing: {disorders_dir}"
+    n_inputs = count_disorder_inputs(disorders_dir)
+    n_pages = count_rendered_pages(pages_dir)
+    if n_inputs != n_pages:
+        return (
+            f"page/KB drift: {n_inputs} {disorders_dir}/*.yaml vs "
+            f"{n_pages} {pages_dir}/*.html (delta {n_inputs - n_pages:+d})"
+        )
+    return None
 
 
 def _git_name_status(base: str, head: str) -> list[tuple[str, str]]:
@@ -189,6 +240,27 @@ def _git_name_status(base: str, head: str) -> list[tuple[str, str]]:
     return entries
 
 
+def _report_page_drift(args: argparse.Namespace) -> int:
+    """Run the standalone post-render drift check and report it to the workflow."""
+    drift = detect_page_drift(args.disorders_dir, args.pages_dir)
+    if drift:
+        print(f"[drift] {drift}", file=sys.stderr)
+        print(
+            "[drift] escalating to a full page rebuild; app/data.js is built "
+            "from the whole KB and would otherwise link to unrendered pages.",
+            file=sys.stderr,
+        )
+    else:
+        print("[drift] rendered pages match the disorder KB.", file=sys.stderr)
+
+    if args.github_output and os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+            handle.write(f"drift={'true' if drift else 'false'}\n")
+
+    print(f"drift={'true' if drift else 'false'}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", help="Base git ref/SHA")
@@ -196,7 +268,10 @@ def main() -> int:
     parser.add_argument(
         "--github-output",
         action="store_true",
-        help="Append mode to $GITHUB_OUTPUT for workflow consumption.",
+        help=(
+            "Append the result to $GITHUB_OUTPUT for workflow consumption "
+            "(mode=..., or drift=... under --check-page-drift)."
+        ),
     )
     parser.add_argument(
         "--files-out",
@@ -207,7 +282,32 @@ def main() -> int:
             "'render --changed-from PATH'."
         ),
     )
+    parser.add_argument(
+        "--check-page-drift",
+        action="store_true",
+        help=(
+            "Post-render mode: ignore the diff and report whether the rendered "
+            "page count matches the disorder-YAML count. Emits drift=true|false "
+            "(with --github-output) so the workflow can escalate to a full "
+            "rebuild. Exit code is 0 either way; drift is a signal, not an error."
+        ),
+    )
+    parser.add_argument(
+        "--disorders-dir",
+        type=Path,
+        default=Path("kb/disorders"),
+        help="Disorder YAML directory for --check-page-drift.",
+    )
+    parser.add_argument(
+        "--pages-dir",
+        type=Path,
+        default=Path("pages/disorders"),
+        help="Rendered disorder-page directory for --check-page-drift.",
+    )
     args = parser.parse_args()
+
+    if args.check_page_drift:
+        return _report_page_drift(args)
 
     # Fail safe: without a computable range, do a full build.
     decision: Decision

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children12030364"
+reference_id: DOI:10.3390/children12030364
 title: A Novel Missense Variant in LHX4 in Three Children with Multiple Pituitary Hormone Deficiency Belonging to Two Unrelated Families and Contribution of Additional GLI2 and IGFR1 Variant
 authors:
 - Claudia Santoro
@@ -19,6 +19,7 @@ journal: Children
 year: '2025'
 doi: 10.3390/children12030364
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Novel Missense Variant in LHX4 in Three Children with Multiple Pituitary Hormone Deficiency Belonging to Two Unrelated Families and Contribution of Additional GLI2 and IGFR1 Variant
