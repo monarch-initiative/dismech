@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1177/10556656211019621"
-title: "<i>ALX</i>
-                    -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management"
+reference_id: DOI:10.1177/10556656211019621
+title: "<i>ALX</i> -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management"
 authors:
 - Ibrahim Vargel
 - Halil Ibrahim Canter
@@ -12,10 +11,10 @@ journal: The Cleft Palate Craniofacial Journal
 year: '2022'
 doi: 10.1177/10556656211019621
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>ALX</i>
-                    -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management
+# <i>ALX</i> -Related Frontonasal Dysplasias: Clinical Characteristics and Surgical Management
 **Authors:** Ibrahim Vargel, Halil Ibrahim Canter, Arda Kucukguven, Asim Aydin, Figen Ozgur
 **Journal:** The Cleft Palate Craniofacial Journal (2022)
 **DOI:** [10.1177/10556656211019621](https://doi.org/10.1177/10556656211019621)

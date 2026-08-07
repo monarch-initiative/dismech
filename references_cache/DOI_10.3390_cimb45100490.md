@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb45100490"
+reference_id: DOI:10.3390/cimb45100490
 title: "Biomarkers in Systemic Sclerosis: An Overview"
 authors:
 - Giuseppe Di Maggio
@@ -21,6 +21,7 @@ journal: Current Issues in Molecular Biology
 year: '2023'
 doi: 10.3390/cimb45100490
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biomarkers in Systemic Sclerosis: An Overview

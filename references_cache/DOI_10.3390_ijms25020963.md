@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25020963"
+reference_id: DOI:10.3390/ijms25020963
 title: "Mitochondrial and Cellular Function in Fibroblasts, Induced Neurons, and Astrocytes Derived from Case Study Patients: Insights into Major Depression as a Mitochondria-Associated Disease"
 authors:
 - Iseline Cardon
@@ -24,6 +24,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25020963
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial and Cellular Function in Fibroblasts, Induced Neurons, and Astrocytes Derived from Case Study Patients: Insights into Major Depression as a Mitochondria-Associated Disease

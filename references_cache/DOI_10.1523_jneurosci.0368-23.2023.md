@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1523/jneurosci.0368-23.2023"
+reference_id: DOI:10.1523/jneurosci.0368-23.2023
 title: Meningeal P2X7 Signaling Mediates Migraine-Related Intracranial Mechanical Hypersensitivity
 authors:
 - Jun Zhao
@@ -9,6 +9,7 @@ journal: The Journal of Neuroscience
 year: '2023'
 doi: 10.1523/jneurosci.0368-23.2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Meningeal P2X7 Signaling Mediates Migraine-Related Intracranial Mechanical Hypersensitivity

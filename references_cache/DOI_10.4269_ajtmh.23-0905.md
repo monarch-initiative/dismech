@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4269/ajtmh.23-0905"
+reference_id: DOI:10.4269/ajtmh.23-0905
 title: "Managing Lymphedema Induced by Lymphatic Filariasis: Implementing and Improving Care at the Individual and Programmatic Levels"
 authors:
 - Charles D. Mackenzie
@@ -12,6 +12,7 @@ journal: The American Journal of Tropical Medicine and Hygiene
 year: '2024'
 doi: 10.4269/ajtmh.23-0905
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Managing Lymphedema Induced by Lymphatic Filariasis: Implementing and Improving Care at the Individual and Programmatic Levels

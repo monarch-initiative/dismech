@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13010078"
+reference_id: DOI:10.3390/cells13010078
 title: Deciphering Acute Myeloid Leukemia Associated Transcription Factors in Human Primary CD34+ Hematopoietic Stem/Progenitor Cells
 authors:
 - Sophie Kreissig
@@ -9,6 +9,7 @@ journal: Cells
 year: '2023'
 doi: 10.3390/cells13010078
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Deciphering Acute Myeloid Leukemia Associated Transcription Factors in Human Primary CD34+ Hematopoietic Stem/Progenitor Cells

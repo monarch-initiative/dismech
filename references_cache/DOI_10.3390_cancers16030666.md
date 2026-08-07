@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16030666"
+reference_id: DOI:10.3390/cancers16030666
 title: "Management of Hepatocellular Carcinoma in 2024: The Multidisciplinary Paradigm in an Evolving Treatment Landscape"
 authors:
 - Emily Kinsey
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16030666
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of Hepatocellular Carcinoma in 2024: The Multidisciplinary Paradigm in an Evolving Treatment Landscape

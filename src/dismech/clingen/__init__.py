@@ -9,9 +9,16 @@ This module provides tools to:
 
 from dismech.clingen.client import (
     ClinGenClient,
-    GeneDiseaseValidity,
     ExperimentalEvidence,
     FunctionalEvidence,
+    GeneDiseaseValidity,
+)
+from dismech.clingen.go_annotations import (
+    GeneGOAnnotations,
+    GOAnnotation,
+    GOAnnotationFetcher,
+    compare_clingen_to_go,
+    get_experimental_evidence_codes,
 )
 from dismech.clingen.go_mapper import (
     GOMapping,
@@ -19,26 +26,19 @@ from dismech.clingen.go_mapper import (
     get_go_mappings_for_category,
     get_go_mappings_for_keywords,
 )
-from dismech.clingen.go_annotations import (
-    GOAnnotation,
-    GeneGOAnnotations,
-    GOAnnotationFetcher,
-    get_experimental_evidence_codes,
-    compare_clingen_to_go,
-)
 
 __all__ = [
     "ClinGenClient",
-    "GeneDiseaseValidity",
     "ExperimentalEvidence",
     "FunctionalEvidence",
+    "GOAnnotation",
+    "GOAnnotationFetcher",
     "GOMapping",
+    "GeneDiseaseValidity",
+    "GeneGOAnnotations",
+    "compare_clingen_to_go",
     "get_all_go_mappings",
+    "get_experimental_evidence_codes",
     "get_go_mappings_for_category",
     "get_go_mappings_for_keywords",
-    "GOAnnotation",
-    "GeneGOAnnotations",
-    "GOAnnotationFetcher",
-    "get_experimental_evidence_codes",
-    "compare_clingen_to_go",
 ]

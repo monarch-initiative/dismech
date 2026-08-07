@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16081551"
+reference_id: DOI:10.3390/cancers16081551
 title: Molecular Landscape and Therapeutic Strategies against Colorectal Cancer
 authors:
 - Aakash Patel
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16081551
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Landscape and Therapeutic Strategies against Colorectal Cancer

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4081/dr.2023.9742"
+reference_id: DOI:10.4081/dr.2023.9742
 title: "Pityriasis following COVID-19 vaccinations: a systematic review"
 authors:
 - Laura Duzett
@@ -11,6 +11,7 @@ journal: Dermatology Reports
 year: '2023'
 doi: 10.4081/dr.2023.9742
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pityriasis following COVID-19 vaccinations: a systematic review

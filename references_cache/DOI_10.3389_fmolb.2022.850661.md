@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fmolb.2022.850661"
+reference_id: DOI:10.3389/fmolb.2022.850661
 title: The Okur-Chung Neurodevelopmental Syndrome Mutation CK2K198R Leads to a Rewiring of Kinase Specificity
 authors:
 - Danielle M. Caefer
@@ -13,6 +13,7 @@ journal: Frontiers in Molecular Biosciences
 year: '2022'
 doi: 10.3389/fmolb.2022.850661
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Okur-Chung Neurodevelopmental Syndrome Mutation CK2K198R Leads to a Rewiring of Kinase Specificity

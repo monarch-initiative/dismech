@@ -8,9 +8,12 @@ This script:
 3. Updates the YAML files with the found terms
 """
 
-import yaml
 from pathlib import Path
+
+import yaml
 from oaklib import get_adapter
+
+from dismech.yaml_io import safe_load
 
 # Initialize adapters
 print("Loading ontology adapters...")
@@ -162,7 +165,7 @@ def process_file(file_path: Path) -> dict:
     stats = {"disease_term_added": False, "cell_types_updated": 0, "file": str(file_path.name)}
 
     with open(file_path, 'r') as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     if not data:
         return stats
@@ -194,22 +197,23 @@ def process_file(file_path: Path) -> dict:
         for patho in data["pathophysiology"]:
             if "cell_types" in patho and isinstance(patho["cell_types"], list):
                 for cell_type in patho["cell_types"]:
-                    if isinstance(cell_type, dict) and "preferred_term" in cell_type:
-                        # Only add term if not already present
-                        if "term" not in cell_type or cell_type.get("term") is None:
-                            preferred = cell_type["preferred_term"]
-                            result = search_cl(preferred)
-                            if result:
-                                cl_id, label = result
-                                cell_type["term"] = {
-                                    "id": cl_id,
-                                    "label": label
-                                }
-                                stats["cell_types_updated"] += 1
-                                modified = True
-                                print(f"    Added cell_type term: {cl_id} ({label}) for '{preferred}'")
-                            else:
-                                print(f"    WARNING: Could not find CL term for '{preferred}'")
+                    # Only add term if not already present
+                    if isinstance(cell_type, dict) and "preferred_term" in cell_type and (
+                        "term" not in cell_type or cell_type.get("term") is None
+                    ):
+                        preferred = cell_type["preferred_term"]
+                        result = search_cl(preferred)
+                        if result:
+                            cl_id, label = result
+                            cell_type["term"] = {
+                                "id": cl_id,
+                                "label": label
+                            }
+                            stats["cell_types_updated"] += 1
+                            modified = True
+                            print(f"    Added cell_type term: {cl_id} ({label}) for '{preferred}'")
+                        else:
+                            print(f"    WARNING: Could not find CL term for '{preferred}'")
 
     if modified:
         # Preserve order and formatting

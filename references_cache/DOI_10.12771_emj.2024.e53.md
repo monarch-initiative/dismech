@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.12771/emj.2024.e53"
-title: "Current perspectives on the pharmacological treatment of advanced
-                    hepatocellular carcinoma: a narrative review"
+reference_id: DOI:10.12771/emj.2024.e53
+title: "Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review"
 authors:
 - Hye-Jin Yoo
 - Jeong-Ju Yoo
@@ -10,11 +9,15 @@ authors:
 journal: The Ewha Medical Journal
 year: '2024'
 doi: 10.12771/emj.2024.e53
-content_type: abstract_only
+content_type: full_text_html
+full_text_attempted: true
+full_text_provider: openalex
+full_text_url: "https://doi.org/10.12771/emj.2024.e53"
+oa_status: diamond
+license: cc-by-nc
 ---
 
-# Current perspectives on the pharmacological treatment of advanced
-                    hepatocellular carcinoma: a narrative review
+# Current perspectives on the pharmacological treatment of advanced hepatocellular carcinoma: a narrative review
 **Authors:** Hye-Jin Yoo, Jeong-Ju Yoo, Sang Gyune Kim, Young Seok Kim
 **Journal:** The Ewha Medical Journal (2024)
 **DOI:** [10.12771/emj.2024.e53](https://doi.org/10.12771/emj.2024.e53)
@@ -48,3 +51,47 @@ Hepatocellular carcinoma (HCC) remains a critical health concern in Korea,
                     biological pathways signifies a new paradigm in HCC treatment, emphasizing the
                     importance of continuous education and vigilant monitoring to optimize patient
                     outcomes.
+
+1Department of Internal Medicine, Gastroenterology andHepatology, Soonchunhyang University School of Medicine, Bucheon, Korea
+
+© Copyright 2024 Ewha Womans University College of
+                    Medicine and Ewha Medical Research Institute
+
+This is an Open-Access article distributed under the terms of the
+                        Creative Commons Attribution Non-Commercial License (http://creativecommons.org/licenses/by-nc/4.0) which permits
+                        unrestricted non-commercial use, distribution, and reproduction in any
+                        medium, provided the original work is properly cited.
+
+ECOG-PS, Eastern Cooperative Oncology Group – Performance
+                            Status.
+
+Project administration: Yoo JJ
+
+Conceptualization: Yoo JJ
+
+Methodology & data curation: Yoo HJ, Kim SG, Kim YS
+
+Funding acquisition: not applicable
+
+Writing – original draft: Yoo HJ
+
+Writing – review & editing: Yoo HJ, Yoo JJ, Kim SG, Kim YS
+
+No potential conflict of interest relevant to this article was reported.
+
+This study was supported by the Soonchunhyang University Research Fund.
+
+Not applicable.
+
+Not applicable.
+
+Download a citation file in RIS format that can be imported by all major citation management software, including EndNote, ProCite, RefWorks, and Reference Manager.
+
+ECOG-PS, Eastern Cooperative Oncology Group – Performance
+                            Status.
+
+ECOG-PS, Eastern Cooperative Oncology Group – Performance
+                            Status.
+
+ECOG-PS, Eastern Cooperative Oncology Group – Performance
+                            Status.

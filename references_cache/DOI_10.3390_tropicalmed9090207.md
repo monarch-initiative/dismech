@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tropicalmed9090207"
+reference_id: DOI:10.3390/tropicalmed9090207
 title: "Effects of Five Years of Treatment of Onchocerciasis with Ivermectin under Community Guidelines in Resurgent Areas of Burkina Faso: A before-and-after Analysis"
 authors:
 - Micheline O. Ouedraogo
@@ -14,6 +14,7 @@ journal: Tropical Medicine and Infectious Disease
 year: '2024'
 doi: 10.3390/tropicalmed9090207
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Effects of Five Years of Treatment of Onchocerciasis with Ivermectin under Community Guidelines in Resurgent Areas of Burkina Faso: A before-and-after Analysis
