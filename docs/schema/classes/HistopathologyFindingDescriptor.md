@@ -3,7 +3,7 @@
 # Class: HistopathologyFindingDescriptor 
 
 
-_A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)_
+_A descriptor for histopathologic findings, bindable to the NCIT Histopathology Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), Histologic Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)_
 
 
 
@@ -162,7 +162,7 @@ URI: [dismech:class/HistopathologyFindingDescriptor](https://w3id.org/monarch-in
 | [onset](../slots/onset.md) | 0..1 <br/> [OnsetDescriptor](../classes/OnsetDescriptor.md) | Structured age of onset descriptor | [Descriptor](../classes/Descriptor.md) |
 | [temporality](../slots/temporality.md) | 0..1 <br/> [TemporalityEnum](../enums/TemporalityEnum.md) | Temporal qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
 | [clinical_course](../slots/clinical_course.md) | 0..1 <br/> [ClinicalCourseEnum](../enums/ClinicalCourseEnum.md) | Clinical course qualifier for this descriptor (e | [Descriptor](../classes/Descriptor.md) |
-| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) |  | [Descriptor](../classes/Descriptor.md) |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) |  | [Descriptor](../classes/Descriptor.md) |
 | [qualifiers](../slots/qualifiers.md) | * <br/> [Qualifier](../classes/Qualifier.md) | List of predicate-value pairs for formal post-composition | [Descriptor](../classes/Descriptor.md) |
 
 
@@ -189,6 +189,7 @@ URI: [dismech:class/HistopathologyFindingDescriptor](https://w3id.org/monarch-in
 * Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
 * Use for differentiation status (well/poorly differentiated)
 * Use for specific findings (rosettes, necrosis, mitotic activity)
+* Use for immunophenotype/IHC markers (ER-positive by IHC, CD20-positive cells, loss of SDHB expression)
 * Use for histologic grades when applicable
 
 
@@ -228,12 +229,16 @@ URI: [dismech:class/HistopathologyFindingDescriptor](https://w3id.org/monarch-in
 <details>
 ```yaml
 name: HistopathologyFindingDescriptor
-description: A descriptor for histopathologic findings, bindable to NCIT Morphologic
-  Finding (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+description: A descriptor for histopathologic findings, bindable to the NCIT Histopathology
+  Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding
+  (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), Histologic
+  Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)
 comments:
 - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
 - Use for differentiation status (well/poorly differentiated)
 - Use for specific findings (rosettes, necrosis, mitotic activity)
+- Use for immunophenotype/IHC markers (ER-positive by IHC, CD20-positive cells, loss
+  of SDHB expression)
 - Use for histologic grades when applicable
 from_schema: https://w3id.org/monarch-initiative/dismech
 is_a: Descriptor
@@ -254,12 +259,16 @@ slot_usage:
 <details>
 ```yaml
 name: HistopathologyFindingDescriptor
-description: A descriptor for histopathologic findings, bindable to NCIT Morphologic
-  Finding (C35867), Histologic Grade (C18000), or HP Abnormal cell morphology (HP:0025461)
+description: A descriptor for histopathologic findings, bindable to the NCIT Histopathology
+  Result branch (C83490) - Morphologic Finding (C35867), Immunophenotypic Finding
+  (C40998), Ultrastructural Finding (C43265), Staining Intensity (C127762), Histologic
+  Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)
 comments:
 - Use for architectural patterns (spindle cell, epithelioid, nested, etc.)
 - Use for differentiation status (well/poorly differentiated)
 - Use for specific findings (rosettes, necrosis, mitotic activity)
+- Use for immunophenotype/IHC markers (ER-positive by IHC, CD20-positive cells, loss
+  of SDHB expression)
 - Use for histologic grades when applicable
 from_schema: https://w3id.org/monarch-initiative/dismech
 is_a: Descriptor
@@ -317,6 +326,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -324,6 +334,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -382,6 +393,7 @@ attributes:
     owner: HistopathologyFindingDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     - DifferentiatingMechanism
     range: ModifierEnum
   located_in:
@@ -394,6 +406,7 @@ attributes:
     owner: HistopathologyFindingDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: AnatomicalEntityDescriptor
     inlined: true
   laterality:
@@ -405,6 +418,7 @@ attributes:
     owner: HistopathologyFindingDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: LateralityEnum
   spatial_extent:
     name: spatial_extent
@@ -416,6 +430,7 @@ attributes:
     owner: HistopathologyFindingDescriptor
     domain_of:
     - Descriptor
+    - ImagingFinding
     range: SpatialExtentEnum
   onset:
     name: onset
