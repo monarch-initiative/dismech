@@ -199,14 +199,85 @@ def test_compound_structured_header_is_stripped_whole() -> None:
         )
         == "Beta-ketothiolase deficiency is a rare inborn error of metabolism."
     )
-    # The global header sweep in normalize_cache_body eats "OBJECTIVES:" first,
-    # which is what leaves the dangling conjunction behind.
+    # The global header sweep in normalize_cache_body eats "OBJECTIVES:" and
+    # "METHODS:" first, which is what leaves the dangling conjunction behind.
     assert (
         backfill.strip_leading_section_labels(
             "BACKGROUND AND To demonstrate that the analog is a positive modulator."
         )
         == "To demonstrate that the analog is a positive modulator."
     )
+    assert (
+        backfill.strip_leading_section_labels(
+            "MATERIAL AND Adults with advanced RET fusion-positive NSCLC received "
+            "alectinib."
+        )
+        == "Adults with advanced RET fusion-positive NSCLC received alectinib."
+    )
+
+
+def test_bracket_free_sentence_is_preferred(tmp_path: Path) -> None:
+    """A quote the reference validator can check beats one it cannot.
+
+    ``linkml-reference-validator`` strips ``[...]`` as an editorial insertion
+    before matching, so a verbatim quote whose brackets carry real content fails
+    against the very source it was copied from.
+    """
+    body = """---
+reference_id: "PMID:3"
+title: OSR1 and SPAK in pseudohypoaldosteronism.
+---
+
+## Content
+
+1. Biochem J. 2013 Nov;456(1):1-10. doi: 10.1042/BJ20130921.
+
+OSR1 and SPAK in pseudohypoaldosteronism.
+
+Chiga M(1), Uchida S(2).
+
+Stimulation of the OSR1/SPAK [STE20/SPS1-related proline/alanine-rich kinase]
+cascade plays an important role in the knock-in mouse model of the disease. The
+aim of this study was to investigate the respective roles of Osr1 and Spak in
+the pathogenesis of PHA II in vivo.
+"""
+    cache_path = write_cache(tmp_path, body, name="PMID_3.md")
+
+    supporting_text = backfill.extract_supporting_text(
+        cache_path, "OSR1 and SPAK in pseudohypoaldosteronism."
+    )
+
+    assert supporting_text == (
+        "The aim of this study was to investigate the respective roles of Osr1 "
+        "and Spak in the pathogenesis of PHA II in vivo."
+    )
+
+
+def test_bracketed_sentence_is_used_when_it_is_the_only_one(tmp_path: Path) -> None:
+    body = """---
+reference_id: "PMID:4"
+title: Only one sentence here.
+---
+
+## Content
+
+1. J Test. 2020 Jan;1(1):1-2. doi: 10.1000/test.
+
+Only one sentence here.
+
+Smith A(1).
+
+Yo [Purkinje cell antibody, type 1] syndrome affects women in the sixth decade
+and manifests as a subacute severe cerebellar ataxia.
+"""
+    cache_path = write_cache(tmp_path, body, name="PMID_4.md")
+
+    supporting_text = backfill.extract_supporting_text(
+        cache_path, "Only one sentence here."
+    )
+
+    assert supporting_text is not None
+    assert supporting_text.startswith("Yo [Purkinje cell antibody, type 1] syndrome")
 
 
 def test_translated_article_marker_is_stripped() -> None:

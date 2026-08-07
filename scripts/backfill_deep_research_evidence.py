@@ -46,8 +46,8 @@ LEADING_SUBSECTION_LABEL_RE = re.compile(
 # second header on the front of the snippet. These two peel the remainder off
 # generically instead of chasing every journal's header vocabulary. Both are
 # case-SENSITIVE on purpose: a sentence genuinely starting "And ..." is prose,
-# a leading "AND " is header debris.
-LEADING_CONJUNCTION_RE = re.compile(r"^AND\s+")
+# a leading all-caps "AND " (or "MATERIAL AND ") is header debris.
+LEADING_CONJUNCTION_RE = re.compile(r"^(?:[A-Z][A-Z0-9/&'()\-]*\s+)*AND\s+")
 # The section number of an MDPI-style structured abstract, left behind once the
 # label it introduced ("(1) Background:") has been stripped.
 LEADING_SECTION_NUMBER_RE = re.compile(r"^\(\d+\)\s+")
@@ -534,22 +534,41 @@ def strip_leading_title(candidate: str, title: str) -> str:
     return candidate
 
 
+def supporting_text_candidates(normalized: str, title: str) -> Iterable[str]:
+    for sentence in SENTENCE_SPLIT_RE.split(normalized):
+        candidate = strip_leading_section_labels(sentence.strip(" \"'"))
+        candidate = strip_leading_title(candidate, title)
+        if len(candidate) < 40:
+            continue
+        if candidate.lower().startswith(("author information", "copyright")):
+            continue
+        if is_bibliographic(candidate):
+            continue
+        if normalize_title(candidate) == normalize_title(title):
+            continue
+        yield candidate
+
+
 def extract_supporting_text(cache_path: Path, title: str) -> str | None:
+    """Pick the first sentence of the cached body that makes a claim.
+
+    Bracket-free sentences win a first pass. ``linkml-reference-validator``
+    treats ``[...]`` as an editorial insertion and strips it before matching, so
+    a quote whose brackets hold real content -- "SPAK [STE20/SPS1-related
+    proline/alanine-rich kinase]" -- fails to match the source it was copied
+    verbatim from. Where the paper offers an equally good sentence without
+    brackets, quoting that one keeps the evidence checkable.
+    """
     normalized = extract_cache_context(cache_path)
-    if normalized:
-        for sentence in SENTENCE_SPLIT_RE.split(normalized):
-            candidate = strip_leading_section_labels(sentence.strip(" \"'"))
-            candidate = strip_leading_title(candidate, title)
-            if len(candidate) < 40:
-                continue
-            if candidate.lower().startswith(("author information", "copyright")):
-                continue
-            if is_bibliographic(candidate):
-                continue
-            if normalize_title(candidate) == normalize_title(title):
-                continue
+    if not normalized:
+        return None
+    fallback: str | None = None
+    for candidate in supporting_text_candidates(normalized, title):
+        if "[" not in candidate and "]" not in candidate:
             return candidate
-    return None
+        if fallback is None:
+            fallback = candidate
+    return fallback
 
 
 def guess_evidence_source(
