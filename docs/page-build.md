@@ -103,15 +103,23 @@ Three mechanisms now close that gap:
    [#8033](https://github.com/monarch-initiative/dismech/issues/8033) and
    [PR #8140](https://github.com/monarch-initiative/dismech/pull/8140).
 
-   **Repair is proportional.** Pure staleness — the counts already agree and
-   re-rendering the drifted entries would land on exactly the stale pages — is
-   healed by rendering only those (measured: 1m28s for 29) rather than everything
-   (~30–60 min); the checker writes that worklist with `--stale-files-out` and
-   reports `heal=targeted`. A count mismatch, or an orphan page left by a
-   rename, reports `heal=full`, because only a full build prunes. A targeted
+   **Repair is proportional.** One question decides it: a targeted render
+   rewrites exactly the pages the drifted inputs map to, so is every stale page
+   one of those? If so the checker writes that worklist with `--stale-files-out`
+   and reports `heal=targeted`, and only those pages are rendered (measured:
+   1m28s for 29) rather than everything (~30–60 min). If not — a page left
+   orphaned by a rename or a deletion, which nothing in the render's output will
+   rewrite — it reports `heal=full`, because only a full build prunes. A targeted
    heal is re-checked afterwards and falls back to a full rebuild if drift
-   survives. Without the cheap path, a repo whose merges outpace a full build
-   would sit in permanent full-rebuild mode.
+   survives.
+
+   Note that counting inputs against pages is the right *drift* signal but the
+   wrong *repair* signal: it cannot tell an addition, which a targeted render
+   fixes, from a deletion, which it cannot. That distinction matters because
+   re-anchoring (2) makes a disorder added mid-build the common case, and gating
+   the cheap path on equal counts would make a second full rebuild the routine
+   response to the most routine event. Without the cheap path, a repo whose
+   merges outpace a full build would sit in permanent full-rebuild mode.
 2. **Re-anchoring the output on current `main`.** Immediately after rendering and
    *before* the drift check, the job commits the pages it rendered, fetches
    `main`, recreates `auto/generate-pages` at that new tip, and re-applies **only

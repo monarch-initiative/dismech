@@ -223,17 +223,20 @@ jobs:
           uv run python scripts/classify_page_build.py --check-page-drift \
             --github-output --stale-files-out "${{ runner.temp }}/stale_disorders.txt"
 
-      # Pure staleness — the counts already agree and re-rendering the drifted
-      # entries lands on exactly the stale pages — is repaired by rendering just
-      # those (measured: 1m28s for 29) instead of everything (~30-60 min). On a repo where
-      # merges land faster than a full build completes, healing at full cost every
-      # time would make this check too expensive to leave switched on.
+      # Drift whose every stale page is one the targeted render will rewrite —
+      # pure staleness, and a disorder added mid-build, which after the re-anchor
+      # above is the common case — is repaired by rendering just those entries
+      # (measured: 1m28s for 29) instead of everything (~30-60 min). On a repo
+      # where merges land faster than a full build completes, healing at full cost
+      # every time would make this check too expensive to leave switched on.
       - name: Heal page/KB drift (targeted re-render)
         if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal == 'targeted'
         run: just gen-pages-changed-from "${{ runner.temp }}/stale_disorders.txt"
 
-      # Anything a targeted render cannot fix — a count mismatch, or an orphan
-      # page left behind by a rename, which only a full build prunes.
+      # Anything a targeted render cannot fix: a page that nothing in the render's
+      # output set will rewrite, left by a rename or a deletion, and removable
+      # only by the prune a full build does. NOT every count mismatch — a disorder
+      # added mid-build also makes the counts disagree and is repaired above.
       - name: Heal page/KB drift (full rebuild)
         if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal != 'targeted'
         run: just gen-pages
