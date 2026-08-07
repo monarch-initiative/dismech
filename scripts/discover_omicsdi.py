@@ -83,6 +83,8 @@ OMICS_TYPE_TO_DATA_TYPE = {
     "proteomics": "PROTEOMICS",
 }
 
+HUMAN_PATTERN = re.compile(r"\b(?:homo sapiens|humans?)\b", re.IGNORECASE)
+
 ORGANISM_PATTERNS = (
     (
         re.compile(r"\bvero(?: cells?)?\b", re.IGNORECASE),
@@ -162,19 +164,46 @@ def infer_data_type(hit: dict) -> str:
     return ""
 
 
+def _match_organism(text: str) -> dict | None:
+    for pattern, preferred_term, taxon_id, label in ORGANISM_PATTERNS:
+        if pattern.search(text):
+            return {
+                "preferred_term": preferred_term,
+                "term": {"id": taxon_id, "label": label},
+            }
+    return None
+
+
 def infer_organism(hit: dict) -> dict | None:
-    """Return a conservative model-organism descriptor from OmicsDI metadata."""
+    """Return a conservative organism descriptor from OmicsDI metadata.
+
+    The title is a *fallback* for records whose ``organisms`` names only the
+    pathogen -- a viral study run in a host cell line, where the cell line is
+    the only species signal -- and never an override. A human study whose title
+    mentions a model system ("compared with a mouse model") would otherwise be
+    labelled with that model's taxon, since ``organisms`` asserting Homo sapiens
+    matched no pattern and fell through.
+    """
     organism_text = " ".join(
         str(item.get("name") or "") for item in hit.get("organisms") or []
     )
-    for text in (organism_text, str(hit.get("title") or "")):
-        for pattern, preferred_term, taxon_id, label in ORGANISM_PATTERNS:
-            if pattern.search(text):
-                return {
-                    "preferred_term": preferred_term,
-                    "term": {"id": taxon_id, "label": label},
-                }
-    return None
+
+    # Model organisms first: a record naming both a model and its human source
+    # (xenograft, patient-derived model) is a model-organism study.
+    match = _match_organism(organism_text)
+    if match:
+        return match
+
+    # Matched against `organisms` only, never the title: "human" appears in far
+    # too many titles to be evidence of what was sampled, whereas `organisms`
+    # naming Homo sapiens is a direct assertion and stops the title fallback.
+    if HUMAN_PATTERN.search(organism_text):
+        return {
+            "preferred_term": "human",
+            "term": {"id": "NCBITaxon:9606", "label": "Homo sapiens"},
+        }
+
+    return _match_organism(str(hit.get("title") or ""))
 
 
 def http_json(url: str, retries: int = 3):

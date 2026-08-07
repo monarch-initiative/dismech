@@ -180,6 +180,27 @@ def test_omicsdi_model_organism_uses_source_metadata():
     }
 
 
+def test_omicsdi_authoritative_human_beats_a_model_system_in_the_title():
+    hit = {
+        "title": "Proteomics of patient tumours compared with a mouse xenograft model",
+        "organisms": [{"name": "Homo sapiens"}],
+    }
+    assert infer_organism(hit) == {
+        "preferred_term": "human",
+        "term": {"id": "NCBITaxon:9606", "label": "Homo sapiens"},
+    }
+
+
+def test_omicsdi_named_model_organism_wins_over_its_human_source():
+    # Xenograft/patient-derived records name both; the model organism is the
+    # conservative answer, so pattern order must not be reversed by the fix.
+    hit = {
+        "title": "PDX panel",
+        "organisms": [{"name": "Homo sapiens"}, {"name": "Mus musculus"}],
+    }
+    assert infer_organism(hit)["term"]["id"] == "NCBITaxon:10090"
+
+
 def test_omicsdi_vero_title_maps_to_green_monkey():
     hit = {
         "title": "Chikungunya replication in Vero cells",
