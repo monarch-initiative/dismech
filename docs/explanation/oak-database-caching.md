@@ -38,7 +38,8 @@ own institution helps host. Every uncached download is **egress we are
 effectively paying for**. A single fresh runner re-pulling, say, `chebi.db`
 (~3.7 GB uncompressed) on every curation PR added up quickly across the many CI
 runs this repo does each week — which is why CHEBI, and the other large
-ontologies, are no longer fetched at all (see below).
+ontologies, are no longer fetched for term validation (see below; `hp.db` is
+still fetched by a separate path that bypasses the config).
 
 The heavy ones are now all handled: `conf/oak_config.yaml` routes the giants —
 NCBITaxon (~13.5 GB), CHEBI (~3.7 GB), NCIT (~2.7 GB), HP (~1.1 GB) — plus
@@ -63,8 +64,8 @@ called per HP id. It is reached by `just gen-browser-data` in
 running on every push to `main` that touches `kb/` — so `hp.db` (~1.1 GB) is
 still pulled cold on each run, and after the OLS migration that is plausibly the
 largest remaining bbop-sqlite egress from this repo. This is not a regression
-(it predates the migration) but it is the obvious next thing to fix, and it is
-tracked separately from the config-driven work. `scripts/validate_terms.py`,
+(it predates the migration) but it is the obvious next thing to fix, and is
+tracked in issue #8173. `scripts/validate_terms.py`,
 `src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py` bypass the config
 the same way, at much lower frequency.
 

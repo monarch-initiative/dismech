@@ -58,10 +58,13 @@ else
     # queued a 13.5 GB download for an ontology now served over OLS.
     #
     # Only treat '#' as a comment at start-of-line or after whitespace, so a '#'
-    # inside a quoted scalar is not mistaken for one. (No adapter string
-    # contains '#' today; this keeps that from silently mattering later.)
+    # inside a quoted scalar is not mistaken for one — which is also what YAML
+    # itself does. (No adapter string contains '#' today; this keeps that from
+    # silently mattering later.) `sed -E` because BRE `\|` alternation is a GNU
+    # extension: under BSD/macOS sed the strip would silently no-op and re-queue
+    # the very ncbitaxon download this exists to prevent.
     mapfile -t names < <(
-        sed 's/\(^\|[[:space:]]\)#.*/\1/' "$OAK_CONFIG" \
+        sed -E 's/(^|[[:space:]])#.*/\1/' "$OAK_CONFIG" \
             | grep -oE 'sqlite:obo:[a-z0-9_]+' \
             | sed 's|sqlite:obo:||' \
             | sort -u

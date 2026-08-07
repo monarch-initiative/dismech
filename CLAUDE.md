@@ -95,13 +95,13 @@ just --list
 
 ### Ontology Configuration (`conf/oak_config.yaml`)
 Maps ontology prefixes to OAK adapters for term validation:
-- HP, CL, PATO, CHEBI, ENVO, FOODON, GO, MONDO, UBERON, NCIT, NCBITaxon →
-  `ols:<name>` (EBI Ontology Lookup Service; avoids the large local builds — see
-  issue #5160 and the note at the bottom of `conf/oak_config.yaml`, which also
-  records the precondition for migrating a further prefix)
+- HP, CL, PATO, CHEBI, ENVO, FOODON, GO, MONDO, UBERON, NCBITaxon, and NCIT
+  (NCI Thesaurus, used for treatment/clinical-intervention and cancer concepts)
+  → `ols:<name>` (EBI Ontology Lookup Service; avoids the large local builds —
+  see issue #5160 and the note at the bottom of `conf/oak_config.yaml`, which
+  also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
-- NCIT (NCI Thesaurus) for treatment/clinical-intervention and cancer concepts
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
