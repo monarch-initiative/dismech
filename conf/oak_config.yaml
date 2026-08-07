@@ -95,17 +95,29 @@ ontology_adapters:
   # the migration begun for NCIT and NCBITaxon in issue #5160. With chebi gone,
   # no multi-GB build remains local.
   #
-  # This is cheap because term validation is cache-first: `cache/<prefix>/
-  # terms.csv` and the materialized `cache/enums/*.csv` answer almost every
-  # lookup, and OAK is consulted only for CURIEs not yet in those caches. The
-  # adapter string is not part of the enum-cache key, so switching it does not
-  # invalidate any committed cache.
+  # This is cheap because term validation is cache-first, via two caches that do
+  # different jobs and should not be conflated:
+  #
+  #   cache/<prefix>/terms.csv  LABEL cache. "This CURIE exists, and this is its
+  #                             canonical label." Says nothing about which enum a
+  #                             term may be used in. It accumulates every CURIE
+  #                             ever looked up, including ones a curator then
+  #                             rejected, so presence here is not endorsement.
+  #   cache/enums/*.csv         MEMBERSHIP cache. The materialized value set of
+  #                             one dynamic enum.
+  #
+  # OAK is consulted only for a CURIE missing from the relevant cache — and a
+  # `reachable_from` query specifically runs only when a value is used in a slot
+  # bound to that enum AND misses the enum cache. The adapter string is not part
+  # of the enum-cache key, so switching it does not invalidate any committed
+  # cache.
   #
   # THE PRECONDITION FOR MOVING A PREFIX HERE. OLS must agree with the local
   # build on two things: the canonical label, and whether its `rdfs:subClassOf`
   # ancestor closure reaches the enum source nodes that prefix is validated
-  # against. Both were checked term-by-term against `sqlite:obo:*` before each
-  # switch, with zero disagreements:
+  # against. What matters is that the two adapters AGREE, not what either says
+  # in isolation. Both were checked term-by-term against `sqlite:obo:*` before
+  # each switch, with zero disagreements:
   #
   #   HP     -> HP:0000118, HP:0000005      CL     -> CL:0000000
   #   CHEBI  -> CHEBI:24431                 ENVO   -> ENVO:01000254, ENVO:00010483,
@@ -117,10 +129,14 @@ ontology_adapters:
   # label lookup works (see the B-ALL/LBL history record). Re-run the comparison
   # before moving any further prefix here.
   #
-  # Note for FOODON: `FOODON:03311737` (processed food) and `FOODON:03310815`
-  # (soft drink) are in cache/foodon/terms.csv but are NOT reachable from
-  # FOODON:00001002 — in either adapter. They sit under `food material`, are
-  # unused by the KB, and are not evidence of an OLS defect.
+  # If you run that comparison by sampling CURIEs out of cache/<prefix>/
+  # terms.csv, expect some of them to be unreachable — that is the label cache,
+  # not a membership claim (see above), so it legitimately holds terms that are
+  # not valid values of the enum. `FOODON:03311737` (processed food) and
+  # `FOODON:03310815` (soft drink) are the examples here: real FOODON terms that
+  # sit under `food material` rather than under FOODON:00001002, so both
+  # adapters agree they are not FoodTerm values and using one in a `food_source`
+  # slot is correctly rejected. Only a local-vs-OLS *disagreement* is a finding.
   #
   # Trade-off: term validation for uncached CURIEs now depends on the network
   # and on OLS latency. Known symptom is an intermittent lookup timeout on a

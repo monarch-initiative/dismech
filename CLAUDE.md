@@ -102,8 +102,13 @@ Maps ontology prefixes to OAK adapters for term validation:
 - HGNC, GENO, ECTO, XCO, OPL, ICD → `sqlite:obo:<name>`
 - NCIT (NCI Thesaurus) for treatment/clinical-intervention and cancer concepts
 
-Term validation is cache-first (`cache/<prefix>/terms.csv` + `cache/enums/*.csv`),
-so an `ols:` prefix is consulted over the network only for a CURIE not yet cached.
+Term validation is cache-first, so an `ols:` prefix is consulted over the network
+only for a CURIE missing from the relevant cache. The two caches answer different
+questions and are not interchangeable: `cache/<prefix>/terms.csv` is a **label**
+cache (does this CURIE exist, and what is its canonical label), while
+`cache/enums/*.csv` is a **membership** cache (is this CURIE a valid value of a
+given dynamic enum). A term's presence in the label cache implies nothing about
+its enum membership.
 
 ### CURIE Prefix Casing
 
