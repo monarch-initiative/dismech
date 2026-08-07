@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13123394"
+reference_id: DOI:10.3390/jcm13123394
 title: A Case Study of a Rare Disease (Fructosemia) Diagnosed in a Patient with Abdominal Pain
 authors:
 - Leszek Garbowski
@@ -13,6 +13,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13123394
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Case Study of a Rare Disease (Fructosemia) Diagnosed in a Patient with Abdominal Pain

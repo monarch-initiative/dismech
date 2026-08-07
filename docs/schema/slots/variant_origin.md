@@ -22,8 +22,8 @@ Alias: variant_origin
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [GeneticContext](../classes/GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
 | [Genetic](../classes/Genetic.md) |  |  no  |
+| [GeneticContext](../classes/GeneticContext.md) | A structured description of a genetic context that modifies phenotype frequen... |  no  |
 
 
 

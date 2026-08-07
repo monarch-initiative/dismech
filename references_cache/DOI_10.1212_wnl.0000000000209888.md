@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.0000000000209888"
+reference_id: DOI:10.1212/wnl.0000000000209888
 title: Eculizumab Use in Neuromyelitis Optica Spectrum Disorders
 authors:
 - Marius Ringelstein
@@ -51,6 +51,7 @@ journal: Neurology
 year: '2024'
 doi: 10.1212/wnl.0000000000209888
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Eculizumab Use in Neuromyelitis Optica Spectrum Disorders

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1631/jzus.b2300779"
+reference_id: DOI:10.1631/jzus.b2300779
 title: Advancements in mechanisms and drug treatments for fibrodysplasia ossificans progressiva
 authors:
 - Yijun Zhou
@@ -9,6 +9,7 @@ journal: Journal of Zhejiang University-SCIENCE B
 year: '2025'
 doi: 10.1631/jzus.b2300779
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Advancements in mechanisms and drug treatments for fibrodysplasia ossificans progressiva

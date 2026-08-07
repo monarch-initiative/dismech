@@ -37,7 +37,7 @@ This project focuses on disorders commonly managed in neonatal intensive care un
 
 - Curate NICU-relevant diseases with evidence-backed pathophysiology
 - Map neonatal phenotypes to HPO terms
-- Annotate treatments with MAXO terms
+- Annotate treatments with NCIT terms
 - Provide PMID-supported evidence for all claims
 
 ## Target Conditions (NICU Core)
@@ -131,6 +131,6 @@ This project focuses on disorders commonly managed in neonatal intensive care un
 ## Curation Workflow
 
 1. Create YAML file in `kb/disorders/`
-2. Validate with `just validate` and `just validate-references`
-3. Validate terms with `just validate-terms-file`
+2. Validate with `just validate <file>` and `just validate-references <file>`
+3. Validate terms with `just validate-terms <file>`
 4. Run `just qc` before committing

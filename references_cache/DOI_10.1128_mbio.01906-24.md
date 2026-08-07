@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1128/mbio.01906-24"
-title: "Gut microbiota-derived butyrate improved acute leptospirosis in hamster
-            <i>via</i>
-            promoting macrophage ROS mediated by HDAC3 inhibition"
+reference_id: DOI:10.1128/mbio.01906-24
+title: "Gut microbiota-derived butyrate improved acute leptospirosis in hamster <i>via</i> promoting macrophage ROS mediated by HDAC3 inhibition"
 authors:
 - Xi Chen
 - Xufeng Xie
@@ -15,11 +13,10 @@ journal: mBio
 year: '2024'
 doi: 10.1128/mbio.01906-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Gut microbiota-derived butyrate improved acute leptospirosis in hamster
-            <i>via</i>
-            promoting macrophage ROS mediated by HDAC3 inhibition
+# Gut microbiota-derived butyrate improved acute leptospirosis in hamster <i>via</i> promoting macrophage ROS mediated by HDAC3 inhibition
 **Authors:** Xi Chen, Xufeng Xie, Ni Sun, Xin Liu, Jiuxi Liu, Wenlong Zhang, Yongguo Cao
 **Journal:** mBio (2024)
 **DOI:** [10.1128/mbio.01906-24](https://doi.org/10.1128/mbio.01906-24)

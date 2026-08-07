@@ -12,9 +12,9 @@ Exit code 2 blocks the operation in PreToolUse hooks.
 https://docs.claude.com/en/docs/claude-code/hooks#exit-code-2-behavior
 """
 
-import sys
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -78,6 +78,7 @@ def validate_content(
             capture_output=True,
             text=True,
             cwd=project_root,
+            check=False,
         )
 
         output = result.stdout + result.stderr

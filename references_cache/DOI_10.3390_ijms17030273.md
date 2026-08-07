@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms17030273"
+reference_id: DOI:10.3390/ijms17030273
 title: "The Immunology of Neuromyelitis Optica—Current Knowledge, Clinical Implications, Controversies and Future Perspectives"
 authors:
 - Michalina Jasiak-Zatonska
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2016'
 doi: 10.3390/ijms17030273
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Immunology of Neuromyelitis Optica—Current Knowledge, Clinical Implications, Controversies and Future Perspectives

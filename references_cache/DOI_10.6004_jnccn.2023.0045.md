@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.6004/jnccn.2023.0045"
+reference_id: DOI:10.6004/jnccn.2023.0045
 title: "Mesothelioma: Peritoneal, Version 2.2023, NCCN Clinical Practice Guidelines in Oncology"
 authors:
 - David S. Ettinger
@@ -49,6 +49,7 @@ journal: Journal of the National Comprehensive Cancer Network
 year: '2023'
 doi: 10.6004/jnccn.2023.0045
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mesothelioma: Peritoneal, Version 2.2023, NCCN Clinical Practice Guidelines in Oncology
