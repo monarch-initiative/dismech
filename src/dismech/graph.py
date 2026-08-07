@@ -67,6 +67,27 @@ NODE_COLORS = {
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
 
+# EnvironmentalEffectEnum value to pathograph edge predicate. A protective or
+# merely predisposing exposure must not be drawn as if it triggered the
+# mechanism, so the effect is carried in the predicate itself.
+ENVIRONMENTAL_EFFECT_PREDICATES = {
+    "TRIGGERS": "triggers",
+    "EXACERBATES": "exacerbates",
+    "PREDISPOSES": "predisposes_to",
+    "PROTECTS_AGAINST": "protects_against",
+    "MODULATES": "modulates",
+}
+
+# Used when environmental_effect is absent: a direction-neutral link, so an
+# unqualified exposure is never silently asserted to be causative.
+DEFAULT_ENVIRONMENTAL_PREDICATE = "influences"
+
+# Every predicate an environmental edge can carry, for consumers that reason
+# about them as a group (export styling, QC coverage) rather than one at a time.
+ENVIRONMENTAL_PREDICATES: frozenset[str] = frozenset(
+    ENVIRONMENTAL_EFFECT_PREDICATES.values()
+) | {DEFAULT_ENVIRONMENTAL_PREDICATE}
+
 
 def _sanitize_node_id(name: str) -> str:
     """Convert a node name to a valid Mermaid node ID."""
@@ -379,6 +400,31 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         ),
                     )
                 )
+
+    # Collect edges from environmental factors to the mechanisms they act on
+    for item in disorder.get("environmental", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("name")
+        if not source:
+            continue
+
+        for link in item.get("influences_mechanisms", []) or []:
+            if not isinstance(link, dict) or "target" not in link:
+                continue
+            graph.edges.append(
+                Edge(
+                    source=source,
+                    target=str(link["target"]),
+                    predicate=ENVIRONMENTAL_EFFECT_PREDICATES.get(
+                        link.get("environmental_effect"),
+                        DEFAULT_ENVIRONMENTAL_PREDICATE,
+                    ),
+                    source_type="environmental",
+                    description=link.get("description"),
+                    causal_link_type=link.get("causal_link_type"),
+                )
+            )
 
     # Collect edges from treatment links
     for item in disorder.get("treatments", []) or []:
@@ -1295,4 +1341,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
