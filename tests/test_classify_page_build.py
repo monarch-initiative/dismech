@@ -1,5 +1,6 @@
 """Tests for the full-vs-incremental page-build classifier (issue #5507)."""
 
+import argparse
 import hashlib
 import importlib.util
 import sys
@@ -390,3 +391,96 @@ def test_missing_directory_forces_full_heal(tmp_path):
     disorders_dir, pages_dir = _make_tree(tmp_path, ["Asthma"], ["Asthma"])
     assert plan_heal(disorders_dir, tmp_path / "nope") == ("full", [])
     assert plan_heal(tmp_path / "nope", pages_dir) == ("full", [])
+
+
+def test_precomputed_content_drift_is_honoured(tmp_path):
+    # The reporter scans the ~1,900-page tree once and threads the result into
+    # both questions; passing it must give the same answers as recomputing.
+    disorders_dir, pages_dir = _make_tree(
+        tmp_path,
+        ["Asthma", "Sarcoidosis"],
+        ["Asthma", "Sarcoidosis"],
+        stale=["Sarcoidosis"],
+    )
+    precomputed = detect_page_content_drift(disorders_dir, pages_dir)
+    assert detect_page_drift(disorders_dir, pages_dir, precomputed) == (
+        detect_page_drift(disorders_dir, pages_dir)
+    )
+    assert plan_heal(disorders_dir, pages_dir, precomputed) == (
+        plan_heal(disorders_dir, pages_dir)
+    )
+
+
+def test_revision_in_yaml_body_does_not_shadow_the_real_stamp(tmp_path):
+    """The template emits the source YAML *before* the OS_CONFIG stamp.
+
+    A KB entry whose own text contained a ``yamlRevision`` line would otherwise
+    be read as the page's stamp — a silent wrong answer rather than an error.
+    """
+    decoy = hashlib.sha256(b"not the real source").hexdigest()[:12]
+    yaml_text = f'name: Asthma\nnotes: \'"yamlRevision": "{decoy}"\'\n'
+    real = hashlib.sha256(yaml_text.encode()).hexdigest()[:12]
+    page = (
+        f'<pre class="yaml-preview">"yamlRevision": "{decoy}"</pre>'
+        f'<script>const OS_CONFIG = {{"yamlRevision": "{real}"}};</script>'
+    )
+    assert extract_page_revision(page) == real
+
+
+# --- the exact strings the workflow consumes --------------------------------
+
+
+def _run_report(tmp_path, monkeypatch, disorders_dir, pages_dir):
+    """Invoke the reporter the way the workflow does and capture its outputs."""
+    github_output = tmp_path / "github_output"
+    github_output.write_text("")
+    stale_files = tmp_path / "stale.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(github_output))
+    args = argparse.Namespace(
+        disorders_dir=disorders_dir,
+        pages_dir=pages_dir,
+        github_output=True,
+        stale_files_out=str(stale_files),
+    )
+    assert classify_page_build._report_page_drift(args) == 0
+    outputs = dict(
+        line.split("=", 1)
+        for line in github_output.read_text().splitlines()
+        if "=" in line
+    )
+    return outputs, stale_files.read_text()
+
+
+def test_report_emits_targeted_heal_and_worklist(tmp_path, monkeypatch):
+    disorders_dir, pages_dir = _make_tree(
+        tmp_path,
+        ["Asthma", "Sarcoidosis"],
+        ["Asthma", "Sarcoidosis"],
+        stale=["Sarcoidosis"],
+    )
+    outputs, worklist = _run_report(tmp_path, monkeypatch, disorders_dir, pages_dir)
+    assert outputs["drift"] == "true"
+    assert outputs["heal"] == "targeted"
+    # gen-pages-changed-from consumes this file verbatim, one path per line.
+    assert worklist.splitlines() == [str(disorders_dir / "Sarcoidosis.yaml")]
+
+
+def test_report_emits_full_heal_and_empty_worklist_for_a_rename(
+    tmp_path, monkeypatch
+):
+    disorders_dir, pages_dir = _make_tree(tmp_path, ["New_Name"], ["Old_Name"])
+    outputs, worklist = _run_report(tmp_path, monkeypatch, disorders_dir, pages_dir)
+    assert outputs["drift"] == "true"
+    assert outputs["heal"] == "full"
+    # Empty, not stale: the targeted step is skipped, so nothing may leak into it.
+    assert worklist == ""
+
+
+def test_report_emits_none_heal_on_a_healthy_tree(tmp_path, monkeypatch):
+    disorders_dir, pages_dir = _make_tree(tmp_path, ["Asthma"], ["Asthma"])
+    outputs, worklist = _run_report(tmp_path, monkeypatch, disorders_dir, pages_dir)
+    assert outputs["drift"] == "false"
+    # Neither heal step should fire; "none" says that, where "targeted" implied
+    # a repair was pending.
+    assert outputs["heal"] == "none"
+    assert worklist == ""

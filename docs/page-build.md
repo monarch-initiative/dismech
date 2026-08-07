@@ -95,7 +95,7 @@ Two mechanisms now close that gap:
 
    **Repair is proportional.** Pure staleness — the counts already agree and
    re-rendering the drifted entries would land on exactly the stale pages — is
-   healed by rendering only those (~3 min for 29) rather than everything
+   healed by rendering only those (measured: 1m28s for 29) rather than everything
    (~30–60 min); the checker writes that worklist with `--stale-files-out` and
    reports `heal=targeted`. A count mismatch, or an orphan page left by a
    rename, reports `heal=full`, because only a full build prunes. A targeted

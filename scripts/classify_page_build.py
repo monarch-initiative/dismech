@@ -57,7 +57,7 @@ page whose content predates its YAML while the file counts stay perfectly equal
 from ``main``'s already-stale pages on every subsequent run and force-pushed over
 whatever a full rebuild had corrected.
 
-That is not hypothetical: on 2026-08-07 it left 38 disorder pages stale (1871
+That is not hypothetical: on 2026-08-07 it left 29 disorder pages stale (1871
 YAMLs, 1871 pages, zero count drift) including the whole environmental-pathograph
 backfill of #8085, and destroyed a manually dispatched full rebuild that had
 already fixed them (#8140). With tier 2, the next run after any such regression
@@ -68,6 +68,12 @@ self-healing: a stale snapshot can still be published, but it can no longer
 The check runs *after* rendering on purpose. Before the render, a push that adds
 a disorder always shows one more YAML than page, so a pre-render check would
 escalate every curation push to full and defeat the incremental build entirely.
+
+Note this module is no longer stdlib-only: heal planning has to predict page
+filenames, so it imports the renderer's own ``slugify`` rather than keeping a
+private copy that could silently diverge from it. Both call sites (the workflow
+and the test suite) run under ``uv`` with the project synced, so ``dismech`` is
+importable; run it the same way.
 """
 
 from __future__ import annotations
@@ -250,13 +256,21 @@ _MAX_NAMED_DRIFT = 12
 def extract_page_revision(page_text: str) -> str | None:
     """Return the source-YAML revision stamp a rendered disorder page carries.
 
+    Takes the **last** match, not the first. The template emits the verbatim
+    source YAML (``yaml-preview``) *before* the ``OS_CONFIG`` block that carries
+    the stamp, so a KB entry whose own text happened to contain
+    ``"yamlRevision": "<hex>"`` would otherwise shadow the real one. No page in
+    the KB does today — all 1,871 yield exactly one match — but the failure
+    would be a silent wrong answer rather than an error, so it is worth not
+    depending on that.
+
     ``None`` when the page has no stamp — a page rendered before the stamp
     existed, or a truncated write. The caller treats that as drift rather than
     as a pass: a page that cannot prove it is current is assumed stale, which
-    costs one full rebuild and then self-corrects.
+    costs one re-render and then self-corrects.
     """
-    match = _YAML_REVISION_RE.search(page_text)
-    return match.group(1) if match else None
+    matches = _YAML_REVISION_RE.findall(page_text)
+    return matches[-1] if matches else None
 
 
 def _digest(text: str) -> str:
@@ -304,7 +318,11 @@ def detect_page_content_drift(
     return stale, unrendered
 
 
-def detect_page_drift(disorders_dir: Path, pages_dir: Path) -> str | None:
+def detect_page_drift(
+    disorders_dir: Path,
+    pages_dir: Path,
+    content_drift: tuple[list[str], list[str]] | None = None,
+) -> str | None:
     """Return a reason to force a full build when pages have drifted from the KB.
 
     Two tiers, cheapest first (see the module docstring). Tier 1 compares counts:
@@ -312,6 +330,11 @@ def detect_page_drift(disorders_dir: Path, pages_dir: Path) -> str | None:
     the KB and the rendered page set are 1:1 in a healthy tree *once the current
     build's pages have been written*. Tier 2 compares content, catching the stale
     page that keeps the counts equal. A missing directory fails safe to full.
+
+    ``content_drift`` accepts an already-computed
+    :func:`detect_page_content_drift` result so a caller that also needs it for
+    logging or heal planning reads the ~1,900-page tree once instead of once per
+    question. Omit it and it is computed on demand.
     """
     if not pages_dir.is_dir():
         return f"rendered pages directory missing: {pages_dir}"
@@ -325,7 +348,11 @@ def detect_page_drift(disorders_dir: Path, pages_dir: Path) -> str | None:
             f"{n_pages} {pages_dir}/*.html (delta {n_inputs - n_pages:+d})"
         )
 
-    stale, unrendered = detect_page_content_drift(disorders_dir, pages_dir)
+    stale, unrendered = (
+        content_drift
+        if content_drift is not None
+        else detect_page_content_drift(disorders_dir, pages_dir)
+    )
     if stale or unrendered:
         named = ", ".join(stale[:_MAX_NAMED_DRIFT])
         if len(stale) > _MAX_NAMED_DRIFT:
@@ -353,14 +380,19 @@ def _expected_page_name(disorder_path: Path) -> str | None:
     return f"{slugify(name)}.html" if name else None
 
 
-def plan_heal(disorders_dir: Path, pages_dir: Path) -> tuple[str, list[str]]:
+def plan_heal(
+    disorders_dir: Path,
+    pages_dir: Path,
+    content_drift: tuple[list[str], list[str]] | None = None,
+) -> tuple[str, list[str]]:
     """Decide how to repair detected drift, and with which inputs.
 
     Returns ``(strategy, disorder_paths)`` where strategy is ``"targeted"`` or
     ``"full"``. A full rebuild repairs anything but costs 30-60 minutes; simply
-    re-rendering the stale entries took ~3 minutes for 37 of them. Since drift
-    is now detected on a busy repo far more often than it used to be, healing at
-    full cost every time would make the fix too expensive to keep switched on.
+    re-rendering the stale entries was measured at 1m28s for the 29 that the
+    2026-08-07 incident left behind. Since drift is now detected on a busy repo
+    far more often than it used to be, healing at full cost every time would
+    make the fix too expensive to keep switched on.
 
     ``targeted`` is only offered for the case it provably covers: pure staleness,
     where the counts already agree *and* re-rendering the unrendered inputs would
@@ -373,13 +405,20 @@ def plan_heal(disorders_dir: Path, pages_dir: Path) -> tuple[str, list[str]]:
 
     Callers should still re-check after a targeted heal and escalate if drift
     survives; this predicts the repair, it does not verify it.
+
+    ``content_drift`` reuses an already-computed
+    :func:`detect_page_content_drift` result, as in :func:`detect_page_drift`.
     """
     if not pages_dir.is_dir() or not disorders_dir.is_dir():
         return "full", []
     if count_disorder_inputs(disorders_dir) != count_rendered_pages(pages_dir):
         return "full", []
 
-    stale, unrendered = detect_page_content_drift(disorders_dir, pages_dir)
+    stale, unrendered = (
+        content_drift
+        if content_drift is not None
+        else detect_page_content_drift(disorders_dir, pages_dir)
+    )
     if not stale and not unrendered:
         return "targeted", []
     if len(stale) != len(unrendered):
@@ -428,21 +467,30 @@ def _git_name_status(base: str, head: str) -> list[tuple[str, str]]:
 
 def _report_page_drift(args: argparse.Namespace) -> int:
     """Run the standalone post-render drift check and report it to the workflow."""
-    drift = detect_page_drift(args.disorders_dir, args.pages_dir)
-    heal, heal_files = ("targeted", [])
+    # Scanned once and threaded through both questions below: the tree is ~1,900
+    # pages, and asking "is there drift", "which pages" and "how do we repair it"
+    # separately would read all of them three times.
+    content_drift = (
+        detect_page_content_drift(args.disorders_dir, args.pages_dir)
+        if args.disorders_dir.is_dir() and args.pages_dir.is_dir()
+        else None
+    )
+
+    drift = detect_page_drift(args.disorders_dir, args.pages_dir, content_drift)
+    heal, heal_files = ("none", [])
     if drift:
         print(f"[drift] {drift}", file=sys.stderr)
         # The summary truncates; CI logs are the only place a curator can see
         # which pages were actually stale, so name every one of them here.
-        if args.disorders_dir.is_dir() and args.pages_dir.is_dir():
-            stale, unrendered = detect_page_content_drift(
-                args.disorders_dir, args.pages_dir
-            )
+        if content_drift is not None:
+            stale, unrendered = content_drift
             for name in stale:
                 print(f"[drift]   stale page: {name}", file=sys.stderr)
             for name in unrendered:
                 print(f"[drift]   unrendered input: {name}", file=sys.stderr)
-        heal, heal_files = plan_heal(args.disorders_dir, args.pages_dir)
+        heal, heal_files = plan_heal(
+            args.disorders_dir, args.pages_dir, content_drift
+        )
         if heal == "targeted" and heal_files:
             print(
                 f"[drift] repairable by re-rendering {len(heal_files)} stale "
@@ -502,9 +550,11 @@ def main() -> int:
         action="store_true",
         help=(
             "Post-render mode: ignore the diff and report whether the rendered "
-            "page count matches the disorder-YAML count. Emits drift=true|false "
-            "(with --github-output) so the workflow can escalate to a full "
-            "rebuild. Exit code is 0 either way; drift is a signal, not an error."
+            "pages still match the disorder KB, by count AND by each page's "
+            "embedded source-YAML revision stamp (a page can be present but "
+            "stale). Emits drift=true|false plus heal=targeted|full|none (with "
+            "--github-output) so the workflow can repair proportionally. Exit "
+            "code is 0 either way; drift is a signal, not an error."
         ),
     )
     parser.add_argument(
