@@ -35,7 +35,12 @@ LEADING_SECTION_LABEL_RE = re.compile(
     re.IGNORECASE,
 )
 LEADING_SUBSECTION_LABEL_RE = re.compile(
-    r"^(?:background(?:/introduction)?|context and justification|purpose|objectives?|"
+    # The optional leading "and" catches the second half of a compound header
+    # once the first half has been peeled ("Background and Aims" -> "and Aims").
+    # Safe at any case because a label word must follow: "TP53 and other tumour
+    # suppressors" is not touched.
+    r"^(?:and\s+)?"
+    r"(?:background(?:/introduction)?|context and justification|purpose|objectives?|"
     r"methods(?: and main results)?|results?|conclusions?|discussion|introduction|aims?)"
     r"\s*[:/\-]?\s*",
     re.IGNORECASE,
