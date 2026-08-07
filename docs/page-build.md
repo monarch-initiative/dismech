@@ -79,6 +79,13 @@ Three mechanisms now close that gap:
      as `yamlRevision` — so comparing that stamp against a fresh digest of the
      file says whether a page is *current*, not merely *present*.
 
+     Note what that stamp covers: the **source YAML**, not the renderer. A
+     template, CSS, or `render.py` change merging mid-build leaves every stamp
+     matching while every page is out of date, so the drift check will report
+     clean. That case is handled upstream instead — any change under `src/**`
+     classifies the *next* build as `full` (see "How the mode is decided"), which
+     re-renders everything regardless.
+
    The check runs *after* rendering on purpose — before it, every
    disorder-adding push looks drifted and would escalate.
 

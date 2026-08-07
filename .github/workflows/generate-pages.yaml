@@ -159,6 +159,7 @@ jobs:
       # lease was legitimately current. What was stale was the page content it
       # rebuilt from main, not its view of the branch.
       - name: Re-anchor generated output on current main
+        shell: bash
         env:
           BRANCH_NAME: auto/generate-pages
         run: |
@@ -175,7 +176,13 @@ jobs:
           git commit -q -m "wip: rendered pages" || echo "no page changes to park"
           PARKED="$(git rev-parse HEAD)"
 
-          git fetch --no-tags origin main
+          # Explicit refspec, and it must stay scoped to main. Relying on git's
+          # opportunistic remote-tracking update would fail as a silent no-op that
+          # still reports success; and a bare `git fetch` would also refresh
+          # refs/remotes/origin/auto/generate-pages, which is the ref the
+          # --force-with-lease at the push step compares against — quietly turning
+          # the lease into an unconditional force.
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
           if [ "$(git rev-parse origin/main)" = "$BASE" ]; then
             echo "main did not move during this build."
           else
@@ -296,6 +303,14 @@ jobs:
           # it at HEAD was how the branch came to sit on this job's original
           # checkout, which is what made merging its PR revert pages that a later
           # regen had already corrected on main.
+          #
+          # Since that safety net is gone, assert the invariant rather than
+          # force-pushing whatever branch we happen to be standing on.
+          CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+            echo "Expected to be on $BRANCH_NAME after the re-anchor step, but HEAD is $CURRENT_BRANCH." >&2
+            exit 1
+          fi
 
           git add pages/ app/data.js pathographs/ dashboard/ elements/
 

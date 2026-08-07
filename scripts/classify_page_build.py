@@ -394,14 +394,27 @@ def plan_heal(
     far more often than it used to be, healing at full cost every time would
     make the fix too expensive to keep switched on.
 
-    ``targeted`` is only offered for the case it provably covers: pure staleness,
-    where the counts already agree *and* re-rendering the unrendered inputs would
-    write exactly the pages currently flagged stale. That last condition is the
-    one that matters — equal counts alone are not enough. A rename produces one
-    stale page and one unrendered input too, but re-rendering the input writes a
-    page under the *new* slug and leaves the old one orphaned, turning a content
-    mismatch into a count mismatch. Only a full build prunes, so renames, count
-    mismatches, and unreadable inputs all fall back to ``full``.
+    The whole decision is one question: **a targeted render rewrites exactly the
+    pages the unrendered inputs map to, so is every stale page one of those?** If
+    a stale page is not going to be rewritten, it survives the repair as an orphan
+    and only a full build — which prunes — can clear it.
+
+    That single subset test subsumes the cases it is tempting to special-case:
+
+    - *Pure staleness* (a page whose source moved on): the drifted input maps
+      straight back onto the stale page. Targeted.
+    - *A disorder added mid-build*: nothing is stale, one input has no page yet.
+      The empty set is a subset of anything, so this is targeted — and it matters,
+      because re-anchoring makes a mid-build addition the *common* case, and
+      gating on equal counts would have made a second full rebuild the common
+      response to it.
+    - *A rename*: one stale page, one unrendered input, but the input writes the
+      *new* slug and leaves the old page orphaned. Not a subset. Full.
+    - *A deletion*: the page outlives its input, nothing will rewrite it. Full.
+
+    Counting inputs against pages is the right *drift* signal (see
+    :func:`detect_page_drift`) but the wrong *repair* signal: it cannot tell an
+    addition, which a targeted render fixes, from a deletion, which it cannot.
 
     Callers should still re-check after a targeted heal and escalate if drift
     survives; this predicts the repair, it does not verify it.
@@ -411,8 +424,6 @@ def plan_heal(
     """
     if not pages_dir.is_dir() or not disorders_dir.is_dir():
         return "full", []
-    if count_disorder_inputs(disorders_dir) != count_rendered_pages(pages_dir):
-        return "full", []
 
     stale, unrendered = (
         content_drift
@@ -421,8 +432,6 @@ def plan_heal(
     )
     if not stale and not unrendered:
         return "targeted", []
-    if len(stale) != len(unrendered):
-        return "full", []
 
     expected_pages: set[str] = set()
     for name in unrendered:
@@ -430,7 +439,7 @@ def plan_heal(
         if page_name is None:
             return "full", []
         expected_pages.add(page_name)
-    if expected_pages != set(stale):
+    if not set(stale) <= expected_pages:
         return "full", []
 
     return "targeted", [str(disorders_dir / name) for name in unrendered]
