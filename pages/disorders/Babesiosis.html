@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 38</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 40</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Babesiosis"
@@ -3470,6 +3699,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3539,10 +3770,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">38</div>
+                <div class="stat-value">40</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -5811,7 +6043,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anorexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of appetite can accompany the febrile systemic illness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002039\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arthralgia is a frequent musculoskeletal symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Atovaquone plus azithromycin pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atovaquone plus azithromycin is the preferred combination for most symptomatic babesiosis. A randomized trial in non-life-threatening disease found efficacy comparable to clindamycin plus quinine with fewer adverse reactions.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atovaquone\", \"azithromycin\"]}}, {\"id\": \"Babesia DNA detected by nucleic acid amplification\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"POSITIVE\", \"readouts\": [{\"target\": \"Intraerythrocytic invasion and asexual replication\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Babesia DNA in blood directly reports current or recently active blood-stage infection in the appropriate clinical context.\"}, {\"target\": \"Impaired host clearance and persistent parasitemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Persistent Babesia DNA can reveal residual infection when smear parasitemia is difficult to detect.\"}]}}, {\"id\": \"Babesia-mediated erythrocyte lysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destruction of infected erythrocytes produces hemolysis, anemia, bilirubin generation, and downstream systemic manifestations. Babesiosis reaches the conserved premature-erythrocyte-destruction step by an infectious route: intraerythrocytic parasite replication lyses the host cell directly, and splenic macrophages additionally remove parasitized red cells. The destruction step, not the upstream cause, is what this entry shares with the hereditary and autoimmune hemolytic anemias.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"symbiont-mediated hemolysis of host erythrocyte\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Clindamycin plus quinine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clindamycin plus quinine is an alternative combination, including when the preferred regimen cannot be used; the randomized comparison documented a substantially higher adverse-effect burden.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"clindamycin\", \"quinine\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma represents the severe end of the altered-mental-status spectrum in complicated babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Confusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Confusion is an occasional neurologic manifestation of severe disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Continuous Babesia duncani culture in human erythrocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A continuous human-erythrocyte culture system supports B. duncani development and drug-susceptibility testing and connects to a controlled mouse infection model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Babesia duncani-infected erythrocytes\"], \"publication\": \"PMID:35512141\"}}, {\"id\": \"Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough is a frequent respiratory symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Disseminated intravascular coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated intravascular coagulopathy is an occasional severe hematologic complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005521\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue is a frequent constitutional symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a very frequent manifestation of symptomatic babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is a very frequent symptom in babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolytic anemia is a core clinical manifestation caused by erythrocyte infection and lysis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hemolytic laboratory pattern\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Babesia-mediated erythrocyte lysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Laboratory evidence of red-cell destruction reports the hemolytic mechanism.\"}]}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic failure is an occasional severe complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly is a frequent hepatobiliary finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sweating or hyperhidrosis is a frequent constitutional manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Impaired host clearance and persistent parasitemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asplenia, advanced age, and immunosuppressive disease or therapy impair parasite clearance, enabling persistent or relapsing infection and raising the risk of high parasite burden. The specific risk set is informative about which defenses matter: asplenia removes the filtration site for parasitized erythrocytes, while B-cell lymphoma and rituximab \\u2014 singled out by CDC \\u2014 implicate humoral immunity alongside the CD4/IFN-gamma cellular arm demonstrated in mouse models. Congestive heart failure appears on the severe-disease risk list as a host vulnerability, not as a manifestation.\", \"meta\": {\"evidence_count\": 4, \"role\": \"MODIFIER\"}}, {\"id\": \"Intraerythrocytic invasion and asexual replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Babesia invades human erythrocytes and replicates asexually, generating intraerythrocytic parasites and measurable parasitemia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"CENTRAL_EFFECTOR\", \"experimental_models\": [{\"name\": \"Continuous Babesia duncani culture in human erythrocytes\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The primary-cell system directly propagates and measures the human erythrocytic parasite phase.\"}]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice is a frequent hepatobiliary manifestation, consistent with hemolysis and hepatic involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Leukopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukopenia can occur as part of the hematologic abnormality spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001882\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myalgia is a frequent symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Myocardial infarction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial infarction is reported among the severe complications of babesiosis, plausibly reflecting the combination of profound hemolytic anemia, hemodynamic instability, and systemic inflammatory activation rather than a Babesia-specific coronary mechanism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001658\"}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea and vomiting can occur as gastrointestinal symptoms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002017\"}}, {\"id\": \"Parasitemia-associated multisystem dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Higher peak parasitemia is strongly associated with hemolysis, coagulopathy, longer hospitalization, and pulmonary, renal, and hepatic dysfunction, but parasite percentage is not the sole determinant of organ injury.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Peripheral blood parasitemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Intraerythrocytic invasion and asexual replication\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The infected-erythrocyte fraction reports the burden of the intraerythrocytic parasite phase.\"}, {\"target\": \"Parasitemia-associated multisystem dysfunction\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"Increasing peak parasitemia generally tracks with increasing disease severity, but is not sufficient alone for risk classification.\"}]}}, {\"id\": \"Prolonged combination therapy for highly immunocompromised patients\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Highly immunocompromised patients may need at least six consecutive weeks of combination therapy, close clinical and laboratory follow-up, and continuation until blood smears are negative for two consecutive weeks.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent or relapsing infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent, relapsing, or persistent infection can occur, especially in splenectomized or immunosuppressed patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Red blood cell exchange transfusion for selected severe babesiosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Red blood cell exchange may be considered with high-grade parasitemia or substantial parasite burden accompanied by severe hemolytic anemia or pulmonary, renal, or hepatic decline. Parasitemia must be interpreted with clinical status.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal insufficiency can occur in severe babesiosis with end-organ dysfunction.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency can occur with severe end-organ dysfunction.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Splenic macrophage and Th1-mediated parasite clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The spleen filters parasitized erythrocytes, while macrophage and CD4 T-cell/IFN-gamma responses contribute to control. The detailed cellular mechanism is supported primarily by mouse models and is therefore not assumed to transfer quantitatively to humans.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"CD4-positive, alpha-beta T cell\"], \"role\": \"REGULATORY\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is a frequent finding in babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Systemic inflammation and cytopenias\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blood-stage infection and erythrocyte destruction are accompanied by cytokine activation and hematologic abnormalities, producing the febrile, flu-like syndrome and cytopenias. Cytokine-pathway detail is largely model-derived.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia is a common hematologic abnormality in babesiosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tick- or blood-mediated Babesia host entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tick inoculation most often initiates infection, while transfusion, congenital transmission, and organ transplantation can introduce parasites without the arthropod phase.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"symbiont entry into host\"], \"role\": \"TRIGGER\"}}], \"edges\": [{\"source\": \"Tick- or blood-mediated Babesia host entry\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Host entry seeds parasites that establish the human erythrocytic phase.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Babesia-mediated erythrocyte lysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular parasite replication culminates in destruction of infected erythrocytes.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Splenic macrophage and Th1-mediated parasite clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blood-stage infection elicits splenic and cell-mediated clearance responses.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Recognition and removal of parasitized erythrocytes\", \"CD4 T-cell and interferon-gamma activation\"]}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Impaired host clearance and persistent parasitemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In vulnerable hosts, blood-stage parasites persist when splenic or immune clearance is inadequate.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced splenic filtration\", \"Impaired humoral or cell-mediated immunity\"]}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Systemic inflammation and cytopenias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythrocyte destruction accompanies febrile systemic illness and hematologic abnormalities.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release of parasite and erythrocyte products\", \"Innate immune and cytokine activation\"]}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destruction of infected red cells directly produces hemolytic anemia.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemolysis increases bilirubin production and contributes to jaundice.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Heme catabolism and bilirubin generation\"]}, {\"source\": \"Splenic macrophage and Th1-mediated parasite clearance\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic immune and clearance activity is accompanied by organ enlargement.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Splenic macrophage expansion\", \"Erythrophagocytosis and hematopoietic support\"]}, {\"source\": \"Impaired host clearance and persistent parasitemia\", \"target\": \"Parasitemia-associated multisystem dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent infection permits parasite burden and associated organ injury to accumulate.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sustained intraerythrocytic replication\", \"Accumulating hemolytic and inflammatory injury\"]}, {\"source\": \"Impaired host clearance and persistent parasitemia\", \"target\": \"Recurrent or relapsing infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete parasite clearance permits persistence and clinical relapse.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Parasitemia-associated multisystem dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic hematologic and inflammatory disturbance contributes to severe organ complications.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Coagulopathy\", \"Endothelial and tissue inflammatory injury\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated inflammatory signaling produces fever.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Pyrogenic cytokine signaling\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile systemic illness frequently includes headache.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile autonomic responses can produce sweating.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fever-associated autonomic thermoregulation\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic hematologic disturbance commonly lowers platelet counts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Platelet consumption and splenic sequestration\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Leukopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic hematologic response can include reduced circulating leukocytes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reticuloendothelial and inflammatory activity can enlarge the liver.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reticuloendothelial activation\", \"Systemic inflammatory response\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory flu-like syndrome commonly includes joint pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory flu-like syndrome commonly includes muscle pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia and systemic inflammation contribute to fatigue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Anemia\", \"Systemic inflammatory signaling\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Cough\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory symptoms can include cough before or without severe pulmonary dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Anorexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammatory signaling can suppress appetite.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Inflammatory cytokine-mediated appetite suppression\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Nausea and vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic illness can include gastrointestinal symptoms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can produce acute renal dysfunction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hemolysis\", \"Hemodynamic and inflammatory injury\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can trigger disseminated intravascular coagulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Systemic coagulation activation\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can cause pulmonary dysfunction and respiratory insufficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Acute respiratory distress\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can progress from biochemical hepatic compromise to hepatic failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hemolytic and inflammatory hepatic injury\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Myocardial infarction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe hemolytic anemia and hemodynamic instability can precipitate myocardial infarction through demand ischemia rather than a Babesia-specific coronary lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Severe anemia and impaired oxygen delivery\", \"Hemodynamic instability\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe systemic disease can progress from confusion to coma.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Confusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe systemic disease can produce altered mental status and confusion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Atovaquone plus azithromycin pharmacotherapy\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Clindamycin plus quinine pharmacotherapy\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prolonged combination therapy for highly immunocompromised patients\", \"target\": \"Impaired host clearance and persistent parasitemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Red blood cell exchange transfusion for selected severe babesiosis\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Red blood cell exchange transfusion for selected severe babesiosis\", \"target\": \"Parasitemia-associated multisystem dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Continuous Babesia duncani culture in human erythrocytes\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Peripheral blood parasitemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The infected-erythrocyte fraction reports the burden of the intraerythrocytic parasite phase.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Peripheral blood parasitemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increasing peak parasitemia generally tracks with increasing disease severity, but is not sufficient alone for risk classification.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\"}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Hemolytic laboratory pattern\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Laboratory evidence of red-cell destruction reports the hemolytic mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Babesia DNA detected by nucleic acid amplification\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Babesia DNA in blood directly reports current or recently active blood-stage infection in the appropriate clinical context.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired host clearance and persistent parasitemia\", \"target\": \"Babesia DNA detected by nucleic acid amplification\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Persistent Babesia DNA can reveal residual infection when smear parasitemia is difficult to detect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anorexia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Loss of appetite can accompany the febrile systemic illness.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002039\"}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Arthralgia is a frequent musculoskeletal symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Atovaquone plus azithromycin pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atovaquone plus azithromycin is the preferred combination for most symptomatic babesiosis. A randomized trial in non-life-threatening disease found efficacy comparable to clindamycin plus quinine with fewer adverse reactions.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atovaquone\", \"azithromycin\"]}}, {\"id\": \"Babesia DNA detected by nucleic acid amplification\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"POSITIVE\", \"readouts\": [{\"target\": \"Intraerythrocytic invasion and asexual replication\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Babesia DNA in blood directly reports current or recently active blood-stage infection in the appropriate clinical context.\"}, {\"target\": \"Impaired host clearance and persistent parasitemia\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Persistent Babesia DNA can reveal residual infection when smear parasitemia is difficult to detect.\"}]}}, {\"id\": \"Babesia-mediated erythrocyte lysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destruction of infected erythrocytes produces hemolysis, anemia, bilirubin generation, and downstream systemic manifestations. Babesiosis reaches the conserved premature-erythrocyte-destruction step by an infectious route: intraerythrocytic parasite replication lyses the host cell directly, and splenic macrophages additionally remove parasitized red cells. The destruction step, not the upstream cause, is what this entry shares with the hereditary and autoimmune hemolytic anemias.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"symbiont-mediated hemolysis of host erythrocyte\"], \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Clindamycin plus quinine pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Clindamycin plus quinine is an alternative combination, including when the preferred regimen cannot be used; the randomized comparison documented a substantially higher adverse-effect burden.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"clindamycin\", \"quinine\"]}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma represents the severe end of the altered-mental-status spectrum in complicated babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001259\"}}, {\"id\": \"Confusion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Confusion is an occasional neurologic manifestation of severe disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Continuous Babesia duncani culture in human erythrocytes\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A continuous human-erythrocyte culture system supports B. duncani development and drug-susceptibility testing and connects to a controlled mouse infection model.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"Babesia duncani-infected erythrocytes\"], \"publication\": \"PMID:35512141\"}}, {\"id\": \"Cough\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough is a frequent respiratory symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012735\"}}, {\"id\": \"Disseminated intravascular coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disseminated intravascular coagulopathy is an occasional severe hematologic complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005521\"}}, {\"id\": \"Exposure to infected black-legged ticks\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Residence in or travel to endemic northeastern and upper midwestern areas with infected Ixodes scapularis creates the principal environmental acquisition risk for U.S. babesiosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exposure to unscreened or infected donated blood\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Transfusion can bypass the tick vector and introduce intraerythrocytic parasites directly into a recipient, including recipients vulnerable to severe infection.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fatigue is a frequent constitutional symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a very frequent manifestation of symptomatic babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headache is a very frequent symptom in babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Hemolytic anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemolytic anemia is a core clinical manifestation caused by erythrocyte infection and lysis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001878\"}}, {\"id\": \"Hemolytic laboratory pattern\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Babesia-mediated erythrocyte lysis\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Laboratory evidence of red-cell destruction reports the hemolytic mechanism.\"}]}}, {\"id\": \"Hepatic failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic failure is an occasional severe complication.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001399\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly is a frequent hepatobiliary finding.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sweating or hyperhidrosis is a frequent constitutional manifestation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000975\"}}, {\"id\": \"Impaired host clearance and persistent parasitemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Asplenia, advanced age, and immunosuppressive disease or therapy impair parasite clearance, enabling persistent or relapsing infection and raising the risk of high parasite burden. The specific risk set is informative about which defenses matter: asplenia removes the filtration site for parasitized erythrocytes, while B-cell lymphoma and rituximab \\u2014 singled out by CDC \\u2014 implicate humoral immunity alongside the CD4/IFN-gamma cellular arm demonstrated in mouse models. Congestive heart failure appears on the severe-disease risk list as a host vulnerability, not as a manifestation.\", \"meta\": {\"evidence_count\": 4, \"role\": \"MODIFIER\"}}, {\"id\": \"Intraerythrocytic invasion and asexual replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Babesia invades human erythrocytes and replicates asexually, generating intraerythrocytic parasites and measurable parasitemia.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"CENTRAL_EFFECTOR\", \"experimental_models\": [{\"name\": \"Continuous Babesia duncani culture in human erythrocytes\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"The primary-cell system directly propagates and measures the human erythrocytic parasite phase.\"}]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Jaundice is a frequent hepatobiliary manifestation, consistent with hemolysis and hepatic involvement.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000952\"}}, {\"id\": \"Leukopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukopenia can occur as part of the hematologic abnormality spectrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001882\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myalgia is a frequent symptom.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"Myocardial infarction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial infarction is reported among the severe complications of babesiosis, plausibly reflecting the combination of profound hemolytic anemia, hemodynamic instability, and systemic inflammatory activation rather than a Babesia-specific coronary mechanism.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001658\"}}, {\"id\": \"Nausea and vomiting\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea and vomiting can occur as gastrointestinal symptoms.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002017\"}}, {\"id\": \"Parasitemia-associated multisystem dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Higher peak parasitemia is strongly associated with hemolysis, coagulopathy, longer hospitalization, and pulmonary, renal, and hepatic dysfunction, but parasite percentage is not the sole determinant of organ injury.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Peripheral blood parasitemia\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Intraerythrocytic invasion and asexual replication\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The infected-erythrocyte fraction reports the burden of the intraerythrocytic parasite phase.\"}, {\"target\": \"Parasitemia-associated multisystem dysfunction\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\", \"interpretation\": \"Increasing peak parasitemia generally tracks with increasing disease severity, but is not sufficient alone for risk classification.\"}]}}, {\"id\": \"Prolonged combination therapy for highly immunocompromised patients\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Highly immunocompromised patients may need at least six consecutive weeks of combination therapy, close clinical and laboratory follow-up, and continuation until blood smears are negative for two consecutive weeks.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent or relapsing infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent, relapsing, or persistent infection can occur, especially in splenectomized or immunosuppressed patients.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Red blood cell exchange transfusion for selected severe babesiosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Red blood cell exchange may be considered with high-grade parasitemia or substantial parasite burden accompanied by severe hemolytic anemia or pulmonary, renal, or hepatic decline. Parasitemia must be interpreted with clinical status.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Renal insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal insufficiency can occur in severe babesiosis with end-organ dysfunction.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000083\"}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory insufficiency can occur with severe end-organ dysfunction.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Splenic macrophage and Th1-mediated parasite clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The spleen filters parasitized erythrocytes, while macrophage and CD4 T-cell/IFN-gamma responses contribute to control. The detailed cellular mechanism is supported primarily by mouse models and is therefore not assumed to transfer quantitatively to humans.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"CD4-positive, alpha-beta T cell\"], \"role\": \"REGULATORY\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is a frequent finding in babesiosis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Systemic inflammation and cytopenias\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Blood-stage infection and erythrocyte destruction are accompanied by cytokine activation and hematologic abnormalities, producing the febrile, flu-like syndrome and cytopenias. Cytokine-pathway detail is largely model-derived.\", \"meta\": {\"evidence_count\": 2, \"role\": \"CONSEQUENCE\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia is a common hematologic abnormality in babesiosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tick- or blood-mediated Babesia host entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tick inoculation most often initiates infection, while transfusion, congenital transmission, and organ transplantation can introduce parasites without the arthropod phase.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"symbiont entry into host\"], \"role\": \"TRIGGER\"}}], \"edges\": [{\"source\": \"Tick- or blood-mediated Babesia host entry\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Host entry seeds parasites that establish the human erythrocytic phase.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Babesia-mediated erythrocyte lysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular parasite replication culminates in destruction of infected erythrocytes.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Splenic macrophage and Th1-mediated parasite clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blood-stage infection elicits splenic and cell-mediated clearance responses.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Recognition and removal of parasitized erythrocytes\", \"CD4 T-cell and interferon-gamma activation\"]}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Impaired host clearance and persistent parasitemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In vulnerable hosts, blood-stage parasites persist when splenic or immune clearance is inadequate.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced splenic filtration\", \"Impaired humoral or cell-mediated immunity\"]}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Systemic inflammation and cytopenias\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Erythrocyte destruction accompanies febrile systemic illness and hematologic abnormalities.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release of parasite and erythrocyte products\", \"Innate immune and cytokine activation\"]}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Hemolytic anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destruction of infected red cells directly produces hemolytic anemia.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hemolysis increases bilirubin production and contributes to jaundice.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Heme catabolism and bilirubin generation\"]}, {\"source\": \"Splenic macrophage and Th1-mediated parasite clearance\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic immune and clearance activity is accompanied by organ enlargement.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Splenic macrophage expansion\", \"Erythrophagocytosis and hematopoietic support\"]}, {\"source\": \"Impaired host clearance and persistent parasitemia\", \"target\": \"Parasitemia-associated multisystem dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent infection permits parasite burden and associated organ injury to accumulate.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Sustained intraerythrocytic replication\", \"Accumulating hemolytic and inflammatory injury\"]}, {\"source\": \"Impaired host clearance and persistent parasitemia\", \"target\": \"Recurrent or relapsing infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete parasite clearance permits persistence and clinical relapse.\", \"hypothesis_groups\": [\"host_clearance_severity_modifier\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Parasitemia-associated multisystem dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic hematologic and inflammatory disturbance contributes to severe organ complications.\", \"hypothesis_groups\": [\"canonical_erythrocytic_disease\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Coagulopathy\", \"Endothelial and tissue inflammatory injury\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection-associated inflammatory signaling produces fever.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Pyrogenic cytokine signaling\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The febrile systemic illness frequently includes headache.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Febrile autonomic responses can produce sweating.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fever-associated autonomic thermoregulation\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic hematologic disturbance commonly lowers platelet counts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Platelet consumption and splenic sequestration\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Leukopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic hematologic response can include reduced circulating leukocytes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reticuloendothelial and inflammatory activity can enlarge the liver.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reticuloendothelial activation\", \"Systemic inflammatory response\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory flu-like syndrome commonly includes joint pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory flu-like syndrome commonly includes muscle pain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Anemia and systemic inflammation contribute to fatigue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Anemia\", \"Systemic inflammatory signaling\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Cough\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Respiratory symptoms can include cough before or without severe pulmonary dysfunction.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Anorexia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic inflammatory signaling can suppress appetite.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Inflammatory cytokine-mediated appetite suppression\"]}, {\"source\": \"Systemic inflammation and cytopenias\", \"target\": \"Nausea and vomiting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Systemic illness can include gastrointestinal symptoms.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Renal insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can produce acute renal dysfunction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hemolysis\", \"Hemodynamic and inflammatory injury\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can trigger disseminated intravascular coagulation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Systemic coagulation activation\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can cause pulmonary dysfunction and respiratory insufficiency.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Acute respiratory distress\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Hepatic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe infection can progress from biochemical hepatic compromise to hepatic failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hemolytic and inflammatory hepatic injury\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Myocardial infarction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe hemolytic anemia and hemodynamic instability can precipitate myocardial infarction through demand ischemia rather than a Babesia-specific coronary lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Severe anemia and impaired oxygen delivery\", \"Hemodynamic instability\"]}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe systemic disease can progress from confusion to coma.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Confusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe systemic disease can produce altered mental status and confusion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Exposure to infected black-legged ticks\", \"target\": \"Tick- or blood-mediated Babesia host entry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The bite of an infected Ixodes tick inoculates sporozoites directly, which is the arthropod arm of this entry node and the route that accounts for most infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to unscreened or infected donated blood\", \"target\": \"Tick- or blood-mediated Babesia host entry\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Transfusion bypasses the arthropod phase entirely, delivering already-intraerythrocytic parasites straight into the recipient\u0027s circulation. It is the blood-mediated arm of the same entry node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atovaquone plus azithromycin pharmacotherapy\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Clindamycin plus quinine pharmacotherapy\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prolonged combination therapy for highly immunocompromised patients\", \"target\": \"Impaired host clearance and persistent parasitemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Red blood cell exchange transfusion for selected severe babesiosis\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Red blood cell exchange transfusion for selected severe babesiosis\", \"target\": \"Parasitemia-associated multisystem dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Continuous Babesia duncani culture in human erythrocytes\", \"target\": \"Intraerythrocytic invasion and asexual replication\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Peripheral blood parasitemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The infected-erythrocyte fraction reports the burden of the intraerythrocytic parasite phase.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Parasitemia-associated multisystem dysfunction\", \"target\": \"Peripheral blood parasitemia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increasing peak parasitemia generally tracks with increasing disease severity, but is not sufficient alone for risk classification.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PROGNOSTIC\"}, {\"source\": \"Babesia-mediated erythrocyte lysis\", \"target\": \"Hemolytic laboratory pattern\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Laboratory evidence of red-cell destruction reports the hemolytic mechanism.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Intraerythrocytic invasion and asexual replication\", \"target\": \"Babesia DNA detected by nucleic acid amplification\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Babesia DNA in blood directly reports current or recently active blood-stage infection in the appropriate clinical context.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Impaired host clearance and persistent parasitemia\", \"target\": \"Babesia DNA detected by nucleic acid amplification\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Persistent Babesia DNA can reveal residual infection when smear parasitemia is difficult to detect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5861,7 +6093,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemolytic-anemia" data-dismech-node="Hemolytic anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hemolytic anemia
 
@@ -5944,7 +6176,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thrombocytopenia
 
@@ -6027,7 +6259,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-leukopenia" data-dismech-node="Leukopenia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Leukopenia
 
@@ -6088,7 +6320,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-intravascular-coagulation" data-dismech-node="Disseminated intravascular coagulation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Disseminated intravascular coagulation
 
@@ -6180,7 +6412,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-splenomegaly" data-dismech-node="Splenomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Splenomegaly
 
@@ -6241,7 +6473,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-infarction" data-dismech-node="Myocardial infarction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myocardial infarction
 
@@ -6333,7 +6565,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-jaundice" data-dismech-node="Jaundice" data-dismech-type="phenotype">
                     <div class="item-name">
                         Jaundice
 
@@ -6394,7 +6626,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatomegaly
 
@@ -6455,7 +6687,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-failure" data-dismech-node="Hepatic failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatic failure
 
@@ -6538,7 +6770,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anorexia" data-dismech-node="Anorexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anorexia
 
@@ -6599,7 +6831,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea-and-vomiting" data-dismech-node="Nausea and vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nausea and vomiting
 
@@ -6669,7 +6901,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-insufficiency" data-dismech-node="Renal insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Renal insufficiency
 
@@ -6761,7 +6993,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-or-relapsing-infection" data-dismech-node="Recurrent or relapsing infection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent or relapsing infection
 
@@ -6853,7 +7085,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperhidrosis" data-dismech-node="Hyperhidrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperhidrosis
 
@@ -6923,7 +7155,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -6993,7 +7225,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
                         Headache
 
@@ -7054,7 +7286,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-confusion" data-dismech-node="Confusion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Confusion
 
@@ -7115,7 +7347,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coma" data-dismech-node="Coma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coma
 
@@ -7185,7 +7417,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cough
 
@@ -7246,7 +7478,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory insufficiency
 
@@ -7338,7 +7570,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthralgia
 
@@ -7399,7 +7631,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myalgia
 
@@ -7460,7 +7692,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -7554,6 +7786,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7563,7 +7798,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-atovaquone-plus-azithromycin-pharmacotherapy" data-dismech-node="Atovaquone plus azithromycin pharmacotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Atovaquone plus azithromycin pharmacotherapy
                 </div>
@@ -7743,7 +7978,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-clindamycin-plus-quinine-pharmacotherapy" data-dismech-node="Clindamycin plus quinine pharmacotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Clindamycin plus quinine pharmacotherapy
                 </div>
@@ -7923,7 +8158,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prolonged-combination-therapy-for-highly-immunocompromised-patients" data-dismech-node="Prolonged combination therapy for highly immunocompromised patients" data-dismech-type="treatment">
                 <div class="item-name">
                     Prolonged combination therapy for highly immunocompromised patients
                 </div>
@@ -8052,7 +8287,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-red-blood-cell-exchange-transfusion-for-selected-severe-babesiosis" data-dismech-node="Red blood cell exchange transfusion for selected severe babesiosis" data-dismech-type="treatment">
                 <div class="item-name">
                     Red blood cell exchange transfusion for selected severe babesiosis
                 </div>
@@ -8249,7 +8484,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tick-bite-avoidance-counseling" data-dismech-node="Tick-bite avoidance counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Tick-bite avoidance counseling
                 </div>
@@ -8341,7 +8576,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-exposure-to-infected-black-legged-ticks" data-dismech-node="Exposure to infected black-legged ticks" data-dismech-type="environmental">
                 <div class="item-name">Exposure to infected black-legged ticks</div>
 
 
@@ -8383,9 +8618,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Tick- or blood-mediated Babesia host entry</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The bite of an infected Ixodes tick inoculates sporozoites directly, which is the arthropod arm of this entry node and the route that accounts for most infections.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34539601" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34539601" target="_blank">PMID:34539601</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most infections are transmitted by Ixodid (hard-bodied) ticks"</div>
+
+
+                <div class="evidence-explanation">States that most infections are transmitted by ixodid ticks, establishing the tick bite as the dominant route of parasite entry.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-exposure-to-unscreened-or-infected-donated-blood" data-dismech-node="Exposure to unscreened or infected donated blood" data-dismech-type="environmental">
                 <div class="item-name">Exposure to unscreened or infected donated blood</div>
 
 
@@ -8427,6 +8715,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Tick- or blood-mediated Babesia host entry</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Transfusion bypasses the arthropod phase entirely, delivering already-intraerythrocytic parasites straight into the recipient&#39;s circulation. It is the blood-mediated arm of the same entry node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34539601" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34539601" target="_blank">PMID:34539601</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"they occasionally can be spread through blood transfusion"</div>
+
+
+                <div class="evidence-explanation">Confirms blood transfusion as a route by which the parasite is spread, independent of any tick exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -8441,7 +8782,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-peripheral-blood-parasitemia" data-dismech-node="Peripheral blood parasitemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Peripheral blood parasitemia
 
@@ -8609,7 +8950,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hemolytic-laboratory-pattern" data-dismech-node="Hemolytic laboratory pattern" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hemolytic laboratory pattern
 
@@ -8720,7 +9061,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-babesia-dna-detected-by-nucleic-acid-amplification" data-dismech-node="Babesia DNA detected by nucleic acid amplification" data-dismech-type="biochemical">
                 <div class="item-name">
                     Babesia DNA detected by nucleic acid amplification
 
@@ -9084,7 +9425,7 @@
                     Whole-genome capture sequences from 25 Babesia microti isolates
 
                     <span class="dataset-accession">
-                        <a href="https://bioregistry.io/SRA:SRP058536" target="_blank">SRA:SRP058536</a>
+                        <a href="https://www.ncbi.nlm.nih.gov/sra/SRP058536" target="_blank">sra:SRP058536</a>
                     </span>
 
                 </div>
@@ -9377,7 +9718,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-continuous-babesia-duncani-culture-in-human-erythrocytes">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-continuous-babesia-duncani-culture-in-human-erythrocytes" data-dismech-node="Continuous Babesia duncani culture in human erythrocytes" data-dismech-type="experimental_model">
                 <div class="item-name">
                     Continuous Babesia duncani culture in human erythrocytes
 
@@ -9946,6 +10287,23 @@ prevalence:
       incidences during the 2011-2019 analysis period.
 environmental:
 - name: Exposure to infected black-legged ticks
+  influences_mechanisms:
+  - target: Tick- or blood-mediated Babesia host entry
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The bite of an infected Ixodes tick inoculates sporozoites directly,
+      which is the arthropod arm of this entry node and the route that
+      accounts for most infections.
+    evidence:
+    - reference: PMID:34539601
+      reference_title: &#34;Babesia microti: Pathogen Genomics, Genetic Variability, Immunodominant Antigens, and Pathogenesis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Most infections are transmitted by Ixodid (hard-bodied) ticks&#34;
+      explanation: &gt;-
+        States that most infections are transmitted by ixodid ticks,
+        establishing the tick bite as the dominant route of parasite entry.
   description: &gt;-
     Residence in or travel to endemic northeastern and upper midwestern areas
     with infected Ixodes scapularis creates the principal environmental
@@ -9964,6 +10322,23 @@ environmental:
       portion that is contiguous in the cached PDF text, which hyphenates
       &#34;black-legged&#34; across a line break.
 - name: Exposure to unscreened or infected donated blood
+  influences_mechanisms:
+  - target: Tick- or blood-mediated Babesia host entry
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Transfusion bypasses the arthropod phase entirely, delivering
+      already-intraerythrocytic parasites straight into the recipient&#39;s
+      circulation. It is the blood-mediated arm of the same entry node.
+    evidence:
+    - reference: PMID:34539601
+      reference_title: &#34;Babesia microti: Pathogen Genomics, Genetic Variability, Immunodominant Antigens, and Pathogenesis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;they occasionally can be spread through blood transfusion&#34;
+      explanation: &gt;-
+        Confirms blood transfusion as a route by which the parasite is spread,
+        independent of any tick exposure.
   description: &gt;-
     Transfusion can bypass the tick vector and introduce intraerythrocytic
     parasites directly into a recipient, including recipients vulnerable to
@@ -11655,7 +12030,7 @@ experimental_models:
     snippet: &#34;Here we report an optimized B. duncani in culture-in mouse (ICIM) model that combines continuous in vitro culture of the parasite with a precise model of lethal infection in mice.&#34;
     explanation: The source directly describes the continuous culture component and its model linkage.
 datasets:
-- accession: SRA:SRP058536
+- accession: sra:SRP058536
   title: Whole-genome capture sequences from 25 Babesia microti isolates
   description: &gt;-
     Multiplex hybrid-capture sequence data from 25 B. microti isolates obtained
@@ -12561,7 +12936,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Babesiosis", "mondoId": "MONDO:0005661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Babesiosis", "yamlRevision": "de7f092c8582"};
+        const OS_CONFIG = {"diseaseName": "Babesiosis", "mondoId": "MONDO:0005661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Babesiosis", "yamlRevision": "059685c78adb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

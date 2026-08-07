@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fatal Familial Insomnia · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Fatal Familial Insomnia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Fatal Familial Insomnia</h1>
+                
+                <p class="report-subtitle">Fatal Familial Insomnia: Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010808" target="_blank" rel="noopener noreferrer">MONDO:0010808</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">12 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Fatal Familial Insomnia: Disease Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p>Fatal familial insomnia (FFI) is an ultra-rare, autosomal-dominant genetic prion disease caused classically by <strong>PRNP c.532G&gt;A, p.Asp178Asn (D178N), with methionine at polymorphic codon 129 on the mutant allele</strong>. It is characterized by progressive loss of physiologic sleep, dysautonomia, motor dysfunction, cognitive decline, and selective thalamic degeneration. Reported onset spans approximately 19–76 years, averaging about 51 years, and death usually occurs 6–36 months after clinical onset. No therapy has proven disease-modifying efficacy; management remains supportive, although PrP-lowering oligonucleotide programs now provide a plausible mechanism-directed strategy. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>)</p>
+<p>The strongest recent FFI-specific evidence retrieved was a 2023 whole-exome study of onset modifiers and a 2022 report of the decade-long preventive doxycycline study. Because FFI is exceptionally rare, many phenotype frequencies, diagnostic-accuracy estimates, and treatment conclusions remain based on small cohorts, families, or extrapolation from other prion diseases rather than large prospective FFI studies. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</p>
+<h2>1. Disease information</h2>
+<p><strong>Definition.</strong> FFI is an inherited transmissible spongiform encephalopathy in which pathogenic prion-protein conformers produce a rapidly progressive and fatal neurodegenerative syndrome dominated by sleep–wake disintegration, autonomic overactivity, and thalamic dysfunction. It is a disease-level entity assembled from aggregated family, cohort, neuropathology, and molecular resources—not an EHR-derived individual-patient phenotype. Individual case reports and clinical records constitute part of the underlying evidence.</p>
+<p><strong>Identifiers and synonyms.</strong> Commonly used identifiers are <strong>OMIM #600072</strong> and <strong>Orphanet <a href="https://bioregistry.io/ORPHA:466" target="_blank" rel="noopener noreferrer">ORPHA:466</a></strong>; common names include <em>fatal familial insomnia</em>, <em>familial fatal insomnia</em>, <em>FFI</em>, and <em>genetic fatal insomnia</em>. The broader ICD-10-CM placement is generally <strong>A81.8, other atypical virus infections of the central nervous system</strong>, under which prion diseases are grouped. Exact current MONDO, MeSH, SNOMED CT, and ICD-11 leaf identifiers should be checked against the release used by the target knowledge base rather than inferred from literature text; the retrieved primary papers did not supply them.</p>
+<p>A concise recent description states that FFI is a “rare autosomal-dominant inherited neurodegenerative prion disease” caused by D178N coupled to methionine at codon 129. (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</p>
+<h2>2. Etiology, risk, protection, and gene–environment interaction</h2>
+<h3>Causal and genetic factors</h3>
+<p>The primary cause is a <strong>heterozygous germline PRNP p.Asp178Asn allele in cis with 129Met</strong>. The same D178N coding change associated with a different codon-129 haplotypic context can produce a genetic Creutzfeldt–Jakob disease phenotype, illustrating that the codon-129 background helps specify prion strain, molecular pathology, and phenotype. FFI is therefore not simply “D178N disease”; haplotype phasing matters. (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</p>
+<p>The polymorphism on the non-mutant allele—129Met or 129Val—modifies onset, duration, and clinical expression, but does not reliably predict an individual’s onset. A 2023 WES study examined 25 D178N/129M patients: 12 women and 13 men, onset 19–68 years. Five had onset at 19–40 years and 20 at 42–68 years. Candidate later-onset modifiers included <strong>EXOC1L, SRSF11, MSANTD3, NR1H5P, and GNA13P1</strong>; the relevant variants were absent from the early-onset group. These remain exploratory associations requiring replication, not clinically validated protective alleles. (<a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</p>
+<h3>Penetrance and conventional risk factors</h3>
+<p>Penetrance is high and age-dependent. In one large Italian kindred, the summarized estimate was about <strong>95%</strong>, based on 46 affected individuals and two apparent elderly nonpenetrant carriers. Family history and inheriting the pathogenic haplotype are the major established risks. There is no convincing evidence that sex, diet, smoking, alcohol, occupation, toxins, or routine lifestyle exposures materially determine disease occurrence. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>)</p>
+<h3>Protective and environmental factors</h3>
+<p>No validated genetic or environmental protective factor prevents FFI. The candidate later-onset variants above are hypotheses rather than actionable protection. No reproducible gene–environment interaction has been established. Ordinary insomnia or sleep deprivation does <strong>not</strong> cause FFI. FFI is genetic, not naturally acquired through infection or routine contact; standard prion precautions nevertheless apply to high-infectivity tissues and certain neurosurgical or laboratory procedures.</p>
+<h2>3. Phenotypes</h2>
+<p>The core syndrome is progressive and heterogeneous. Exact percentages should not be assigned unless tied to a defined cohort; the available recent evidence supports qualitative frequencies rather than population-wide rates.</p>
+<ul>
+<li><strong>Progressive insomnia and sleep–wake disintegration:</strong> hallmark, usually severe and progressive. Polysomnography may show loss of normal sleep architecture, poorly formed or absent spindles/K-complexes, reduced slow-wave and REM sleep, and intrusion of motor or dream-like behavior into wakefulness. Suggested HPO: <em>Insomnia</em>, <em>Abnormal sleep pattern</em>, <em>Sleep-wake cycle disturbance</em>.</li>
+<li><strong>Dysautonomia:</strong> common and often prominent—tachycardia, hypertension, hyperhidrosis, hyperthermia, altered respiratory rhythm, constipation, and endocrine/circadian disturbance. Suggested HPO: <em>Autonomic nervous system dysfunction</em>, <em>Tachycardia</em>, <em>Hypertension</em>, <em>Hyperhidrosis</em>, <em>Abnormal body temperature</em>.</li>
+<li><strong>Motor manifestations:</strong> ataxia, dysarthria, gait impairment, tremor, myoclonus, pyramidal signs, parkinsonism, and late akinetic-mutism-like states may occur. Suggested HPO: <em>Cerebellar ataxia</em>, <em>Gait disturbance</em>, <em>Dysarthria</em>, <em>Myoclonus</em>, <em>Parkinsonism</em>, <em>Pyramidal sign</em>.</li>
+<li><strong>Cognitive/behavioral manifestations:</strong> attentional and executive impairment, memory dysfunction, confusion, hallucinations, behavioral change, and progressive dementia. Suggested HPO: <em>Cognitive impairment</em>, <em>Executive dysfunction</em>, <em>Hallucinations</em>, <em>Behavioral abnormality</em>, <em>Dementia</em>.</li>
+<li><strong>Systemic/end-stage manifestations:</strong> weight loss, dysphagia, immobility, aspiration risk, infection, and complete dependence.</li>
+</ul>
+<p>Recent literature summarizes the hallmarks as “progressive sleep loss, dementia, and autonomic nervous system failure.” The associated loss of independence, continuous autonomic symptoms, inability to obtain restorative sleep, progressive cognitive/motor disability, and terminal dependence imply profound quality-of-life effects, although validated FFI-specific EQ-5D, SF-36, or PROMIS datasets were not identified. (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<p><strong>Gene:</strong> <strong>PRNP</strong>, encoding cellular prion protein, PrPᶜ. <strong>Canonical variant:</strong> NM_000311.5:c.532G&gt;A; NP_000302.1:p.Asp178Asn, traditionally D178N. Laboratories must phase codon 129 because the disease-associated allele is D178N-129M. The variant is a germline missense allele with autosomal-dominant inheritance. It is expected to be absent or extraordinarily rare in population databases; current gnomAD release-specific counts should be queried directly before loading an allele-frequency field.</p>
+<p>The pathogenic effect is best described as <strong>toxic conformational gain of function</strong> rather than simple PRNP haploinsufficiency. Mutant PrP favors conversion into misfolded, aggregation-prone, partially protease-resistant disease conformers that template additional PrP conversion. No recurrent causal chromosomal deletion, duplication, translocation, aneuploidy, somatic driver, or mitochondrial variant defines FFI.</p>
+<p>Candidate modifier genes from the 2023 WES pilot are provisional. No clinically validated epigenetic modifier or disease-specific methylation signature is established. The authors identified 19 possible onset-associated variants and linked candidate genes to programmed cell death, caspase-mediated cytoskeletal cleavage, and apoptotic protein cleavage. (<a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</p>
+<h2>5. Environmental and infectious information</h2>
+<p>No toxin, radiation, pollutant, occupation, diet, exercise pattern, tobacco exposure, alcohol use, bacterium, virus, fungus, or parasite is known to cause inherited FFI. The word <em>prion</em> denotes a protein-based transmissible agent, but familial disease arises endogenously from mutant PRNP. FFI is not considered contagious through social contact, caregiving, air, food, or body fluids. There is no vaccine indication.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Upstream trigger:</strong> germline D178N-129M changes PrP conformational stability.</li>
+<li><strong>Prion conversion:</strong> mutant PrP forms or facilitates a disease-associated conformer capable of templated conversion and aggregation.</li>
+<li><strong>Proteostasis and cellular stress:</strong> impaired protein handling, mitochondrial/ribosomal dysfunction, cytoskeletal stress, and apoptotic pathways emerge.</li>
+<li><strong>Selective network injury:</strong> severe neuronal loss and astrogliosis preferentially affect anterior and mediodorsal thalamic nuclei, with inferior olivary and entorhinal involvement.</li>
+<li><strong>Systems failure:</strong> thalamocortical sleep oscillations collapse; hypothalamic/autonomic and limbic-cognitive networks become dysregulated.</li>
+<li><strong>Clinical syndrome:</strong> progressive agrypnia/insomnia, sympathetic overactivity, endocrine/circadian disturbance, ataxia and cognitive decline culminate in immobility and death. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</li>
+</ol>
+<p>Suggested GO terms include <em>protein misfolding</em>, <em>protein aggregation</em>, <em>amyloid fibril formation</em>, <em>response to endoplasmic-reticulum stress</em>, <em>mitochondrial organization</em>, <em>oxidative phosphorylation</em>, <em>ribosome biogenesis</em>, <em>regulation of circadian rhythm</em>, <em>apoptotic process</em>, <em>caspase-mediated cleavage</em>, <em>neuron death</em>, and <em>astrocyte activation</em>. Relevant cellular components are the neuronal plasma membrane, secretory pathway/ER, endolysosomal system, mitochondrion, ribosome, cytoskeleton, and extracellular protein aggregates.</p>
+<p>The principal cell types are thalamic projection neurons, other glutamatergic neurons, inhibitory/GABAergic neurons, and reactive astrocytes; CL labels should include <em>neuron</em>, <em>glutamatergic neuron</em>, <em>GABAergic neuron</em>, and <em>astrocyte</em>. The 2023 modifier analysis implicated apoptosis-related biology, but causal roles for the candidate loci have not been experimentally established. (<a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</p>
+<p>Human terminal-brain proteomics and experimental cell-type translatomics suggest changes in oxidative phosphorylation, lysosomal/protein-export pathways, mitochondrial and translation machinery, circadian programs, and cytoskeletal responses. These data are mechanistically informative but do not yet constitute a validated diagnostic multi-omics signature. Single-cell and spatial-transcriptomic evidence specific to human FFI remains sparse.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The <strong>central nervous system</strong> is the primary organ system. The most characteristic lesions occur bilaterally in the <strong>anterior and mediodorsal/dorsomedial thalamic nuclei</strong>; the inferior olivary nuclei and entorhinal cortex may also be affected. The thalamic pattern is generally bilateral rather than lateralized. Suggested UBERON labels are <em>brain</em>, <em>thalamus</em>, <em>mediodorsal nucleus of thalamus</em>, <em>anterior thalamic nuclear group</em>, <em>inferior olivary complex</em>, <em>entorhinal cortex</em>, <em>cerebral cortex</em>, and <em>hypothalamus</em>. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</p>
+<p>Histologically, the dominant lesions are neuronal depletion and astrocytic gliosis. Secondary systemic involvement—cardiovascular, endocrine, thermoregulatory, respiratory, gastrointestinal, and nutritional—is primarily a consequence of autonomic-network failure and terminal neurologic disability rather than primary multiorgan proteinopathy.</p>
+<h2>8. Temporal development</h2>
+<p>FFI is usually <strong>adult-onset and insidious/subacute</strong>, although onset can occur in young adulthood or late life. Published ranges include <strong>23–76 years</strong>, with an average near <strong>51 years</strong> and a typical range of 36–62 years; the 2023 cohort included onset as early as 19. (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>)</p>
+<p>A useful clinical staging model is:</p>
+<ol>
+<li><strong>Prodromal/early:</strong> worsening insomnia, altered sleep architecture, anxiety or autonomic activation.</li>
+<li><strong>Intermediate:</strong> profound sleep–wake disorganization, dysautonomia, gait/motor impairment, cognitive and behavioral change.</li>
+<li><strong>Advanced:</strong> severe dementia/confusion, dysphagia, ataxia or akinetic state, loss of ambulation and self-care.</li>
+<li><strong>Terminal:</strong> near-continuous agrypnia, severe autonomic/metabolic instability, mutism/coma-like state, aspiration or infection, and death.</li>
+</ol>
+<p>The course is continuously progressive, not relapsing-remitting; durable spontaneous or treatment-induced remission is not documented. Death generally follows within <strong>6–36 months</strong>. Presymptomatic mutation carriers are the most rational intervention population because irreversible neuronal loss probably precedes overt disability. (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is <strong>autosomal dominant</strong>: each child of a heterozygous carrier has a 50% chance of inheriting the variant. Penetrance is high but age-dependent and not necessarily absolute; expressivity and age at onset are variable. Anticipation, consanguinity, and germline mosaicism are not established defining features. Founder kindreds exist, including the extensively studied Veneto/Treviso family; FFI has nevertheless been reported across multiple ancestries and geographic regions. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</p>
+<p>The 2023 WES cohort’s near-equal sex distribution—12 women and 13 men—provides no evidence of strong sex bias. Reliable FFI-specific global incidence, point prevalence, and carrier frequency are unavailable. All human prion diseases together occur at roughly 1–2 cases per million person-years, but applying that figure to FFI would grossly overestimate FFI incidence. FFI represents only a very small familial subset.</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended approach</h3>
+<ol>
+<li>Recognize progressive insomnia/agrypnia plus dysautonomia, motor/cognitive decline, or a compatible pedigree.</li>
+<li>Obtain <strong>PRNP sequencing</strong>, explicitly testing D178N and determining/phasing codon 129.</li>
+<li>Use polysomnography, EEG, MRI, FDG-PET, autonomic testing, neuropsychology, and CSF studies to characterize disease and exclude mimics.</li>
+<li>Offer postmortem neuropathology where appropriate and consented.</li>
+</ol>
+<p>Targeted single-gene sequencing is sufficient when the familial allele is known. A prion/rapid-dementia panel, WES, or WGS is useful for atypical or genetically unresolved cases, but WES/WGS must provide reliable PRNP coverage and codon-129 phasing. CMA, karyotyping, FISH, mitochondrial testing, and repeat-expansion testing are not first-line tests for classic FFI.</p>
+<p><strong>Ancillary findings.</strong> PSG is particularly informative because it directly measures the defining physiological disturbance. FDG-PET may reveal thalamic and cingulate/cortical hypometabolism before major structural atrophy. Routine MRI can be normal or nonspecific and often lacks the classic cortical-ribbon/basal-ganglia diffusion pattern of sporadic CJD. EEG may show diffuse slowing but usually not the characteristic periodic sharp-wave complexes of typical sCJD. CSF 14-3-3, total tau, and RT-QuIC may be negative or less sensitive in FFI because neurodegeneration and seeding characteristics differ from sCJD; a negative result cannot exclude genetically confirmed FFI. The retrieved evidence did not support defensible FFI-specific sensitivity or specificity values.</p>
+<p>Plasma neurofilament light chain has been reported as increased and is a candidate progression biomarker, but it is a nonspecific axonal-injury marker and not a replacement for PRNP testing. (<a href="#ref-thune2023geneticvariantsassociated-pages-9-10">thune2023geneticvariantsassociated pages 9-10</a>)</p>
+<p><strong>Differential diagnosis:</strong> sporadic fatal insomnia; MM2-thalamic sCJD; other genetic prion diseases; autoimmune/paraneoplastic encephalitis; Lewy-body disease; frontotemporal dementia; multiple-system atrophy; spinocerebellar ataxia; primary psychiatric disease; severe primary insomnia; and toxic-metabolic encephalopathy. Sporadic fatal insomnia lacks the causal familial PRNP haplotype.</p>
+<p>Predictive testing in asymptomatic adults requires formal genetic counseling, informed consent, psychological support, and a protocol respecting the right not to know. Testing minors is generally inappropriate for an adult-onset condition without proven childhood intervention.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>FFI is currently uniformly or nearly uniformly fatal after symptomatic onset; conventional 5- or 10-year survival statistics are not meaningful because most patients die within three years. Historical data from one large family showed mortality peaking near age 53 and only two carriers surviving beyond 60. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</p>
+<p>Morbidity includes complete sleep disruption, autonomic instability, falls, loss of ambulation, dementia, dysphagia, malnutrition, aspiration, infection, and total dependence. Recovery after established disease is not documented. Codon-129 genotype, age at onset, and candidate modifier loci may influence duration, but no biomarker is validated for precise individual prognostication.</p>
+<h2>12. Treatment and current applications</h2>
+<p>There is <strong>no approved curative or proven disease-modifying treatment</strong>. Supportive practice includes sleep-symptom management, autonomic and cardiac monitoring, hydration and nutrition, swallowing/aspiration assessment, fall prevention, physical/occupational/speech therapy where feasible, psychiatric support, advance-care planning, and palliative/hospice care. Sedatives may transiently reduce distress but generally do not restore normal sleep architecture; polypharmacy can worsen confusion, falls, or respiratory risk. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</p>
+<p><strong>Doxycycline.</strong> The DOXIFF preventive study used doxycycline because preclinical studies suggested interference with β-sheet/aggregate formation plus antioxidant and anti-inflammatory effects. Ten D178N carriers aged 44–53 received <strong>100 mg/day doxycycline hyclate</strong>, while 15 noncarriers received placebo under a genotype-concealing design. Follow-up was planned for ten years; success required fewer than four incident cases. Assessments included biennial neurologic/instrumental visits, annual neuropsychology, six-monthly laboratory sampling, and PSG. The absence of a surrogate endpoint forced comparison with historical incidence. Earlier randomized doxycycline treatment in symptomatic CJD was negative, reinforcing the view that intervention after extensive neurodegeneration may be too late. Published material retrieved here establishes feasibility and design, not proven prevention. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</p>
+<p><strong>Current translational direction.</strong> PrP lowering is attractive because reducing substrate PrP should act upstream of conformational propagation. Relevant registered programs include <strong>ION717, NCT06153966</strong> (phase 1/2 PrP-lowering antisense program), <strong>NCT07444580</strong> (phase 1 PrP-targeting siRNA safety/mechanism study), <strong>NCT05124392</strong> (at-risk biomarker profiling), and genetic-prion natural-history studies. Eligibility and status must be confirmed directly at ClinicalTrials.gov. These studies are relevant to FFI but do not yet demonstrate clinical benefit.</p>
+<p>Suggested MAXO labels: <em>genetic counseling</em>, <em>molecular genetic testing</em>, <em>polysomnography</em>, <em>neurological examination</em>, <em>neuropsychological assessment</em>, <em>autonomic monitoring</em>, <em>nutritional support</em>, <em>physical therapy</em>, <em>speech therapy</em>, <em>palliative care</em>, <em>clinical trial participation</em>, and <em>preventive pharmacotherapy</em>. Suggested CHEBI entity: <em>doxycycline</em>.</p>
+<h2>13. Prevention</h2>
+<p>There is no lifestyle, vaccine, or environmental primary prevention for a person who already carries the pathogenic allele. Mendelian transmission can be prevented or reduced through nondirective reproductive counseling, preimplantation genetic testing for monogenic disease, prenatal diagnosis, donor gametes, or choosing not to have genetically related children. Predictive testing and cascade testing are secondary-prevention/risk-identification measures, not treatment.</p>
+<p>Tertiary prevention consists of early recognition of dysphagia, aspiration, falls, malnutrition, autonomic instability, pressure injury, and caregiver distress. At-risk adults may consider longitudinal natural-history or prevention studies. The unusual DOXIFF design preserved participants’ desire not to learn their genotype while allowing preventive research, illustrating the central ethical importance of autonomy in FFI families. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</p>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring veterinary disease is recognized as an exact ortholog of human D178N-129M FFI. Other mammals develop natural prion diseases—scrapie in sheep/goats, bovine spongiform encephalopathy, chronic wasting disease in cervids, and feline transmissible spongiform encephalopathy—but these are not FFI and usually arise from different strains, exposure routes, and host PRNP genotypes. Prion mechanisms and PRNP orthologs are evolutionarily conserved, enabling comparative research, but there is no evidence that human FFI is zoonotic or naturally transmitted from FFI families to animals.</p>
+<p>Relevant taxa for comparative annotation include <em>Homo sapiens</em> (NCBI Taxon 9606) and <em>Mus musculus</em> (10090). Breed ontology is not applicable to the human disorder.</p>
+<h2>15. Model organisms</h2>
+<p>Models include transgenic or knock-in mice expressing FFI-associated mutant PrP, prion-inoculated mice, cultured cells expressing mutant PRNP, protein-conversion assays, and patient-derived cellular systems. D178N/129M mouse models can reproduce mutant-PrP accumulation, selective neurologic injury, sleep/circadian abnormalities, and molecular changes involving mitochondrial/ribosomal programs. Cell-type-specific translatome studies implicate astrocytes, glutamatergic neurons, and GABAergic neurons and suggest that molecular responses can precede EEG or overt histopathology.</p>
+<p>Their limitations are important: mouse sleep architecture, lifespan, PRNP expression, strain background, and prion conformers differ from humans; some models require overexpression or inoculation and do not fully reproduce the human thalamic-autonomic syndrome. Consequently, therapeutic success in mice is hypothesis-generating rather than predictive of human efficacy. Candidate-model resources include MGI, IMSR, EMMA, and MMRRC.</p>
+<h2>Knowledge-base annotation summary</h2>
+<p>The following compact mapping separates robust evidence from suggested ontology labels requiring release-specific curator verification.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Evidence-backed finding</th>
+<th>Suggested ontology terms/identifiers</th>
+<th>Evidence type/strength</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease entity</td>
+<td>Fatal familial insomnia (FFI) is an ultra-rare inherited human prion disease with insomnia, dysautonomia, progressive neurologic decline, and death typically within months after onset (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</td>
+<td>Disease label: Fatal familial insomnia; MONDO: curator verification needed; OMIM: curator verification needed; Orphanet: curator verification needed; MeSH/ICD: curator verification needed</td>
+<td>Human clinical/review; moderate-strong</td>
+</tr>
+<tr>
+<td>Causal gene/variant</td>
+<td>Core causal genotype is germline PRNP p.Asp178Asn (D178N) in cis with methionine at codon 129 on the mutant allele; autosomal dominant inheritance (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</td>
+<td>PRNP (HGNC: curator verification needed); sequence variant: p.Asp178Asn / D178N; codon 129 Met on mutant allele; inheritance: autosomal dominant</td>
+<td>Human genetic; strong</td>
+</tr>
+<tr>
+<td>Penetrance/risk</td>
+<td>Penetrance is described as very high; one large Italian kindred report summarized ~95% penetrance with 46 cases and 2 apparent non-penetrant individuals (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>)</td>
+<td>Inheritance annotation: age-dependent/high penetrance; family history present in many kindreds</td>
+<td>Human family data; moderate</td>
+</tr>
+<tr>
+<td>Onset/natural history</td>
+<td>Age at onset is highly variable, reported from 19-76 years; average around 51 years; typical disease duration ~6-36 months after symptom onset (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>)</td>
+<td>HPO: Adult onset; Progressive neurologic deterioration; Reduced lifespan; Fatal outcome</td>
+<td>Human cohort/review; strong</td>
+</tr>
+<tr>
+<td>Genetic modifiers</td>
+<td>Codon 129 on the non-mutated allele modifies phenotype but does not fully predict onset; WES study identified candidate modifier loci NR1H5P, GNA13P1, EXOC1L, SRSF11, MSANTD3 associated with later onset (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</td>
+<td>Modifier genes: NR1H5P, GNA13P1, EXOC1L, SRSF11, MSANTD3; note: provisional disease modifiers</td>
+<td>Human exploratory genomics; preliminary-moderate</td>
+</tr>
+<tr>
+<td>Core phenotypes</td>
+<td>Hallmark manifestations include progressive insomnia/sleep loss, altered sleep-wake rhythm, autonomic dysfunction, dementia/cognitive decline, and motor signs (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</td>
+<td>HPO labels: Insomnia; Sleep disturbance; Abnormality of circadian rhythm; Autonomic nervous system dysfunction; Dementia; Cognitive impairment; Gait disturbance; Ataxia/parkinsonism/motor signs (IDs for curator verification)</td>
+<td>Human clinical/review; strong</td>
+</tr>
+<tr>
+<td>Phenotype severity/course</td>
+<td>Disease course is progressive, severe, and usually fatal without remission; symptom heterogeneity is substantial even among patients sharing the same PRNP core genotype (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</td>
+<td>HPO labels: Progressive neurologic deterioration; Variable expressivity; Lethal phenotype</td>
+<td>Human cohort/review; strong</td>
+</tr>
+<tr>
+<td>Primary anatomy</td>
+<td>Selective vulnerability centers on thalamus, especially anterior and dorsomedial/mediodorsal thalamic nuclei; additional involvement includes inferior olive and entorhinal cortex (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</td>
+<td>UBERON labels: thalamus; mediodorsal thalamic nucleus; anterior thalamic nuclei; inferior olivary nucleus; entorhinal cortex (IDs for curator verification)</td>
+<td>Human neuropathology; strong</td>
+</tr>
+<tr>
+<td>Tissue pathology</td>
+<td>Neuropathology features severe neuronal loss/depletion, astrocytic gliosis/astrogliosis, and pathologic prion protein deposition in vulnerable regions (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</td>
+<td>GO/pathology labels: neuron death; astrocyte activation; protein aggregation; prion protein amyloid formation; CL: neuron, astrocyte</td>
+<td>Human neuropathology; strong</td>
+</tr>
+<tr>
+<td>Cell types implicated</td>
+<td>Disease mechanisms and omics literature implicate neurons and astrocytes; experimental translatome work also highlights GABAergic and glutamatergic neuronal populations (<a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</td>
+<td>CL labels: neuron; astrocyte; GABAergic neuron; glutamatergic neuron (IDs for curator verification)</td>
+<td>Human omics + animal model/review; moderate</td>
+</tr>
+<tr>
+<td>Molecular mechanism</td>
+<td>Pathogenesis is consistent with prion protein misfolding/conformational conversion leading to selective neurodegeneration, sleep/autonomic network failure, and downstream apoptotic/cellular stress pathways (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>)</td>
+<td>GO labels: protein misfolding; amyloid fibril formation; programmed cell death; caspase-mediated cleavage; regulation of circadian rhythm</td>
+<td>Human genetics/neuropathology + experimental support; moderate-strong</td>
+</tr>
+<tr>
+<td>Cellular processes</td>
+<td>Candidate pathways include programmed cell death, apoptotic cleavage/caspase-mediated processes, proteostasis disruption, cytoskeletal injury, circadian dysregulation, and mitochondrial/ribosomal decline (<a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</td>
+<td>GO labels: apoptotic process; caspase-mediated cleavage; cytoskeleton organization; circadian rhythm; mitochondrial organization; ribosome biogenesis/translation</td>
+<td>Human WES pathway analysis + animal translatome; moderate</td>
+</tr>
+<tr>
+<td>Subcellular compartments</td>
+<td>Omics/translatome evidence points to mitochondrial and ribosomal/translation machinery abnormalities early in disease-related responses (<a href="#ref-thune2023geneticvariantsassociated-pages-6-8">thune2023geneticvariantsassociated pages 6-8</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</td>
+<td>GO cellular component labels: mitochondrion; ribosome; cytoskeleton (IDs for curator verification)</td>
+<td>Human pathway inference + animal translatome; moderate</td>
+</tr>
+<tr>
+<td>Proteomics/omics</td>
+<td>Human prion-disease brain proteomics found broad terminal-stage protein changes with shared pathways across FFI and other prion diseases, including oxidative phosphorylation, lysosome, protein export, and drug metabolism pathways (context from retrieved literature summarized alongside FFI-specific evidence) (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>)</td>
+<td>GO/Pathway labels: oxidative phosphorylation; lysosome; protein export</td>
+<td>Human tissue proteomics; limited-direct FFI specificity</td>
+</tr>
+<tr>
+<td>Diagnostic approach</td>
+<td>Diagnosis is centered on clinical syndrome plus confirmatory PRNP testing; in at-risk or symptomatic subjects, longitudinal neurologic exam, neuropsychology, laboratory studies, and polysomnography are used in research/monitoring settings (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</td>
+<td>MAXO labels: genetic testing; neurologic examination; neuropsychological assessment; polysomnography; laboratory monitoring</td>
+<td>Human clinical trial protocol/review; moderate</td>
+</tr>
+<tr>
+<td>Biomarkers</td>
+<td>Plasma neurofilament light chain is cited as a biomarker in FFI-related literature, but quantitative performance was not available in the retrieved evidence here (<a href="#ref-thune2023geneticvariantsassociated-pages-9-10">thune2023geneticvariantsassociated pages 9-10</a>)</td>
+<td>Biomarker label: neurofilament light chain; specimen: plasma</td>
+<td>Human biomarker citation in recent literature; limited in current evidence set</td>
+</tr>
+<tr>
+<td>Imaging/electrophysiology</td>
+<td>Sleep studies/polysomnography are important in FFI evaluation; thalamic functional abnormalities are central, but specific sensitivity/specificity values for PSG, EEG, MRI, or FDG-PET were not available in the retrieved evidence here (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</td>
+<td>MAXO labels: polysomnography; electroencephalography; brain MRI; FDG-PET (IDs for curator verification)</td>
+<td>Human clinical context; limited-direct quantitative evidence</td>
+</tr>
+<tr>
+<td>Supportive treatment</td>
+<td>No curative therapy is established; care is mainly palliative/supportive, targeting neurologic, sleep, and autonomic complications (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</td>
+<td>MAXO labels: palliative care; supportive care; symptom management; autonomic monitoring</td>
+<td>Human clinical/review; strong for absence of cure</td>
+</tr>
+<tr>
+<td>Investigational drug therapy</td>
+<td>Doxycycline has been tested as preventive/repurposed therapy in at-risk carriers due to anti-prion and neuroprotective rationale; 10 D178N carriers received 100 mg/day in the DOXIFF protocol (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-2-3">forloni2022preventivepharmacologicaltreatment pages 2-3</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</td>
+<td>CHEBI/drug label: doxycycline; MAXO labels: preventive pharmacotherapy; oral antibiotic repurposing; clinical trial participation</td>
+<td>Human trial protocol + preclinical rationale; moderate</td>
+</tr>
+<tr>
+<td>Doxycycline trial design</td>
+<td>DOXIFF enrolled 10 carriers (ages 44-53) on doxycycline and 15 non-carriers on placebo, with 10-year follow-up and blinded assessments; trial lacked validated surrogate biomarkers and relied on historical comparison (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</td>
+<td>Trial ID: EudraCT 2010-022233-28; MAXO labels: longitudinal surveillance; preventive treatment trial</td>
+<td>Human interventional protocol; moderate</td>
+</tr>
+<tr>
+<td>Current clinical trials</td>
+<td>Broader genetic-prion/PRNP-lowering trials now recruiting may be relevant to FFI families, including ION717 (NCT06153966, phase 1/2), PrP-targeting siRNA safety/mechanism study (NCT07444580, phase 1), and observational biomarker/natural-history studies (NCT05124392, NCT05746715, NCT07732608)</td>
+<td>ClinicalTrials.gov IDs: NCT06153966; NCT07444580; NCT05124392; NCT05746715; NCT07732608</td>
+<td>Trial registry evidence; strong for existence/status, limited for efficacy</td>
+</tr>
+<tr>
+<td>Prevention/genetic counseling</td>
+<td>For this Mendelian disease, prevention is mainly family-based risk assessment, predictive PRNP testing in appropriate counseling settings, and potential enrollment in surveillance/prevention studies (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</td>
+<td>MAXO labels: genetic counseling; predictive genetic testing; cascade testing; clinical surveillance</td>
+<td>Human clinical/research practice; moderate</td>
+</tr>
+<tr>
+<td>Model organisms</td>
+<td>Mouse models carrying FFI-associated PRNP mutations and prion-disease translatome systems are used to study selective vulnerability, early cell-type responses, and therapeutic hypotheses, but they may incompletely capture the full human sleep/autonomic syndrome (<a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</td>
+<td>Model labels: PRNP D178N/129M knock-in mouse (curator verification needed); CL labels: astrocyte, GABAergic neuron, glutamatergic neuron</td>
+<td>Animal model; moderate with translational limitations</td>
+</tr>
+<tr>
+<td>Evidence gaps</td>
+<td>Important gaps in the currently retrieved evidence set: verified ontology numeric IDs; robust prevalence/incidence estimates specific to FFI; test sensitivity/specificity for PSG/EEG/MRI/PET/RT-QuIC in FFI; validated prognostic biomarkers; controlled efficacy data for any disease-modifying therapy; nonhuman natural disease analogs (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>)</td>
+<td>Curator action items: verify MONDO/OMIM/Orphanet/MeSH/ICD IDs; add PMID-linked diagnostic accuracy and epidemiology sources</td>
+<td>Evidence synthesis; strong for gap identification</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This compact table summarizes evidence-backed findings for fatal familial insomnia in a knowledge-base-ready format, including genetics, phenotypes, anatomy, mechanisms, diagnostics, treatment, and evidence gaps. It also flags ontology identifiers that should be curator-verified rather than inferred.</em></p>
+<h2>Evidence assessment and research gaps</h2>
+<p>The most robust claims are the D178N-129M causal haplotype, autosomal-dominant inheritance, progressive sleep/autonomic syndrome, selective thalamic degeneration, and rapidly fatal course. Major unresolved areas are FFI-specific incidence and prevalence; validated prodromal biomarkers; quantitative diagnostic performance of PSG, PET, RT-QuIC, and NfL; replication of onset-modifier loci; human single-cell/spatial datasets; and controlled evidence for any disease-modifying treatment. The 2023 WES investigators explicitly characterized their modifier work as a small pilot constrained by rarity, so its candidate genes should not yet influence counseling or clinical decisions. (<a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-8-9">thune2023geneticvariantsassociated pages 8-9</a>)</p>
+<h3>Key recent sources</h3>
+<ul>
+<li>Thüne K, et al. <strong>Genetic Variants Associated with the Age of Onset Identified by Whole-Exome Sequencing in Fatal Familial Insomnia.</strong> <em>Cells</em>. Published August 2023;12:2053. DOI/URL: <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells12162053</a>. Abstract: “We identified nineteen potential gene variants with a potential effect on the age of onset.” PMID was not supplied in the retrieved record. (<a href="#ref-thune2023geneticvariantsassociated-pages-1-2">thune2023geneticvariantsassociated pages 1-2</a>, <a href="#ref-thune2023geneticvariantsassociated-pages-2-4">thune2023geneticvariantsassociated pages 2-4</a>)</li>
+<li>Forloni G, et al. <strong>Preventive pharmacological treatment in subjects at risk for fatal familial insomnia: science and public engagement.</strong> <em>Prion</em>. Published June 2022;16:66–77. DOI/URL: <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">https://doi.org/10.1080/19336896.2022.2083435</a>. Abstract: the study “led to a clinical trial based on the repurposing of doxycycline” and included ten mutation carriers and 15 noncarriers. PMID was not supplied in the retrieved record. (<a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-3-5">forloni2022preventivepharmacologicaltreatment pages 3-5</a>, <a href="#ref-forloni2022preventivepharmacologicaltreatment-pages-1-2">forloni2022preventivepharmacologicaltreatment pages 1-2</a>)</li>
+</ul>
+<p><strong>Curation caution:</strong> ontology and coding systems change independently of primary literature. OMIM/Orphanet identifiers above should be confirmed at ingestion, and current MONDO, ICD-11, MeSH, HPO, GO, CL, UBERON, CHEBI, and MAXO numeric IDs should be resolved against the knowledge base’s pinned ontology releases.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-forloni2022preventivepharmacologicaltreatment-pages-2-3"></a>(forloni2022preventivepharmacologicaltreatment pages 2-3): Gianluigi Forloni, Ignazio Roiter, Vladimiro Artuso, Manuel Marcon, Walter Colesso, Elviana Luban, Ugo Lucca, Mauro Tettamanti, Elisabetta Pupillo, Veronica Redaelli, Francesco Mariuzzo, Giulia Boscolo Buleghin, Alice Mariuzzo, Fabrizio Tagliavini, Roberto Chiesa, and Anna Ambrosini. Preventive pharmacological treatment in subjects at risk for fatal familial insomnia: science and public engagement. Prion, 16:66-77, Jun 2022. URL: <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">https://doi.org/10.1080/19336896.2022.2083435</a>, <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">doi:10.1080/19336896.2022.2083435</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-thune2023geneticvariantsassociated-pages-1-2"></a>(thune2023geneticvariantsassociated pages 1-2): Katrin Thüne, Matthias Schmitz, John Wiedenhöft, Orr Shomroni, Stefan Göbel, Timothy Bunck, Neelam Younas, Saima Zafar, Peter Hermann, and Inga Zerr. Genetic variants associated with the age of onset identified by whole-exome sequencing in fatal familial insomnia. Cells, 12:2053, Aug 2023. URL: <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells12162053</a>, <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">doi:10.3390/cells12162053</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-thune2023geneticvariantsassociated-pages-2-4"></a>(thune2023geneticvariantsassociated pages 2-4): Katrin Thüne, Matthias Schmitz, John Wiedenhöft, Orr Shomroni, Stefan Göbel, Timothy Bunck, Neelam Younas, Saima Zafar, Peter Hermann, and Inga Zerr. Genetic variants associated with the age of onset identified by whole-exome sequencing in fatal familial insomnia. Cells, 12:2053, Aug 2023. URL: <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells12162053</a>, <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">doi:10.3390/cells12162053</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-forloni2022preventivepharmacologicaltreatment-pages-3-5"></a>(forloni2022preventivepharmacologicaltreatment pages 3-5): Gianluigi Forloni, Ignazio Roiter, Vladimiro Artuso, Manuel Marcon, Walter Colesso, Elviana Luban, Ugo Lucca, Mauro Tettamanti, Elisabetta Pupillo, Veronica Redaelli, Francesco Mariuzzo, Giulia Boscolo Buleghin, Alice Mariuzzo, Fabrizio Tagliavini, Roberto Chiesa, and Anna Ambrosini. Preventive pharmacological treatment in subjects at risk for fatal familial insomnia: science and public engagement. Prion, 16:66-77, Jun 2022. URL: <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">https://doi.org/10.1080/19336896.2022.2083435</a>, <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">doi:10.1080/19336896.2022.2083435</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-thune2023geneticvariantsassociated-pages-8-9"></a>(thune2023geneticvariantsassociated pages 8-9): Katrin Thüne, Matthias Schmitz, John Wiedenhöft, Orr Shomroni, Stefan Göbel, Timothy Bunck, Neelam Younas, Saima Zafar, Peter Hermann, and Inga Zerr. Genetic variants associated with the age of onset identified by whole-exome sequencing in fatal familial insomnia. Cells, 12:2053, Aug 2023. URL: <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells12162053</a>, <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">doi:10.3390/cells12162053</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-forloni2022preventivepharmacologicaltreatment-pages-1-2"></a>(forloni2022preventivepharmacologicaltreatment pages 1-2): Gianluigi Forloni, Ignazio Roiter, Vladimiro Artuso, Manuel Marcon, Walter Colesso, Elviana Luban, Ugo Lucca, Mauro Tettamanti, Elisabetta Pupillo, Veronica Redaelli, Francesco Mariuzzo, Giulia Boscolo Buleghin, Alice Mariuzzo, Fabrizio Tagliavini, Roberto Chiesa, and Anna Ambrosini. Preventive pharmacological treatment in subjects at risk for fatal familial insomnia: science and public engagement. Prion, 16:66-77, Jun 2022. URL: <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">https://doi.org/10.1080/19336896.2022.2083435</a>, <a href="https://doi.org/10.1080/19336896.2022.2083435" target="_blank" rel="noopener noreferrer">doi:10.1080/19336896.2022.2083435</a>. This article has 10 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-thune2023geneticvariantsassociated-pages-6-8"></a>(thune2023geneticvariantsassociated pages 6-8): Katrin Thüne, Matthias Schmitz, John Wiedenhöft, Orr Shomroni, Stefan Göbel, Timothy Bunck, Neelam Younas, Saima Zafar, Peter Hermann, and Inga Zerr. Genetic variants associated with the age of onset identified by whole-exome sequencing in fatal familial insomnia. Cells, 12:2053, Aug 2023. URL: <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells12162053</a>, <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">doi:10.3390/cells12162053</a>. This article has 2 citations.</p>
+</li>
+<li>
+<p><a id="ref-thune2023geneticvariantsassociated-pages-9-10"></a>(thune2023geneticvariantsassociated pages 9-10): Katrin Thüne, Matthias Schmitz, John Wiedenhöft, Orr Shomroni, Stefan Göbel, Timothy Bunck, Neelam Younas, Saima Zafar, Peter Hermann, and Inga Zerr. Genetic variants associated with the age of onset identified by whole-exome sequencing in fatal familial insomnia. Cells, 12:2053, Aug 2023. URL: <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells12162053</a>, <a href="https://doi.org/10.3390/cells12162053" target="_blank" rel="noopener noreferrer">doi:10.3390/cells12162053</a>. This article has 2 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Fatal_Familial_Insomnia-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="FAS-related_Autoimmune_Lymphoproliferative_Syndrome-manual.html">← FAS-related Autoimmune Lymphoproliferative Syndrome (Manual)</a>
+                
+                
+                <a href="Febrile_Infection-Related_Epilepsy_Syndrome-claude_code.html">Febrile Infection-Related Epilepsy Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Fatal_Familial_Insomnia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Fatal_Familial_Insomnia-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

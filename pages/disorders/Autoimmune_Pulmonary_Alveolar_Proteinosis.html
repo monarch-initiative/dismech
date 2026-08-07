@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Autoimmune%20Pulmonary%20Alveolar%20Proteinosis"
@@ -3467,6 +3696,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3509,7 +3740,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3528,7 +3759,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3541,6 +3772,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3562,11 +3794,19 @@
             </a>
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#trials">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔬</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Trials</div>
             </div>
             </a>
@@ -3595,6 +3835,30 @@
         </div>
 
         <!-- Classifications -->
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison's Chapter</div>
+                <div class="tag-list">
+
+                    <span class="tag tag-classification">RESPIRATORY</span>
+
+                    <span class="tag tag-classification">IMMUNE_RHEUMATOLOGIC</span>
+
+                </div>
+            </div>
+
+
+
+
+
+
+        </div>
 
 
         <!-- Mappings -->
@@ -4141,6 +4405,42 @@
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        HLA-DRB1
+
+
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4220,6 +4520,12 @@
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">GM-CSF Neutralization and Functional GM-CSF Deficiency</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Autoimmune antibody positivity</span>
 
 
 	                        </div>
@@ -4475,14 +4781,14 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
                 <div class="evidence-snippet">"It specifically bound GM-CSF and neutralized bioactivity of the cytokine in vitro."</div>
 
 
-                <div class="evidence-explanation">The autoantibody directly binds and neutralizes GM-CSF bioactivity, establishing functional ligand deficiency.
+                <div class="evidence-explanation">The autoantibody directly binds and neutralizes GM-CSF bioactivity, establishing functional ligand deficiency. The demonstration is an in vitro binding/neutralization assay, hence IN_VITRO rather than HUMAN_CLINICAL; the human-clinical arm of this node is carried by the other evidence items.
 </div>
 
 
@@ -5064,6 +5370,18 @@
 	                        </div>
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cough with scant frothy sputum</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Crackles</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Secondary Pulmonary Fibrosis</span>
 
 
@@ -5182,6 +5500,24 @@
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Hypoxemia</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cyanosis</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Respiratory failure</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Polycythemia</span>
 
 
 	                        </div>
@@ -5620,7 +5956,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Surfactant Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAS-positive lipoproteinaceous surfactant accumulates within foamy alveolar macrophages and free in the alveolar spaces, filling the airspaces while the alveolar walls remain well preserved. This produces the crazy-paving HRCT pattern and blocks gas exchange.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"surfactant homeostasis\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without GM-CSF signaling, alveolar macrophages fail to complete terminal differentiation, in particular failing to sustain the PU.1/PPAR-gamma transcriptional program that licenses surfactant lipid catabolism and cholesterol efflux.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"macrophage differentiation\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Crazy paving pattern on pulmonary HRCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ground-glass opacification with superimposed interlobular septal thickening, often sharply demarcated from normal lung, is the characteristic radiographic finding of alveolar filling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0025391\"}}, {\"id\": \"Exertional dyspnoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive breathlessness of insidious onset is the commonest presenting symptom, recorded in 54.3% of the Japanese registry cohort at presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002875\"}}, {\"id\": \"Foam cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged lipid-engorged foamy alveolar macrophages are recovered in lavage fluid and seen on biopsy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003651\"}}, {\"id\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating and alveolar autoantibodies bind GM-CSF and neutralize its bioactivity, producing a functional ligand deficiency despite normal CSF2 expression and an intact GM-CSF receptor. This is the ligand-side mirror of the receptor-side lesion (biallelic CSF2RA/CSF2RB defects) that causes hereditary PAP.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"JAK-STAT signaling downstream of the GM-CSF receptor\"], \"role\": \"central_effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hypoxaemia reflects the widening alveolar-arterial gradient from airspace filling and defines disease severity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Airspace filling widens the alveolar-arterial oxygen gradient and lowers the diffusing capacity, producing exertional dyspnoea, hypoxaemia and, when progressive, respiratory failure.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undifferentiated alveolar macrophages ingest surfactant but cannot catabolize its lipid or efflux the liberated cholesterol. Lipidomic analysis shows the accumulating species is predominantly cholesterol rather than phospholipid, reframing PAP as a disorder of macrophage cholesterol handling and identifying the foamy macrophage as a cholesterol-engorged cell.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cholesterol efflux\", \"lipid catabolic process\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Inhaled Molgramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once-daily inhaled recombinant human GM-CSF delivered directly to the alveolar compartment to overcome local autoantibody neutralization and restore alveolar macrophage GM-CSF signaling. Efficacy was shown in the phase 2/3 IMPALA trial (alveolar-arterial oxygen difference) and confirmed in the phase 3 IMPALA-2 trial (DLCO).\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"molgramostim\"]}}, {\"id\": \"Inhaled Sargramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled recombinant human GM-CSF (sargramostim), evaluated in a Japanese multicentre phase II trial with a 62% response rate and a sustained effect, without change in serum autoantibody levels.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sargramostim\"]}}, {\"id\": \"Loss of Immune Tolerance to GM-CSF\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of B-cell tolerance to GM-CSF, influenced by MHC class II background (HLA-DRB1*08:03), drives production of high-titre polyclonal neutralizing IgG autoantibodies against GM-CSF. Low-level GM-CSF autoantibodies are present in all healthy people, so disease requires crossing a critical concentration threshold rather than simply acquiring the antibody.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\", \"humoral immune response\"], \"role\": \"trigger\"}}, {\"id\": \"Opportunistic infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent myeloid defect produces an increased risk of serious infection with opportunistic organisms (Nocardia, mycobacteria, Aspergillus) at intrapulmonary and extrapulmonary sites, carrying a poor prognosis. This is the distinctive infectious consequence of the immunodeficiency arm, and it can occur without severe alveolar disease.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0031690\"}}, {\"id\": \"Oral Statin Therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pathogenesis-based repurposing that targets alveolar macrophage cholesterol overload rather than the autoantibody. Supported by patient-level observational improvement, ex vivo human macrophage data, and rescue in Csf2rb-deficient mice; not established practice.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"HMG-CoA reductase inhibitor\"]}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent innate immune defect predisposes to secondary and opportunistic infection, including of the lung.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Restrictive ventilatory defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spirometry is normal in many patients. Restriction appears mainly in more advanced disease, with lung volumes falling in proportion to severity; the consistent physiologic abnormality is instead a reduced carbon monoxide diffusing capacity.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002091\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 B-cell depletion (two 1,000 mg intravenous infusions 15 days apart) used for disease refractory to lavage and inhaled GM-CSF. In an open-label phase II trial oxygenation improved in seven of nine completers, and anti-GM-CSF IgG fell in lavage fluid though not in serum.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secondary Pulmonary Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients develop pulmonary fibrosis over years of follow-up, a rare but potentially life-threatening complication of long-standing alveolar surfactant retention.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"modifier\", \"locations\": [\"lung\"]}}, {\"id\": \"Systemic Myeloid Host Defence Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GM-CSF also primes neutrophil and macrophage antimicrobial function, so autoantibody-mediated GM-CSF neutralization produces an acquired innate immunodeficiency in parallel with the surfactant lesion. This is an independent arm of the disease, and it explains the predisposition to opportunistic infection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"alveolar macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"role\": \"effector\"}}, {\"id\": \"Whole Lung Lavage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sequential large-volume saline lavage of each lung under general anaesthesia physically removes accumulated alveolar surfactant. It remains the first-line therapy despite never having been tested in a randomized trial.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Systemic Myeloid Host Defence Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crazy paving pattern on pulmonary HRCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Foam cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Exertional dyspnoea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Restrictive ventilatory defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Opportunistic infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Whole Lung Lavage\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Molgramostim\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Sargramostim\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral Statin Therapy (investigational)\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Surfactant Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAS-positive lipoproteinaceous surfactant accumulates within foamy alveolar macrophages and free in the alveolar spaces, filling the airspaces while the alveolar walls remain well preserved. This produces the crazy-paving HRCT pattern and blocks gas exchange.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\", \"pulmonary alveolar type 2 cell\"], \"biological_processes\": [\"surfactant homeostasis\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without GM-CSF signaling, alveolar macrophages fail to complete terminal differentiation, in particular failing to sustain the PU.1/PPAR-gamma transcriptional program that licenses surfactant lipid catabolism and cholesterol efflux.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"macrophage differentiation\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Autoimmune antibody positivity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Serum and bronchoalveolar GM-CSF autoantibody positivity is definitional for the autoimmune form.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0030057\"}}, {\"id\": \"Cough with scant frothy sputum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cough, often with scant white frothy sputum, accompanies dyspnoea in the typical presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012735\"}}, {\"id\": \"Crackles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Physical examination is generally unremarkable, but crackles may be heard.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030830\"}}, {\"id\": \"Crazy paving pattern on pulmonary HRCT\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ground-glass opacification with superimposed interlobular septal thickening, often sharply demarcated from normal lung, is the characteristic radiographic finding of alveolar filling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0025391\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cyanosis may be evident in severe disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000961\"}}, {\"id\": \"Exertional dyspnoea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive breathlessness of insidious onset is the commonest presenting symptom, recorded in 54.3% of the Japanese registry cohort at presentation.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002875\"}}, {\"id\": \"Foam cells\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlarged lipid-engorged foamy alveolar macrophages are recovered in lavage fluid and seen on biopsy.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0003651\"}}, {\"id\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Circulating and alveolar autoantibodies bind GM-CSF and neutralize its bioactivity, producing a functional ligand deficiency despite normal CSF2 expression and an intact GM-CSF receptor. This is the ligand-side mirror of the receptor-side lesion (biallelic CSF2RA/CSF2RB defects) that causes hereditary PAP.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cytokine-mediated signaling pathway\", \"JAK-STAT signaling downstream of the GM-CSF receptor\"], \"role\": \"central_effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"HLA-DRB1*08:03 susceptibility allele\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"relationship_type\": \"SUSCEPTIBILITY\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypoxemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive hypoxaemia reflects the widening alveolar-arterial gradient from airspace filling and defines disease severity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012418\"}}, {\"id\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Airspace filling widens the alveolar-arterial oxygen gradient and lowers the diffusing capacity, producing exertional dyspnoea, hypoxaemia and, when progressive, respiratory failure.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Undifferentiated alveolar macrophages ingest surfactant but cannot catabolize its lipid or efflux the liberated cholesterol. Lipidomic analysis shows the accumulating species is predominantly cholesterol rather than phospholipid, reframing PAP as a disorder of macrophage cholesterol handling and identifying the foamy macrophage as a cholesterol-engorged cell.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"cholesterol efflux\", \"lipid catabolic process\"], \"role\": \"effector\", \"locations\": [\"alveolus of lung\"]}}, {\"id\": \"Inhaled Molgramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Once-daily inhaled recombinant human GM-CSF delivered directly to the alveolar compartment to overcome local autoantibody neutralization and restore alveolar macrophage GM-CSF signaling. Efficacy was shown in the phase 2/3 IMPALA trial (alveolar-arterial oxygen difference) and confirmed in the phase 3 IMPALA-2 trial (DLCO).\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"molgramostim\"]}}, {\"id\": \"Inhaled Sargramostim\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Inhaled recombinant human GM-CSF (sargramostim), evaluated in a Japanese multicentre phase II trial with a 62% response rate and a sustained effect, without change in serum autoantibody levels.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sargramostim\"]}}, {\"id\": \"Loss of Immune Tolerance to GM-CSF\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of B-cell tolerance to GM-CSF, influenced by MHC class II background (HLA-DRB1*08:03), drives production of high-titre polyclonal neutralizing IgG autoantibodies against GM-CSF. Low-level GM-CSF autoantibodies are present in all healthy people, so disease requires crossing a critical concentration threshold rather than simply acquiring the antibody.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"immunoglobulin production\", \"humoral immune response\"], \"genes\": [\"HLA-DRB1\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}], \"role\": \"trigger\"}}, {\"id\": \"Lung Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved for severe disease refractory to all other therapy. PAP recurrence in the allograft has been reported, consistent with the persistence of the circulating autoantibody after transplantation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Opportunistic infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent myeloid defect produces an increased risk of serious infection with opportunistic organisms (Nocardia, mycobacteria, Aspergillus) at intrapulmonary and extrapulmonary sites, carrying a poor prognosis. This is the distinctive infectious consequence of the immunodeficiency arm, and it can occur without severe alveolar disease.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0031690\"}}, {\"id\": \"Oral Statin Therapy (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pathogenesis-based repurposing that targets alveolar macrophage cholesterol overload rather than the autoantibody. Supported by patient-level observational improvement, ex vivo human macrophage data, and rescue in Csf2rb-deficient mice; not established practice.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"HMG-CoA reductase inhibitor\"]}}, {\"id\": \"Plasmapheresis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic plasma exchange to lower circulating GM-CSF autoantibody in refractory disease. Evidence is limited to case-level reports with inconsistent responses, and some patients remain refractory despite documented antibody reduction.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Polycythemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary polycythaemia develops in severe disease as an erythropoietic response to sustained hypoxaemia from surfactant-filled alveoli. It is a downstream consequence of impaired gas exchange rather than a primary haematologic lesion, and the same finding arises in mice lacking GM-CSF signaling.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001901\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The GM-CSF-dependent innate immune defect predisposes to secondary and opportunistic infection, including of the lung.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002205\"}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive airspace filling can culminate in respiratory failure and death in a subset of patients.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002878\"}}, {\"id\": \"Restrictive ventilatory defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spirometry is normal in many patients. Restriction appears mainly in more advanced disease, with lung volumes falling in proportion to severity; the consistent physiologic abnormality is instead a reduced carbon monoxide diffusing capacity.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002091\"}}, {\"id\": \"Rituximab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 B-cell depletion (two 1,000 mg intravenous infusions 15 days apart) used for disease refractory to lavage and inhaled GM-CSF. In an open-label phase II trial oxygenation improved in seven of nine completers, and anti-GM-CSF IgG fell in lavage fluid though not in serum.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secondary Pulmonary Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients develop pulmonary fibrosis over years of follow-up, a rare but potentially life-threatening complication of long-standing alveolar surfactant retention.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"modifier\", \"locations\": [\"lung\"]}}, {\"id\": \"Systemic Myeloid Host Defence Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GM-CSF also primes neutrophil and macrophage antimicrobial function, so autoantibody-mediated GM-CSF neutralization produces an acquired innate immunodeficiency in parallel with the surfactant lesion. This is an independent arm of the disease, and it explains the predisposition to opportunistic infection.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"alveolar macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"role\": \"effector\"}}, {\"id\": \"Whole Lung Lavage\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sequential large-volume saline lavage of each lung under general anaesthesia physically removes accumulated alveolar surfactant. It remains the first-line therapy despite never having been tested in a randomized trial.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Immune Tolerance to GM-CSF\", \"target\": \"Autoimmune antibody positivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"target\": \"Systemic Myeloid Host Defence Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crazy paving pattern on pulmonary HRCT\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Foam cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Cough with scant frothy sputum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Crackles\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alveolar Surfactant Accumulation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Exertional dyspnoea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Hypoxemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Polycythemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency\", \"target\": \"Restrictive ventilatory defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Myeloid Host Defence Impairment\", \"target\": \"Opportunistic infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Whole Lung Lavage\", \"target\": \"Alveolar Surfactant Accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Molgramostim\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inhaled Sargramostim\", \"target\": \"Arrested Alveolar Macrophage Terminal Differentiation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Plasmapheresis\", \"target\": \"GM-CSF Neutralization and Functional GM-CSF Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung Transplantation\", \"target\": \"Secondary Pulmonary Fibrosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oral Statin Therapy (investigational)\", \"target\": \"Impaired Surfactant Catabolism and Macrophage Cholesterol Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-DRB1*08:03 susceptibility allele\", \"target\": \"Loss of Immune Tolerance to GM-CSF\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5633,21 +5969,23 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">14</span>
+                <span class="card-count">15</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5656,11 +5994,121 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polycythemia" data-dismech-node="Polycythemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Polycythemia
+
+
+                    <span class="phenotype-id">
+                        Polycythemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001901">HP:0001901</a>
+
+
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: SEVERE</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A thickened surfactant layer and surfactant-filled alveoli contribute to reduced oxygen delivery, resulting in hypoxemia, dyspnea, and in severe cases polycythemia, respiratory failure, and death."</div>
+
+
+                <div class="evidence-explanation">Places polycythaemia on the hypoxaemia limb of the disease, occurring in severe cases alongside respiratory failure.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Polycythemia develops over time in the absence of GM-CSF signaling"</div>
+
+
+                <div class="evidence-explanation">The same phenotype emerges in GM-CSF-signaling-deficient mice, corroborating it as a consequence of the shared mechanism.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent respiratory infections" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent respiratory infections
 
@@ -5724,14 +6172,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cyanosis" data-dismech-node="Cyanosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cyanosis
 
@@ -5810,14 +6258,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cough-with-scant-frothy-sputum" data-dismech-node="Cough with scant frothy sputum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cough with scant frothy sputum
 
@@ -5876,7 +6324,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoxemia" data-dismech-node="Hypoxemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoxemia
 
@@ -5953,7 +6401,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive ventilatory defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Restrictive ventilatory defect
 
@@ -6059,7 +6507,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory failure
 
@@ -6120,14 +6568,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest pain
 
@@ -6188,14 +6636,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exertional-dyspnoea" data-dismech-node="Exertional dyspnoea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Exertional dyspnoea
 
@@ -6275,7 +6723,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-crazy-paving-pattern-on-pulmonary-hrct" data-dismech-node="Crazy paving pattern on pulmonary HRCT" data-dismech-type="phenotype">
                     <div class="item-name">
                         Crazy paving pattern on pulmonary HRCT
 
@@ -6361,7 +6809,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foam-cells" data-dismech-node="Foam cells" data-dismech-type="phenotype">
                     <div class="item-name">
                         Foam cells
 
@@ -6384,7 +6832,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6410,6 +6858,52 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Electron microscopic examination reveals the presence of surfactant sediment and foamy alveolar macrophages"</div>
+
+
+                <div class="evidence-explanation">Human ultrastructural evidence, so the phenotype does not rest solely on the primate model.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Consequently, cytoplasmic cholesterol accumulates and is esterified and sequestered in intracytoplasmic lipid droplets (as a cellular protective mechanism) resulting in the characteristic foamy appearance and enhanced oil red O staining"</div>
+
+
+                <div class="evidence-explanation">Explains the foamy appearance mechanistically as esterified cholesterol sequestered in lipid droplets, tying the phenotype to the cholesterol overload node rather than leaving it descriptive.
+</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -6420,7 +6914,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-crackles" data-dismech-node="Crackles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Crackles
 
@@ -6480,7 +6974,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-opportunistic-infection" data-dismech-node="Opportunistic infection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Opportunistic infection
 
@@ -6585,7 +7079,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-antibody-positivity" data-dismech-node="Autoimmune antibody positivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autoimmune antibody positivity
 
@@ -6647,7 +7141,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-digital-clubbing-atypical" data-dismech-node="Digital clubbing (atypical)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Digital clubbing (atypical)
 
@@ -6769,7 +7263,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1-08-03-susceptibility-allele" data-dismech-node="HLA-DRB1*08:03 susceptibility allele" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1*08:03 susceptibility allele
 
@@ -6879,9 +7373,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6893,7 +7391,7 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-whole-lung-lavage" data-dismech-node="Whole Lung Lavage" data-dismech-type="treatment">
                 <div class="item-name">
                     Whole Lung Lavage
                 </div>
@@ -7023,7 +7521,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-inhaled-molgramostim" data-dismech-node="Inhaled Molgramostim" data-dismech-type="treatment">
                 <div class="item-name">
                     Inhaled Molgramostim
                 </div>
@@ -7217,7 +7715,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-inhaled-sargramostim" data-dismech-node="Inhaled Sargramostim" data-dismech-type="treatment">
                 <div class="item-name">
                     Inhaled Sargramostim
                 </div>
@@ -7386,7 +7884,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rituximab" data-dismech-node="Rituximab" data-dismech-type="treatment">
                 <div class="item-name">
                     Rituximab
                 </div>
@@ -7556,7 +8054,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-plasmapheresis" data-dismech-node="Plasmapheresis" data-dismech-type="treatment">
                 <div class="item-name">
                     Plasmapheresis
                 </div>
@@ -7596,14 +8094,99 @@
 </div>
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">GM-CSF Neutralization and Functional GM-CSF Deficiency</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Plasma exchange removes circulating GM-CSF autoantibody, aiming to relieve the neutralization of GM-CSF. The autoantibody pool is large enough that the removal rate cannot keep pace with it.
+</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, the procedure must be repeated frequently (daily for 2 wk) to reduce the very high autoantibody concentrations present"</div>
+
+
+                <div class="evidence-explanation">The mechanism is sound but the required exchange frequency reflects the autoantibody burden, which is what limits the approach. Tagged OTHER because the source sentence attributes this to unpublished results (B. Trapnell) rather than to published clinical data.
+</div>
 
 
 
             </div>
 
-            <div class="item-box treatment-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, this approach appears impractical and unviable in our opinion."</div>
+
+
+                <div class="evidence-explanation">The state-of-the-art review judges plasmapheresis impractical and unviable. Curated as REFUTE so the entry records the negative recommendation rather than implying plasmapheresis is a usable option. Tagged OTHER, not HUMAN_CLINICAL: the sentence is explicitly the authors&#39; opinion (&#34;in our opinion&#34;) resting on unpublished results, so this is expert judgement rather than published clinical data refuting the therapy.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-lung-transplantation" data-dismech-node="Lung Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Lung Transplantation
                 </div>
@@ -7643,14 +8226,99 @@
 </div>
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Secondary Pulmonary Fibrosis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Transplantation replaces the fibrotic lung once irreversible parenchymal distortion has made whole-lung lavage ineffective. It addresses the end-organ consequence, not the mechanism.
+</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In patients with autoimmune PAP who develop pulmonary fibrosis, WLL becomes ineffective and lung transplantation is required; however, the autoimmune PAP lung disease returns and must be treated"</div>
+
+
+                <div class="evidence-explanation">Establishes both the indication (fibrosis making lavage ineffective) and the boundary (disease returns in the allograft).
+</div>
 
 
 
             </div>
 
-            <div class="item-box treatment-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35227171" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35227171" target="_blank">PMID:35227171</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the autoimmune PAP lung disease returns and must be treated"</div>
+
+
+                <div class="evidence-explanation">Recurrence in the allograft is the decisive caveat: because the causal autoantibody is systemic and persists after transplantation, the new lung is exposed to the same lesion and requires ongoing treatment.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-oral-statin-therapy-investigational" data-dismech-node="Oral Statin Therapy (investigational)" data-dismech-type="treatment">
                 <div class="item-name">
                     Oral Statin Therapy (investigational)
                 </div>
@@ -7833,7 +8501,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette smoking</div>
 
 
@@ -7900,9 +8568,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-inhaled-dust-exposure" data-dismech-node="Inhaled dust exposure" data-dismech-type="environmental">
                 <div class="item-name">Inhaled dust exposure</div>
 
 
@@ -7945,6 +8614,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -7959,7 +8629,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-gm-csf-autoantibody" data-dismech-node="Serum GM-CSF autoantibody" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum GM-CSF autoantibody
 
@@ -8029,7 +8699,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-disease-severity-score-correlates-with-dlco-and-serum-biomarkers-but-not-autoantibody-level" data-dismech-node="Disease severity score correlates with DLCO and serum biomarkers but not autoantibody level" data-dismech-type="biochemical">
                 <div class="item-name">
                     Disease severity score correlates with DLCO and serum biomarkers but not autoantibody level
 
@@ -8077,7 +8747,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-kl-6" data-dismech-node="Serum KL-6" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum KL-6
 
@@ -8148,7 +8818,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-surfactant-proteins-and-other-activity-biomarkers" data-dismech-node="Serum surfactant proteins and other activity biomarkers" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum surfactant proteins and other activity biomarkers
 
@@ -8217,7 +8887,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-lactate-dehydrogenase" data-dismech-node="Serum lactate dehydrogenase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum lactate dehydrogenase
 
@@ -8447,6 +9117,119 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Expression profiles and potential functions of long non-coding RNAs and mRNAs in autoimmune pulmonary alveolar proteinosis patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE153957" target="_blank">geo:GSE153957</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Microarray profiling of peripheral blood from five aPAP patients and five healthy volunteers. The sample source is peripheral blood rather than lung tissue, so it interrogates the systemic/autoimmune arm of the disease rather than the alveolar lesion directly.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Large-scale differential expression of both lncRNAs and mRNAs distinguishes aPAP peripheral blood from healthy controls.</div>
+
+
+            <div class="finding-supporting">"In total, 12459 DE lncRNAs and 9331 DE mRNAs were identified in APAP patient samples."</div>
+
+
+
+
+        </div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Twelve differentially expressed lncRNAs survived qRT-PCR validation as candidate contributors to pathogenesis.</div>
+
+
+            <div class="finding-supporting">"A qRT-PCR validation of 20 DE lncRNAs and 20 mRNAs indicated that 12 DE lncRNAs may be involved in the pathogenesis of APAP."</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/33820876" target="_blank" style="color: var(--secondary);">PMID:33820876</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Exploratory and small (n=5 per group). The reported lncRNA and ceRNA networks are hypothesis-generating and are deliberately NOT curated as pathophysiology nodes; no mechanistic claim in this entry rests on them.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33820876" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33820876" target="_blank">PMID:33820876</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we performed microarray analyses to identify differentially expressed (DE) lncRNAs and mRNAs between peripheral blood samples from five APAP patients and five healthy volunteers"</div>
+
+
+                <div class="evidence-explanation">Defines the dataset design, sample source and cohort size.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -8454,7 +9237,111 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
                 <h2 class="card-title">Clinical Trials</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT02702180
+
+                    <span class="tag tag-phase">PHASE_III</span>
+
+
+                    <span class="tag tag-status">COMPLETED</span>
+
+                </div>
+
+                <div class="item-desc">IMPALA: randomised, double-blind, placebo-controlled multicentre trial of inhaled molgramostim in autoimmune PAP, comparing once-daily and intermittent (7 days on, 7 days off) dosing against placebo over 24 weeks, with change in the alveolar-arterial oxygen difference as the primary endpoint. The predecessor of IMPALA-2 (NCT04544293).
+</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Hypoxemia
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012418">HP:0012418</a>
+
+
+
+                    </span>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Exertional dyspnea
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002875">HP:0002875</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02702180" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02702180" target="_blank">clinicaltrials:NCT02702180</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A third of the patients will receive inhaled molgramostim once daily for 24 weeks, a third will receive inhaled molgramostim intermittently (7 days on, 7 days off) for 24 weeks and a third will receive inhaled matching placebo for 24 weeks."</div>
+
+
+                <div class="evidence-explanation">The registry record documents the three-arm continuous/intermittent/placebo design.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32897035" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32897035" target="_blank">PMID:32897035</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"improvement was greater among patients receiving continuous molgramostim than among those receiving placebo"</div>
+
+
+                <div class="evidence-explanation">The published result: continuous daily dosing beat placebo, which is why IMPALA-2 carried the once-daily regimen forward.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
             </div>
 
             <div class="item-box clinical-trial-box">
@@ -8593,6 +9480,36 @@ disease_term:
 parents:
 - Pulmonary alveolar proteinosis
 - Autoimmune disease
+classifications:
+  harrisons_chapter:
+  - classification_value: RESPIRATORY
+    notes: &gt;-
+      Primary clinical home: the defining lesion is alveolar surfactant
+      accumulation with hypoxaemia, and management is pulmonary (whole-lung
+      lavage, inhaled GM-CSF).
+    evidence:
+    - reference: PMID:35227171
+      reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Autoimmune pulmonary alveolar proteinosis (PAP) is a rare disease characterized by progressive accumulation of surfactant in pulmonary alveoli and resulting hypoxemia&#34;
+      explanation: &gt;
+        The review frames the disease by alveolar surfactant accumulation and
+        hypoxaemia, placing it in the respiratory Part.
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      Secondary Part: the causal lesion is a neutralizing IgG autoantibody, and
+      the disease is simultaneously an autoimmune disease and an acquired innate
+      immunodeficiency. B-cell-depleting therapy targets this axis.
+    evidence:
+    - reference: PMID:10499925
+      reference_title: &#34;Idiopathic pulmonary alveolar proteinosis as an autoimmune disease with neutralizing antibody against granulocyte/macrophage colony-stimulating factor.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We report here that I-PAP is an autoimmune disease with neutralizing antibody of immunoglobulin G isotype against granulocyte/macrophage colony-stimulating factor (GM-CSF).&#34;
+      explanation: &gt;
+        The founding study establishes the disease as autoimmune, supporting the
+        second Part assignment alongside the respiratory one.
 references:
 - reference: PMID:35227171
   title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
@@ -8710,6 +9627,54 @@ progression:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical course, although variable, usually includes progressive hypoxemic respiratory insufficiency and, in some patients, secondary infections, pulmonary fibrosis, respiratory failure, and death.&#34;
     explanation: The review summarizes the disease trajectory and its late complications.
+- phase: Spontaneous resolution
+  notes: &gt;-
+    The course is not uniformly progressive. It resolves in a minority without
+    treatment, which is why the three recognized trajectories are stable
+    disease, progressive deterioration and spontaneous resolution, and why an
+    uncontrolled improvement cannot be attributed to therapy.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The clinical course of autoimmune PAP comprises three patterns: stable disease, progressive deterioration, and spontaneous resolution&#34;
+    explanation: &gt;
+      Names the three trajectories, establishing that progression is only one of
+      the recognized courses.
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;7.9% of cases were reported to have experienced spontaneous resolution&#34;
+    explanation: &gt;
+      Quantifies spontaneous resolution in the largest meta-analysis, bounding
+      the size of the non-progressive subset.
+- phase: Long-term survival and cause of death
+  notes: &gt;-
+    Survival is measured in years rather than months, but mortality is
+    front-loaded: most deaths occur within the first year after diagnosis.
+    Respiratory failure is the leading cause of death, with uncontrolled
+    infection second - the two arms of the mechanism (surfactant accumulation
+    and myeloid host-defence impairment) are also the two leading killers.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In the largest study reported to date, a meta-analysis of 343 patients with PAP revealed survival rates of 78% at 2 years, 75% at 5 years, and 68% at 10 years; more than 80% of deaths occurred within 12 months of diagnosis, and respiratory failure was the most common cause of death, followed by uncontrolled infection&#34;
+    explanation: &gt;
+      Provides the survival curve, the front-loaded mortality timing and the
+      ranked causes of death.
+  - reference: PMID:18202348
+    reference_title: &#34;Characteristics of a large cohort of patients with autoimmune pulmonary alveolar proteinosis in Japan.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Autoimmune PAP had an incidence and prevalence higher than previously reported and was not strongly linked to smoking, occupational exposure, or other illnesses.&#34;
+    explanation: &gt;
+      Counterweight on ascertainment: the systematically ascertained registry
+      cohort was milder than referral-based series, so pooled survival figures
+      drawn largely from referral cohorts may understate survival.
 inheritance:
 - name: Not inherited (acquired autoimmune disease with HLA-linked susceptibility)
   description: &gt;
@@ -8815,6 +9780,11 @@ pathophysiology:
     threshold rather than simply acquiring the antibody.
   role: trigger
   biological_scale: MOLECULAR
+  genes:
+  - preferred_term: HLA-DRB1
+    term:
+      id: hgnc:4948
+      label: HLA-DRB1
   cell_types:
   - preferred_term: plasma cell
     term:
@@ -8859,6 +9829,28 @@ pathophysiology:
   downstream:
   - target: GM-CSF Neutralization and Functional GM-CSF Deficiency
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:10499925
+      reference_title: &#34;Idiopathic pulmonary alveolar proteinosis as an autoimmune disease with neutralizing antibody against granulocyte/macrophage colony-stimulating factor.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;It specifically bound GM-CSF and neutralized bioactivity of the cytokine in vitro.&#34;
+      explanation: &gt;
+        The autoantibody produced by the tolerance defect is the agent that
+        neutralizes GM-CSF, closing this edge. The binding and neutralization
+        were demonstrated in a cell-free/cell-based assay, so this is IN_VITRO
+        evidence even though the antibody was purified from patients.
+  - target: Autoimmune antibody positivity
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:10499925
+      reference_title: &#34;Idiopathic pulmonary alveolar proteinosis as an autoimmune disease with neutralizing antibody against granulocyte/macrophage colony-stimulating factor.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The antibody was also found in sera from all I-PAP patients examined but not in sera from a secondary PAP patient or normal subjects, indicating that it exists systemically in I-PAP patients.&#34;
+      explanation: &gt;
+        Loss of tolerance manifests directly as detectable systemic
+        autoantibody, which is the definitional laboratory phenotype.
 - name: GM-CSF Neutralization and Functional GM-CSF Deficiency
   description: &gt;
     Circulating and alveolar autoantibodies bind GM-CSF and neutralize its
@@ -8893,11 +9885,14 @@ pathophysiology:
   - reference: PMID:10499925
     reference_title: &#34;Idiopathic pulmonary alveolar proteinosis as an autoimmune disease with neutralizing antibody against granulocyte/macrophage colony-stimulating factor.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: &#34;It specifically bound GM-CSF and neutralized bioactivity of the cytokine in vitro.&#34;
     explanation: &gt;
       The autoantibody directly binds and neutralizes GM-CSF bioactivity,
-      establishing functional ligand deficiency.
+      establishing functional ligand deficiency. The demonstration is an
+      in vitro binding/neutralization assay, hence IN_VITRO rather than
+      HUMAN_CLINICAL; the human-clinical arm of this node is carried by the
+      other evidence items.
   - reference: PMID:32897035
     reference_title: &#34;Inhaled Molgramostim Therapy in Autoimmune Pulmonary Alveolar Proteinosis.&#34;
     supports: SUPPORT
@@ -8917,8 +9912,26 @@ pathophysiology:
   downstream:
   - target: Arrested Alveolar Macrophage Terminal Differentiation
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:10499925
+      reference_title: &#34;Idiopathic pulmonary alveolar proteinosis as an autoimmune disease with neutralizing antibody against granulocyte/macrophage colony-stimulating factor.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;our findings strongly suggest that neutralization of GM-CSF bioactivity by the antibody causes dysfunction of alveolar macrophages, which results in reduced surfactant clearance.&#34;
+      explanation: &gt;
+        States the edge explicitly: GM-CSF neutralization causes alveolar
+        macrophage dysfunction.
   - target: Systemic Myeloid Host Defence Impairment
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:19282464
+      reference_title: &#34;Granulocyte/macrophage-colony-stimulating factor autoantibodies and myeloid cell immune functions in healthy subjects.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;GM-CSF autoantibodies were detected in all healthy subjects evaluated (n = 72) at low levels sufficient to rheostatically regulate multiple myeloid functions.&#34;
+      explanation: &gt;
+        GM-CSF availability sets myeloid function rheostatically, so
+        neutralization impairs host defence on the same axis.
 - name: Arrested Alveolar Macrophage Terminal Differentiation
   description: &gt;
     Without GM-CSF signaling, alveolar macrophages fail to complete terminal
@@ -8963,6 +9976,15 @@ pathophysiology:
   downstream:
   - target: Impaired Surfactant Catabolism and Macrophage Cholesterol Overload
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:30087322
+      reference_title: &#34;Statin as a novel pharmacotherapy of pulmonary alveolar proteinosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In PAP patients, alveolar macrophages have a marked increase in cholesterol but only a minor increase in phospholipids, and pulmonary surfactant has an increase in the ratio of cholesterol to phospholipids.&#34;
+      explanation: &gt;
+        The undifferentiated macrophage&#39;s measured lipid phenotype is
+        cholesterol overload, which is the content of this edge.
 - name: Impaired Surfactant Catabolism and Macrophage Cholesterol Overload
   description: &gt;
     Undifferentiated alveolar macrophages ingest surfactant but cannot catabolize
@@ -9014,6 +10036,15 @@ pathophysiology:
   downstream:
   - target: Alveolar Surfactant Accumulation
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:32897035
+      reference_title: &#34;Inhaled Molgramostim Therapy in Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;It is caused by disruption of granulocyte-macrophage colony-stimulating factor (GM-CSF) signaling, which pulmonary alveolar macrophages require to clear surfactant.&#34;
+      explanation: &gt;
+        Failure of the macrophage clearance function is what allows surfactant
+        to accumulate in the airspaces.
 - name: Alveolar Surfactant Accumulation
   description: &gt;
     PAS-positive lipoproteinaceous surfactant accumulates within foamy alveolar
@@ -9062,9 +10093,22 @@ pathophysiology:
   downstream:
   - target: Impaired Gas Exchange and Hypoxaemic Respiratory Insufficiency
     causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:35227171
+      reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A thickened surfactant layer and surfactant-filled alveoli contribute to reduced oxygen delivery, resulting in hypoxemia, dyspnea, and in severe cases polycythemia, respiratory failure, and death.&#34;
+      explanation: &gt;
+        Directly links the accumulated alveolar surfactant to reduced oxygen
+        delivery and its clinical consequences.
   - target: Crazy paving pattern on pulmonary HRCT
     causal_link_type: DIRECT
   - target: Foam cells
+    causal_link_type: DIRECT
+  - target: Cough with scant frothy sputum
+    causal_link_type: DIRECT
+  - target: Crackles
     causal_link_type: DIRECT
   - target: Secondary Pulmonary Fibrosis
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
@@ -9092,6 +10136,12 @@ pathophysiology:
     causal_link_type: DIRECT
   - target: Hypoxemia
     causal_link_type: DIRECT
+  - target: Cyanosis
+    causal_link_type: DIRECT
+  - target: Respiratory failure
+    causal_link_type: DIRECT
+  - target: Polycythemia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
   - target: Restrictive ventilatory defect
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 - name: Systemic Myeloid Host Defence Impairment
@@ -9165,6 +10215,108 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The clinical course, although variable, usually includes progressive hypoxemic respiratory insufficiency and, in some patients, secondary infections, pulmonary fibrosis, respiratory failure, and death.&#34;
     explanation: The review lists fibrosis among the late complications in a subset.
+imaging_findings:
+- name: Crazy paving on chest CT
+  modality: CT
+  imaging_finding_term:
+    preferred_term: Crazy paving pattern
+    term:
+      id: HP:0025391
+      label: Crazy paving pattern
+  phenotype_term:
+    preferred_term: Crazy paving pattern
+    term:
+      id: HP:0025391
+      label: Crazy paving pattern
+  located_in:
+    preferred_term: lung
+    term:
+      id: UBERON:0002048
+      label: lung
+  diagnostic: false
+  description: &gt;-
+    Interlobular septal thickening superimposed on ground-glass opacification.
+    It establishes the PAP syndrome and correlates with severity, but is not
+    diagnostic of the autoimmune form - the same pattern occurs in the other
+    PAP-causing diseases and in cardiogenic oedema, hypersensitivity
+    pneumonitis, Pneumocystis pneumonia and acute lung injury. Extent varies
+    from involvement of some lobules to a homogeneous pattern throughout.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;(E) Image revealing a homogeneous pattern of crazy paving throughout all regions of the lung parenchyma.&#34;
+    explanation: &gt;
+      Documents the crazy-paving appearance on chest CT in its diffuse,
+      homogeneous form.
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Although characteristic, this pattern is not diagnostic of autoimmune PAP and can also be seen in other PAP-causing diseases&#34;
+    explanation: &gt;
+      Bounds the finding: characteristic of the syndrome but unable to assign
+      the aetiology, hence `diagnostic: false`.
+- name: Geographic ground-glass opacification with sharply demarcated lobular borders
+  modality: CT
+  imaging_finding_term:
+    preferred_term: Ground-glass opacification
+    term:
+      id: HP:0025179
+      label: Ground-glass opacification
+  located_in:
+    preferred_term: lung
+    term:
+      id: UBERON:0002048
+      label: lung
+  diagnostic: false
+  description: &gt;-
+    Ground-glass opacification involving some but not all secondary lobules,
+    producing sharply angled polygonal borders against normal lung - the
+    &#34;geographic&#34; pattern. The abrupt demarcation between adjacent involved and
+    spared lobules is the radiographic signature of alveolar filling with
+    preserved alveolar architecture, and distinguishes it from the diffuse
+    haze of interstitial disease.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;(C) Image showing ground-glass opacification involving some but not all secondary lobules&#34;
+    explanation: &gt;
+      Records the lobule-selective distribution that produces the geographic
+      appearance. The quote stops at a clause boundary rather than running into
+      the source&#39;s curly-quoted &#34;geographic&#34;, which would introduce
+      non-ASCII characters into the snippet.
+- name: Pulmonary fibrosis with traction bronchiectasis (late)
+  modality: CT
+  imaging_finding_term:
+    preferred_term: Pulmonary fibrosis
+    term:
+      id: HP:0002206
+      label: Pulmonary fibrosis
+  located_in:
+    preferred_term: lung
+    term:
+      id: UBERON:0002048
+      label: lung
+  diagnostic: false
+  description: &gt;-
+    A minority of patients progress to established fibrosis with parenchymal
+    distortion and traction bronchiectasis. This is the imaging correlate of
+    the Secondary Pulmonary Fibrosis mechanism node and marks the point at
+    which whole-lung lavage becomes ineffective and transplantation is
+    considered.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;(F) Image revealing extensive pulmonary fibrosis with parenchymal distortion from traction bronchiectasis.&#34;
+    explanation: &gt;
+      Documents the late fibrotic imaging phenotype in a patient who proceeded
+      to bilateral lung transplantation.
 histopathology:
 - name: PAS-positive alveolar lipoproteinaceous material with foamy macrophages
   description: &gt;
@@ -9510,6 +10662,23 @@ phenotypes:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Ultrastructural evaluation revealed that alveolar macrophages were engorged with lipid droplets and lamellar inclusion bodies&#34;
     explanation: Documents the foamy, lipid-engorged alveolar macrophage.
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Electron microscopic examination reveals the presence of surfactant sediment and foamy alveolar macrophages&#34;
+    explanation: &gt;
+      Human ultrastructural evidence, so the phenotype does not rest solely on
+      the primate model.
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Consequently, cytoplasmic cholesterol accumulates and is esterified and sequestered in intracytoplasmic lipid droplets (as a cellular protective mechanism) resulting in the characteristic foamy appearance and enhanced oil red O staining&#34;
+    explanation: &gt;
+      Explains the foamy appearance mechanistically as esterified cholesterol
+      sequestered in lipid droplets, tying the phenotype to the cholesterol
+      overload node rather than leaving it descriptive.
 - category: Respiratory
   name: Restrictive ventilatory defect
   description: &gt;
@@ -9581,6 +10750,37 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Generally, the physical examination is unremarkable but can identify crackles or even cyanosis in severe cases.&#34;
     explanation: Cyanosis is reported on examination in severe cases.
+- category: Hematologic
+  name: Polycythemia
+  description: &gt;
+    Secondary polycythaemia develops in severe disease as an erythropoietic
+    response to sustained hypoxaemia from surfactant-filled alveoli. It is a
+    downstream consequence of impaired gas exchange rather than a primary
+    haematologic lesion, and the same finding arises in mice lacking GM-CSF
+    signaling.
+  phenotype_term:
+    preferred_term: Polycythemia
+    term:
+      id: HP:0001901
+      label: Polycythemia
+    severity: SEVERE
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A thickened surfactant layer and surfactant-filled alveoli contribute to reduced oxygen delivery, resulting in hypoxemia, dyspnea, and in severe cases polycythemia, respiratory failure, and death.&#34;
+    explanation: &gt;
+      Places polycythaemia on the hypoxaemia limb of the disease, occurring in
+      severe cases alongside respiratory failure.
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;Polycythemia develops over time in the absence of GM-CSF signaling&#34;
+    explanation: &gt;
+      The same phenotype emerges in GM-CSF-signaling-deficient mice,
+      corroborating it as a consequence of the shared mechanism.
 - category: Respiratory
   name: Chest pain
   description: &gt;
@@ -9962,10 +11162,43 @@ treatments:
     term:
       id: NCIT:C15304
       label: Plasmapheresis
+  target_mechanisms:
+  - target: GM-CSF Neutralization and Functional GM-CSF Deficiency
+    treatment_effect: INHIBITS
+    description: &gt;
+      Plasma exchange removes circulating GM-CSF autoantibody, aiming to relieve
+      the neutralization of GM-CSF. The autoantibody pool is large enough that
+      the removal rate cannot keep pace with it.
+    evidence:
+    - reference: PMID:35227171
+      reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;However, the procedure must be repeated frequently (daily for 2 wk) to reduce the very high autoantibody concentrations present&#34;
+      explanation: &gt;
+        The mechanism is sound but the required exchange frequency reflects the
+        autoantibody burden, which is what limits the approach. Tagged OTHER
+        because the source sentence attributes this to unpublished results
+        (B. Trapnell) rather than to published clinical data.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: REFUTE
+    evidence_source: OTHER
+    snippet: &#34;Thus, this approach appears impractical and unviable in our opinion.&#34;
+    explanation: &gt;
+      The state-of-the-art review judges plasmapheresis impractical and
+      unviable. Curated as REFUTE so the entry records the negative
+      recommendation rather than implying plasmapheresis is a usable option.
+      Tagged OTHER, not HUMAN_CLINICAL: the sentence is explicitly the authors&#39;
+      opinion (&#34;in our opinion&#34;) resting on unpublished results, so this is
+      expert judgement rather than published clinical data refuting the
+      therapy.
   notes: &gt;
-    Included for completeness of the therapeutic sequence. No PMID-anchored
-    quantitative evidence item is curated here because the available sources are
-    individual case reports; treat as low-certainty salvage therapy.
+    Retained for completeness of the therapeutic sequence and because the
+    negative is informative: the mechanism is theoretically sound but defeated
+    by the size of the autoantibody pool. Treat as not recommended rather than
+    merely unproven.
 - name: Lung Transplantation
   description: &gt;
     Reserved for severe disease refractory to all other therapy. PAP recurrence
@@ -9977,9 +11210,36 @@ treatments:
     term:
       id: NCIT:C15274
       label: Lung Transplantation
+  target_mechanisms:
+  - target: Secondary Pulmonary Fibrosis
+    treatment_effect: INHIBITS
+    description: &gt;
+      Transplantation replaces the fibrotic lung once irreversible parenchymal
+      distortion has made whole-lung lavage ineffective. It addresses the
+      end-organ consequence, not the mechanism.
+    evidence:
+    - reference: PMID:35227171
+      reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;In patients with autoimmune PAP who develop pulmonary fibrosis, WLL becomes ineffective and lung transplantation is required; however, the autoimmune PAP lung disease returns and must be treated&#34;
+      explanation: &gt;
+        Establishes both the indication (fibrosis making lavage ineffective) and
+        the boundary (disease returns in the allograft).
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the autoimmune PAP lung disease returns and must be treated&#34;
+    explanation: &gt;
+      Recurrence in the allograft is the decisive caveat: because the causal
+      autoantibody is systemic and persists after transplantation, the new lung
+      is exposed to the same lesion and requires ongoing treatment.
   notes: &gt;
     Because the causal autoantibody is systemic and is not removed by replacing
-    the lung, transplantation does not address the upstream mechanism.
+    the lung, transplantation does not address the upstream mechanism, and PAP
+    recurs in the allograft.
 - name: Oral Statin Therapy (investigational)
   description: &gt;
     Pathogenesis-based repurposing that targets alveolar macrophage cholesterol
@@ -10034,7 +11294,159 @@ treatments:
   notes: &gt;
     Investigational. The supporting human evidence is observational, not a
     randomized controlled trial.
+datasets:
+- accession: geo:GSE153957
+  title: &gt;-
+    Expression profiles and potential functions of long non-coding RNAs and
+    mRNAs in autoimmune pulmonary alveolar proteinosis patients
+  data_type: MICROARRAY
+  sample_count: 10
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:33820876
+  description: &gt;-
+    Microarray profiling of peripheral blood from five aPAP patients and five
+    healthy volunteers. The sample source is peripheral blood rather than lung
+    tissue, so it interrogates the systemic/autoimmune arm of the disease
+    rather than the alveolar lesion directly.
+  findings:
+  - statement: &gt;-
+      Large-scale differential expression of both lncRNAs and mRNAs
+      distinguishes aPAP peripheral blood from healthy controls.
+    supporting_text: &#34;In total, 12459 DE lncRNAs and 9331 DE mRNAs were identified in APAP patient samples.&#34;
+  - statement: &gt;-
+      Twelve differentially expressed lncRNAs survived qRT-PCR validation as
+      candidate contributors to pathogenesis.
+    supporting_text: &#34;A qRT-PCR validation of 20 DE lncRNAs and 20 mRNAs indicated that 12 DE lncRNAs may be involved in the pathogenesis of APAP.&#34;
+  evidence:
+  - reference: PMID:33820876
+    reference_title: &#34;Expression profiles and potential functions of long noncoding RNAs and mRNAs in autoimmune pulmonary alveolar proteinosis patients.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;we performed microarray analyses to identify differentially expressed (DE) lncRNAs and mRNAs between peripheral blood samples from five APAP patients and five healthy volunteers&#34;
+    explanation: Defines the dataset design, sample source and cohort size.
+  notes: &gt;-
+    Exploratory and small (n=5 per group). The reported lncRNA and ceRNA
+    networks are hypothesis-generating and are deliberately NOT curated as
+    pathophysiology nodes; no mechanistic claim in this entry rests on them.
+animal_models:
+- species: Cynomolgus macaque (Macaca fascicularis)
+  genotype: Wild type, passively immunized with patient-derived GM-CSF autoantibody
+  category: Passive immunization / autoantibody transfer
+  associated_phenotypes:
+  - Alveolar filling with lipoproteinaceous material
+  - Foamy alveolar macrophages
+  - Milky bronchoalveolar lavage fluid
+  description: &gt;-
+    Healthy primates given highly purified GM-CSF autoantibody from a patient,
+    maintained at serum levels of 40 micrograms per millilitre or more for 10
+    months, developed the full alveolar lesion. This is the model that closed
+    the causality argument and licensed renaming the disease from &#34;idiopathic&#34;
+    to &#34;autoimmune&#34; PAP. Its limitation is definitional: it transfers the
+    effector antibody rather than inducing tolerance breakdown, so it models
+    the downstream half of the disease only. See the
+    gap_apap_autoantibody_mediated_animal_model discussion.
+  evidence:
+  - reference: PMID:20042763
+    reference_title: &#34;Human GM-CSF autoantibodies and reproduction of pulmonary alveolar proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We administered highly purified GM-CSF autoantibodies derived from a patient with idiopathic pulmonary alveolar proteinosis to healthy nonhuman primates (Macaca fascicularis).&#34;
+    explanation: Defines the species and the passive-transfer design.
+  - reference: PMID:20042763
+    reference_title: &#34;Human GM-CSF autoantibodies and reproduction of pulmonary alveolar proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;A diffuse, patchy distribution of lung lesions composed of well-preserved alveoli filled with eosinophilic, lipoproteinaceous material and enlarged, foamy alveolar macrophages developed in the macaques that received GM-CSF autoantibodies&#34;
+    explanation: &gt;
+      The transferred autoantibody reproduced the human alveolar lesion,
+      including the well-preserved alveolar walls.
+- species: Mouse (Mus musculus)
+  genotype: Csf2, Csf2ra or Csf2rb knockout (Csf2KO, Csf2raKO, Csf2rbKO)
+  category: Knockout
+  genes:
+  - preferred_term: CSF2
+    term:
+      id: hgnc:2434
+      label: CSF2
+  - preferred_term: CSF2RA
+    term:
+      id: hgnc:2435
+      label: CSF2RA
+  - preferred_term: CSF2RB
+    term:
+      id: hgnc:2436
+      label: CSF2RB
+  associated_phenotypes:
+  - Alveolar surfactant accumulation
+  - Foamy alveolar macrophages
+  - Susceptibility to microbial pathogens
+  - Polycythemia
+  description: &gt;-
+    Germline disruption of GM-CSF or either GM-CSF receptor subunit produces
+    spontaneous PAP that matches human autoimmune PAP physiologically,
+    radiologically, histopathologically, biochemically and immunologically, and
+    also reproduces the host-defence arm. Mechanistically, however, these mice
+    model hereditary PAP: they ablate the axis at the ligand or receptor rather
+    than by autoantibody, so they sit downstream of the autoimmune lesion.
+    Because the lesion is genetic rather than autoimmune, the model cannot be
+    used to evaluate tolerance-directed or B-cell-depleting therapy - the
+    translational limitation recorded in the
+    gap_apap_autoantibody_mediated_animal_model discussion.
+  evidence:
+  - reference: PMID:35227171
+    reference_title: &#34;Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;spontaneously develop PAP similar to autoimmune PAP regarding physiological, radiological, histopathological, biochemical, and immunological manifestations&#34;
+    explanation: &gt;
+      Establishes the breadth of phenocopy across GM-CSF and receptor-subunit
+      knockouts.
+  - reference: PMID:30087322
+    reference_title: &#34;Statin as a novel pharmacotherapy of pulmonary alveolar proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In Csf2rb-/- mice, statin therapy reduces cholesterol accumulation in alveolar macrophages and ameliorates PAP, and ex vivo statin treatment increases cholesterol efflux from macrophages.&#34;
+    explanation: &gt;
+      The knockout is tractable for testing surfactant-clearance therapies,
+      which is how the statin hypothesis was established preclinically.
 clinical_trials:
+- name: NCT02702180
+  phase: PHASE_III
+  status: COMPLETED
+  description: &gt;
+    IMPALA: randomised, double-blind, placebo-controlled multicentre trial of
+    inhaled molgramostim in autoimmune PAP, comparing once-daily and
+    intermittent (7 days on, 7 days off) dosing against placebo over 24 weeks,
+    with change in the alveolar-arterial oxygen difference as the primary
+    endpoint. The predecessor of IMPALA-2 (NCT04544293).
+  target_phenotypes:
+  - preferred_term: Hypoxemia
+    term:
+      id: HP:0012418
+      label: Hypoxemia
+  - preferred_term: Exertional dyspnea
+    term:
+      id: HP:0002875
+      label: Exertional dyspnea
+  evidence:
+  - reference: clinicaltrials:NCT02702180
+    reference_title: &#34;A Randomised, Double-blind, Placebo-controlled Multicentre Clinical Trial of Inhaled Molgramostim in Autoimmune Pulmonary Alveolar Proteinosis Patients&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;A third of the patients will receive inhaled molgramostim once daily for 24 weeks, a third will receive inhaled molgramostim intermittently (7 days on, 7 days off) for 24 weeks and a third will receive inhaled matching placebo for 24 weeks.&#34;
+    explanation: The registry record documents the three-arm continuous/intermittent/placebo design.
+  - reference: PMID:32897035
+    reference_title: &#34;Inhaled Molgramostim Therapy in Autoimmune Pulmonary Alveolar Proteinosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;improvement was greater among patients receiving continuous molgramostim than among those receiving placebo&#34;
+    explanation: &gt;
+      The published result: continuous daily dosing beat placebo, which is why
+      IMPALA-2 carried the once-daily regimen forward.
 - name: NCT04544293
   phase: PHASE_III
   status: COMPLETED
@@ -10172,6 +11584,25 @@ notes: &gt;
   (phase 3, NEJM 2025), and PMID:20167854 is the Japanese inhaled sargramostim
   phase II trial. No GeneReviews chapter covers autoimmune PAP, which is
   expected for a non-Mendelian acquired disease.
+
+
+  Publication-readiness review (2026-08-05). Gaps closed against the repo&#39;s own
+  QC metrics rather than by free-form expansion: the `classifications` block was
+  absent; pathograph phenotype connectivity was 50% (7/14) and causal-gene
+  wiring 0% (HLA-DRB1 sat in `genetic` without reaching a mechanism node); the
+  `imaging_findings`, `animal_models` and `datasets` blocks were absent; two
+  treatments (plasmapheresis, lung transplantation) carried no evidence; and the
+  IMPALA trial the entry already cited was not curated as a `clinical_trials`
+  record. Most of the new evidence came from the full text of PMID:35227171,
+  which is cached in full rather than abstract-only, so the natural-history data
+  (survival curve, spontaneous resolution, cause of death) and the negative
+  recommendation on plasmapheresis are now quotable. Connectivity is now 87%
+  (13/15); the two remaining unconnected phenotypes are deliberate - chest pain
+  has no asserted mechanistic route in the sources, and digital clubbing is
+  curated as a REFUTE negative that must not be given a causal in-edge.
+  GSE153957 was verified against GEO and its publication (PMID:33820876)
+  independently fetched; NCT02702180 was read out of the cached IMPALA report
+  rather than assumed.
 </pre>
             </div>
         </div>
@@ -10686,7 +12117,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autoimmune Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012579", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "2739f0e99ce7"};
+        const OS_CONFIG = {"diseaseName": "Autoimmune Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012579", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "86f88126121a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

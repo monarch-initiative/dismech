@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3462,6 +3691,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3512,6 +3743,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4416,7 +4648,7 @@ adenocarcinomas."</div>
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prostate-cancer" data-dismech-node="Prostate Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Prostate Cancer
 
@@ -4477,7 +4709,7 @@ adenocarcinomas."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-urinary-tract-symptoms" data-dismech-node="Lower Urinary Tract Symptoms" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lower Urinary Tract Symptoms
 
@@ -4547,7 +4779,7 @@ adenocarcinomas."</div>
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-pain" data-dismech-node="Bone Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bone Pain
 
@@ -4608,7 +4840,7 @@ adenocarcinomas."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -4708,7 +4940,7 @@ adenocarcinomas."</div>
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-brca2" data-dismech-node="BRCA2" data-dismech-type="genetic">
                 <div class="item-name">
                     BRCA2
 
@@ -4773,9 +5005,10 @@ adenocarcinomas."</div>
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-brca1" data-dismech-node="BRCA1" data-dismech-type="genetic">
                 <div class="item-name">
                     BRCA1
 
@@ -4810,9 +5043,13 @@ adenocarcinomas."</div>
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4824,7 +5061,7 @@ adenocarcinomas."</div>
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-olaparib" data-dismech-node="Olaparib" data-dismech-type="treatment">
                 <div class="item-name">
                     Olaparib
                 </div>
@@ -4887,7 +5124,7 @@ adenocarcinomas."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rucaparib" data-dismech-node="Rucaparib" data-dismech-type="treatment">
                 <div class="item-name">
                     Rucaparib
                 </div>
@@ -4950,7 +5187,7 @@ adenocarcinomas."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-parp-inhibitor-ar-pathway-inhibitor-combination-therapy" data-dismech-node="PARP Inhibitor-AR Pathway Inhibitor Combination Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     PARP Inhibitor-AR Pathway Inhibitor Combination Therapy
                 </div>
@@ -5153,7 +5390,7 @@ adenocarcinomas."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-platinum-chemotherapy" data-dismech-node="Platinum Chemotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Platinum Chemotherapy
                 </div>
@@ -5199,7 +5436,7 @@ adenocarcinomas."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-androgen-deprivation-therapy" data-dismech-node="Androgen Deprivation Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Androgen Deprivation Therapy
                 </div>
@@ -5260,7 +5497,7 @@ adenocarcinomas."</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-psa-prostate-specific-antigen" data-dismech-node="PSA (Prostate-Specific Antigen)" data-dismech-type="biochemical">
                 <div class="item-name">
                     PSA (Prostate-Specific Antigen)
 
@@ -6044,112 +6281,112 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2000 Aug;83(4):463-6. doi: 10.1054/bjoc.2000.1249.&#39;
-    supporting_text: &#39;2000 Aug;83(4):463-6. doi: 10.1054/bjoc.2000.1249.&#39;
+  - statement: &#39;Inherited predisposition occurs in 5-10% of all prostate cancer (CaP) patients, but the genes involved in conferring genetic susceptibility remain largely unknown.&#39;
+    supporting_text: &#39;Inherited predisposition occurs in 5-10% of all prostate cancer (CaP) patients, but the genes involved in conferring genetic susceptibility remain largely unknown.&#39;
     evidence:
     - reference: PMID:10945492
       reference_title: The rate of the founder Jewish mutations in BRCA1 and BRCA2 in prostate cancer patients in Israel.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2000 Aug;83(4):463-6. doi: 10.1054/bjoc.2000.1249.&#39;
+      snippet: &#39;Inherited predisposition occurs in 5-10% of all prostate cancer (CaP) patients, but the genes involved in conferring genetic susceptibility remain largely unknown.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:15131399
   title: Cancer variation associated with the position of the mutation in the BRCA2 gene.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2004;3(1):1-10. doi: 10.1023/B:FAME.0000026816.32400.45.&#39;
-    supporting_text: &#39;2004;3(1):1-10. doi: 10.1023/B:FAME.0000026816.32400.45.&#39;
+  - statement: &#39;Inherited mutations of the BRCA2 gene give rise to a multi-site cancer phenotype which includes breast cancer (in female and males), ovarian, pancreatic and prostate cancer, ocular and other melanomas, laryngeal, colon and stomach cancers.&#39;
+    supporting_text: &#39;Inherited mutations of the BRCA2 gene give rise to a multi-site cancer phenotype which includes breast cancer (in female and males), ovarian, pancreatic and prostate cancer, ocular and other melanomas, laryngeal, colon and stomach cancers.&#39;
     evidence:
     - reference: PMID:15131399
       reference_title: Cancer variation associated with the position of the mutation in the BRCA2 gene.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2004;3(1):1-10. doi: 10.1023/B:FAME.0000026816.32400.45.&#39;
+      snippet: &#39;Inherited mutations of the BRCA2 gene give rise to a multi-site cancer phenotype which includes breast cancer (in female and males), ovarian, pancreatic and prostate cancer, ocular and other melanomas, laryngeal, colon and stomach cancers.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:16964288
   title: Characterizing a rat Brca2 knockout model.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2007 Mar 8;26(11):1626-35. doi: 10.1038/sj.onc.1209960.&#39;
-    supporting_text: &#39;2007 Mar 8;26(11):1626-35. doi: 10.1038/sj.onc.1209960.&#39;
+  - statement: &#39;Evidence exists that BRCA2 carriers may have an elevated risk of breast, ovarian, colon, prostate, and pancreatic cancer.&#39;
+    supporting_text: &#39;Evidence exists that BRCA2 carriers may have an elevated risk of breast, ovarian, colon, prostate, and pancreatic cancer.&#39;
     evidence:
     - reference: PMID:16964288
       reference_title: Characterizing a rat Brca2 knockout model.
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: &#39;2007 Mar 8;26(11):1626-35. doi: 10.1038/sj.onc.1209960.&#39;
+      snippet: &#39;Evidence exists that BRCA2 carriers may have an elevated risk of breast, ovarian, colon, prostate, and pancreatic cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:19064968
   title: BRCA germline mutations in Jewish patients with pancreatic adenocarcinoma.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2009 Jan 20;27(3):433-8. doi: 10.1200/JCO.2008.18.5546.&#39;
-    supporting_text: &#39;2009 Jan 20;27(3):433-8. doi: 10.1200/JCO.2008.18.5546.&#39;
+  - statement: &#39;The prognostic significance of germline BRCA1 and BRCA2 mutations in Jewish patients with pancreatic adenocarcinoma (PAC) is unknown.&#39;
+    supporting_text: &#39;The prognostic significance of germline BRCA1 and BRCA2 mutations in Jewish patients with pancreatic adenocarcinoma (PAC) is unknown.&#39;
     evidence:
     - reference: PMID:19064968
       reference_title: BRCA germline mutations in Jewish patients with pancreatic adenocarcinoma.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2009 Jan 20;27(3):433-8. doi: 10.1200/JCO.2008.18.5546.&#39;
+      snippet: &#39;The prognostic significance of germline BRCA1 and BRCA2 mutations in Jewish patients with pancreatic adenocarcinoma (PAC) is unknown.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:19188187
   title: Associations of high-grade prostate cancer with BRCA1 and BRCA2 founder mutations.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2009 Feb 1;15(3):1112-20. doi: 10.1158/1078-0432.CCR-08-1822.&#39;
-    supporting_text: &#39;2009 Feb 1;15(3):1112-20. doi: 10.1158/1078-0432.CCR-08-1822.&#39;
+  - statement: &#39;Protein-truncating mutations in BRCA1 and in particular BRCA2 genes have been associated with prostate cancer.&#39;
+    supporting_text: &#39;Protein-truncating mutations in BRCA1 and in particular BRCA2 genes have been associated with prostate cancer.&#39;
     evidence:
     - reference: PMID:19188187
       reference_title: Associations of high-grade prostate cancer with BRCA1 and BRCA2 founder mutations.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2009 Feb 1;15(3):1112-20. doi: 10.1158/1078-0432.CCR-08-1822.&#39;
+      snippet: &#39;Protein-truncating mutations in BRCA1 and in particular BRCA2 genes have been associated with prostate cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:20585617
   title: Brca2 and Trp53 deficiency cooperate in the progression of mouse prostate tumourigenesis.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2010 Jun 24;6(6):e1000995. doi: 10.1371/journal.pgen.1000995.&#39;
-    supporting_text: &#39;2010 Jun 24;6(6):e1000995. doi: 10.1371/journal.pgen.1000995.&#39;
+  - statement: &#39;Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility.&#39;
+    supporting_text: &#39;Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility.&#39;
     evidence:
     - reference: PMID:20585617
       reference_title: Brca2 and Trp53 deficiency cooperate in the progression of mouse prostate tumourigenesis.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2010 Jun 24;6(6):e1000995. doi: 10.1371/journal.pgen.1000995.&#39;
+      snippet: &#39;Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:20840664
   title: &#39;Targeted prostate cancer screening in men with mutations in BRCA1 and BRCA2 detects aggressive prostate cancer: preliminary analysis of the results of the IMPACT study.&#39;
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2011 Jan;107(1):28-39. doi: 10.1111/j.1464-410X.2010.09648.x.&#39;
-    supporting_text: &#39;2011 Jan;107(1):28-39. doi: 10.1111/j.1464-410X.2010.09648.x.&#39;
+  - statement: &#39;Targeted prostate cancer screening in men with mutations in BRCA1 and BRCA2 detects aggressive prostate cancer: preliminary analysis of the results of the IMPACT study&#39;
+    supporting_text: &#39;To evaluate the role of targeted prostate cancer screening in men with BRCA1 or BRCA2 mutations, an international study, IMPACT (Identification of Men with a genetic predisposition to ProstAte Cancer: Targeted screening in BRCA1/2 mutation carriers and controls), was established.&#39;
     evidence:
     - reference: PMID:20840664
       reference_title: &#39;Targeted prostate cancer screening in men with mutations in BRCA1 and BRCA2 detects aggressive prostate cancer: preliminary analysis of the results of the IMPACT study.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2011 Jan;107(1):28-39. doi: 10.1111/j.1464-410X.2010.09648.x.&#39;
+      snippet: &#39;To evaluate the role of targeted prostate cancer screening in men with BRCA1 or BRCA2 mutations, an international study, IMPACT (Identification of Men with a genetic predisposition to ProstAte Cancer: Targeted screening in BRCA1/2 mutation carriers and controls), was established.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:24389137
   title: Clinical features and management of BRCA1 and BRCA2-associated prostate cancer.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2014 Jan 1;6(1):15-30. doi: 10.2741/e686.&#39;
-    supporting_text: &#39;2014 Jan 1;6(1):15-30. doi: 10.2741/e686.&#39;
+  - statement: &#39;It is thought that over forty percent of an individual&#39;&#39;s risk of developing prostate cancer (PCa) is related to familial and genetic factors.&#39;
+    supporting_text: &#39;It is thought that over forty percent of an individual&#39;&#39;s risk of developing prostate cancer (PCa) is related to familial and genetic factors.&#39;
     evidence:
     - reference: PMID:24389137
       reference_title: Clinical features and management of BRCA1 and BRCA2-associated prostate cancer.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2014 Jan 1;6(1):15-30. doi: 10.2741/e686.&#39;
+      snippet: &#39;It is thought that over forty percent of an individual&#39;&#39;s risk of developing prostate cancer (PCa) is related to familial and genetic factors.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:24484606
   title: &#39;Targeted prostate cancer screening in BRCA1 and BRCA2 mutation carriers: results from the initial screening round of the IMPACT study.&#39;
@@ -6184,42 +6421,42 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2017 Oct;72(4):492-495. doi: 10.1016/j.eururo.2017.03.013.&#39;
-    supporting_text: &#39;2017 Oct;72(4):492-495. doi: 10.1016/j.eururo.2017.03.013.&#39;
+  - statement: &#39;Intraductal carcinoma of the prostate (IDC-P) is associated with poor prognosis.&#39;
+    supporting_text: &#39;Intraductal carcinoma of the prostate (IDC-P) is associated with poor prognosis.&#39;
     evidence:
     - reference: PMID:28342640
       reference_title: Systematic Review Links the Prevalence of Intraductal Carcinoma of the Prostate to Prostate Cancer Risk Categories.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2017 Oct;72(4):492-495. doi: 10.1016/j.eururo.2017.03.013.&#39;
+      snippet: &#39;Intraductal carcinoma of the prostate (IDC-P) is associated with poor prognosis.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:28835508
   title: &#39;Thwarting endogenous stress: BRCA protects against aldehyde toxicity.&#39;
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2017 Oct;9(10):1331-1333. doi: 10.15252/emmm.201708194.&#39;
-    supporting_text: &#39;2017 Oct;9(10):1331-1333. doi: 10.15252/emmm.201708194.&#39;
+  - statement: &#39;Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively.&#39;
+    supporting_text: &#39;Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively.&#39;
     evidence:
     - reference: PMID:28835508
       reference_title: &#39;Thwarting endogenous stress: BRCA protects against aldehyde toxicity.&#39;
       supports: SUPPORT
       evidence_source: COMPUTATIONAL
-      snippet: &#39;2017 Oct;9(10):1331-1333. doi: 10.15252/emmm.201708194.&#39;
+      snippet: &#39;Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:29021619
   title: Pan-cancer analysis of bi-allelic alterations in homologous recombination DNA repair genes.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2017 Oct 11;8(1):857. doi: 10.1038/s41467-017-00921-w.&#39;
-    supporting_text: &#39;2017 Oct 11;8(1):857. doi: 10.1038/s41467-017-00921-w.&#39;
+  - statement: &#39;BRCA1 and BRCA2 are involved in homologous recombination (HR) DNA repair and are germ-line cancer pre-disposition genes that result in a syndrome of hereditary breast and ovarian cancer (HBOC).&#39;
+    supporting_text: &#39;BRCA1 and BRCA2 are involved in homologous recombination (HR) DNA repair and are germ-line cancer pre-disposition genes that result in a syndrome of hereditary breast and ovarian cancer (HBOC).&#39;
     evidence:
     - reference: PMID:29021619
       reference_title: Pan-cancer analysis of bi-allelic alterations in homologous recombination DNA repair genes.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2017 Oct 11;8(1):857. doi: 10.1038/s41467-017-00921-w.&#39;
+      snippet: &#39;BRCA1 and BRCA2 are involved in homologous recombination (HR) DNA repair and are germ-line cancer pre-disposition genes that result in a syndrome of hereditary breast and ovarian cancer (HBOC).&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:31537406
   title: &#39;Interim Results from the IMPACT Study: Evidence for Prostate-specific Antigen Screening in BRCA2 Mutation Carriers.&#39;
@@ -6240,14 +6477,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2019 Nov;16(11):645-654. doi: 10.1038/s41585-019-0237-8.&#39;
-    supporting_text: &#39;2019 Nov;16(11):645-654. doi: 10.1038/s41585-019-0237-8.&#39;
+  - statement: &#39;Towards precision oncology in advanced prostate cancer&#39;
+    supporting_text: &#39;Metastatic biopsy programmes combined with advances in genomic sequencing have provided new insights into the molecular landscape of castration-resistant prostate cancer (CRPC), identifying actionable targets, and emerging resistance mechanisms.&#39;
     evidence:
     - reference: PMID:31591549
       reference_title: Towards precision oncology in advanced prostate cancer.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2019 Nov;16(11):645-654. doi: 10.1038/s41585-019-0237-8.&#39;
+      snippet: &#39;Metastatic biopsy programmes combined with advances in genomic sequencing have provided new insights into the molecular landscape of castration-resistant prostate cancer (CRPC), identifying actionable targets, and emerging resistance mechanisms.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:32171277
   title: &#39;Polyclonal BRCA2 mutations following carboplatin treatment confer resistance to the PARP inhibitor rucaparib in a patient with mCRPC: a case report.&#39;
@@ -6282,28 +6519,28 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2021 May 20;12(5):780. doi: 10.3390/genes12050780.&#39;
-    supporting_text: &#39;2021 May 20;12(5):780. doi: 10.3390/genes12050780.&#39;
+  - statement: &#39;Pathological mutations in homology-directed repair (HDR) genes impact both future cancer risk and therapeutic options for patients.&#39;
+    supporting_text: &#39;Pathological mutations in homology-directed repair (HDR) genes impact both future cancer risk and therapeutic options for patients.&#39;
     evidence:
     - reference: PMID:34065235
       reference_title: &#39;Imprecise Medicine: BRCA2 Variants of Uncertain Significance (VUS), the Challenges and Benefits to Integrate a Functional Assay Workflow with Clinical Decision Rules.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2021 May 20;12(5):780. doi: 10.3390/genes12050780.&#39;
+      snippet: &#39;Pathological mutations in homology-directed repair (HDR) genes impact both future cancer risk and therapeutic options for patients.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:34884926
   title: Genomic Features and Clinical Implications of Intraductal Carcinoma of the Prostate.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2021 Dec 4;22(23):13125. doi: 10.3390/ijms222313125.&#39;
-    supporting_text: &#39;2021 Dec 4;22(23):13125. doi: 10.3390/ijms222313125.&#39;
+  - statement: &#39;Genomic Features and Clinical Implications of Intraductal Carcinoma of the Prostate&#39;
+    supporting_text: &#39;Intraductal carcinoma of the prostate (IDC-P) is a rare and unique form of aggressive prostate carcinoma, which is characterized by an expansile proliferation of malignant prostatic epithelial cells within prostatic ducts or acini and the preservation of basal cell layers around the involved glands.&#39;
     evidence:
     - reference: PMID:34884926
       reference_title: Genomic Features and Clinical Implications of Intraductal Carcinoma of the Prostate.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2021 Dec 4;22(23):13125. doi: 10.3390/ijms222313125.&#39;
+      snippet: &#39;Intraductal carcinoma of the prostate (IDC-P) is a rare and unique form of aggressive prostate carcinoma, which is characterized by an expansile proliferation of malignant prostatic epithelial cells within prostatic ducts or acini and the preservation of basal cell layers around the involved glands.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:35229141
   title: &#39;Olaparib in patients with mCRPC with homologous recombination repair gene alterations: PROfound Asian subset analysis.&#39;
@@ -6324,14 +6561,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2022 Apr;6(1):e2100461. doi: 10.1200/PO.21.00461.&#39;
-    supporting_text: &#39;2022 Apr;6(1):e2100461. doi: 10.1200/PO.21.00461.&#39;
+  - statement: &#39;Poly ADP-ribose polymerase inhibitors (PARPi) are used for patients with advanced prostate cancer bearing alterations in homologous recombination repair (HRR) genes.&#39;
+    supporting_text: &#39;Poly ADP-ribose polymerase inhibitors (PARPi) are used for patients with advanced prostate cancer bearing alterations in homologous recombination repair (HRR) genes.&#39;
     evidence:
     - reference: PMID:35476551
       reference_title: Homologous Recombination Repair Gene Variants and Outcomes Among Patients With Prostate Cancer Treated With Poly (ADP-ribose) Polymerase Inhibitors.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2022 Apr;6(1):e2100461. doi: 10.1200/PO.21.00461.&#39;
+      snippet: &#39;Poly ADP-ribose polymerase inhibitors (PARPi) are used for patients with advanced prostate cancer bearing alterations in homologous recombination repair (HRR) genes.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:35652618
   title: The impact of genetic aberrations on response to radium-223 treatment for castration-resistant prostate cancer with bone metastases.
@@ -6352,14 +6589,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2022 Jun 17;12:880643. doi: 10.3389/fonc.2022.880643. eCollection 2022.&#39;
-    supporting_text: &#39;2022 Jun 17;12:880643. doi: 10.3389/fonc.2022.880643. eCollection 2022.&#39;
+  - statement: &#39;Homologous recombination (HR) is a highly conserved DNA repair mechanism that protects cells from exogenous and endogenous DNA damage.&#39;
+    supporting_text: &#39;Homologous recombination (HR) is a highly conserved DNA repair mechanism that protects cells from exogenous and endogenous DNA damage.&#39;
     evidence:
     - reference: PMID:35785170
       reference_title: Homologous Recombination Deficiency in Ovarian, Breast, Colorectal, Pancreatic, Non-Small Cell Lung and Prostate Cancers, and the Mechanisms of Resistance to PARP Inhibitors.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2022 Jun 17;12:880643. doi: 10.3389/fonc.2022.880643. eCollection 2022.&#39;
+      snippet: &#39;Homologous recombination (HR) is a highly conserved DNA repair mechanism that protects cells from exogenous and endogenous DNA damage.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:35944490
   title: DNA-Damage-Repair Gene Alterations in Genitourinary Malignancies.
@@ -6394,14 +6631,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2022 Aug;6:e2200329. doi: 10.1200/PO.22.00329.&#39;
-    supporting_text: &#39;2022 Aug;6:e2200329. doi: 10.1200/PO.22.00329.&#39;
+  - statement: &#39;Guidelines recommend somatic and germline testing for men with advanced prostate cancer (PCa).&#39;
+    supporting_text: &#39;Guidelines recommend somatic and germline testing for men with advanced prostate cancer (PCa).&#39;
     evidence:
     - reference: PMID:36103646
       reference_title: Addition of Germline Testing to Tumor-Only Sequencing Improves Detection of Pathogenic Germline Variants in Men With Advanced Prostate Cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2022 Aug;6:e2200329. doi: 10.1200/PO.22.00329.&#39;
+      snippet: &#39;Guidelines recommend somatic and germline testing for men with advanced prostate cancer (PCa).&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:36243543
   title: Emergence of BRCA Reversion Mutations in Patients with Metastatic Castration-resistant Prostate Cancer After Treatment with Rucaparib.
@@ -6422,42 +6659,42 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Jan 4;29(1):92-99. doi: 10.1158/1078-0432.CCR-21-3577.&#39;
-    supporting_text: &#39;2023 Jan 4;29(1):92-99. doi: 10.1158/1078-0432.CCR-21-3577.&#39;
+  - statement: &#39;The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.&#39;
+    supporting_text: &#39;The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.&#39;
     evidence:
     - reference: PMID:36318705
       reference_title: Olaparib Efficacy in Patients with Metastatic Castration-resistant Prostate Cancer and BRCA1, BRCA2, or ATM Alterations Identified by Testing Circulating Tumor DNA.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2023 Jan 4;29(1):92-99. doi: 10.1158/1078-0432.CCR-21-3577.&#39;
+      snippet: &#39;The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:37497748
   title: &#39;Poly-ADP ribose polymerase inhibitor and androgen receptor signaling inhibitor for all comers for first-line treatment of metastatic castration-resistant prostate cancer: is gene sequencing out?&#39;
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Sep 1;33(5):396-403. doi: 10.1097/MOU.0000000000001114.&#39;
-    supporting_text: &#39;2023 Sep 1;33(5):396-403. doi: 10.1097/MOU.0000000000001114.&#39;
+  - statement: &#39;The landscape for first-line therapy (1L) of metastatic castration-resistant prostate cancer (mCRPC) is rapidly shifting.&#39;
+    supporting_text: &#39;The landscape for first-line therapy (1L) of metastatic castration-resistant prostate cancer (mCRPC) is rapidly shifting.&#39;
     evidence:
     - reference: PMID:37497748
       reference_title: &#39;Poly-ADP ribose polymerase inhibitor and androgen receptor signaling inhibitor for all comers for first-line treatment of metastatic castration-resistant prostate cancer: is gene sequencing out?&#39;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2023 Sep 1;33(5):396-403. doi: 10.1097/MOU.0000000000001114.&#39;
+      snippet: &#39;The landscape for first-line therapy (1L) of metastatic castration-resistant prostate cancer (mCRPC) is rapidly shifting.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:37722977
   title: Poly (ADP-ribose) Polymerase Inhibitors Have Comparable Efficacy with Platinum Chemotherapy in Patients with BRCA-positive Metastatic Castration-resistant Prostate Cancer. A Systematic Review and Meta-analysis.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024 Jun;7(3):365-375. doi: 10.1016/j.euo.2023.09.001.&#39;
-    supporting_text: &#39;2024 Jun;7(3):365-375. doi: 10.1016/j.euo.2023.09.001.&#39;
+  - statement: &#39;Testing for mutations in Breast Cancer Gene 1/2 (BRCA) has emerged as a novel decision-making tool for clinicians.&#39;
+    supporting_text: &#39;Testing for mutations in Breast Cancer Gene 1/2 (BRCA) has emerged as a novel decision-making tool for clinicians.&#39;
     evidence:
     - reference: PMID:37722977
       reference_title: Poly (ADP-ribose) Polymerase Inhibitors Have Comparable Efficacy with Platinum Chemotherapy in Patients with BRCA-positive Metastatic Castration-resistant Prostate Cancer. A Systematic Review and Meta-analysis.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024 Jun;7(3):365-375. doi: 10.1016/j.euo.2023.09.001.&#39;
+      snippet: &#39;Testing for mutations in Breast Cancer Gene 1/2 (BRCA) has emerged as a novel decision-making tool for clinicians.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:38182487
   title: Tumour-based Mutational Profiles Predict Visceral Metastasis Outcome and Early Death in Prostate Cancer Patients.
@@ -6478,14 +6715,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024 Feb 14;8(1):34. doi: 10.1038/s41698-024-00526-9.&#39;
-    supporting_text: &#39;2024 Feb 14;8(1):34. doi: 10.1038/s41698-024-00526-9.&#39;
+  - statement: &#39;Reversion mutations that restore wild-type function of the BRCA gene have been described as a key mechanism of resistance to Poly(ADP-ribose) polymerase (PARP) inhibitor therapy in BRCA-associated cancers.&#39;
+    supporting_text: &#39;Reversion mutations that restore wild-type function of the BRCA gene have been described as a key mechanism of resistance to Poly(ADP-ribose) polymerase (PARP) inhibitor therapy in BRCA-associated cancers.&#39;
     evidence:
     - reference: PMID:38355834
       reference_title: Convergent evolution of BRCA2 reversion mutations under therapeutic pressure by PARP inhibition and platinum chemotherapy.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024 Feb 14;8(1):34. doi: 10.1038/s41698-024-00526-9.&#39;
+      snippet: &#39;Reversion mutations that restore wild-type function of the BRCA gene have been described as a key mechanism of resistance to Poly(ADP-ribose) polymerase (PARP) inhibitor therapy in BRCA-associated cancers.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:38461085
   title: Mainstream Model of Genetic Testing for Prostate Cancer at a Large Tertiary Cancer Centre.
@@ -6520,98 +6757,98 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024 Aug;41(8):3039-3058. doi: 10.1007/s12325-024-02918-6.&#39;
-    supporting_text: &#39;2024 Aug;41(8):3039-3058. doi: 10.1007/s12325-024-02918-6.&#39;
+  - statement: &#39;Poly(ADP-ribose) polymerase inhibitors (PARPi) are a novel option to treat patients with metastatic castration-resistant prostate cancer (mCRPC).&#39;
+    supporting_text: &#39;Poly(ADP-ribose) polymerase inhibitors (PARPi) are a novel option to treat patients with metastatic castration-resistant prostate cancer (mCRPC).&#39;
     evidence:
     - reference: PMID:38958846
       reference_title: Feasibility of Indirect Treatment Comparisons Between Niraparib Plus Abiraterone Acetate and Other First-Line Poly ADP-Ribose Polymerase Inhibitor Treatment Regimens for Patients with BRCA1/2 Mutation-Positive Metastatic Castration-Resistant Prostate Cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024 Aug;41(8):3039-3058. doi: 10.1007/s12325-024-02918-6.&#39;
+      snippet: &#39;Poly(ADP-ribose) polymerase inhibitors (PARPi) are a novel option to treat patients with metastatic castration-resistant prostate cancer (mCRPC).&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:39577422
   title: Elucidating acquired PARP inhibitor resistance in advanced prostate cancer.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024 Dec 9;42(12):2113-2123.e4. doi: 10.1016/j.ccell.2024.10.015.&#39;
-    supporting_text: &#39;2024 Dec 9;42(12):2113-2123.e4. doi: 10.1016/j.ccell.2024.10.015.&#39;
+  - statement: &#39;PARP inhibition (PARPi) has anti-tumor activity against castration-resistant prostate cancer (CRPC) with homologous recombination repair (HRR) defects.&#39;
+    supporting_text: &#39;PARP inhibition (PARPi) has anti-tumor activity against castration-resistant prostate cancer (CRPC) with homologous recombination repair (HRR) defects.&#39;
     evidence:
     - reference: PMID:39577422
       reference_title: Elucidating acquired PARP inhibitor resistance in advanced prostate cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024 Dec 9;42(12):2113-2123.e4. doi: 10.1016/j.ccell.2024.10.015.&#39;
+      snippet: &#39;PARP inhibition (PARPi) has anti-tumor activity against castration-resistant prostate cancer (CRPC) with homologous recombination repair (HRR) defects.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:39901204
   title: &#39;Molecular pathways in reproductive cancers: a focus on prostate and ovarian cancer.&#39;
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Feb 3;25(1):33. doi: 10.1186/s12935-025-03658-5.&#39;
-    supporting_text: &#39;2025 Feb 3;25(1):33. doi: 10.1186/s12935-025-03658-5.&#39;
+  - statement: &#39;Reproductive cancers, including prostate and ovarian cancer, are highly prevalent worldwide and pose significant health challenges.&#39;
+    supporting_text: &#39;Reproductive cancers, including prostate and ovarian cancer, are highly prevalent worldwide and pose significant health challenges.&#39;
     evidence:
     - reference: PMID:39901204
       reference_title: &#39;Molecular pathways in reproductive cancers: a focus on prostate and ovarian cancer.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Feb 3;25(1):33. doi: 10.1186/s12935-025-03658-5.&#39;
+      snippet: &#39;Reproductive cancers, including prostate and ovarian cancer, are highly prevalent worldwide and pose significant health challenges.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:40027043
   title: &#39;Chest Pain as a Symptom of Early-Onset Metastatic Prostate Cancer: Exploring the Role of Screening.&#39;
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Jan 28;17(1):e78143. doi: 10.7759/cureus.78143. eCollection 2025 Jan.&#39;
-    supporting_text: &#39;2025 Jan 28;17(1):e78143. doi: 10.7759/cureus.78143. eCollection 2025 Jan.&#39;
+  - statement: &#39;Prostate cancer is one of the most prevalent malignancies affecting males, primarily occurring in older men.&#39;
+    supporting_text: &#39;Prostate cancer is one of the most prevalent malignancies affecting males, primarily occurring in older men.&#39;
     evidence:
     - reference: PMID:40027043
       reference_title: &#39;Chest Pain as a Symptom of Early-Onset Metastatic Prostate Cancer: Exploring the Role of Screening.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Jan 28;17(1):e78143. doi: 10.7759/cureus.78143. eCollection 2025 Jan.&#39;
+      snippet: &#39;Prostate cancer is one of the most prevalent malignancies affecting males, primarily occurring in older men.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:40086424
   title: &#39;Deciphering the mechanisms of PARP inhibitor resistance in prostate cancer: Implications for precision medicine.&#39;
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Apr;185:117955. doi: 10.1016/j.biopha.2025.117955.&#39;
-    supporting_text: &#39;2025 Apr;185:117955. doi: 10.1016/j.biopha.2025.117955.&#39;
+  - statement: &#39;Prostate cancer is a leading malignancy among men.&#39;
+    supporting_text: &#39;Prostate cancer is a leading malignancy among men.&#39;
     evidence:
     - reference: PMID:40086424
       reference_title: &#39;Deciphering the mechanisms of PARP inhibitor resistance in prostate cancer: Implications for precision medicine.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Apr;185:117955. doi: 10.1016/j.biopha.2025.117955.&#39;
+      snippet: &#39;Prostate cancer is a leading malignancy among men.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:40257527
   title: Genetic characterization of BRCA1 and BRCA2 variants in cancer and high-risk family screening cohorts in the UAE population.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Apr 21;151(4):146. doi: 10.1007/s00432-025-06188-9.&#39;
-    supporting_text: &#39;2025 Apr 21;151(4):146. doi: 10.1007/s00432-025-06188-9.&#39;
+  - statement: &#39;Germline BRCA1/2 (gBRCA1/2) variants are strongly associated with hereditary cancers, and screening for these variants in high-risk populations is recommended for personalized management.&#39;
+    supporting_text: &#39;Germline BRCA1/2 (gBRCA1/2) variants are strongly associated with hereditary cancers, and screening for these variants in high-risk populations is recommended for personalized management.&#39;
     evidence:
     - reference: PMID:40257527
       reference_title: Genetic characterization of BRCA1 and BRCA2 variants in cancer and high-risk family screening cohorts in the UAE population.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Apr 21;151(4):146. doi: 10.1007/s00432-025-06188-9.&#39;
+      snippet: &#39;Germline BRCA1/2 (gBRCA1/2) variants are strongly associated with hereditary cancers, and screening for these variants in high-risk populations is recommended for personalized management.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:40397306
   title: Olaparib Monotherapy or in Combination with Abiraterone for the Treatment of Patients with Metastatic Castration-Resistant Prostate Cancer (mCRPC) and a BRCA Mutation.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 May;20(3):445-466. doi: 10.1007/s11523-025-01146-4.&#39;
-    supporting_text: &#39;2025 May;20(3):445-466. doi: 10.1007/s11523-025-01146-4.&#39;
+  - statement: &#39;Treatment strategies to improve outcomes in patients with metastatic castration-resistant prostate cancer (mCRPC) are evolving.&#39;
+    supporting_text: &#39;Treatment strategies to improve outcomes in patients with metastatic castration-resistant prostate cancer (mCRPC) are evolving.&#39;
     evidence:
     - reference: PMID:40397306
       reference_title: Olaparib Monotherapy or in Combination with Abiraterone for the Treatment of Patients with Metastatic Castration-Resistant Prostate Cancer (mCRPC) and a BRCA Mutation.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 May;20(3):445-466. doi: 10.1007/s11523-025-01146-4.&#39;
+      snippet: &#39;Treatment strategies to improve outcomes in patients with metastatic castration-resistant prostate cancer (mCRPC) are evolving.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:40467032
   title: &#39;BRCA1/2 and homologous recombination repair alterations in high- and low-volume metastatic hormone-sensitive prostate cancer: prevalence and impact on outcomes.&#39;
@@ -6646,56 +6883,56 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2026 Feb 1;118(2):205-213. doi: 10.1093/jnci/djaf205.&#39;
-    supporting_text: &#39;2026 Feb 1;118(2):205-213. doi: 10.1093/jnci/djaf205.&#39;
+  - statement: &#39;Individuals with pathogenic variants in the BRCA1 or BRCA2 genes have an increased risk of developing breast, ovarian, pancreatic, and prostate cancers.&#39;
+    supporting_text: &#39;Individuals with pathogenic variants in the BRCA1 or BRCA2 genes have an increased risk of developing breast, ovarian, pancreatic, and prostate cancers.&#39;
     evidence:
     - reference: PMID:40795806
       reference_title: Questions and answers on PARP inhibitor use in somatic BRCA-mutated breast cancers.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2026 Feb 1;118(2):205-213. doi: 10.1093/jnci/djaf205.&#39;
+      snippet: &#39;Individuals with pathogenic variants in the BRCA1 or BRCA2 genes have an increased risk of developing breast, ovarian, pancreatic, and prostate cancers.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:40875208
   title: Established Cancer Predisposition Genes in Single and Multiple Cancer Diagnoses.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Oct 1;11(10):1222-1230. doi: 10.1001/jamaoncol.2025.2879.&#39;
-    supporting_text: &#39;2025 Oct 1;11(10):1222-1230. doi: 10.1001/jamaoncol.2025.2879.&#39;
+  - statement: &#39;Much of the understanding of cancer risk associated with rare pathogenic variants (RPVs) is derived from family-based studies or clinically ascertained samples, which may be limited by ascertainment and selection bias.&#39;
+    supporting_text: &#39;Much of the understanding of cancer risk associated with rare pathogenic variants (RPVs) is derived from family-based studies or clinically ascertained samples, which may be limited by ascertainment and selection bias.&#39;
     evidence:
     - reference: PMID:40875208
       reference_title: Established Cancer Predisposition Genes in Single and Multiple Cancer Diagnoses.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Oct 1;11(10):1222-1230. doi: 10.1001/jamaoncol.2025.2879.&#39;
+      snippet: &#39;Much of the understanding of cancer risk associated with rare pathogenic variants (RPVs) is derived from family-based studies or clinically ascertained samples, which may be limited by ascertainment and selection bias.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:41219045
   title: Integrating Pathogenic Variants, Polygenic Risk Score, and Family History for Prostate Cancer Risk Estimation in Men of African Ancestry.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Nov 5:S0302-2838(25)04720-7. doi: 10.1016/j.eururo.2025.09.4161.&#39;
-    supporting_text: &#39;2025 Nov 5:S0302-2838(25)04720-7. doi: 10.1016/j.eururo.2025.09.4161.&#39;
+  - statement: &#39;The impact of germline pathogenic variants (PVs) in cancer predisposition genes on risk of prostate cancer (PCa) remains understudied in large populations of African ancestry.&#39;
+    supporting_text: &#39;The impact of germline pathogenic variants (PVs) in cancer predisposition genes on risk of prostate cancer (PCa) remains understudied in large populations of African ancestry.&#39;
     evidence:
     - reference: PMID:41219045
       reference_title: Integrating Pathogenic Variants, Polygenic Risk Score, and Family History for Prostate Cancer Risk Estimation in Men of African Ancestry.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Nov 5:S0302-2838(25)04720-7. doi: 10.1016/j.eururo.2025.09.4161.&#39;
+      snippet: &#39;The impact of germline pathogenic variants (PVs) in cancer predisposition genes on risk of prostate cancer (PCa) remains understudied in large populations of African ancestry.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:41423785
   title: Revisiting the impact of BRCA1 pathogenic variants on the aggressiveness of prostate cancer.
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2026 Jan 9;10(1):pkaf118. doi: 10.1093/jncics/pkaf118.&#39;
-    supporting_text: &#39;2026 Jan 9;10(1):pkaf118. doi: 10.1093/jncics/pkaf118.&#39;
+  - statement: &#39;BRCA1 pathogenic variants are associated with a lower risk of developing prostate cancer than BRCA2, but aggressiveness remains unclear.&#39;
+    supporting_text: &#39;BRCA1 pathogenic variants are associated with a lower risk of developing prostate cancer than BRCA2, but aggressiveness remains unclear.&#39;
     evidence:
     - reference: PMID:41423785
       reference_title: Revisiting the impact of BRCA1 pathogenic variants on the aggressiveness of prostate cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2026 Jan 9;10(1):pkaf118. doi: 10.1093/jncics/pkaf118.&#39;
+      snippet: &#39;BRCA1 pathogenic variants are associated with a lower risk of developing prostate cancer than BRCA2, but aggressiveness remains unclear.&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:41595443
   title: &#39;Prevalence and Clinical Associations of Germline DDR Variants in Prostate Cancer: Real-World Evidence from a 122-Patient Turkish Cohort.&#39;
@@ -6730,14 +6967,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2026 Feb 18:S0302-2838(26)00057-6. doi: 10.1016/j.eururo.2026.01.031.&#39;
-    supporting_text: &#39;2026 Feb 18:S0302-2838(26)00057-6. doi: 10.1016/j.eururo.2026.01.031.&#39;
+  - statement: &#39;BRCA1 and BRCA2 pathogenic germline variants (PGVs) are associated with higher risk of prostate cancer (PC).&#39;
+    supporting_text: &#39;BRCA1 and BRCA2 pathogenic germline variants (PGVs) are associated with higher risk of prostate cancer (PC).&#39;
     evidence:
     - reference: PMID:41714267
       reference_title: &#39;Targeted Prostate Cancer Screening in Carriers of BRCA1 or BRCA2 Pathogenic Germline Variants Detects Clinically Relevant Disease: 5-year Results from the IMPACT Study.&#39;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2026 Feb 18:S0302-2838(26)00057-6. doi: 10.1016/j.eururo.2026.01.031.&#39;
+      snippet: &#39;BRCA1 and BRCA2 pathogenic germline variants (PGVs) are associated with higher risk of prostate cancer (PC).&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 - reference: PMID:41729953
   title: Prevalence and spectrum of homologous recombination repair mutations in patients with metastatic prostate cancer from India.
@@ -6772,14 +7009,14 @@ references:
   found_in:
   - BRCA_Mutant_Prostate_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2026 May;117(5):1469-1480. doi: 10.1111/cas.70367.&#39;
-    supporting_text: &#39;2026 May;117(5):1469-1480. doi: 10.1111/cas.70367.&#39;
+  - statement: &#39;The clinical significance of comprehensive genomic profiling (CGP) has been established in metastatic castration-resistant prostate cancer (PC).&#39;
+    supporting_text: &#39;The clinical significance of comprehensive genomic profiling (CGP) has been established in metastatic castration-resistant prostate cancer (PC).&#39;
     evidence:
     - reference: PMID:41850312
       reference_title: &#39;Genomic Profiling in Localized Prostate Cancer: Associations With Biochemical Recurrence and Response to Salvage Radiotherapy.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2026 May;117(5):1469-1480. doi: 10.1111/cas.70367.&#39;
+      snippet: &#39;The clinical significance of comprehensive genomic profiling (CGP) has been established in metastatic castration-resistant prostate cancer (PC).&#39;
       explanation: Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.
 </pre>
             </div>
@@ -7961,10 +8198,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2000 Aug;83(4):463-6. doi: 10.1054/bjoc.2000.1249.</div>
+            <div class="reference-finding-statement">Inherited predisposition occurs in 5-10% of all prostate cancer (CaP) patients, but the genes involved in conferring genetic susceptibility remain largely unknown.</div>
 
 
-            <div class="reference-finding-supporting">"2000 Aug;83(4):463-6. doi: 10.1054/bjoc.2000.1249."</div>
+            <div class="reference-finding-supporting">"Inherited predisposition occurs in 5-10% of all prostate cancer (CaP) patients, but the genes involved in conferring genetic susceptibility remain largely unknown."</div>
 
 
 
@@ -7987,7 +8224,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2000 Aug;83(4):463-6. doi: 10.1054/bjoc.2000.1249."</div>
+                <div class="evidence-snippet">"Inherited predisposition occurs in 5-10% of all prostate cancer (CaP) patients, but the genes involved in conferring genetic susceptibility remain largely unknown."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8030,10 +8267,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2004;3(1):1-10. doi: 10.1023/B:FAME.0000026816.32400.45.</div>
+            <div class="reference-finding-statement">Inherited mutations of the BRCA2 gene give rise to a multi-site cancer phenotype which includes breast cancer (in female and males), ovarian, pancreatic and prostate cancer, ocular and other melanomas, laryngeal, colon and stomach cancers.</div>
 
 
-            <div class="reference-finding-supporting">"2004;3(1):1-10. doi: 10.1023/B:FAME.0000026816.32400.45."</div>
+            <div class="reference-finding-supporting">"Inherited mutations of the BRCA2 gene give rise to a multi-site cancer phenotype which includes breast cancer (in female and males), ovarian, pancreatic and prostate cancer, ocular and other melanomas, laryngeal, colon and stomach cancers."</div>
 
 
 
@@ -8056,7 +8293,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2004;3(1):1-10. doi: 10.1023/B:FAME.0000026816.32400.45."</div>
+                <div class="evidence-snippet">"Inherited mutations of the BRCA2 gene give rise to a multi-site cancer phenotype which includes breast cancer (in female and males), ovarian, pancreatic and prostate cancer, ocular and other melanomas, laryngeal, colon and stomach cancers."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8099,10 +8336,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2007 Mar 8;26(11):1626-35. doi: 10.1038/sj.onc.1209960.</div>
+            <div class="reference-finding-statement">Evidence exists that BRCA2 carriers may have an elevated risk of breast, ovarian, colon, prostate, and pancreatic cancer.</div>
 
 
-            <div class="reference-finding-supporting">"2007 Mar 8;26(11):1626-35. doi: 10.1038/sj.onc.1209960."</div>
+            <div class="reference-finding-supporting">"Evidence exists that BRCA2 carriers may have an elevated risk of breast, ovarian, colon, prostate, and pancreatic cancer."</div>
 
 
 
@@ -8125,7 +8362,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2007 Mar 8;26(11):1626-35. doi: 10.1038/sj.onc.1209960."</div>
+                <div class="evidence-snippet">"Evidence exists that BRCA2 carriers may have an elevated risk of breast, ovarian, colon, prostate, and pancreatic cancer."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8168,10 +8405,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2009 Jan 20;27(3):433-8. doi: 10.1200/JCO.2008.18.5546.</div>
+            <div class="reference-finding-statement">The prognostic significance of germline BRCA1 and BRCA2 mutations in Jewish patients with pancreatic adenocarcinoma (PAC) is unknown.</div>
 
 
-            <div class="reference-finding-supporting">"2009 Jan 20;27(3):433-8. doi: 10.1200/JCO.2008.18.5546."</div>
+            <div class="reference-finding-supporting">"The prognostic significance of germline BRCA1 and BRCA2 mutations in Jewish patients with pancreatic adenocarcinoma (PAC) is unknown."</div>
 
 
 
@@ -8194,7 +8431,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2009 Jan 20;27(3):433-8. doi: 10.1200/JCO.2008.18.5546."</div>
+                <div class="evidence-snippet">"The prognostic significance of germline BRCA1 and BRCA2 mutations in Jewish patients with pancreatic adenocarcinoma (PAC) is unknown."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8237,10 +8474,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2009 Feb 1;15(3):1112-20. doi: 10.1158/1078-0432.CCR-08-1822.</div>
+            <div class="reference-finding-statement">Protein-truncating mutations in BRCA1 and in particular BRCA2 genes have been associated with prostate cancer.</div>
 
 
-            <div class="reference-finding-supporting">"2009 Feb 1;15(3):1112-20. doi: 10.1158/1078-0432.CCR-08-1822."</div>
+            <div class="reference-finding-supporting">"Protein-truncating mutations in BRCA1 and in particular BRCA2 genes have been associated with prostate cancer."</div>
 
 
 
@@ -8263,7 +8500,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2009 Feb 1;15(3):1112-20. doi: 10.1158/1078-0432.CCR-08-1822."</div>
+                <div class="evidence-snippet">"Protein-truncating mutations in BRCA1 and in particular BRCA2 genes have been associated with prostate cancer."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8306,10 +8543,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2010 Jun 24;6(6):e1000995. doi: 10.1371/journal.pgen.1000995.</div>
+            <div class="reference-finding-statement">Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility.</div>
 
 
-            <div class="reference-finding-supporting">"2010 Jun 24;6(6):e1000995. doi: 10.1371/journal.pgen.1000995."</div>
+            <div class="reference-finding-supporting">"Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility."</div>
 
 
 
@@ -8332,7 +8569,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2010 Jun 24;6(6):e1000995. doi: 10.1371/journal.pgen.1000995."</div>
+                <div class="evidence-snippet">"Epidemiological studies have shown that one of the strongest risk factors for prostate cancer is a family history of the disease, suggesting that inherited factors play a major role in prostate cancer susceptibility."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8375,10 +8612,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2011 Jan;107(1):28-39. doi: 10.1111/j.1464-410X.2010.09648.x.</div>
+            <div class="reference-finding-statement">Targeted prostate cancer screening in men with mutations in BRCA1 and BRCA2 detects aggressive prostate cancer: preliminary analysis of the results of the IMPACT study</div>
 
 
-            <div class="reference-finding-supporting">"2011 Jan;107(1):28-39. doi: 10.1111/j.1464-410X.2010.09648.x."</div>
+            <div class="reference-finding-supporting">"To evaluate the role of targeted prostate cancer screening in men with BRCA1 or BRCA2 mutations, an international study, IMPACT (Identification of Men with a genetic predisposition to ProstAte Cancer: Targeted screening in BRCA1/2 mutation carriers and controls), was established."</div>
 
 
 
@@ -8401,7 +8638,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2011 Jan;107(1):28-39. doi: 10.1111/j.1464-410X.2010.09648.x."</div>
+                <div class="evidence-snippet">"To evaluate the role of targeted prostate cancer screening in men with BRCA1 or BRCA2 mutations, an international study, IMPACT (Identification of Men with a genetic predisposition to ProstAte Cancer: Targeted screening in BRCA1/2 mutation carriers and controls), was established."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8444,10 +8681,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2014 Jan 1;6(1):15-30. doi: 10.2741/e686.</div>
+            <div class="reference-finding-statement">It is thought that over forty percent of an individual&#39;s risk of developing prostate cancer (PCa) is related to familial and genetic factors.</div>
 
 
-            <div class="reference-finding-supporting">"2014 Jan 1;6(1):15-30. doi: 10.2741/e686."</div>
+            <div class="reference-finding-supporting">"It is thought that over forty percent of an individual&#39;s risk of developing prostate cancer (PCa) is related to familial and genetic factors."</div>
 
 
 
@@ -8470,7 +8707,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2014 Jan 1;6(1):15-30. doi: 10.2741/e686."</div>
+                <div class="evidence-snippet">"It is thought that over forty percent of an individual&#39;s risk of developing prostate cancer (PCa) is related to familial and genetic factors."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8651,10 +8888,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2017 Oct;72(4):492-495. doi: 10.1016/j.eururo.2017.03.013.</div>
+            <div class="reference-finding-statement">Intraductal carcinoma of the prostate (IDC-P) is associated with poor prognosis.</div>
 
 
-            <div class="reference-finding-supporting">"2017 Oct;72(4):492-495. doi: 10.1016/j.eururo.2017.03.013."</div>
+            <div class="reference-finding-supporting">"Intraductal carcinoma of the prostate (IDC-P) is associated with poor prognosis."</div>
 
 
 
@@ -8677,7 +8914,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2017 Oct;72(4):492-495. doi: 10.1016/j.eururo.2017.03.013."</div>
+                <div class="evidence-snippet">"Intraductal carcinoma of the prostate (IDC-P) is associated with poor prognosis."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8720,10 +8957,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2017 Oct;9(10):1331-1333. doi: 10.15252/emmm.201708194.</div>
+            <div class="reference-finding-statement">Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively.</div>
 
 
-            <div class="reference-finding-supporting">"2017 Oct;9(10):1331-1333. doi: 10.15252/emmm.201708194."</div>
+            <div class="reference-finding-supporting">"Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively."</div>
 
 
 
@@ -8746,7 +8983,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2017 Oct;9(10):1331-1333. doi: 10.15252/emmm.201708194."</div>
+                <div class="evidence-snippet">"Homologous recombination (HR) and the Fanconi Anemia (FA) pathways constitute essential repair pathways for DNA damage, which includes DNA double‐stranded breaks (DSB) and inter‐strand cross‐links (ICL), respectively."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8789,10 +9026,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2017 Oct 11;8(1):857. doi: 10.1038/s41467-017-00921-w.</div>
+            <div class="reference-finding-statement">BRCA1 and BRCA2 are involved in homologous recombination (HR) DNA repair and are germ-line cancer pre-disposition genes that result in a syndrome of hereditary breast and ovarian cancer (HBOC).</div>
 
 
-            <div class="reference-finding-supporting">"2017 Oct 11;8(1):857. doi: 10.1038/s41467-017-00921-w."</div>
+            <div class="reference-finding-supporting">"BRCA1 and BRCA2 are involved in homologous recombination (HR) DNA repair and are germ-line cancer pre-disposition genes that result in a syndrome of hereditary breast and ovarian cancer (HBOC)."</div>
 
 
 
@@ -8815,7 +9052,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2017 Oct 11;8(1):857. doi: 10.1038/s41467-017-00921-w."</div>
+                <div class="evidence-snippet">"BRCA1 and BRCA2 are involved in homologous recombination (HR) DNA repair and are germ-line cancer pre-disposition genes that result in a syndrome of hereditary breast and ovarian cancer (HBOC)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -8927,10 +9164,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2019 Nov;16(11):645-654. doi: 10.1038/s41585-019-0237-8.</div>
+            <div class="reference-finding-statement">Towards precision oncology in advanced prostate cancer</div>
 
 
-            <div class="reference-finding-supporting">"2019 Nov;16(11):645-654. doi: 10.1038/s41585-019-0237-8."</div>
+            <div class="reference-finding-supporting">"Metastatic biopsy programmes combined with advances in genomic sequencing have provided new insights into the molecular landscape of castration-resistant prostate cancer (CRPC), identifying actionable targets, and emerging resistance mechanisms."</div>
 
 
 
@@ -8953,7 +9190,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2019 Nov;16(11):645-654. doi: 10.1038/s41585-019-0237-8."</div>
+                <div class="evidence-snippet">"Metastatic biopsy programmes combined with advances in genomic sequencing have provided new insights into the molecular landscape of castration-resistant prostate cancer (CRPC), identifying actionable targets, and emerging resistance mechanisms."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9134,10 +9371,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2021 May 20;12(5):780. doi: 10.3390/genes12050780.</div>
+            <div class="reference-finding-statement">Pathological mutations in homology-directed repair (HDR) genes impact both future cancer risk and therapeutic options for patients.</div>
 
 
-            <div class="reference-finding-supporting">"2021 May 20;12(5):780. doi: 10.3390/genes12050780."</div>
+            <div class="reference-finding-supporting">"Pathological mutations in homology-directed repair (HDR) genes impact both future cancer risk and therapeutic options for patients."</div>
 
 
 
@@ -9160,7 +9397,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2021 May 20;12(5):780. doi: 10.3390/genes12050780."</div>
+                <div class="evidence-snippet">"Pathological mutations in homology-directed repair (HDR) genes impact both future cancer risk and therapeutic options for patients."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9203,10 +9440,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2021 Dec 4;22(23):13125. doi: 10.3390/ijms222313125.</div>
+            <div class="reference-finding-statement">Genomic Features and Clinical Implications of Intraductal Carcinoma of the Prostate</div>
 
 
-            <div class="reference-finding-supporting">"2021 Dec 4;22(23):13125. doi: 10.3390/ijms222313125."</div>
+            <div class="reference-finding-supporting">"Intraductal carcinoma of the prostate (IDC-P) is a rare and unique form of aggressive prostate carcinoma, which is characterized by an expansile proliferation of malignant prostatic epithelial cells within prostatic ducts or acini and the preservation of basal cell layers around the involved glands."</div>
 
 
 
@@ -9229,7 +9466,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2021 Dec 4;22(23):13125. doi: 10.3390/ijms222313125."</div>
+                <div class="evidence-snippet">"Intraductal carcinoma of the prostate (IDC-P) is a rare and unique form of aggressive prostate carcinoma, which is characterized by an expansile proliferation of malignant prostatic epithelial cells within prostatic ducts or acini and the preservation of basal cell layers around the involved glands."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9341,10 +9578,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2022 Apr;6(1):e2100461. doi: 10.1200/PO.21.00461.</div>
+            <div class="reference-finding-statement">Poly ADP-ribose polymerase inhibitors (PARPi) are used for patients with advanced prostate cancer bearing alterations in homologous recombination repair (HRR) genes.</div>
 
 
-            <div class="reference-finding-supporting">"2022 Apr;6(1):e2100461. doi: 10.1200/PO.21.00461."</div>
+            <div class="reference-finding-supporting">"Poly ADP-ribose polymerase inhibitors (PARPi) are used for patients with advanced prostate cancer bearing alterations in homologous recombination repair (HRR) genes."</div>
 
 
 
@@ -9367,7 +9604,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2022 Apr;6(1):e2100461. doi: 10.1200/PO.21.00461."</div>
+                <div class="evidence-snippet">"Poly ADP-ribose polymerase inhibitors (PARPi) are used for patients with advanced prostate cancer bearing alterations in homologous recombination repair (HRR) genes."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9479,10 +9716,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2022 Jun 17;12:880643. doi: 10.3389/fonc.2022.880643. eCollection 2022.</div>
+            <div class="reference-finding-statement">Homologous recombination (HR) is a highly conserved DNA repair mechanism that protects cells from exogenous and endogenous DNA damage.</div>
 
 
-            <div class="reference-finding-supporting">"2022 Jun 17;12:880643. doi: 10.3389/fonc.2022.880643. eCollection 2022."</div>
+            <div class="reference-finding-supporting">"Homologous recombination (HR) is a highly conserved DNA repair mechanism that protects cells from exogenous and endogenous DNA damage."</div>
 
 
 
@@ -9505,7 +9742,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2022 Jun 17;12:880643. doi: 10.3389/fonc.2022.880643. eCollection 2022."</div>
+                <div class="evidence-snippet">"Homologous recombination (HR) is a highly conserved DNA repair mechanism that protects cells from exogenous and endogenous DNA damage."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9686,10 +9923,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2022 Aug;6:e2200329. doi: 10.1200/PO.22.00329.</div>
+            <div class="reference-finding-statement">Guidelines recommend somatic and germline testing for men with advanced prostate cancer (PCa).</div>
 
 
-            <div class="reference-finding-supporting">"2022 Aug;6:e2200329. doi: 10.1200/PO.22.00329."</div>
+            <div class="reference-finding-supporting">"Guidelines recommend somatic and germline testing for men with advanced prostate cancer (PCa)."</div>
 
 
 
@@ -9712,7 +9949,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2022 Aug;6:e2200329. doi: 10.1200/PO.22.00329."</div>
+                <div class="evidence-snippet">"Guidelines recommend somatic and germline testing for men with advanced prostate cancer (PCa)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9824,10 +10061,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Jan 4;29(1):92-99. doi: 10.1158/1078-0432.CCR-21-3577.</div>
+            <div class="reference-finding-statement">The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations.</div>
 
 
-            <div class="reference-finding-supporting">"2023 Jan 4;29(1):92-99. doi: 10.1158/1078-0432.CCR-21-3577."</div>
+            <div class="reference-finding-supporting">"The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations."</div>
 
 
 
@@ -9850,7 +10087,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2023 Jan 4;29(1):92-99. doi: 10.1158/1078-0432.CCR-21-3577."</div>
+                <div class="evidence-snippet">"The phase III PROfound study (NCT02987543) evaluated olaparib versus abiraterone or enzalutamide (control) in metastatic castration-resistant prostate cancer (mCRPC) with tumor homologous recombination repair (HRR) gene alterations."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9893,10 +10130,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Sep 1;33(5):396-403. doi: 10.1097/MOU.0000000000001114.</div>
+            <div class="reference-finding-statement">The landscape for first-line therapy (1L) of metastatic castration-resistant prostate cancer (mCRPC) is rapidly shifting.</div>
 
 
-            <div class="reference-finding-supporting">"2023 Sep 1;33(5):396-403. doi: 10.1097/MOU.0000000000001114."</div>
+            <div class="reference-finding-supporting">"The landscape for first-line therapy (1L) of metastatic castration-resistant prostate cancer (mCRPC) is rapidly shifting."</div>
 
 
 
@@ -9919,7 +10156,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2023 Sep 1;33(5):396-403. doi: 10.1097/MOU.0000000000001114."</div>
+                <div class="evidence-snippet">"The landscape for first-line therapy (1L) of metastatic castration-resistant prostate cancer (mCRPC) is rapidly shifting."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -9962,10 +10199,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024 Jun;7(3):365-375. doi: 10.1016/j.euo.2023.09.001.</div>
+            <div class="reference-finding-statement">Testing for mutations in Breast Cancer Gene 1/2 (BRCA) has emerged as a novel decision-making tool for clinicians.</div>
 
 
-            <div class="reference-finding-supporting">"2024 Jun;7(3):365-375. doi: 10.1016/j.euo.2023.09.001."</div>
+            <div class="reference-finding-supporting">"Testing for mutations in Breast Cancer Gene 1/2 (BRCA) has emerged as a novel decision-making tool for clinicians."</div>
 
 
 
@@ -9988,7 +10225,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024 Jun;7(3):365-375. doi: 10.1016/j.euo.2023.09.001."</div>
+                <div class="evidence-snippet">"Testing for mutations in Breast Cancer Gene 1/2 (BRCA) has emerged as a novel decision-making tool for clinicians."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10100,10 +10337,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024 Feb 14;8(1):34. doi: 10.1038/s41698-024-00526-9.</div>
+            <div class="reference-finding-statement">Reversion mutations that restore wild-type function of the BRCA gene have been described as a key mechanism of resistance to Poly(ADP-ribose) polymerase (PARP) inhibitor therapy in BRCA-associated cancers.</div>
 
 
-            <div class="reference-finding-supporting">"2024 Feb 14;8(1):34. doi: 10.1038/s41698-024-00526-9."</div>
+            <div class="reference-finding-supporting">"Reversion mutations that restore wild-type function of the BRCA gene have been described as a key mechanism of resistance to Poly(ADP-ribose) polymerase (PARP) inhibitor therapy in BRCA-associated cancers."</div>
 
 
 
@@ -10126,7 +10363,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024 Feb 14;8(1):34. doi: 10.1038/s41698-024-00526-9."</div>
+                <div class="evidence-snippet">"Reversion mutations that restore wild-type function of the BRCA gene have been described as a key mechanism of resistance to Poly(ADP-ribose) polymerase (PARP) inhibitor therapy in BRCA-associated cancers."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10307,10 +10544,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024 Aug;41(8):3039-3058. doi: 10.1007/s12325-024-02918-6.</div>
+            <div class="reference-finding-statement">Poly(ADP-ribose) polymerase inhibitors (PARPi) are a novel option to treat patients with metastatic castration-resistant prostate cancer (mCRPC).</div>
 
 
-            <div class="reference-finding-supporting">"2024 Aug;41(8):3039-3058. doi: 10.1007/s12325-024-02918-6."</div>
+            <div class="reference-finding-supporting">"Poly(ADP-ribose) polymerase inhibitors (PARPi) are a novel option to treat patients with metastatic castration-resistant prostate cancer (mCRPC)."</div>
 
 
 
@@ -10333,7 +10570,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024 Aug;41(8):3039-3058. doi: 10.1007/s12325-024-02918-6."</div>
+                <div class="evidence-snippet">"Poly(ADP-ribose) polymerase inhibitors (PARPi) are a novel option to treat patients with metastatic castration-resistant prostate cancer (mCRPC)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10376,10 +10613,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024 Dec 9;42(12):2113-2123.e4. doi: 10.1016/j.ccell.2024.10.015.</div>
+            <div class="reference-finding-statement">PARP inhibition (PARPi) has anti-tumor activity against castration-resistant prostate cancer (CRPC) with homologous recombination repair (HRR) defects.</div>
 
 
-            <div class="reference-finding-supporting">"2024 Dec 9;42(12):2113-2123.e4. doi: 10.1016/j.ccell.2024.10.015."</div>
+            <div class="reference-finding-supporting">"PARP inhibition (PARPi) has anti-tumor activity against castration-resistant prostate cancer (CRPC) with homologous recombination repair (HRR) defects."</div>
 
 
 
@@ -10402,7 +10639,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024 Dec 9;42(12):2113-2123.e4. doi: 10.1016/j.ccell.2024.10.015."</div>
+                <div class="evidence-snippet">"PARP inhibition (PARPi) has anti-tumor activity against castration-resistant prostate cancer (CRPC) with homologous recombination repair (HRR) defects."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10445,10 +10682,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Feb 3;25(1):33. doi: 10.1186/s12935-025-03658-5.</div>
+            <div class="reference-finding-statement">Reproductive cancers, including prostate and ovarian cancer, are highly prevalent worldwide and pose significant health challenges.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Feb 3;25(1):33. doi: 10.1186/s12935-025-03658-5."</div>
+            <div class="reference-finding-supporting">"Reproductive cancers, including prostate and ovarian cancer, are highly prevalent worldwide and pose significant health challenges."</div>
 
 
 
@@ -10471,7 +10708,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Feb 3;25(1):33. doi: 10.1186/s12935-025-03658-5."</div>
+                <div class="evidence-snippet">"Reproductive cancers, including prostate and ovarian cancer, are highly prevalent worldwide and pose significant health challenges."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10514,10 +10751,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Jan 28;17(1):e78143. doi: 10.7759/cureus.78143. eCollection 2025 Jan.</div>
+            <div class="reference-finding-statement">Prostate cancer is one of the most prevalent malignancies affecting males, primarily occurring in older men.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Jan 28;17(1):e78143. doi: 10.7759/cureus.78143. eCollection 2025 Jan."</div>
+            <div class="reference-finding-supporting">"Prostate cancer is one of the most prevalent malignancies affecting males, primarily occurring in older men."</div>
 
 
 
@@ -10540,7 +10777,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Jan 28;17(1):e78143. doi: 10.7759/cureus.78143. eCollection 2025 Jan."</div>
+                <div class="evidence-snippet">"Prostate cancer is one of the most prevalent malignancies affecting males, primarily occurring in older men."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10583,10 +10820,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Apr;185:117955. doi: 10.1016/j.biopha.2025.117955.</div>
+            <div class="reference-finding-statement">Prostate cancer is a leading malignancy among men.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Apr;185:117955. doi: 10.1016/j.biopha.2025.117955."</div>
+            <div class="reference-finding-supporting">"Prostate cancer is a leading malignancy among men."</div>
 
 
 
@@ -10609,7 +10846,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Apr;185:117955. doi: 10.1016/j.biopha.2025.117955."</div>
+                <div class="evidence-snippet">"Prostate cancer is a leading malignancy among men."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10652,10 +10889,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Apr 21;151(4):146. doi: 10.1007/s00432-025-06188-9.</div>
+            <div class="reference-finding-statement">Germline BRCA1/2 (gBRCA1/2) variants are strongly associated with hereditary cancers, and screening for these variants in high-risk populations is recommended for personalized management.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Apr 21;151(4):146. doi: 10.1007/s00432-025-06188-9."</div>
+            <div class="reference-finding-supporting">"Germline BRCA1/2 (gBRCA1/2) variants are strongly associated with hereditary cancers, and screening for these variants in high-risk populations is recommended for personalized management."</div>
 
 
 
@@ -10678,7 +10915,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Apr 21;151(4):146. doi: 10.1007/s00432-025-06188-9."</div>
+                <div class="evidence-snippet">"Germline BRCA1/2 (gBRCA1/2) variants are strongly associated with hereditary cancers, and screening for these variants in high-risk populations is recommended for personalized management."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10721,10 +10958,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 May;20(3):445-466. doi: 10.1007/s11523-025-01146-4.</div>
+            <div class="reference-finding-statement">Treatment strategies to improve outcomes in patients with metastatic castration-resistant prostate cancer (mCRPC) are evolving.</div>
 
 
-            <div class="reference-finding-supporting">"2025 May;20(3):445-466. doi: 10.1007/s11523-025-01146-4."</div>
+            <div class="reference-finding-supporting">"Treatment strategies to improve outcomes in patients with metastatic castration-resistant prostate cancer (mCRPC) are evolving."</div>
 
 
 
@@ -10747,7 +10984,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 May;20(3):445-466. doi: 10.1007/s11523-025-01146-4."</div>
+                <div class="evidence-snippet">"Treatment strategies to improve outcomes in patients with metastatic castration-resistant prostate cancer (mCRPC) are evolving."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10928,10 +11165,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2026 Feb 1;118(2):205-213. doi: 10.1093/jnci/djaf205.</div>
+            <div class="reference-finding-statement">Individuals with pathogenic variants in the BRCA1 or BRCA2 genes have an increased risk of developing breast, ovarian, pancreatic, and prostate cancers.</div>
 
 
-            <div class="reference-finding-supporting">"2026 Feb 1;118(2):205-213. doi: 10.1093/jnci/djaf205."</div>
+            <div class="reference-finding-supporting">"Individuals with pathogenic variants in the BRCA1 or BRCA2 genes have an increased risk of developing breast, ovarian, pancreatic, and prostate cancers."</div>
 
 
 
@@ -10954,7 +11191,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2026 Feb 1;118(2):205-213. doi: 10.1093/jnci/djaf205."</div>
+                <div class="evidence-snippet">"Individuals with pathogenic variants in the BRCA1 or BRCA2 genes have an increased risk of developing breast, ovarian, pancreatic, and prostate cancers."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -10997,10 +11234,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Oct 1;11(10):1222-1230. doi: 10.1001/jamaoncol.2025.2879.</div>
+            <div class="reference-finding-statement">Much of the understanding of cancer risk associated with rare pathogenic variants (RPVs) is derived from family-based studies or clinically ascertained samples, which may be limited by ascertainment and selection bias.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Oct 1;11(10):1222-1230. doi: 10.1001/jamaoncol.2025.2879."</div>
+            <div class="reference-finding-supporting">"Much of the understanding of cancer risk associated with rare pathogenic variants (RPVs) is derived from family-based studies or clinically ascertained samples, which may be limited by ascertainment and selection bias."</div>
 
 
 
@@ -11023,7 +11260,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Oct 1;11(10):1222-1230. doi: 10.1001/jamaoncol.2025.2879."</div>
+                <div class="evidence-snippet">"Much of the understanding of cancer risk associated with rare pathogenic variants (RPVs) is derived from family-based studies or clinically ascertained samples, which may be limited by ascertainment and selection bias."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -11066,10 +11303,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Nov 5:S0302-2838(25)04720-7. doi: 10.1016/j.eururo.2025.09.4161.</div>
+            <div class="reference-finding-statement">The impact of germline pathogenic variants (PVs) in cancer predisposition genes on risk of prostate cancer (PCa) remains understudied in large populations of African ancestry.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Nov 5:S0302-2838(25)04720-7. doi: 10.1016/j.eururo.2025.09.4161."</div>
+            <div class="reference-finding-supporting">"The impact of germline pathogenic variants (PVs) in cancer predisposition genes on risk of prostate cancer (PCa) remains understudied in large populations of African ancestry."</div>
 
 
 
@@ -11092,7 +11329,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Nov 5:S0302-2838(25)04720-7. doi: 10.1016/j.eururo.2025.09.4161."</div>
+                <div class="evidence-snippet">"The impact of germline pathogenic variants (PVs) in cancer predisposition genes on risk of prostate cancer (PCa) remains understudied in large populations of African ancestry."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -11135,10 +11372,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2026 Jan 9;10(1):pkaf118. doi: 10.1093/jncics/pkaf118.</div>
+            <div class="reference-finding-statement">BRCA1 pathogenic variants are associated with a lower risk of developing prostate cancer than BRCA2, but aggressiveness remains unclear.</div>
 
 
-            <div class="reference-finding-supporting">"2026 Jan 9;10(1):pkaf118. doi: 10.1093/jncics/pkaf118."</div>
+            <div class="reference-finding-supporting">"BRCA1 pathogenic variants are associated with a lower risk of developing prostate cancer than BRCA2, but aggressiveness remains unclear."</div>
 
 
 
@@ -11161,7 +11398,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2026 Jan 9;10(1):pkaf118. doi: 10.1093/jncics/pkaf118."</div>
+                <div class="evidence-snippet">"BRCA1 pathogenic variants are associated with a lower risk of developing prostate cancer than BRCA2, but aggressiveness remains unclear."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -11342,10 +11579,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2026 Feb 18:S0302-2838(26)00057-6. doi: 10.1016/j.eururo.2026.01.031.</div>
+            <div class="reference-finding-statement">BRCA1 and BRCA2 pathogenic germline variants (PGVs) are associated with higher risk of prostate cancer (PC).</div>
 
 
-            <div class="reference-finding-supporting">"2026 Feb 18:S0302-2838(26)00057-6. doi: 10.1016/j.eururo.2026.01.031."</div>
+            <div class="reference-finding-supporting">"BRCA1 and BRCA2 pathogenic germline variants (PGVs) are associated with higher risk of prostate cancer (PC)."</div>
 
 
 
@@ -11368,7 +11605,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2026 Feb 18:S0302-2838(26)00057-6. doi: 10.1016/j.eururo.2026.01.031."</div>
+                <div class="evidence-snippet">"BRCA1 and BRCA2 pathogenic germline variants (PGVs) are associated with higher risk of prostate cancer (PC)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -11549,10 +11786,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2026 May;117(5):1469-1480. doi: 10.1111/cas.70367.</div>
+            <div class="reference-finding-statement">The clinical significance of comprehensive genomic profiling (CGP) has been established in metastatic castration-resistant prostate cancer (PC).</div>
 
 
-            <div class="reference-finding-supporting">"2026 May;117(5):1469-1480. doi: 10.1111/cas.70367."</div>
+            <div class="reference-finding-supporting">"The clinical significance of comprehensive genomic profiling (CGP) has been established in metastatic castration-resistant prostate cancer (PC)."</div>
 
 
 
@@ -11575,7 +11812,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2026 May;117(5):1469-1480. doi: 10.1111/cas.70367."</div>
+                <div class="evidence-snippet">"The clinical significance of comprehensive genomic profiling (CGP) has been established in metastatic castration-resistant prostate cancer (PC)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRCA Mutant Prostate Cancer.</div>
@@ -14141,7 +14378,7 @@ Cheng et al. emphasize under-recognition and under-testing of male carriers, des
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BRCA-Mutant Prostate Cancer", "mondoId": "MONDO:0008315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRCA-Mutant_Prostate_Cancer", "yamlRevision": "e353f05f4078"};
+        const OS_CONFIG = {"diseaseName": "BRCA-Mutant Prostate Cancer", "mondoId": "MONDO:0008315", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRCA-Mutant_Prostate_Cancer", "yamlRevision": "ab432cb17008"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
