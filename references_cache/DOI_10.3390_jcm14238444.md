@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14238444"
+reference_id: DOI:10.3390/jcm14238444
 title: A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1
 authors:
 - Qinglin Xu
@@ -12,6 +12,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14238444
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Comprehensive Review of Current and Emerging Treatments for Narcolepsy Type 1

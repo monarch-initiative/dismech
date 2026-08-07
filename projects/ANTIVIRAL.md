@@ -120,7 +120,7 @@ RNA virus, and an integrase inhibitor is meaningless outside the retroviruses.
 
 ## 3. Three-Tier Encoding
 
-**Tier 1 — crude baseline.** `treatment_term: MAXO:0000168` (antiviral agent
+**Tier 1 — crude baseline.** `treatment_term: NCIT:C16119` (Antiviral Therapy
 therapy) or `NCIT:C15986` (Pharmacotherapy) + `therapeutic_agent` (CHEBI for the
 drug, e.g. `CHEBI:85083` sofosbuvir, `CHEBI:145994` remdesivir,
 `CHEBI:170007` nirmatrelvir) + `therapeutic_modality: SMALL_MOLECULE`. Says

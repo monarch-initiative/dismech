@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RARB-related syndromic microphthalmia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RARB-related syndromic microphthalmia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RARB-related syndromic microphthalmia</h1>
+                
+                <p class="report-subtitle">RARB-related Syndromic Microphthalmia (MCOPS12): Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014229" target="_blank" rel="noopener noreferrer">MONDO:0014229</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>RARB-related Syndromic Microphthalmia (MCOPS12): Comprehensive Disease Characterization Report</h1>
+<p><em>Autonomous literature-based discovery report (5 iterations, 11 confirmed findings, 32 papers reviewed). Evidence is human clinical, in vitro functional, and model-organism as indicated. Primary citations are given as PMIDs. Where information is unavailable for this ultra-rare disorder, this is stated explicitly.</em></p>
+<hr />
+<h2>Summary</h2>
+<p><strong>RARB-related syndromic microphthalmia — Syndromic Microphthalmia type 12 (MCOPS12; OMIM #615524; <a href="http://purl.obolibrary.org/obo/MONDO_0014441" target="_blank" rel="noopener noreferrer">MONDO:0014441</a>)</strong> is a rare Mendelian developmental disorder caused by germline variants in <em>RARB</em> (retinoic acid receptor beta), located at chromosome 3p24.2 (<a href="https://bioregistry.io/HGNC:9865" target="_blank" rel="noopener noreferrer">HGNC:9865</a>; NCBI Gene 5915; UniProt P10826). The unifying pathomechanism is <strong>dysregulation of retinoic-acid (RA) signaling in either direction</strong> during embryogenesis. Dominant <em>de novo</em> gain-of-function (GOF) missense variants — most notably the recurrent p.Arg387Cys and p.Arg387Ser substitutions — increase RA-induced transcriptional activity 2- to 3-fold, whereas biallelic recessive loss-of-function (LOF) variants and dominant truncating/dominant-negative alleles abolish or subvert RARB activity. Both extremes converge on the same tightly dosage-sensitive developmental program governing neural-crest-derived periocular mesenchyme and central nervous system development, explaining how opposite molecular defects produce an overlapping clinical syndrome.</p>
+<p>Clinically, MCOPS12 presents congenitally with a <strong>developmental eye malformation</strong> (microphthalmia, anophthalmia, and/or coloboma) that is variably combined with <strong>pulmonary hypoplasia, congenital diaphragmatic hernia, and cardiac defects</strong> — the "PDAC" overlap that originally linked <em>RARB</em> to this phenotype. Neonatal survivors uniformly develop <strong>severe global developmental delay with a progressive movement disorder</strong> (spasticity and/or dystonia, with or without chorea), and a majority show Chiari type I malformation and severe feeding difficulties. The phenotype is more variable than initially recognized: some individuals lack cardinal features such as the eye anomaly or motor impairment, indicating incomplete/variable expressivity.</p>
+<p>Prognosis is <strong>guarded</strong>: the PDAC-overlap presentation carries substantial neonatal mortality driven by pulmonary hypoplasia and diaphragmatic hernia, and survivors face severe lifelong disability. There is <strong>no disease-modifying therapy</strong>; management is entirely supportive and multidisciplinary. Prevention is limited to genetic counseling, prenatal diagnosis, and preimplantation genetic testing. MCOPS12 is ultra-rare, with roughly 52+ individuals reported in the literature to date.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — <em>RARB</em> variants cause MCOPS12 via bidirectional dysregulation of retinoic-acid signaling</h3>
+<p>The central molecular finding is that both <strong>dominant gain-of-function</strong> and <strong>recessive/dominant-negative loss-of-function</strong> mechanisms in <em>RARB</em> produce the same disease. In the founding study, two siblings with a PDAC-syndrome phenotype (but not their unaffected sibling) were compound heterozygous for a nonsense variant (c.355C&gt;T, p.Arg119*) and a frameshift variant (c.1201_1202insCT, p.Ile403Serfs*15), establishing a <strong>recessive loss-of-function</strong> route: <em>"two PDAC-syndrome-affected siblings, but not their unaffected sibling, were compound heterozygous for nonsense (c.355C&gt;T [p.Arg119*]) and frameshift (c.1201_1202insCT [p.Ile403Serfs*15]) mutations in retinoic acid receptor beta (RARB)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>). The same work demonstrated a <strong>dominant gain-of-function</strong> route via transfection assays: <em>"p.Arg387Ser and p.Arg387Cys altered RARB induced a 2- to 3-fold increase in transcriptional activity in response to retinoic acid ligands, suggesting a gain-of-function mechanism."</em></p>
+<p>A subsequent systematic functional study (25 new individuals; 52 reviewed) resolved the apparent paradox: <em>"all RARB variants tested in our assays exhibited either a gain-of-function or a loss-of-function activity. Loss-of-function variants disrupted RARB function through a dominant-negative effect"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>). Thus GOF missense variants over-activate RA target genes, while pathogenic heterozygous LOF variants act through a <strong>dominant-negative</strong> mechanism (mutant receptor poisons the wild-type/heterodimer complex), and biallelic LOF variants act through simple loss of function. The shared consequence is a departure from the narrow window of correct RA-signaling <em>dosage</em> required for normal morphogenesis.</p>
+<h3>F002 — Clinical spectrum: eye malformation plus a progressive neurodevelopmental/movement disorder</h3>
+<p>Cardinal features are <strong>microphthalmia/anophthalmia/coloboma</strong>, <strong>pulmonary hypoplasia</strong>, <strong>diaphragmatic hernia</strong>, and <strong>cardiac defects</strong> (the PDAC overlap), plus — in survivors — severe global developmental delay with a progressive motor disorder. In the largest neurodevelopmental case series, <em>"all subjects who survived the neonatal period (n = 10) displayed severe global developmental delay with progressive motor impairment due to spasticity and/or dystonia (with or without chorea). The majority of subjects also showed Chiari type I malformation and severe feeding difficulties"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>). Later work broadened the picture, noting that <em>"disruption of RARB is associated with a more variable phenotype than initially suspected, with the absence in some individuals of cardinal features of MCOPS12, such as developmental eye anomaly or motor impairment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>). MCOPS12 is therefore best conceptualized as an <strong>eye–brain developmental syndrome</strong> with variable multi-organ (lung, diaphragm, heart) involvement.</p>
+<h3>F003 — Mouse/vertebrate RAR/RXR genetics recapitulate the phenotype and localize RA action to ocular mesenchyme/neural crest</h3>
+<p>Model-organism genetics provide strong mechanistic corroboration. RAR double-null mutant mice (including <em>Rarb</em>) show congenital malformations across nearly every organ system, recapitulating the <strong>fetal vitamin-A-deficiency (VAD) syndrome</strong>, including eye defects and diaphragm malformation — the latter directly paralleling human congenital diaphragmatic hernia (<a href="https://pubmed.ncbi.nlm.nih.gov/7607068/">PMID: 7607068</a>). Heterodimer-specific analyses showed that <em>"both RXR alpha:RAR beta and RXR alpha:RAR gamma heterodimers appear to function during the development of the ocular mesenchyme"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9541199/">PMID: 9541199</a>), localizing RARB function to ocular mesenchyme. Conditional RAR inactivation experiments demonstrated that <em>"the action of RA during eye morphogenesis is occurring specifically in neural crest-derived periocular mesenchyme"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18539269/">PMID: 18539269</a>), pinpointing the <strong>neural-crest-derived periocular mesenchyme</strong> as the key responding tissue, with <em>Pitx2</em> as a downstream RA-responsive gene. RXRα-null studies further confirmed convergence of RXR and RAR signaling in heart and eye morphogenesis (<a href="https://pubmed.ncbi.nlm.nih.gov/7923367/">PMID: 7923367</a>), and temporally controlled RA depletion in rat produced specific neural-crest, ocular, and nervous-system defects (<a href="https://pubmed.ncbi.nlm.nih.gov/9272952/">PMID: 9272952</a>).</p>
+<h3>F004 — Variants span the ligand-binding and DNA-binding domains; DBD variants impair nuclear localization</h3>
+<p>Most reported <em>RARB</em> variants affect the <strong>ligand-binding domain (LBD)</strong> — including the recurrent codon-387 substitutions (p.Arg387Cys/Ser). However, a missense variant in the highly conserved <strong>DNA-binding domain (DBD)</strong> was identified in ocular coloboma, and <em>in vitro</em> it produced <em>"lower steady-state protein levels, reduced transcriptional activity, and incomplete nuclear localization of the mutant RARB protein compared with wild-type"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a>). Functional relevance <em>in vivo</em> was confirmed in zebrafish, where <em>"human RARB messenger RNA partially reduced the ocular phenotype caused by morpholino knockdown of rarga gene, a zebrafish homolog of human RARB."</em> This establishes a second class of LOF mechanism — impaired nuclear import and reduced steady-state protein — distinct from the LBD-based GOF mechanism.</p>
+<h3>F005 — Epidemiologic context: microphthalmia/anophthalmia is rare; <em>RARB</em> accounts for a small fraction of syndromic cases</h3>
+<p>Anophthalmia/microphthalmia/coloboma (AMC) are rare congenital eye defects. Reported global prevalence is <em>"anophthalmia at 0.6-4.2 per 100,000 births and microphthalmia at 2-17 per 100,000 births, with a combined prevalence of up to 30 per 100,000"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40038803/">PMID: 40038803</a>), and <em>"15-20% of infant blindness [is] attributed to these anomalies."</em> Another population-based estimate places anophthalmia/microphthalmia at <em>"up to 2 per 10,000 live births"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35716026/">PMID: 35716026</a>). AMC is genetically heterogeneous (<em>PAX6, SOX2, OTX2, CHD7, STRA6, RARB</em>, and others); <strong>RARB-related MCOPS12 is an ultra-rare subset</strong>, with only ~52+ individuals reported. No <em>RARB</em>-specific prevalence or incidence estimate is established.</p>
+<h3>F006 — Inheritance is predominantly autosomal dominant <em>de novo</em>, with rare recessive families and dominant truncating variants</h3>
+<p>Most MCOPS12 cases arise from <strong>heterozygous de novo missense variants</strong> (autosomal dominant, sporadic). A <strong>recessive form</strong> exists: <em>"RARB bi-allelic loss-of-function variants, inherited from asymptomatic heterozygous carrier parents, have been found in a recessive family with four MCOPS12-affected members"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>) — importantly, heterozygous carriers of these recessive LOF alleles are <strong>unaffected</strong>, indicating dose/mechanism-dependent penetrance. The same report documented a heterozygous <em>de novo</em> nonsense (truncating) variant, providing <em>"the first detailed evidence for a role of dominant RARB truncating alterations in congenital eye-brain disease, expanding the spectrum of MCOPS12-associated mutations."</em></p>
+<h3>F007 — Environmental retinoid dysregulation phenocopies RARB disease, reinforcing RA dosage as the shared pathomechanism</h3>
+<p>Both maternal vitamin-A deficiency and retinoid excess cause overlapping congenital malformations, mirroring the bidirectional (GOF/LOF) genetic mechanism. Gestational exposure to exogenous retinoids produces <strong>retinoic acid embryopathy/fetal retinoid syndrome</strong>: <em>"Isotretinoin is a retinoid which is derived from Vitamin A. It is indicated for severe cystic acne treatment, but it has been classified as teratogenic. A wide spectrum of birth defects including craniofacial, heart, and nervous system malformations have been described with prenatal exposure to this drug"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29308367/">PMID: 29308367</a>). A candidate downstream cellular mechanism is neural-crest apoptosis: <em>"isotretinoin (13-cis retinoic acid), the prodrug of all-trans retinoic acid (ATRA), exaggerates neural crest cell (NCC) apoptosis via upregulation of the pro-apoptotic transcription factor p53"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28833556/">PMID: 28833556</a>). These environmental phenocopies both confirm the causal role of RA dosage and identify neural-crest cells as the vulnerable population — the same tissue implicated by the mouse conditional-knockout data.</p>
+<h3>F008 — No disease-modifying therapy exists; management is supportive, multidisciplinary, and symptom-directed</h3>
+<p>There is <strong>no curative or disease-modifying treatment</strong>. Management is symptomatic across domains. For the ocular malformation, <em>"serial socket expansion with progressively larger acrylic conformers"</em> is the standard approach, achieving <em>"good outcomes ... in 18 orbits (75%); fair outcomes, in 6 (25%) cases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36257503/">PMID: 36257503</a>). Neonatal care addresses congenital diaphragmatic hernia (surgical repair, respiratory support, ECMO in severe cases) and cardiac defects; neurologic care uses antispasticity/antidystonic agents and physical/occupational/speech therapy; gastroenterologic care provides feeding support (e.g., gastrostomy); and Chiari I malformation is monitored with neurosurgical evaluation as needed. Orbital cysts associated with microphthalmos/anophthalmos may aid socket expansion and generally allow good cosmetic outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/12812886/">PMID: 12812886</a>).</p>
+<h3>F009 — Phenotype spectrum mapped to HPO terms with anatomy (UBERON)</h3>
+<p>The MCOPS12 phenotype maps onto a defined set of HPO terms with qualitative frequencies (tabulated in Section 3 below). The neuromotor phenotype and its frequency are anchored by <a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a> (all 10 survivors with developmental delay; majority Chiari I and feeding difficulties), and the ocular/pulmonary/diaphragmatic/cardiac set by <a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>: <em>"Anophthalmia and/or microphthalmia, pulmonary hypoplasia, diaphragmatic hernia, and cardiac defects are the main features of PDAC syndrome."</em></p>
+<h3>F010 — Diagnosis relies on molecular confirmation (trio exome/genome) plus imaging; differential includes STRA6 and other AMC genes</h3>
+<p>Diagnosis is established by identifying a pathogenic <em>RARB</em> variant, typically via <strong>whole-exome sequencing</strong>: <em>"Using whole-exome sequencing, we found that two PDAC-syndrome-affected siblings ..."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>). Prenatal detectability is meaningful — <em>"CEAs [congenital eye anomalies] were prenatally diagnosed in 23.5% of cases"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38528322/">PMID: 38528322</a>). The differential diagnosis for the underlying AMC includes <em>"chromosomal aberrations and mutations in genes such as PAX6, SOX2, OTX2, and CHD7"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40038803/">PMID: 40038803</a>), plus Matthew-Wood/PDAC syndrome due to <em>STRA6</em> and retinoic acid embryopathy (the environmental phenocopy).</p>
+<h3>F011 — Prognosis is guarded; prevention limited to genetic counseling and prenatal testing</h3>
+<p>Prognosis is guarded. The PDAC-overlap presentation carries neonatal mortality (the explicit distinction of survivors — <em>"all subjects who survived the neonatal period (n = 10)"</em> — implies neonatal deaths; <a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>), and survivors have severe lifelong disability. Prevention centers on reproductive options: genetic counseling, prenatal diagnosis, and preimplantation genetic testing. Recurrence risk is low for <em>de novo</em> dominant disease (though germline mosaicism cannot be excluded) but <strong>25% for autosomal recessive families</strong>, where counseling relies on carrier detection (<a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>MCOPS12 is fundamentally a <strong>retinoic-acid dosage disorder</strong>. RA is a diffusible morphogen whose nuclear receptors (RARα/β/γ heterodimerizing with RXRs) act as ligand-dependent transcription factors. Normal morphogenesis of the eye, diaphragm, heart, and CNS requires RA signaling within a narrow concentration/activity window. <em>RARB</em> variants perturb this window from either direction:</p>
+<pre><code>         RETINOIC ACID SIGNALING DOSAGE
+   TOO LOW  &lt;---------------------- OPTIMAL ----------------------&gt; TOO HIGH
+      |                               |                                |
+  LOF variants                 Normal development              GOF variants
+  - biallelic nonsense/                                        - p.Arg387Cys
+    frameshift (recessive)                                     - p.Arg387Ser
+  - dominant-negative                                          (2-3x increased
+    missense/truncating                                         RA transcriptional
+  - DBD variants (impaired                                      activity)
+    nuclear localization)                                            |
+      |                                                              |
+      +---------------------------+----------------------------------+
+                  |
+                  v
+      DISRUPTED RA-RESPONSIVE TRANSCRIPTION
+(neural-crest-derived periocular mesenchyme; CNS)
+       key RA target gene: Pitx2
+                  |
++-------------------------+-------------------------+
+v                         v                         v
+   EYE MORPHOGENESIS        DIAPHRAGM / LUNG /         CNS DEVELOPMENT
+   FAILURE                  HEART DEVELOPMENT          (basal ganglia,
+   - microphthalmia         - diaphragmatic hernia      cerebellum,
+   - anophthalmia           - pulmonary hypoplasia      hindbrain)
+   - coloboma               - cardiac defects          - developmental delay
+                                       - spasticity/dystonia
+                                       - Chiari I malformation
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> The upstream trigger is the germline <em>RARB</em> variant altering receptor activity/dosage. The proximate downstream event is dysregulated transcription of RA-responsive genes (e.g., <em>Pitx2</em>) in the <strong>neural-crest-derived periocular mesenchyme</strong> (eye) and CNS progenitors. A candidate terminal cellular mechanism — best evidenced in the retinoid-excess phenocopy — is <strong>neural-crest cell apoptosis via p53 upregulation</strong>. The clinical manifestations (ocular, diaphragmatic, pulmonary, cardiac, neurologic) are the downstream morphologic and functional consequences.</p>
+<p><strong>Why opposite mutations cause the same disease:</strong> Because both under- and over-activation move the system out of the tolerated RA-activity window, and because dominant-negative LOF alleles corrupt receptor complexes, the developmental output is disrupted regardless of direction. This is directly paralleled in nature by the overlapping malformation spectra of <strong>fetal vitamin-A deficiency</strong> (too little RA) and <strong>retinoic acid embryopathy</strong> (too much RA).</p>
+<h3>Genotype–mechanism–phenotype summary</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant class</th>
+<th>Example</th>
+<th>Molecular mechanism</th>
+<th>Inheritance</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LBD missense (GOF)</td>
+<td>c.1159C&gt;T p.Arg387Cys; c.1159C&gt;A p.Arg387Ser</td>
+<td>2–3× increased RA transcriptional activity</td>
+<td>AD, <em>de novo</em></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a></td>
+</tr>
+<tr>
+<td>Nonsense/frameshift (biallelic LOF)</td>
+<td>c.355C&gt;T p.Arg119*; c.1201_1202insCT p.Ile403Serfs*15</td>
+<td>Loss of function</td>
+<td>AR (carriers unaffected)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a></td>
+</tr>
+<tr>
+<td>Dominant-negative (LOF)</td>
+<td>various missense/truncating</td>
+<td>Poisons WT/heterodimer complex</td>
+<td>AD</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a></td>
+</tr>
+<tr>
+<td>Dominant truncating (LOF)</td>
+<td><em>de novo</em> nonsense</td>
+<td>Truncation; eye–brain disease</td>
+<td>AD, <em>de novo</em></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a></td>
+</tr>
+<tr>
+<td>DBD missense (LOF)</td>
+<td>conserved DBD residue</td>
+<td>↓ protein, ↓ activity, impaired nuclear localization</td>
+<td>(coloboma case)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Detailed Disease Characterization (Template Sections)</h2>
+<h3>1. Disease Information</h3>
+<ul>
+<li><strong>Overview:</strong> A syndromic form of microphthalmia in which eye maldevelopment co-occurs with malformations of the diaphragm, lungs, heart, and CNS, plus a progressive neuromotor disorder. Originally recognized within the <strong>PDAC</strong> phenotype (<strong>P</strong>ulmonary hypoplasia/agenesis, <strong>D</strong>iaphragmatic hernia, <strong>A</strong>nophthalmia/microphthalmia, <strong>C</strong>ardiac defects), historically linked to <em>STRA6</em>; <em>RARB</em> defines a distinct molecular subset (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>).</li>
+<li><strong>Identifiers:</strong> OMIM <strong>#615524</strong> (Microphthalmia, syndromic 12; MCOPS12); <a href="http://purl.obolibrary.org/obo/MONDO_0014441" target="_blank" rel="noopener noreferrer">MONDO:0014441</a>; gene <em>RARB</em> (<a href="https://bioregistry.io/HGNC:9865" target="_blank" rel="noopener noreferrer">HGNC:9865</a>; NCBI Gene 5915; OMIM *180220; Ensembl ENSG00000077092; UniProt P10826; locus 3p24.2). Orphanet: within syndromic microphthalmia/anophthalmia group. ICD-11: LB10.0 (congenital anophthalmos/microphthalmos) with syndromic qualifiers; ICD-10: Q11.0–Q11.2. MeSH: Microphthalmos (D008850).</li>
+<li><strong>Synonyms:</strong> MCOPS12; Syndromic microphthalmia 12; RARB-related microphthalmia; microphthalmia with diaphragmatic hernia and cardiac defects; RARB-related eye–brain developmental disorder.</li>
+<li><strong>Information source:</strong> Aggregated disease-level resources (OMIM/Orphanet) plus <strong>individual-patient case series/reviews</strong> (Srour 2013; Srour 2016; Caron 2023, 25 new/52 reviewed; Trieschmann 2023) — not a large registry/EHR dataset.</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Causal factors:</strong> Germline pathogenic variants in <em>RARB</em> (monogenic). Two mechanistic classes: dominant <em>de novo</em> GOF missense (recurrent codon 387) and biallelic recessive/dominant-negative/dominant-truncating LOF.</li>
+<li><strong>Genetic risk factors:</strong> The <em>RARB</em> variant is causal, not merely a susceptibility locus. Advanced paternal age is a general (non-specific) contributor to <em>de novo</em> dominant variants. No proven modifier genes.</li>
+<li><strong>Environmental risk factors:</strong> None established as causes of MCOPS12. Gestational retinoid exposure (isotretinoin) and vitamin-A imbalance are biologically relevant phenocopies (Section 5).</li>
+<li><strong>Protective factors:</strong> None. Heterozygous carriers of a single recessive LOF allele are asymptomatic (<a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>).</li>
+<li><strong>Gene–environment interactions:</strong> Disease and retinoic-acid embryopathy/fetal VAD converge phenotypically because both perturb RA-signaling dosage (<a href="https://pubmed.ncbi.nlm.nih.gov/29308367/">PMID: 29308367</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28833556/">PMID: 28833556</a>). No formal GxE study exists for <em>RARB</em>.</li>
+<li><strong>CHEBI:</strong> all-trans-retinoic acid <a href="http://purl.obolibrary.org/obo/CHEBI_15367" target="_blank" rel="noopener noreferrer">CHEBI:15367</a>; retinol/vitamin A <a href="http://purl.obolibrary.org/obo/CHEBI_17336" target="_blank" rel="noopener noreferrer">CHEBI:17336</a>; isotretinoin (13-cis-RA) <a href="http://purl.obolibrary.org/obo/CHEBI_6067" target="_blank" rel="noopener noreferrer">CHEBI:6067</a>.</li>
+</ul>
+<h3>3. Phenotypes (with suggested HPO terms, onset, severity, progression, frequency)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Severity/Course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Microphthalmia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" rel="noopener noreferrer">HP:0000568</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Severe, stable structural</td>
+<td>Very frequent/defining</td>
+</tr>
+<tr>
+<td>Anophthalmia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" rel="noopener noreferrer">HP:0000528</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Severe</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Coloboma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" rel="noopener noreferrer">HP:0000589</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Optic nerve/retinal anomaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a> / <a href="http://purl.obolibrary.org/obo/HP_0000479" target="_blank" rel="noopener noreferrer">HP:0000479</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Congenital diaphragmatic hernia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" rel="noopener noreferrer">HP:0000776</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Life-threatening</td>
+<td>Subset (PDAC)</td>
+</tr>
+<tr>
+<td>Pulmonary hypoplasia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" rel="noopener noreferrer">HP:0002089</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Life-threatening</td>
+<td>Subset (PDAC)</td>
+</tr>
+<tr>
+<td>Congenital heart defect</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Global developmental delay</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>Neurodevelopmental</td>
+<td>Infancy</td>
+<td>Severe</td>
+<td>Essentially all survivors</td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Neurodevelopmental</td>
+<td>Childhood</td>
+<td>Severe</td>
+<td>Essentially all survivors</td>
+</tr>
+<tr>
+<td>Spasticity</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" rel="noopener noreferrer">HP:0001257</a></td>
+<td>Neurological sign</td>
+<td>Infancy/childhood</td>
+<td><strong>Progressive</strong></td>
+<td>Majority of survivors</td>
+</tr>
+<tr>
+<td>Dystonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a></td>
+<td>Neurological sign</td>
+<td>Infancy/childhood</td>
+<td><strong>Progressive</strong></td>
+<td>Majority of survivors</td>
+</tr>
+<tr>
+<td>Chorea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" rel="noopener noreferrer">HP:0002072</a></td>
+<td>Neurological sign</td>
+<td>Childhood</td>
+<td>Progressive/variable</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Chiari type I malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" rel="noopener noreferrer">HP:0007099</a></td>
+<td>Structural (CNS)</td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Majority</td>
+</tr>
+<tr>
+<td>Severe feeding difficulties</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+<td>Functional</td>
+<td>Neonatal/infancy</td>
+<td>Severe</td>
+<td>Majority</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Variable expressivity/reduced penetrance:</strong> some individuals lack cardinal eye or motor features (<a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>).</li>
+<li><strong>Quality of life:</strong> Severe impact — visual impairment/blindness, motor disability, intellectual disability, feeding dependence. Disease-specific validated QoL instruments (EQ-5D/SF-36/PROMIS) have <strong>not</strong> been reported for this ultra-rare disorder.</li>
+</ul>
+<h3>4. Genetic / Molecular Information</h3>
+<ul>
+<li><strong>Causal gene:</strong> <em>RARB</em> (<a href="https://bioregistry.io/HGNC:9865" target="_blank" rel="noopener noreferrer">HGNC:9865</a>; OMIM *180220; 3p24.2); ligand-activated nuclear receptor heterodimerizing with RXR at retinoic-acid response elements (RAREs).</li>
+<li><strong>Variant types/classification:</strong> recurrent codon-387 missense and specific truncating alleles are <strong>pathogenic</strong>; others likely pathogenic; some ocular-only DBD variants VUS later functionally supported (<a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a>). Variant classes: missense (LBD, DBD), nonsense, frameshift.</li>
+<li><strong>Allele frequency:</strong> pathogenic variants are <strong>absent from gnomAD</strong> (de novo or private familial).</li>
+<li><strong>Origin:</strong> germline (de novo dominant or inherited recessive/dominant). No somatic role.</li>
+<li><strong>Functional consequences:</strong> gain-of-function, loss-of-function, and dominant-negative (<a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>); DBD variants additionally impair nuclear localization.</li>
+<li><strong>Modifier genes/epigenetics:</strong> none confirmed; paralog redundancy (<em>RARA</em>, <em>RARG</em>) is biologically relevant. No disease-specific methylation/histone signature.</li>
+<li><strong>Chromosomal abnormalities:</strong> not a feature; chromosomal microarray typically normal.</li>
+<li><strong>GO:</strong> nuclear receptor activity <a href="http://purl.obolibrary.org/obo/GO_0004879" target="_blank" rel="noopener noreferrer">GO:0004879</a>; retinoic acid receptor activity <a href="http://purl.obolibrary.org/obo/GO_0003708" target="_blank" rel="noopener noreferrer">GO:0003708</a>; RAR signaling pathway <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" rel="noopener noreferrer">GO:0048384</a>; regulation of transcription by RNA Pol II <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a>.</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental factors:</strong> Not causal for MCOPS12. Gestational retinoid exposure (isotretinoin/13-cis-RA) causes retinoic-acid embryopathy — craniofacial dysmorphism, cerebellar/vermian hypoplasia, posterior-fossa anomalies, conotruncal cardiac defects, thymic aplasia, ear anomalies (<a href="https://pubmed.ncbi.nlm.nih.gov/29308367/">PMID: 29308367</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29843537/">PMID: 29843537</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34773723/">PMID: 34773723</a>). Maternal vitamin-A deficiency produces overlapping malformations.</li>
+<li><strong>Lifestyle factors:</strong> Avoidance of teratogenic retinoids and appropriate vitamin-A status in pregnancy are general public-health measures, not specific to RARB disease.</li>
+<li><strong>Infectious agents:</strong> None — not applicable.</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular pathway:</strong> Retinoic-acid nuclear-receptor signaling (Reactome "Signaling by Retinoic Acid"; <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" rel="noopener noreferrer">GO:0048384</a>). Suggested GO: cellular response to retinoic acid <a href="http://purl.obolibrary.org/obo/GO_0071300" target="_blank" rel="noopener noreferrer">GO:0071300</a>.</li>
+<li><strong>Cellular processes:</strong> neural-crest cell patterning/survival; apoptosis via p53 in retinoid-excess phenocopy (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>) (<a href="https://pubmed.ncbi.nlm.nih.gov/28833556/">PMID: 28833556</a>).</li>
+<li><strong>Protein dysfunction:</strong> altered ligand-dependent transactivation (LBD) or impaired DNA binding + reduced steady-state protein + incomplete nuclear import (DBD) (<a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a>). No aggregation/misfolding mechanism.</li>
+<li><strong>Cell types (CL):</strong> neural crest cell <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a>; periocular mesenchymal cells; CNS neurons/glia.</li>
+<li><strong>Causal chain:</strong> <em>RARB</em> variant → dysregulated RA-responsive transcription (↑ GOF / ↓ or dominant-negative LOF) → abnormal neural-crest-derived periocular mesenchyme and CNS development → eye/diaphragm/heart/CNS malformation → clinical syndrome.</li>
+<li><strong>Molecular profiling:</strong> no disease-specific transcriptomic/proteomic/metabolomic signature published for RARB patients; mechanism derives from in vitro reporter assays and animal models.</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organs:</strong> eye (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>), diaphragm (<a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a>), lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>).</li>
+<li><strong>Secondary/systems:</strong> nervous (basal ganglia <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a>; cerebellum <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>; cervicomedullary junction — Chiari I), respiratory, cardiovascular, digestive (feeding), musculoskeletal (secondary to spasticity/dystonia).</li>
+<li><strong>Tissue/cell level:</strong> neural-crest-derived periocular mesenchyme; ocular neuroepithelium; key cell type neural crest cell (<a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a>).</li>
+<li><strong>Subcellular:</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) — site of RARB action; DBD variants cause partial cytoplasmic mislocalization.</li>
+<li><strong>Laterality:</strong> ocular involvement frequently bilateral but can be unilateral/asymmetric (<a href="https://pubmed.ncbi.nlm.nih.gov/38528322/">PMID: 38528322</a>).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital structural anomalies; neuromotor features emerge in infancy/early childhood.</li>
+<li><strong>Onset pattern:</strong> structural defects static/congenital; movement disorder insidious and progressive.</li>
+<li><strong>Progression:</strong> malformations non-progressive; neuromotor phenotype <strong>progressive</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>); disease chronic and lifelong.</li>
+<li><strong>Critical period:</strong> first-trimester organogenesis (optic fissure closure ~5th–6th gestational week; diaphragm/heart development) — the RA-sensitive window; malformations are not postnatally correctable.</li>
+<li><strong>Remission:</strong> none.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> No <em>RARB</em>-specific prevalence. AMC combined prevalence up to ~30/100,000 births (<a href="https://pubmed.ncbi.nlm.nih.gov/40038803/">PMID: 40038803</a>); A/M up to ~2/10,000 live births (<a href="https://pubmed.ncbi.nlm.nih.gov/35716026/">PMID: 35716026</a>). MCOPS12 ultra-rare (~52+ reported).</li>
+<li><strong>Inheritance:</strong> Autosomal dominant (most, de novo missense or truncating) and autosomal recessive (rare biallelic LOF) (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>).</li>
+<li><strong>Penetrance/expressivity:</strong> high for dominant pathogenic alleles but variable expressivity; single recessive LOF alleles non-penetrant.</li>
+<li><strong>Anticipation:</strong> none (no repeat expansion). <strong>Mosaicism:</strong> germline mosaicism possible. <strong>Founder effect:</strong> none; codon 387 is a recurrent hotspot, not a founder allele. <strong>Consanguinity:</strong> relevant only to recessive families. <strong>Carrier frequency:</strong> negligible (LOF alleles absent from gnomAD).</li>
+<li><strong>Demographics:</strong> no sex bias or ethnic predilection established; presentation neonatal/pediatric.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Molecular (definitive):</strong> trio whole-exome or genome sequencing, or targeted AMC gene panel (RARB, STRA6, PAX6, SOX2, OTX2, CHD7). Original cases solved by WES (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>); trio-WES used subsequently (<a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>). Single-gene testing reasonable for classic phenotype + recurrent codon-387 variant.</li>
+<li><strong>Chromosomal microarray/karyotype:</strong> typically normal; excludes CNV/aneuploidy (e.g., trisomy 13/18 cause A/M — <a href="https://pubmed.ncbi.nlm.nih.gov/38110175/">PMID: 38110175</a>).</li>
+<li><strong>Imaging:</strong> ophthalmologic exam + orbital/ocular ultrasound/MRI; brain MRI (Chiari I, posterior fossa, basal ganglia); echocardiography; chest imaging for CDH/lung hypoplasia. Prenatal ultrasound detects microphthalmia/CDH; congenital eye anomalies prenatally diagnosed in ~23.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/38528322/">PMID: 38528322</a>).</li>
+<li><strong>Clinical criteria:</strong> no formal consensus criteria; diagnosis is molecular within the syndromic-microphthalmia framework.</li>
+<li><strong>Differential diagnosis:</strong> STRA6-related Matthew-Wood/PDAC; PAX6/SOX2/OTX2/CHD7 (CHARGE) A/M; retinoic-acid embryopathy (distinguished by maternal exposure history and absence of germline RARB variant).</li>
+<li><strong>Screening:</strong> not in newborn screening; cascade testing of relatives for known familial variants; carrier testing in recessive families.</li>
+<li><strong>MAXO:</strong> genetic testing <a href="https://bioregistry.io/MAXO:0000455" target="_blank" rel="noopener noreferrer">MAXO:0000455</a>; MRI <a href="https://bioregistry.io/MAXO:0000198" target="_blank" rel="noopener noreferrer">MAXO:0000198</a>.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> guarded; PDAC-overlap carries neonatal mortality from pulmonary hypoplasia and CDH (survivor-subset framing in <a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>). No disease-specific survival curves.</li>
+<li><strong>Morbidity/function:</strong> survivors have severe lifelong disability — visual impairment/blindness, severe developmental delay/intellectual disability, progressive spasticity/dystonia with loss of ambulation, feeding dependence.</li>
+<li><strong>Complications:</strong> respiratory failure/pulmonary hypertension, aspiration/feeding failure, contractures, Chiari I sequelae.</li>
+<li><strong>Recovery potential:</strong> structural malformations irreversible; supportive care improves function/comfort but not the neurodevelopmental trajectory.</li>
+<li><strong>Prognostic factors:</strong> presence/severity of pulmonary hypoplasia + CDH (neonatal survival); severity of CNS involvement (long-term disability); GOF vs LOF and variant location may modulate severity (<a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>).</li>
+</ul>
+<h3>12. Treatment (with suggested MAXO terms)</h3>
+<ul>
+<li><strong>No disease-modifying therapy.</strong> Management is supportive/multidisciplinary.</li>
+<li><strong>Ophthalmic:</strong> serial socket expansion with acrylic conformers and ocular prostheses (~75% good outcomes; <a href="https://pubmed.ncbi.nlm.nih.gov/36257503/">PMID: 36257503</a>); orbital cyst management (<a href="https://pubmed.ncbi.nlm.nih.gov/12812886/">PMID: 12812886</a>). <em>MAXO: therapeutic procedure <a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a>; prosthesis fitting.</em></li>
+<li><strong>Neonatal/surgical:</strong> CDH repair, respiratory support ± ECMO, cardiac defect management. <em>MAXO: surgical procedure <a href="https://bioregistry.io/MAXO:0000258" target="_blank" rel="noopener noreferrer">MAXO:0000258</a>.</em></li>
+<li><strong>Neurologic:</strong> antispasticity/antidystonic pharmacotherapy (baclofen, trihexyphenidyl, botulinum toxin for focal dystonia — symptomatic) plus physical/occupational/speech therapy. <em>MAXO: pharmacotherapy <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a>; physiotherapy <a href="https://bioregistry.io/MAXO:0000506" target="_blank" rel="noopener noreferrer">MAXO:0000506</a>.</em></li>
+<li><strong>Gastroenterologic:</strong> feeding support incl. gastrostomy. <em>MAXO: enteral feeding.</em></li>
+<li><strong>Neurosurgical:</strong> Chiari I monitoring/decompression evaluation.</li>
+<li><strong>Advanced/experimental:</strong> no gene, cell, RNA, or targeted retinoid therapies established or in trials; no pharmacogenomic guidance; no NCT-registered disease-specific trials identified.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not possible for <em>de novo</em> genetic disease. General: avoid teratogenic retinoids and vitamin-A excess/deficiency in pregnancy (addresses the phenocopy).</li>
+<li><strong>Secondary/tertiary:</strong> early multidisciplinary intervention and surveillance (vision, feeding, respiratory, neuromotor, Chiari) to limit complications.</li>
+<li><strong>Reproductive prevention:</strong> genetic counseling; prenatal diagnosis (fetal ultrasound for microphthalmia/CDH; molecular testing when familial variant known); preimplantation genetic testing (PGT-M).</li>
+<li><strong>Recurrence risk:</strong> low for de novo dominant (germline mosaicism caveat); 25% for autosomal recessive families with informative carrier testing (<a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>).</li>
+<li><strong>MAXO:</strong> genetic counseling <a href="https://bioregistry.io/MAXO:0000341" target="_blank" rel="noopener noreferrer">MAXO:0000341</a>; prenatal diagnosis; preimplantation genetic testing.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy/orthologs:</strong> mouse <em>Rarb</em> (NCBI Gene 218772; Taxon 10090), rat <em>Rarb</em> (Taxon 10116), zebrafish <em>rarb/rarga</em> homologs (Taxon 7955). RA signaling deeply conserved.</li>
+<li><strong>Natural disease:</strong> no well-characterized naturally occurring RARB-equivalent Mendelian disease in companion animals/wildlife (OMIA not established) — limited data.</li>
+<li><strong>Comparative biology:</strong> RAR double-null mice recapitulate fetal VAD malformations across organs (<a href="https://pubmed.ncbi.nlm.nih.gov/7607068/">PMID: 7607068</a>); mechanism is evolutionarily conserved.</li>
+<li><strong>Transmission:</strong> non-infectious, non-zoonotic.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse (Taxon 10090):</strong> RAR double-null mutants show multi-organ malformations recapitulating fetal VAD incl. eye and diaphragm (<a href="https://pubmed.ncbi.nlm.nih.gov/7607068/">PMID: 7607068</a>); RXRα:RARβ heterodimers function in ocular mesenchyme (<a href="https://pubmed.ncbi.nlm.nih.gov/9541199/">PMID: 9541199</a>); conditional pan-RAR inactivation in neural-crest-derived periocular mesenchyme alters entire eye morphogenesis with <em>Pitx2</em> as key RA target (<a href="https://pubmed.ncbi.nlm.nih.gov/18539269/">PMID: 18539269</a>). <em>Recapitulation:</em> excellent for eye/diaphragm/heart malformation and mechanism; <em>limitation:</em> single <em>Rarb</em> nulls under-recapitulate the human phenotype due to redundancy, and GOF/dominant-negative alleles are not modeled by simple knockouts.</li>
+<li><strong>Zebrafish (Taxon 7955):</strong> <em>rarga</em> morpholino knockdown causes ocular phenotypes partially rescued by human <em>RARB</em> mRNA — validates human-variant pathogenicity (<a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a>).</li>
+<li><strong>In vitro/cellular:</strong> RARE-luciferase reporter assays classify variants as GOF vs LOF and reveal dominant-negative and localization defects (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a>) — the principal functional model for this disease.</li>
+<li><strong>Induced (teratogen) models:</strong> gestational retinoid/vitamin-A manipulation in rodents produces overlapping malformations (<a href="https://pubmed.ncbi.nlm.nih.gov/9272952/">PMID: 9272952</a>).</li>
+<li><strong>Resources:</strong> MGI (mouse <em>Rarb</em>), ZFIN (zebrafish), Alliance of Genome Resources, IMPC/IMSR.</li>
+</ul>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Supports finding(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">24075189</a></td>
+<td>Recessive and dominant <em>RARB</em> mutations in microphthalmia + diaphragmatic hernia</td>
+<td>Human clinical + in vitro</td>
+<td>F001, F002, F009, F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">37092537</a></td>
+<td>Clinical/functional heterogeneity of <em>RARB</em> disruption</td>
+<td>Human clinical + in vitro</td>
+<td>F001, F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">27120018</a></td>
+<td>GOF <em>RARB</em> mutations cause ID with progressive motor impairment</td>
+<td>Human clinical (n=10 survivors)</td>
+<td>F002, F009, F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">37321544</a></td>
+<td>De novo <em>RARB</em> variant with microphthalmia and dystonia</td>
+<td>Human clinical</td>
+<td>F006, F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">31816153</a></td>
+<td>DBD <em>RARB</em> variant affects nuclear localization</td>
+<td>In vitro + zebrafish</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18539269/">18539269</a></td>
+<td>RA signaling in neural crest sufficient to alter eye morphogenesis</td>
+<td>Mouse</td>
+<td>F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9541199/">9541199</a></td>
+<td>Mesectoderm a major target of RA (RXRα:RARβ)</td>
+<td>Mouse</td>
+<td>F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7607068/">7607068</a></td>
+<td>RAR double mutants — multi-organ malformation</td>
+<td>Mouse</td>
+<td>F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7923367/">7923367</a></td>
+<td>RXRα null — heart/eye morphogenesis</td>
+<td>Mouse</td>
+<td>F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9272952/">9272952</a></td>
+<td>Temporal RA depletion → NC/ocular/nervous defects</td>
+<td>Rat</td>
+<td>F003, F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40038803/">40038803</a></td>
+<td>AMC management review (prevalence, differential)</td>
+<td>Review</td>
+<td>F005, F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35716026/">35716026</a></td>
+<td>Exome sequencing in A/M</td>
+<td>Human clinical</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38528322/">38528322</a></td>
+<td>Prevalence and prenatal diagnosis of congenital eye anomalies</td>
+<td>Population</td>
+<td>F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29308367/">29308367</a></td>
+<td>Retinoic acid embryopathy</td>
+<td>Review/clinical</td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28833556/">28833556</a></td>
+<td>Isotretinoin teratogenicity via p53</td>
+<td>Mechanistic</td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36257503/">36257503</a></td>
+<td>Socket expansion with conformers</td>
+<td>Clinical series</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12812886/">12812886</a></td>
+<td>Orbital cyst management in microphthalmos/anophthalmos</td>
+<td>Clinical series</td>
+<td>F008</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The evidence base is internally consistent: independent human genetics, <em>in vitro</em> functional assays, and multiple model organisms all converge on RA-signaling dosage as the shared pathomechanism. The environmental phenocopies (retinoid excess/deficiency) provide orthogonal, causal support for the pathway rather than the gene per se.</p>
+<h3>Supported vs Refuted Hypotheses</h3>
+<p><strong>Supported:</strong>
+- RARB variants cause MCOPS12 via <strong>bidirectional</strong> RA-signaling dysregulation (GOF and LOF/dominant-negative) — <em>strongly supported</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24075189/">PMID: 24075189</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>).
+- Disease combines congenital eye/organ malformation with a <strong>progressive</strong> neuromotor disorder — <em>supported</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27120018/">PMID: 27120018</a>).
+- Mechanism localizes to <strong>neural-crest-derived periocular mesenchyme / RA target genes (Pitx2)</strong> — <em>supported by model organisms</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18539269/">PMID: 18539269</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/9541199/">PMID: 9541199</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/7607068/">PMID: 7607068</a>).
+- Variant <strong>domain/mechanism modulates phenotype</strong> (LBD vs DBD; GOF vs LOF) — <em>supported</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31816153/">PMID: 31816153</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37092537/">PMID: 37092537</a>).</p>
+<p><strong>Refuted / not supported:</strong>
+- That RARB disease is caused by an environmental exposure — <em>refuted</em>; it is Mendelian (retinoid embryopathy is a phenocopy).
+- That a single heterozygous LOF allele is sufficient for disease — <em>refuted</em>; recessive carriers are unaffected (<a href="https://pubmed.ncbi.nlm.nih.gov/37321544/">PMID: 37321544</a>).
+- That the disorder shows anticipation or a founder effect — <em>not supported</em> (no evidence).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Ultra-rare disease, small N.</strong> With only ~52+ reported individuals, frequency estimates for individual phenotypes are qualitative, and there are no <em>RARB</em>-specific prevalence, incidence, penetrance, or survival statistics.</li>
+<li><strong>No disease-specific omics.</strong> No transcriptomic, proteomic, metabolomic, or single-cell datasets specific to RARB MCOPS12 were identified; molecular mechanism relies on model organisms and transactivation assays.</li>
+<li><strong>Variable expressivity poorly explained.</strong> Modifier genes and epigenetic factors determining whether cardinal features (eye anomaly, motor impairment) appear are unknown.</li>
+<li><strong>Movement disorder mechanism unresolved.</strong> The progressive spasticity/dystonia in survivors is not directly modeled; the link between developmental RA dysregulation and later basal-ganglia/motor pathology is inferred, not demonstrated.</li>
+<li><strong>Neonatal mortality not quantified.</strong> The survivor-subset framing implies deaths but no cohort-level mortality rate exists.</li>
+<li><strong>No natural animal disease / limited GxE data.</strong> No spontaneous animal model (OMIA) and no formal gene–environment interaction studies for <em>RARB</em>.</li>
+<li><strong>No validated QoL instruments</strong> have been applied to this disorder.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Assemble a formal MCOPS12 registry</strong> (via GeneMatcher/collaborative networks) to derive quantitative phenotype frequencies, penetrance, genotype–phenotype correlations (GOF vs LOF vs DBD vs truncating), and natural-history/survival data.</li>
+<li><strong>Patient-derived iPSC and organoid models</strong> (optic-cup and cerebral organoids) carrying recurrent p.Arg387Cys/Ser GOF and biallelic LOF variants to directly compare transcriptomic responses to RA and identify dysregulated target genes (e.g., <em>PITX2</em>).</li>
+<li><strong>Single-cell transcriptomics of neural-crest-derived periocular mesenchyme</strong> in mouse <em>Rarb</em> GOF knock-in vs conditional-null models to map cell-type-specific dysregulation and test the p53/apoptosis hypothesis.</li>
+<li><strong>Knock-in mouse models</strong> of the human GOF codon-387 variant to test whether the progressive movement disorder is recapitulated and to define the developmental window of vulnerability.</li>
+<li><strong>Systematic functional classification</strong> of all reported and future <em>RARB</em> variants using standardized transactivation and nuclear-localization assays to support ACMG classification and genotype-guided counseling.</li>
+<li><strong>Explore pathway-level pharmacologic modulation</strong> — in principle, RAR antagonism for GOF variants and agonism for LOF variants — in cellular/zebrafish models, with the strong caveat that structural malformations are set prenatally, so any therapeutic window is likely developmental/preventive rather than curative, and precise functional stratification would be a prerequisite.</li>
+</ol>
+<hr />
+<h3>Key References (PMID)</h3>
+<p>24075189 (Srour 2013, original RARB/PDAC); 27120018 (Srour 2016, GOF + progressive motor impairment); 37092537 (Caron 2023, functional/clinical heterogeneity, n=52); 37321544 (Trieschmann 2023, dominant truncating + recessive review); 31816153 (Kalaskar 2020, DBD variant + zebrafish); 7607068 (Mendelsohn 1994, RAR double-null mice); 9541199 (Mark 1998, ocular mesenchyme); 18539269 (Matt 2008, periocular mesenchyme/Pitx2); 7923367 (RXRα null, heart/eye); 9272952 (temporal RA depletion, rat); 40038803 (Russo 2025, AMC epidemiology); 35716026 (Li 2022, A/M exome); 38528322 (Maillet 2024, prenatal detection); 38110175 (associated anomalies in A/M); 29308367 / 28833556 / 34773723 / 29843537 (retinoic-acid embryopathy); 36257503 / 12812886 (ophthalmic management).</p>
+<p><em>Report compiled from 11 confirmed findings across 5 investigation iterations and 32 reviewed papers. Evidence types span human clinical genetics, in vitro functional assays, and mouse/rat/zebrafish model organisms. All quoted material is drawn verbatim from cited PubMed abstracts.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/RARB-related_syndromic_microphthalmia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/RARB-related_syndromic_microphthalmia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="RARB-related_syndromic_microphthalmia-asta.html">← RARB-related syndromic microphthalmia (Asta)</a>
+                
+                
+                <a href="Rasmussen_Encephalitis-claude_code.html">Rasmussen Encephalitis (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RARB-related_syndromic_microphthalmia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RARB-related_syndromic_microphthalmia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="RARB-related_syndromic_microphthalmia-asta.html"><span class="provider-pill provider-asta">Asta</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

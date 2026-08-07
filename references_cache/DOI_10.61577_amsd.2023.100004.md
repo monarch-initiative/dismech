@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.61577/amsd.2023.100004"
+reference_id: DOI:10.61577/amsd.2023.100004
 title: Molecular genetics and pathogenesis of ichthyosis
 authors:
 - Suman Panda
@@ -7,6 +7,7 @@ journal: Annals of Medical and Surgical Dermatology
 year: '2026'
 doi: 10.61577/amsd.2023.100004
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Molecular genetics and pathogenesis of ichthyosis

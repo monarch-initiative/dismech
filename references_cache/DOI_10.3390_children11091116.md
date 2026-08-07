@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children11091116"
+reference_id: DOI:10.3390/children11091116
 title: Transcutaneous Spinal Cord Stimulation Enables Recovery of Walking in Children with Acute Flaccid Myelitis
 authors:
 - Elizabeth Neighbors
@@ -10,6 +10,7 @@ journal: Children
 year: '2024'
 doi: 10.3390/children11091116
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Transcutaneous Spinal Cord Stimulation Enables Recovery of Walking in Children with Acute Flaccid Myelitis
