@@ -545,6 +545,19 @@ def score_candidate(
     hay_title = cand.title.lower()
     hay_all = f"{cand.title} {cand.summary}".lower()
 
+    # A literal disease-name hit under a ``non-`` qualifier denotes the
+    # complementary disease class (for example, non-clear-cell RCC), not this
+    # entry. This must run even when the entry has no removable leading
+    # qualifier; the sibling-disease check below only handles names such as
+    # chronic versus acute disease.
+    for phrase in phrases:
+        phrase_pattern = re.escape(phrase.lower()).replace(r"\ ", r"[- ]+")
+        if re.search(rf"\bnon[- ]+{phrase_pattern}\b", hay_title):
+            cand.relevance = "CONFLICT"
+            cand.score = -10.0
+            cand.score_notes = [f"title negates disease name: 'non-{phrase.lower()}'"]
+            return
+
     # A candidate that applies a competing qualifier to the disease's core term
     # is about a sibling disease (hereditary vs acquired angioedema), no matter
     # how well the rest of it scores.

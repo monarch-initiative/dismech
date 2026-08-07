@@ -5,7 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from discover_datasets import map_data_type, refine_data_type
+from discover_datasets import (
+    Candidate,
+    map_data_type,
+    refine_data_type,
+    score_candidate,
+)
 from disease_title_match import compile_phrases
 
 
@@ -129,3 +134,14 @@ def test_hyphenated_sibling_name_does_not_match():
     assert pick.search("Niemann-Pick disease cohort") is None
     assert small_cell.search("non-small cell lung cancer cohort") is None
     assert pick.search("Pick disease cohort") is not None
+
+
+def test_negated_disease_name_is_rejected_without_leading_qualifier():
+    candidate = Candidate(
+        accession="ega:test",
+        title="Study of non-clear cell renal cell carcinoma",
+        summary="",
+    )
+    score_candidate(candidate, ["clear cell renal cell carcinoma"], [], [])
+    assert candidate.relevance == "CONFLICT"
+    assert candidate.score == -10.0
