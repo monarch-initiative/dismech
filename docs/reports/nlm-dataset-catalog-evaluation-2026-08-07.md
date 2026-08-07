@@ -7,27 +7,35 @@ disease entries?
 
 ## Verdict
 
-**Adopt narrowly, as a dbGaP + ImmPort discovery channel keyed on MeSH descriptors.
-Do not adopt it as a general dataset source.**
+**Do not adopt the catalog. Go directly to the dbGaP FHIR API and the ImmPort search
+API instead — they are the only two repositories in the catalog that matter to
+dismech, and both native APIs are strictly better than querying them through it.**
 
 The catalog holds ~3.02 M datasets, but 99.8 % of them are generalist-repository
 records (figshare, Zenodo, Mendeley, Dataverse) that are overwhelmingly journal
 supplementary files — "MOESM2 of …", "Table1_…" — not datasets in dismech's sense.
-The part that matters is small and genuinely new: **3,604 dbGaP studies and 1,500
-ImmPort studies**, both of which dismech currently has almost no coverage of and
-neither of which any existing dismech discovery script can reach.
+The part that matters is small but genuinely new to dismech: **3,604 dbGaP studies
+and 1,500 ImmPort studies**, both of which dismech currently has almost no coverage
+of.
 
-The distinctive thing this source offers is **coded disease indexing**. Every dataset
-carries `dcterms:subject` links to SKOS concepts bound to MeSH descriptor URIs. That
-is exactly what GEO lacks, and it is why
-[`docs/dataset-curation.md`](../dataset-curation.md) reports GEO degrading to
-gene-name search for rare disease. Against dbGaP, a MeSH-keyed query returns
-disease-specific cohorts directly.
+The catalog's apparent selling point is **coded disease indexing** — every dataset
+carries `dcterms:subject` links to SKOS concepts bound to MeSH descriptor URIs, which
+is exactly what GEO lacks. But that coding turns out to be *derived from dbGaP's own
+metadata*: dbGaP publishes the same MeSH codes itself, in a `condition` field that is
+directly searchable, and ImmPort publishes a richer disease field of its own. See
+[Compared with the native APIs](#compared-with-the-native-dbgap-and-immport-apis) —
+that comparison is what drives the verdict, and it reverses the recommendation this
+report originally reached.
 
-The catch is that the MeSH indexing is **descriptor-only**. There are zero MeSH
-Supplementary Concept Records (`C######`) in the triple store, and most rare diseases
-have only an SCR. That caps the coded path at the common/named-descriptor end of the
-disease spectrum.
+So the finding that the coded path works is real and reusable; it is the *route* to
+it that should be the native APIs rather than this catalog.
+
+One limit belongs to the underlying data rather than to any interface: MeSH indexing
+here is **descriptor-only**, and most rare diseases have only a Supplementary Concept
+Record (`C######`). Spot-checking eight SCR-only diseases against dbGaP's own text
+search (`condition:text=Timothy syndrome`, `…=Wolman`, `…=Bethlem`, `…=Aicardi`, …)
+returns zero for all of them, which confirms dbGaP simply holds no studies for them.
+The 0 % rare-disease yield below is a data-availability fact, not a search artifact.
 
 ## What it indexes
 
@@ -203,28 +211,113 @@ disease-specific. This is a milder relative of the Named Entity Confusion proble
 variable among hundreds. **Relevance triage remains mandatory**, as it already is for
 the GEO path.
 
+## Compared with the native dbGaP and ImmPort APIs
+
+Both repositories expose public, unauthenticated APIs that cover the same records.
+
+### dbGaP FHIR — better than the catalog on every axis
+
+`https://dbgap-api.ncbi.nlm.nih.gov/fhir/x1/ResearchStudy` needs no authentication and
+publishes MeSH coding natively:
+
+```json
+"condition": [{
+  "coding": [{
+    "system": "urn:oid:2.16.840.1.113883.6.177",   // MeSH
+    "code": "D002386",
+    "display": "Cataract"
+  }],
+  "text": "Cataract"
+}]
+```
+
+and it is **directly searchable** — `?condition=D012859` returns the Sjögren's
+studies. `?condition:text=<string>` additionally searches the MeSH *entry terms*
+carried alongside each code, which the catalog cannot offer at all because `REGEX`
+and `CONTAINS` are blocked at its endpoint. (The `metadata` CapabilityStatement
+advertises only `_has` and `batchId_internal`; `condition`, `focus`, and `keyword`
+work regardless.)
+
+**Coverage is the same:** 3,582 `ResearchStudy` resources vs the catalog's 3,604.
+
+**Precision is better, and the difference is exactly the noise this report flagged.**
+For bronchiectasis (`D001987`):
+
+| Source | Returns |
+|---|---|
+| dbGaP FHIR `condition=D001987` | `phs000518` NHLBI GO-ESP Idiopathic Bronchiectasis · `phs001279` Cross-Sectional Characterization of Idiopathic Bronchiectasis |
+| NLM catalog, same MeSH code | those two, **plus** `phs000744` Yale Center for Mendelian Genomics · `phs001899` NIAID Centralized Sequencing Program |
+
+The catalog's extra recall *is* the incidental-mega-cohort false positive. dbGaP's
+`condition` is the submitter-declared condition; the catalog adds subjects inferred
+from title, description, keywords, and linked PubMed records, which is why it
+consistently returns more (Cataract 11 vs 2, Myocardial infarction 102 vs 12,
+Asthma 80 vs 45) and why more is worse here.
+
+FHIR also carries fields the catalog drops entirely: study design (`category`),
+sponsor, consent groups, release date, and a study-overview URL.
+
+### ImmPort — far better than the catalog
+
+`https://api.immport.org` requires a token, but the public search behind the ImmPort
+data browser does not:
+
+```
+https://www.immport.org/shared/data/query/api/search/study?term=asthma
+```
+
+It returns 1,502 studies total (catalog: 1,500), supports field-targeted filters
+(`&conditionOrDisease=asthma` narrows 56 hits to 29), and each record carries
+`condition_or_disease`, `research_focus`, `study_accession`, **`pubmed_id`**,
+`species`, `actual_enrollment` / `study_size`, `assay_method`, `biosample_type`,
+`doi`, and `clinicaltrials_link`.
+
+That is essentially every field a dismech `Dataset` record wants — including the
+`publication:` PMID and the `organism` and `sample_count` values that **the catalog
+cannot supply for any repository**. It restores full parity with the GEO path in
+`scripts/build_dataset_records.py`, which the catalog route would not have.
+
+### What the catalog still uniquely offers
+
+Little that dismech needs. One endpoint spanning both repositories saves writing a
+second client — marginal. It is a single aggregated index over five generalist
+repositories that have no unified API, but those are the supplementary-file records
+dismech should not be curating. And it can act as an independent existence check for
+a dbGaP accession — which dbGaP's own FHIR API does better and first-hand.
+
 ## Recommended use
 
-1. **Scope it to dbGaP and ImmPort.** Filter `dcterms:isPartOf` to
-   `repository/0000000012` and `repository/0000000010`. Ignore the other 3.02 M
-   records; a figshare supplementary table is not a dismech dataset.
-2. **Key on the MONDO→MeSH descriptor xref**, read from the local
-   `mondo.db` `has_dbxref_statement` table. Skip entries whose only mapping is a
-   `MESH:C######` SCR — they will return nothing, so do not spend the query.
-3. **Prefer subjects with `dcterms:source` of `repository_supplied` or
-   `PubMed_supplied`** over `title/description_derived` when ranking.
-4. **Triage for the incidental-mega-cohort pattern** before writing anything. A
-   useful heuristic: does the disease name (or an obvious synonym) appear in the
-   study title? If not, it is probably a broad cohort.
+**Use the native APIs.** The MeSH-keyed discovery strategy below is worth building;
+point it at `dbgap-api.ncbi.nlm.nih.gov/fhir/x1` and
+`immport.org/shared/data/query/api` rather than at the catalog.
+
+1. **Key on the MONDO→MeSH descriptor xref**, read from the local `mondo.db`
+   `has_dbxref_statement` table, then query
+   `ResearchStudy?condition=<code>` on dbGaP FHIR. Skip entries whose only mapping
+   is a `MESH:C######` SCR — dbGaP holds nothing for them, so do not spend the query.
+2. **Add `condition:text=<disease name>` as a second pass** for entries with no MeSH
+   descriptor mapping. It searches MeSH entry terms and picks up studies the code
+   query misses (`condition:text=bronchiectasis` → 3, vs 2 for `condition=D001987`).
+   The catalog has no equivalent.
+3. **For ImmPort, use `conditionOrDisease=` rather than the free `term=`** — it
+   halved the asthma hit count (56 → 29) by restricting the match to the disease
+   field instead of the whole record.
+4. **Triage for the incidental-mega-cohort pattern** before writing anything. Going
+   native reduces it but does not eliminate it — a useful heuristic remains: does the
+   disease name (or an obvious synonym) appear in the study title? If not, it is
+   probably a broad cohort.
 5. **Follow the existing pipeline** — the proposal/triage/apply flow in
    `scripts/build_dataset_records.py` and `scripts/triage_dataset_proposals.py`
    already models exactly this, and dbGaP accessions arrive in precisely the
    `dbgap:phs######.v#.p#` shape `verify_dataset_accessions.py` expects.
-6. **Bulk-generated records carry no `evidence:` block**, per the standing rule —
-   and here that is doubly true, since the catalog supplies no PMID to quote.
+6. **Bulk-generated records carry no `evidence:` block**, per the standing rule.
+   Note that ImmPort's `pubmed_id` does let the `publication:` field be filled, as
+   the GEO path already does — that is a linked identifier, not a quoted claim, so it
+   does not reopen the fabrication risk the rule guards against.
 
-A `scripts/discover_nih_catalog.py` following the `discover_ega.py` / `discover_arrayexpress.py`
-pattern is the natural implementation. Two pieces of work would be needed alongside it:
+A `scripts/discover_dbgap_immport.py` following the `discover_ega.py` /
+`discover_arrayexpress.py` pattern is the natural implementation. Two pieces of work
+would be needed alongside it:
 
 - **an ImmPort resolver** in `scripts/verify_dataset_accessions.py` for `SDY####`
   (and an `immport:` prefix registration), since none exists;
@@ -253,21 +346,38 @@ $ uv run python scripts/verify_dataset_accessions.py \
 ```
 
 So **every dbGaP accession in the KB currently fails verification**, and any dbGaP
-curation drive — including one built on this source — is blocked until it is fixed.
-Two workable replacements:
+curation drive is blocked until it is fixed.
 
-- **dbGaP study page status.** `https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=<acc>`
-  returns HTTP 200 for a real study and 302 for a nonexistent one
-  (`phs009999.v1.p1` → 302). Enough for an existence check, and it yields the title.
-- **The catalog itself.** Since it mirrors dbGaP, presence of an accession as a
-  `dcterms:identifier` under `repository/0000000012` is independent confirmation the
-  study is real — an offline-ish verifier for the one repository where E-utilities
-  has gone away.
+**The fix is the dbGaP FHIR API** — the same endpoint the discovery path should use:
 
-This bug is independent of whether the catalog is adopted and should be filed
-separately.
+```
+GET https://dbgap-api.ncbi.nlm.nih.gov/fhir/x1/ResearchStudy?_id=<phs accession>
+```
+
+It is public, returns the canonical `phsNNNNNN.vN.pN` in
+`identifier[0].value` alongside the title, and needs no key. A cheaper fallback if a
+FHIR client is unwelcome: `https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=<acc>`
+returns HTTP 200 for a real study and 302 for a nonexistent one
+(`phs009999.v1.p1` → 302).
+
+This bug is independent of the catalog question and should be filed separately.
 
 ## Reproducing the measurements
+
+### Native APIs (the recommended route)
+
+```bash
+# dbGaP: studies coded to a MeSH descriptor
+curl -sS 'https://dbgap-api.ncbi.nlm.nih.gov/fhir/x1/ResearchStudy?condition=D012859&_format=json'
+
+# dbGaP: entry-term text search (no catalog equivalent)
+curl -sS 'https://dbgap-api.ncbi.nlm.nih.gov/fhir/x1/ResearchStudy?condition:text=bronchiectasis&_summary=count&_format=json'
+
+# ImmPort: disease-field search
+curl -sS 'https://www.immport.org/shared/data/query/api/search/study?term=asthma&conditionOrDisease=asthma'
+```
+
+### NLM catalog (for comparison / reproducing the numbers above)
 
 Repository inventory:
 
