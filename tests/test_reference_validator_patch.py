@@ -4,8 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.etl.extract.xml import XMLExtractor
+from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.models import ReferenceValidationConfig
 
 
