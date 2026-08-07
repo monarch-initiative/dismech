@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Rocky%20Mountain%20spotted%20fever"
@@ -3472,6 +3701,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3533,7 +3764,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">27</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3546,6 +3777,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -5965,7 +6197,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute renal failure is among the severe late-stage manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001919\"}}, {\"id\": \"Acute respiratory distress syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Noncardiogenic pulmonary edema presenting as ARDS is a severe late manifestation of microvascular leak.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033677\"}}, {\"id\": \"Bacterial encephalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningoencephalitis is a severe late manifestation reflecting CNS small-vessel vasculitis, and may mimic bacterial or viral meningoencephalitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034387\"}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vasogenic cerebral edema is a consequence of CNS microvascular leakage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002181\"}}, {\"id\": \"Chloramphenicol as second-line therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chloramphenicol is the only alternative drug that has been used to treat RMSF, and it is clearly inferior to doxycycline - CDC case-report data show higher mortality in chloramphenicol-treated patients. It is no longer available orally in the United States, requires monitoring of blood indices for hematologic toxicity, and does not cover ehrlichiosis or anaplasmosis, so empiric substitution leaves those co-endemic infections untreated. In pregnancy it is a potential alternative to doxycycline, but administration late in the third trimester carries a theoretical risk of gray baby syndrome. Because doxycycline has been used successfully in pregnant women and RMSF is potentially fatal, doxycycline remains preferred for suspected RMSF in pregnancy; chloramphenicol is reserved for true doxycycline intolerance.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"chloramphenicol\"]}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is among the long-term neurologic sequelae in survivors of severe disease, attributed to rickettsial vasculopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Cytotoxic T Lymphocyte Clearance of Infected Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recovery depends on cell-mediated immunity: interferon-gamma- and TNF-alpha-activated endothelial cells kill intracellular rickettsiae by nitric-oxide-dependent mechanisms, and CD8 T lymphocyte cytotoxicity eliminates the remaining infected cells. MHC class I knockout mice are dramatically more susceptible to lethal rickettsial infection than wild-type animals, establishing CTL activity as the critical effector arm.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive T lymphocyte\", \"macrophage\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"]}}, {\"id\": \"Disseminated Small-Vessel Vasculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection of endothelium throughout the body produces a systemic small-vessel vasculitis. Cutaneously this is visible as the characteristic macular-to-petechial rash; systemically it is the substrate for end-organ injury. Infected human endothelial cells upregulate cyclooxygenase 2 and release vasoactive prostaglandins, contributing to the inflammatory and permeability changes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular endothelial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Disseminated intravascular coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe consumptive coagulopathy with extensive fibrin thrombosis occurs in fulminant disease and has led to diagnostic confusion with thrombotic thrombocytopenic purpura.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005521\"}}, {\"id\": \"Empiric doxycycline for patients of all ages\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Doxycycline is the drug of choice for RMSF in patients of all ages, including children under 8 years, and should be started immediately on clinical suspicion without waiting for laboratory confirmation. Patients treated after the fifth day of illness are more likely to die. The historical reluctance to use doxycycline in young children is not supported: children who received courses of doxycycline before age 8 showed no tetracycline-like dental staining and no difference in tooth shade or enamel hypoplasia. Agents to avoid - sulfonamide antimicrobials can result in increased disease severity and death in RMSF.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"doxycycline\"]}}, {\"id\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"R. rickettsii is an obligate intracellular organism that primarily infects vascular endothelial cells, and less commonly the underlying smooth muscle cells of small and medium vessels. Adhesion and invasion are mediated by the conserved rOmpA and rOmpB surface autotransporters engaging host receptors (Ku70 identified for the closely related R. conorii); after entry the organism escapes into the cytoplasm and replicates. Individual adhesins are redundant - an isogenic rOmpA knockout in a virulent strain did not attenuate virulence in guinea pigs.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular endothelial cell\", \"microvascular endothelial cell\"], \"biological_processes\": [\"symbiont entry into host\"]}}, {\"id\": \"Fulminant Thrombotic Course in G6PD Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients follow a hyperacute course with death on or before day 5 of illness. In the described fulminant cases, thrombosis was more extensive than in classic RMSF with fibrin thrombi at foci of rickettsial infection, rash was absent or only preterminal, and there was minimal mononuclear leukocytic response - a thrombotic rather than classically vasculitic pathology. All described patients were G6PD-deficient, and the CDC recommendations list G6PD deficiency as a risk factor for fulminant RMSF.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Gangrene\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous necrosis and gangrene from severe vasculitic and thrombotic injury may result in amputation of digits or limbs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100758\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss occurs both as acute transient hearing loss during illness and as a long-term neurologic sequela.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyponatremia results from appropriate secretion of antidiuretic hormone in response to hypovolemia caused by microvascular leak.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002902\"}}, {\"id\": \"Increased Microvascular Permeability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogen-mediated injury to the vascular endothelium produces increased capillary permeability and microhemorrhage. The late-stage manifestations of noncardiogenic pulmonary edema (ARDS) and cerebral edema are direct consequences of this microvascular leakage, and hypovolemia from leak drives appropriate antidiuretic hormone secretion and hyponatremia.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"positive regulation of vascular permeability\"]}}, {\"id\": \"Multiorgan End-Organ Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained vasculopathy and microvascular leak injure the brain, kidney, lung, and skin, producing meningoencephalitis, acute renal failure, ARDS, cutaneous necrosis, shock, arrhythmia, and seizure. Survivors of severe disease may be left with long-term neurologic sequelae that are most likely the result of R. rickettsii-induced vasculopathy.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"R. rickettsii is an obligate intracellular bacterium that replicates within host endothelial cells. Effective therapy therefore requires an antibiotic that accumulates inside host cells; doxycycline does, whereas beta-lactams cannot reach the intracellular organism - the lifestyle gating that further constrains drug choice beyond the ribosomal target.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Biological Process Involved in Interaction with Host\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"Petechiae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The rash typically becomes maculopapular and then petechial; the classic generalized petechial rash involving palms and soles usually appears by day 5 or 6 and indicates advanced disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000967\"}}, {\"id\": \"Platelet Consumption and Coagulation Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injured endothelium consumes platelets intravascularly and activates the coagulation system. In experimental canine infection, retinal vasculitic foci developed together with thrombocytopenia, increased circulating fibrinogen, and slight prolongation of the activated partial thromboplastin time - a mild consumptive coagulopathy that can progress to disseminated intravascular coagulation in severe disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Rickettsial Ribosomal Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"R. rickettsii, like other bacteria, depends on 70S-ribosome translation of its mRNA. Doxycycline, a tetracycline, binds the 30S ribosomal subunit and blocks aminoacyl-tRNA delivery to the A site, arresting bacterial protein synthesis. This ribosomal target - not a cell-wall target - is why a tetracycline rather than a beta-lactam is the drug of choice.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Translation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A rash typically appears 2-4 days after fever onset as small blanching pink macules on the ankles, wrists, or forearms, spreading to palms, soles, limbs, and trunk while usually sparing the face. Fewer than half of patients have a rash in the first three days of illness, and a smaller proportion never develop one, so its absence must not delay treatment.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000988\"}}, {\"id\": \"Supportive and intensive care for severe disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe RMSF requires supportive management of the vasculitic complications - fluid and electrolyte correction for hyponatremia, transfusion support for coagulopathy, and intensive care for ARDS, shock, and renal failure - alongside, never instead of, doxycycline.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia reflects intravascular platelet consumption at sites of endothelial injury and is a supportive but not early-reliable laboratory finding.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A feeding Dermacentor or Rhipicephalus tick inoculates R. rickettsii into the skin, initiating acute spotted fever rickettsiosis after an incubation period of 3-12 days. Unlike most other spotted fever group rickettsioses, an inoculation eschar is rarely present.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"VE-Cadherin Phosphorylation and Adherens Junction Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spotted fever group rickettsial infection of microvascular endothelial cells activates tyrosine phosphorylation of VE-cadherin, attenuating homophilic adherens-junction protein-protein interactions and producing paracellular barrier dysfunction. This is the best-characterized molecular route from endothelial infection to microvascular leak.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adherens junction organization\"]}}, {\"id\": \"Vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RMSF is fundamentally a systemic small-vessel vasculitis produced by endothelial infection; the clinically recognized vasculitis has been confused with idiopathic acute vasculitides such as Kawasaki disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002633\"}}], \"edges\": [{\"source\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"target\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inoculated rickettsiae disseminate and invade vascular endothelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"target\": \"Rickettsial Ribosomal Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The replicating organism depends on bacterial ribosomal translation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"VE-Cadherin Phosphorylation and Adherens Junction Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected endothelium loses adherens-junction integrity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"Disseminated Small-Vessel Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread endothelial infection produces systemic vasculitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"Cytotoxic T Lymphocyte Clearance of Infected Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected endothelial cells become targets of CD8 T cell cytotoxicity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic residence gates which antimicrobials can reach the organism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VE-Cadherin Phosphorylation and Adherens Junction Disruption\", \"target\": \"Increased Microvascular Permeability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of junctional integrity permits paracellular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Increased Microvascular Permeability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculitic injury increases microvascular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Platelet Consumption and Coagulation Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial injury triggers platelet adhesion and consumption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous small-vessel vasculitis produces the characteristic rash.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Petechiae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive vascular injury produces petechial lesions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic lesion is itself a clinically recognized vasculitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Gangrene\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe vasculitic and thrombotic injury can produce cutaneous necrosis and gangrene.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasogenic cerebral edema follows CNS microvascular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Acute respiratory distress syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Noncardiogenic pulmonary edema follows pulmonary microvascular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypovolemia from leak drives appropriate antidiuretic hormone secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Multiorgan End-Organ Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained leak and vasculopathy injure brain, kidney, lung, and skin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Platelet Consumption and Coagulation Activation\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intravascular platelet consumption lowers the platelet count.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Platelet Consumption and Coagulation Activation\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe consumptive coagulopathy can progress to DIC.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Bacterial encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS vasculitis produces meningoencephalitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal microvascular injury produces acute renal failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculopathic CNS injury leaves long-term cognitive sequelae.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculopathic injury can leave persistent hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fulminant Thrombotic Course in G6PD Deficiency\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extensive fibrin thrombosis manifests as consumptive coagulopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Empiric doxycycline for patients of all ages\", \"target\": \"Rickettsial Ribosomal Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Empiric doxycycline for patients of all ages\", \"target\": \"Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Chloramphenicol as second-line therapy\", \"target\": \"Rickettsial Ribosomal Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and intensive care for severe disease\", \"target\": \"Multiorgan End-Organ Injury\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute kidney injury\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute renal failure is among the severe late-stage manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001919\"}}, {\"id\": \"Acute respiratory distress syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Noncardiogenic pulmonary edema presenting as ARDS is a severe late manifestation of microvascular leak.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033677\"}}, {\"id\": \"Bacterial encephalitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Meningoencephalitis is a severe late manifestation reflecting CNS small-vessel vasculitis, and may mimic bacterial or viral meningoencephalitis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034387\"}}, {\"id\": \"Cerebral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vasogenic cerebral edema is a consequence of CNS microvascular leakage.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002181\"}}, {\"id\": \"Chloramphenicol as second-line therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chloramphenicol is the only alternative drug that has been used to treat RMSF, and it is clearly inferior to doxycycline - CDC case-report data show higher mortality in chloramphenicol-treated patients. It is no longer available orally in the United States, requires monitoring of blood indices for hematologic toxicity, and does not cover ehrlichiosis or anaplasmosis, so empiric substitution leaves those co-endemic infections untreated. In pregnancy it is a potential alternative to doxycycline, but administration late in the third trimester carries a theoretical risk of gray baby syndrome. Because doxycycline has been used successfully in pregnant women and RMSF is potentially fatal, doxycycline remains preferred for suspected RMSF in pregnancy; chloramphenicol is reserved for true doxycycline intolerance.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"chloramphenicol\"]}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment is among the long-term neurologic sequelae in survivors of severe disease, attributed to rickettsial vasculopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100543\"}}, {\"id\": \"Cytotoxic T Lymphocyte Clearance of Infected Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recovery depends on cell-mediated immunity: interferon-gamma- and TNF-alpha-activated endothelial cells kill intracellular rickettsiae by nitric-oxide-dependent mechanisms, and CD8 T lymphocyte cytotoxicity eliminates the remaining infected cells. MHC class I knockout mice are dramatically more susceptible to lethal rickettsial infection than wild-type animals, establishing CTL activity as the critical effector arm.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive T lymphocyte\", \"macrophage\"], \"biological_processes\": [\"T cell mediated cytotoxicity\"]}}, {\"id\": \"Disseminated Small-Vessel Vasculitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection of endothelium throughout the body produces a systemic small-vessel vasculitis. Cutaneously this is visible as the characteristic macular-to-petechial rash; systemically it is the substrate for end-organ injury. Infected human endothelial cells upregulate cyclooxygenase 2 and release vasoactive prostaglandins, contributing to the inflammatory and permeability changes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular endothelial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Disseminated intravascular coagulation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe consumptive coagulopathy with extensive fibrin thrombosis occurs in fulminant disease and has led to diagnostic confusion with thrombotic thrombocytopenic purpura.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005521\"}}, {\"id\": \"Domestic dog and peridomestic brown dog tick exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Domestic dogs are the preferred host of Rhipicephalus sanguineus at all life stages, and free-roaming dogs with peridomestic tick infestation drive the high-incidence epidemic foci in Arizona and northern Mexico. Dogs are also susceptible to R. rickettsii and can serve as sentinels for human risk.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Empiric doxycycline for patients of all ages\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Doxycycline is the drug of choice for RMSF in patients of all ages, including children under 8 years, and should be started immediately on clinical suspicion without waiting for laboratory confirmation. Patients treated after the fifth day of illness are more likely to die. The historical reluctance to use doxycycline in young children is not supported: children who received courses of doxycycline before age 8 showed no tetracycline-like dental staining and no difference in tooth shade or enamel hypoplasia. Agents to avoid - sulfonamide antimicrobials can result in increased disease severity and death in RMSF.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"doxycycline\"]}}, {\"id\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"R. rickettsii is an obligate intracellular organism that primarily infects vascular endothelial cells, and less commonly the underlying smooth muscle cells of small and medium vessels. Adhesion and invasion are mediated by the conserved rOmpA and rOmpB surface autotransporters engaging host receptors (Ku70 identified for the closely related R. conorii); after entry the organism escapes into the cytoplasm and replicates. Individual adhesins are redundant - an isogenic rOmpA knockout in a virulent strain did not attenuate virulence in guinea pigs.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular endothelial cell\", \"microvascular endothelial cell\"], \"biological_processes\": [\"symbiont entry into host\"]}}, {\"id\": \"Fulminant Thrombotic Course in G6PD Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of patients follow a hyperacute course with death on or before day 5 of illness. In the described fulminant cases, thrombosis was more extensive than in classic RMSF with fibrin thrombi at foci of rickettsial infection, rash was absent or only preterminal, and there was minimal mononuclear leukocytic response - a thrombotic rather than classically vasculitic pathology. All described patients were G6PD-deficient, and the CDC recommendations list G6PD deficiency as a risk factor for fulminant RMSF.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Gangrene\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous necrosis and gangrene from severe vasculitic and thrombotic injury may result in amputation of digits or limbs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100758\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss occurs both as acute transient hearing loss during illness and as a long-term neurologic sequela.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hyponatremia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hyponatremia results from appropriate secretion of antidiuretic hormone in response to hypovolemia caused by microvascular leak.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002902\"}}, {\"id\": \"Increased Microvascular Permeability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogen-mediated injury to the vascular endothelium produces increased capillary permeability and microhemorrhage. The late-stage manifestations of noncardiogenic pulmonary edema (ARDS) and cerebral edema are direct consequences of this microvascular leakage, and hypovolemia from leak drives appropriate antidiuretic hormone secretion and hyponatremia.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"positive regulation of vascular permeability\"]}}, {\"id\": \"Multiorgan End-Organ Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained vasculopathy and microvascular leak injure the brain, kidney, lung, and skin, producing meningoencephalitis, acute renal failure, ARDS, cutaneous necrosis, shock, arrhythmia, and seizure. Survivors of severe disease may be left with long-term neurologic sequelae that are most likely the result of R. rickettsii-induced vasculopathy.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"R. rickettsii is an obligate intracellular bacterium that replicates within host endothelial cells. Effective therapy therefore requires an antibiotic that accumulates inside host cells; doxycycline does, whereas beta-lactams cannot reach the intracellular organism - the lifestyle gating that further constrains drug choice beyond the ribosomal target.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Biological Process Involved in Interaction with Host\"], \"role\": \"intrinsic_resistance\"}}, {\"id\": \"Petechiae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The rash typically becomes maculopapular and then petechial; the classic generalized petechial rash involving palms and soles usually appears by day 5 or 6 and indicates advanced disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000967\"}}, {\"id\": \"Platelet Consumption and Coagulation Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injured endothelium consumes platelets intravascularly and activates the coagulation system. In experimental canine infection, retinal vasculitic foci developed together with thrombocytopenia, increased circulating fibrinogen, and slight prolongation of the activated partial thromboplastin time - a mild consumptive coagulopathy that can progress to disseminated intravascular coagulation in severe disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\"]}}, {\"id\": \"Rickettsial Ribosomal Translation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"R. rickettsii, like other bacteria, depends on 70S-ribosome translation of its mRNA. Doxycycline, a tetracycline, binds the 30S ribosomal subunit and blocks aminoacyl-tRNA delivery to the A site, arresting bacterial protein synthesis. This ribosomal target - not a cell-wall target - is why a tetracycline rather than a beta-lactam is the drug of choice.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Translation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A rash typically appears 2-4 days after fever onset as small blanching pink macules on the ankles, wrists, or forearms, spreading to palms, soles, limbs, and trunk while usually sparing the face. Fewer than half of patients have a rash in the first three days of illness, and a smaller proportion never develop one, so its absence must not delay treatment.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000988\"}}, {\"id\": \"Supportive and intensive care for severe disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Severe RMSF requires supportive management of the vasculitic complications - fluid and electrolyte correction for hyponatremia, transfusion support for coagulopathy, and intensive care for ARDS, shock, and renal failure - alongside, never instead of, doxycycline.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia reflects intravascular platelet consumption at sites of endothelial injury and is a supportive but not early-reliable laboratory finding.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001873\"}}, {\"id\": \"Tick exposure in endemic habitat\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to questing Dermacentor ticks in wooded, shrubby, and grassy areas, including residential areas and city parks, is the proximate environmental risk. Adult Dermacentor ticks are active from spring through autumn with maximum activity in late spring through early summer.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A feeding Dermacentor or Rhipicephalus tick inoculates R. rickettsii into the skin, initiating acute spotted fever rickettsiosis after an incubation period of 3-12 days. Unlike most other spotted fever group rickettsioses, an inoculation eschar is rarely present.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"VE-Cadherin Phosphorylation and Adherens Junction Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Spotted fever group rickettsial infection of microvascular endothelial cells activates tyrosine phosphorylation of VE-cadherin, attenuating homophilic adherens-junction protein-protein interactions and producing paracellular barrier dysfunction. This is the best-characterized molecular route from endothelial infection to microvascular leak.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"adherens junction organization\"]}}, {\"id\": \"Vasculitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"RMSF is fundamentally a systemic small-vessel vasculitis produced by endothelial infection; the clinically recognized vasculitis has been confused with idiopathic acute vasculitides such as Kawasaki disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002633\"}}], \"edges\": [{\"source\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"target\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inoculated rickettsiae disseminate and invade vascular endothelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"target\": \"Rickettsial Ribosomal Translation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The replicating organism depends on bacterial ribosomal translation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"VE-Cadherin Phosphorylation and Adherens Junction Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected endothelium loses adherens-junction integrity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"Disseminated Small-Vessel Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widespread endothelial infection produces systemic vasculitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"Cytotoxic T Lymphocyte Clearance of Infected Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infected endothelial cells become targets of CD8 T cell cytotoxicity.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Endothelial Cell Invasion and Intracytoplasmic Replication\", \"target\": \"Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic residence gates which antimicrobials can reach the organism.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VE-Cadherin Phosphorylation and Adherens Junction Disruption\", \"target\": \"Increased Microvascular Permeability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of junctional integrity permits paracellular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Increased Microvascular Permeability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculitic injury increases microvascular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Platelet Consumption and Coagulation Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Endothelial injury triggers platelet adhesion and consumption.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cutaneous small-vessel vasculitis produces the characteristic rash.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Petechiae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive vascular injury produces petechial lesions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Vasculitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The systemic lesion is itself a clinically recognized vasculitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disseminated Small-Vessel Vasculitis\", \"target\": \"Gangrene\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe vasculitic and thrombotic injury can produce cutaneous necrosis and gangrene.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Cerebral edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasogenic cerebral edema follows CNS microvascular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Acute respiratory distress syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Noncardiogenic pulmonary edema follows pulmonary microvascular leak.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Hyponatremia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypovolemia from leak drives appropriate antidiuretic hormone secretion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Increased Microvascular Permeability\", \"target\": \"Multiorgan End-Organ Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained leak and vasculopathy injure brain, kidney, lung, and skin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Platelet Consumption and Coagulation Activation\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intravascular platelet consumption lowers the platelet count.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Platelet Consumption and Coagulation Activation\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe consumptive coagulopathy can progress to DIC.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Bacterial encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CNS vasculitis produces meningoencephalitis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Acute kidney injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal microvascular injury produces acute renal failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculopathic CNS injury leaves long-term cognitive sequelae.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Multiorgan End-Organ Injury\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vasculopathic injury can leave persistent hearing loss.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Fulminant Thrombotic Course in G6PD Deficiency\", \"target\": \"Disseminated intravascular coagulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extensive fibrin thrombosis manifests as consumptive coagulopathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tick exposure in endemic habitat\", \"target\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Entering the wooded, shrubby and grassy habitat where questing Dermacentor ticks congregate is what brings a person within reach of an attaching, infected tick.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Domestic dog and peridomestic brown dog tick exposure\", \"target\": \"Tick-Borne Rickettsia rickettsii Inoculation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Dogs are not themselves the source of infection: they maintain and amplify brown dog tick populations around dwellings, and those ticks then bite people. The intermediates are known, which is why this is indirect rather than direct.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Empiric doxycycline for patients of all ages\", \"target\": \"Rickettsial Ribosomal Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Empiric doxycycline for patients of all ages\", \"target\": \"Obligate Intracellular Niche (Cell-Penetrant Drug Requirement)\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Chloramphenicol as second-line therapy\", \"target\": \"Rickettsial Ribosomal Translation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and intensive care for severe disease\", \"target\": \"Multiorgan End-Organ Injury\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6019,7 +6251,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-petechiae" data-dismech-node="Petechiae" data-dismech-type="phenotype">
                     <div class="item-name">
                         Petechiae
 
@@ -6078,7 +6310,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thrombocytopenia" data-dismech-node="Thrombocytopenia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thrombocytopenia
 
@@ -6161,7 +6393,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-intravascular-coagulation" data-dismech-node="Disseminated intravascular coagulation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Disseminated intravascular coagulation
 
@@ -6251,7 +6483,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vasculitis" data-dismech-node="Vasculitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vasculitis
 
@@ -6310,7 +6542,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-splenomegaly" data-dismech-node="Splenomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Splenomegaly
 
@@ -6378,7 +6610,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anorexia" data-dismech-node="Anorexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anorexia
 
@@ -6437,7 +6669,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea-and-vomiting" data-dismech-node="Nausea and vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nausea and vomiting
 
@@ -6520,7 +6752,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diarrhea
 
@@ -6579,7 +6811,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatomegaly
 
@@ -6647,7 +6879,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-impairment" data-dismech-node="Hearing impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hearing impairment
 
@@ -6715,7 +6947,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Photophobia
 
@@ -6783,7 +7015,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-kidney-injury" data-dismech-node="Acute kidney injury" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute kidney injury
 
@@ -6851,7 +7083,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin rash" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skin rash
 
@@ -6943,7 +7175,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -7044,7 +7276,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyponatremia" data-dismech-node="Hyponatremia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyponatremia
 
@@ -7127,7 +7359,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-hepatic-transaminase-concentration" data-dismech-node="Elevated circulating hepatic transaminase concentration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated circulating hepatic transaminase concentration
 
@@ -7208,7 +7440,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-edema" data-dismech-node="Cerebral edema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral edema
 
@@ -7276,7 +7508,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
                         Headache
 
@@ -7337,7 +7569,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive impairment
 
@@ -7405,7 +7637,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute respiratory distress syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute respiratory distress syndrome
 
@@ -7473,7 +7705,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myalgia
 
@@ -7532,7 +7764,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malaise" data-dismech-node="Malaise" data-dismech-type="phenotype">
                     <div class="item-name">
                         Malaise
 
@@ -7591,7 +7823,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal pain
 
@@ -7650,7 +7882,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gangrene" data-dismech-node="Gangrene" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gangrene
 
@@ -7718,7 +7950,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bacterial-encephalitis" data-dismech-node="Bacterial encephalitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bacterial encephalitis
 
@@ -7816,7 +8048,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-g6pd-deficiency-as-a-fulminant-disease-modifier" data-dismech-node="G6PD deficiency as a fulminant-disease modifier" data-dismech-type="genetic">
                 <div class="item-name">
                     G6PD deficiency as a fulminant-disease modifier
 
@@ -7903,9 +8135,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7917,7 +8153,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-empiric-doxycycline-for-patients-of-all-ages" data-dismech-node="Empiric doxycycline for patients of all ages" data-dismech-type="treatment">
                 <div class="item-name">
                     Empiric doxycycline for patients of all ages
                 </div>
@@ -8088,7 +8324,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-chloramphenicol-as-second-line-therapy" data-dismech-node="Chloramphenicol as second-line therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Chloramphenicol as second-line therapy
                 </div>
@@ -8244,7 +8480,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tick-bite-prevention-counseling" data-dismech-node="Tick-bite prevention counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Tick-bite prevention counseling
                 </div>
@@ -8370,7 +8606,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pet-acaricide-use-and-peridomestic-tick-control" data-dismech-node="Pet acaricide use and peridomestic tick control" data-dismech-type="treatment">
                 <div class="item-name">
                     Pet acaricide use and peridomestic tick control
                 </div>
@@ -8472,7 +8708,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-and-intensive-care-for-severe-disease" data-dismech-node="Supportive and intensive care for severe disease" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive and intensive care for severe disease
                 </div>
@@ -8601,7 +8837,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-tick-exposure-in-endemic-habitat" data-dismech-node="Tick exposure in endemic habitat" data-dismech-type="environmental">
                 <div class="item-name">Tick exposure in endemic habitat</div>
 
 
@@ -8665,9 +8901,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Tick-Borne Rickettsia rickettsii Inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Entering the wooded, shrubby and grassy habitat where questing Dermacentor ticks congregate is what brings a person within reach of an attaching, infected tick.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"D. variabilis ticks often are encountered in wooded, shrubby, and grassy areas and tend to congregate along walkways and trails."</div>
+
+
+                <div class="evidence-explanation">Describes where these ticks are encountered and that they congregate along walkways and trails, the habitat contact that precedes inoculation.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-domestic-dog-and-peridomestic-brown-dog-tick-exposure" data-dismech-node="Domestic dog and peridomestic brown dog tick exposure" data-dismech-type="environmental">
                 <div class="item-name">Domestic dog and peridomestic brown dog tick exposure</div>
 
 
@@ -8730,6 +9019,59 @@
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Tick-Borne Rickettsia rickettsii Inoculation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Dogs are not themselves the source of infection: they maintain and amplify brown dog tick populations around dwellings, and those ticks then bite people. The intermediates are known, which is why this is indirect rather than direct.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28365226" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28365226" target="_blank">PMID:28365226</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These investigators also described the pivotal roles of domesticated dogs and Rhipicephalus sanguineus sensu lato (brown dog ticks) as drivers of epidemic levels of Rocky Mountain spotted fever."</div>
+
+
+                <div class="evidence-explanation">Identifies domestic dogs and brown dog ticks as drivers of epidemic transmission, the amplification step between dog contact and human inoculation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -10459,6 +10801,24 @@ genetic:
     reported.
 environmental:
 - name: Tick exposure in endemic habitat
+  influences_mechanisms:
+  - target: Tick-Borne Rickettsia rickettsii Inoculation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Entering the wooded, shrubby and grassy habitat where questing
+      Dermacentor ticks congregate is what brings a person within reach of an
+      attaching, infected tick.
+    evidence:
+    - reference: PMID:27172113
+      reference_title: &#34;Diagnosis and Management of Tickborne Rickettsial Diseases: Rocky Mountain Spotted Fever and Other Spotted Fever Group Rickettsioses, Ehrlichioses, and Anaplasmosis - United States.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;D. variabilis ticks often are encountered in wooded, shrubby, and grassy areas and tend to congregate along walkways and trails.&#34;
+      explanation: &gt;-
+        Describes where these ticks are encountered and that they congregate
+        along walkways and trails, the habitat contact that precedes
+        inoculation.
   description: &gt;-
     Exposure to questing Dermacentor ticks in wooded, shrubby, and grassy areas,
     including residential areas and city parks, is the proximate environmental
@@ -10479,6 +10839,25 @@ environmental:
     snippet: &#34;Adult Dermacentor ticks are active from spring through autumn, with maximum activity during late spring through early summer.&#34;
     explanation: The CDC report gives the seasonality of vector activity.
 - name: Domestic dog and peridomestic brown dog tick exposure
+  influences_mechanisms:
+  - target: Tick-Borne Rickettsia rickettsii Inoculation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Dogs are not themselves the source of infection: they maintain and
+      amplify brown dog tick populations around dwellings, and those ticks
+      then bite people. The intermediates are known, which is why this is
+      indirect rather than direct.
+    evidence:
+    - reference: PMID:28365226
+      reference_title: &#34;Rocky Mountain spotted fever in Mexico: past, present, and future.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These investigators also described the pivotal roles of domesticated dogs and Rhipicephalus sanguineus sensu lato (brown dog ticks) as drivers of epidemic levels of Rocky Mountain spotted fever.&#34;
+      explanation: &gt;-
+        Identifies domestic dogs and brown dog ticks as drivers of epidemic
+        transmission, the amplification step between dog contact and human
+        inoculation.
   description: &gt;-
     Domestic dogs are the preferred host of Rhipicephalus sanguineus at all life
     stages, and free-roaming dogs with peridomestic tick infestation drive the
@@ -12081,7 +12460,7 @@ Dogs are naturally, highly susceptible to <em>R. rickettsii</em> infection and s
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rocky Mountain spotted fever", "mondoId": "MONDO:0019359", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rocky_Mountain_spotted_fever", "yamlRevision": "9a3f94e3e557"};
+        const OS_CONFIG = {"diseaseName": "Rocky Mountain spotted fever", "mondoId": "MONDO:0019359", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rocky_Mountain_spotted_fever", "yamlRevision": "271d1aaf1d7d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
