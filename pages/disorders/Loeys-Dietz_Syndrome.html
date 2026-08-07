@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 45</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 46</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Loeys-Dietz%20Syndrome"
@@ -3467,6 +3696,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3512,7 +3743,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">45</div>
+                <div class="stat-value">46</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3523,6 +3754,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">8</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -5016,7 +5256,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive aortic aneurysm, a hallmark vascular feature. Orphanet classifies aortic aneurysm as Very frequent (99-80%) in LDS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic dissection is a life-threatening complication occurring at smaller aortic diameters than in Marfan syndrome. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root, occurring at earlier ages and smaller diameters than in Marfan syndrome. Dissections have occurred at aortic dimensions of 3.9-4.0 cm, unlike the 5.0 cm threshold in Marfan syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers, a skeletal feature shared with Marfan syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Arterial Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection can occur in arteries throughout the body, not just the aorta. Orphanet classifies arterial dissection as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005294\"}}, {\"id\": \"Arterial Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widespread arterial tortuosity, particularly of the head and neck vessels. A distinguishing feature from Marfan syndrome. Increased vertebral arterial tortuosity is a marker of adverse aortic outcome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005116\"}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asthma is part of the immunologic/allergic phenotype of LDS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002099\"}}, {\"id\": \"Atypical Scarring of Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal scarring pattern reflecting connective tissue fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000987\"}}, {\"id\": \"Bifid Uvula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid or broad uvula, a hallmark feature often used for clinical screening. May range from broad uvula to overt cleft palate.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000193\"}}, {\"id\": \"Blue Sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blue sclerae reflecting connective tissue thinning of the sclera.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000592\"}}, {\"id\": \"Bruising Susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising reflecting vascular and connective tissue fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000978\"}}, {\"id\": \"Camptodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent flexion contracture of fingers, part of the skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100490\"}}, {\"id\": \"Cervical Spine Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical spine instability or malformation present in 51% of LDS 1/2 patients. Requires assessment with flexion-extension X-rays.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010646\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate, ranging from submucous to overt, is part of the craniofacial spectrum of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Clubfoot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes equinovarus, present in a proportion of individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001762\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature fusion of cranial sutures, most commonly the sagittal suture but also coronal, metopic, and squamosal. More common in LDS type 1.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001363\"}}, {\"id\": \"Early-Onset Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Particularly prominent in LDS type 3 (SMAD3 mutations). Most affected individuals present with early-onset osteoarthritis with osteochondritis dissecans, onset as early as age 12.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002758\"}}, {\"id\": \"Eczematoid Dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczema is part of the immunologic/allergic phenotype of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000964\"}}, {\"id\": \"Eosinophilic Esophageal Infiltration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eosinophilic infiltration of the esophagus, part of the allergic/ eosinophilic gastrointestinal disease spectrum in LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0410151\"}}, {\"id\": \"Extracellular Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta signaling leads to upregulation of matrix metalloproteinases (MMPs) and reduced expression of tissue inhibitors, causing degradation of elastic fibers and collagen in the arterial wall. This weakens the vessel wall leading to aneurysm formation and dissection.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"Extracellular Matrix Disassembly\", \"Elastic Fiber Assembly\"], \"locations\": [\"Aorta\"]}}, {\"id\": \"Food Allergy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High prevalence of food allergies (31% versus 6-8% in general population), with most common allergens being eggs, milk, soy, peanuts, and tree nuts.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500093\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide-spaced eyes, part of the characteristic craniofacial gestalt and the diagnostic triad.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LDS is associated with a high prevalence of immunologic features including food allergy (31%), eosinophilic gastrointestinal disease, asthma, eczema, and allergic rhinitis. TGF-beta pathway disruption affects immune regulation and mucosal tolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Immune Response Regulation\"]}}, {\"id\": \"Joint Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint dislocation reflecting ligamentous laxity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001373\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility, contributing to joint dislocations and chronic pain. Extremity contractures in conjunction with joint hyperextension are unusual in the general population but common in LDS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Malar Flattening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malar flattening is a craniofacial feature of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000272\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micrognathia (small jaw) is part of the craniofacial phenotype of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Missense mutations in kinase domain\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutations affecting the kinase domain of TGFBR2.\\n\"}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve insufficiency, an occasional cardiac feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001653\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopia (nearsightedness) is an occasional ocular feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low bone mineral density and skeletal fragility, with at least 60% of patients having low or very low bone mineral density.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Paradoxical TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in TGF-beta receptors paradoxically lead to increased TGF-beta signaling in the aortic wall, mediated through non-canonical pathways and compensatory upregulation. This results in excessive SMAD2/3 phosphorylation and activation of ERK and p38 MAPK downstream targets that promote extracellular matrix degradation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"Fibroblast\"], \"biological_processes\": [\"TGF-beta Signaling\", \"SMAD Signaling\"]}}, {\"id\": \"Patent Ductus Arteriosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patent ductus arteriosus is a congenital cardiovascular feature. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001643\"}}, {\"id\": \"Pectus Excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum or pectus carinatum, similar to Marfan syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flat feet, a common skeletal feature shared with Marfan syndrome. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001763\"}}, {\"id\": \"Pregnancy-Related Vascular Complications\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High incidence of pregnancy-related complications including aortic dissection. Among 222 women with 522 pregnancies in a systematic review, 4% experienced aortic dissection with 1% peripartum mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001197\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis requiring monitoring and potential surgical intervention.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Skeletal Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGF-beta signaling is critical for skeletal development, particularly in suture closure and vertebral column formation. Dysregulated signaling leads to craniosynostosis, scoliosis, and cervical spine instability. Cervical spine findings are prominent in LDS 1/2 (51% of patients).\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Skeletal System Development\", \"Cranial Suture Morphogenesis\"]}}, {\"id\": \"Spontaneous Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous pneumothorax, an occasional pulmonary feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002108\"}}, {\"id\": \"Striae Distensae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stretch marks (striae) reflecting connective tissue fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001065\"}}, {\"id\": \"TGFBR1 Mutations (LDS Type 1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"TGFBR2 Mutations (LDS Type 2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tall stature is a frequent skeletal feature of LDS, consistent with the connective tissue disorder spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000098\"}}, {\"id\": \"Translucent Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin, velvety, translucent skin with easy bruising and visible veins. Scars may be atrophic and wound healing delayed.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010648\"}}, {\"id\": \"Uterine Rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uterine rupture during pregnancy, reflecting connective tissue fragility of the uterine wall. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100718\"}}], \"edges\": [{\"source\": \"Paradoxical TGF-beta Signaling\", \"target\": \"Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta/SMAD signaling drives matrix metalloproteinase upregulation and degradation of the aortic wall extracellular matrix.\"}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degradation of elastic fibers and collagen weakens the aortic media, promoting aneurysmal dilation.\"}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive medial weakening predisposes to dissection, characteristically at smaller aortic diameters than in Marfan syndrome.\"}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Arterial Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Arterial Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Pregnancy-Related Vascular Complications\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Patent Ductus Arteriosus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Uterine Rupture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Spontaneous Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Translucent Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Striae Distensae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Atypical Scarring of Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Bruising Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Bifid Uvula\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Pectus Excavatum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Cervical Spine Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Clubfoot\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Malar Flattening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Blue Sclerae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Camptodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Joint Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Food Allergy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Eczematoid Dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Eosinophilic Esophageal Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Missense mutations in kinase domain\", \"target\": \"TGFBR1 Mutations (LDS Type 1)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense mutations in kinase domain\", \"target\": \"TGFBR2 Mutations (LDS Type 2)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive aortic aneurysm, a hallmark vascular feature. Orphanet classifies aortic aneurysm as Very frequent (99-80%) in LDS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004942\"}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aortic dissection is a life-threatening complication occurring at smaller aortic diameters than in Marfan syndrome. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Root Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dilation of the aortic root, occurring at earlier ages and smaller diameters than in Marfan syndrome. Dissections have occurred at aortic dimensions of 3.9-4.0 cm, unlike the 5.0 cm threshold in Marfan syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002616\"}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally long, slender fingers, a skeletal feature shared with Marfan syndrome.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001166\"}}, {\"id\": \"Arterial Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection can occur in arteries throughout the body, not just the aorta. Orphanet classifies arterial dissection as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005294\"}}, {\"id\": \"Arterial Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widespread arterial tortuosity, particularly of the head and neck vessels. A distinguishing feature from Marfan syndrome. Increased vertebral arterial tortuosity is a marker of adverse aortic outcome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0005116\"}}, {\"id\": \"Asthma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Asthma is part of the immunologic/allergic phenotype of LDS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002099\"}}, {\"id\": \"Atypical Scarring of Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal scarring pattern reflecting connective tissue fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000987\"}}, {\"id\": \"Bifid Uvula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid or broad uvula, a hallmark feature often used for clinical screening. May range from broad uvula to overt cleft palate.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000193\"}}, {\"id\": \"Blue Sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Blue sclerae reflecting connective tissue thinning of the sclera.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000592\"}}, {\"id\": \"Bruising Susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising reflecting vascular and connective tissue fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000978\"}}, {\"id\": \"Camptodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent flexion contracture of fingers, part of the skeletal phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100490\"}}, {\"id\": \"Cervical Spine Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical spine instability or malformation present in 51% of LDS 1/2 patients. Requires assessment with flexion-extension X-rays.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010646\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate, ranging from submucous to overt, is part of the craniofacial spectrum of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Clubfoot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Talipes equinovarus, present in a proportion of individuals.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001762\"}}, {\"id\": \"Craniosynostosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature fusion of cranial sutures, most commonly the sagittal suture but also coronal, metopic, and squamosal. More common in LDS type 1.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001363\"}}, {\"id\": \"Early-Onset Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Particularly prominent in LDS type 3 (SMAD3 mutations). Most affected individuals present with early-onset osteoarthritis with osteochondritis dissecans, onset as early as age 12.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002758\"}}, {\"id\": \"Eczematoid Dermatitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eczema is part of the immunologic/allergic phenotype of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000964\"}}, {\"id\": \"Eosinophilic Esophageal Infiltration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Eosinophilic infiltration of the esophagus, part of the allergic/ eosinophilic gastrointestinal disease spectrum in LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0410151\"}}, {\"id\": \"Extracellular Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta signaling leads to upregulation of matrix metalloproteinases (MMPs) and reduced expression of tissue inhibitors, causing degradation of elastic fibers and collagen in the arterial wall. This weakens the vessel wall leading to aneurysm formation and dissection.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"Extracellular Matrix Disassembly\", \"Elastic Fiber Assembly\"], \"locations\": [\"Aorta\"]}}, {\"id\": \"Food Allergy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High prevalence of food allergies (31% versus 6-8% in general population), with most common allergens being eggs, milk, soy, peanuts, and tree nuts.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500093\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide-spaced eyes, part of the characteristic craniofacial gestalt and the diagnostic triad.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Immune Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LDS is associated with a high prevalence of immunologic features including food allergy (31%), eosinophilic gastrointestinal disease, asthma, eczema, and allergic rhinitis. TGF-beta pathway disruption affects immune regulation and mucosal tolerance.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Immune Response Regulation\"]}}, {\"id\": \"Joint Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint dislocation reflecting ligamentous laxity.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001373\"}}, {\"id\": \"Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility, contributing to joint dislocations and chronic pain. Extremity contractures in conjunction with joint hyperextension are unusual in the general population but common in LDS.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001382\"}}, {\"id\": \"Malar Flattening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malar flattening is a craniofacial feature of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000272\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Micrognathia (small jaw) is part of the craniofacial phenotype of LDS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000347\"}}, {\"id\": \"Missense mutations in kinase domain (TGFBR1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutations in the intracellular kinase domain of TGFBR1 that impair receptor signaling.\\n\"}, {\"id\": \"Missense mutations in kinase domain (TGFBR2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense mutations affecting the kinase domain of TGFBR2.\\n\"}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve insufficiency, an occasional cardiac feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001653\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myopia (nearsightedness) is an occasional ocular feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000545\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low bone mineral density and skeletal fragility, with at least 60% of patients having low or very low bone mineral density.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000939\"}}, {\"id\": \"Paradoxical TGF-beta Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutations in TGF-beta receptors paradoxically lead to increased TGF-beta signaling in the aortic wall, mediated through non-canonical pathways and compensatory upregulation. This results in excessive SMAD2/3 phosphorylation and activation of ERK and p38 MAPK downstream targets that promote extracellular matrix degradation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular Smooth Muscle Cell\", \"Fibroblast\"], \"biological_processes\": [\"TGF-beta Signaling\", \"SMAD Signaling\"]}}, {\"id\": \"Patent Ductus Arteriosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patent ductus arteriosus is a congenital cardiovascular feature. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001643\"}}, {\"id\": \"Pectus Excavatum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum or pectus carinatum, similar to Marfan syndrome.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flat feet, a common skeletal feature shared with Marfan syndrome. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001763\"}}, {\"id\": \"Pregnancy-Related Vascular Complications\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"High incidence of pregnancy-related complications including aortic dissection. Among 222 women with 522 pregnancies in a systematic review, 4% experienced aortic dissection with 1% peripartum mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001197\"}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive scoliosis requiring monitoring and potential surgical intervention.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Skeletal Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TGF-beta signaling is critical for skeletal development, particularly in suture closure and vertebral column formation. Dysregulated signaling leads to craniosynostosis, scoliosis, and cervical spine instability. Cervical spine findings are prominent in LDS 1/2 (51% of patients).\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Skeletal System Development\", \"Cranial Suture Morphogenesis\"]}}, {\"id\": \"Spontaneous Pneumothorax\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous pneumothorax, an occasional pulmonary feature.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002108\"}}, {\"id\": \"Striae Distensae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Stretch marks (striae) reflecting connective tissue fragility.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001065\"}}, {\"id\": \"TGFBR1 Mutations (LDS Type 1)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"TGFBR2 Mutations (LDS Type 2)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Causative\", \"variant_count\": 1}}, {\"id\": \"Tall Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tall stature is a frequent skeletal feature of LDS, consistent with the connective tissue disorder spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000098\"}}, {\"id\": \"Translucent Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin, velvety, translucent skin with easy bruising and visible veins. Scars may be atrophic and wound healing delayed.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010648\"}}, {\"id\": \"Uterine Rupture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Uterine rupture during pregnancy, reflecting connective tissue fragility of the uterine wall. Orphanet classifies this as Very frequent (99-80%).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0100718\"}}], \"edges\": [{\"source\": \"Paradoxical TGF-beta Signaling\", \"target\": \"Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced TGF-beta/SMAD signaling drives matrix metalloproteinase upregulation and degradation of the aortic wall extracellular matrix.\"}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degradation of elastic fibers and collagen weakens the aortic media, promoting aneurysmal dilation.\"}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive medial weakening predisposes to dissection, characteristically at smaller aortic diameters than in Marfan syndrome.\"}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Aortic Root Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Arterial Dissection\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Arterial Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Pregnancy-Related Vascular Complications\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Patent Ductus Arteriosus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Uterine Rupture\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Spontaneous Pneumothorax\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Translucent Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Striae Distensae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Atypical Scarring of Skin\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Extracellular Matrix Degradation\", \"target\": \"Bruising Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Bifid Uvula\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Craniosynostosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Pectus Excavatum\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Cervical Spine Instability\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Clubfoot\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Tall Stature\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Malar Flattening\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Blue Sclerae\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Camptodactyly\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Joint Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Skeletal Development Disruption\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Food Allergy\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Asthma\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Eczematoid Dermatitis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Immune Dysregulation\", \"target\": \"Eosinophilic Esophageal Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Missense mutations in kinase domain (TGFBR1)\", \"target\": \"TGFBR1 Mutations (LDS Type 1)\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense mutations in kinase domain (TGFBR2)\", \"target\": \"TGFBR2 Mutations (LDS Type 2)\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5068,7 +5308,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bruising-susceptibility" data-dismech-node="Bruising Susceptibility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bruising Susceptibility
 
@@ -5138,7 +5378,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-aneurysm" data-dismech-node="Aortic Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Aneurysm
 
@@ -5221,7 +5461,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-root-aneurysm" data-dismech-node="Aortic Root Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Root Aneurysm
 
@@ -5280,7 +5520,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-dissection" data-dismech-node="Aortic Dissection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Dissection
 
@@ -5363,7 +5603,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-tortuosity" data-dismech-node="Arterial Tortuosity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arterial Tortuosity
 
@@ -5446,7 +5686,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent Ductus Arteriosus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Patent Ductus Arteriosus
 
@@ -5516,7 +5756,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertelorism" data-dismech-node="Hypertelorism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertelorism
 
@@ -5599,7 +5839,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-blue-sclerae" data-dismech-node="Blue Sclerae" data-dismech-type="phenotype">
                     <div class="item-name">
                         Blue Sclerae
 
@@ -5660,7 +5900,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myopia
 
@@ -5730,7 +5970,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-uvula" data-dismech-node="Bifid Uvula" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bifid Uvula
 
@@ -5813,7 +6053,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Palate
 
@@ -5874,7 +6114,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-craniosynostosis" data-dismech-node="Craniosynostosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Craniosynostosis
 
@@ -5957,7 +6197,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malar-flattening" data-dismech-node="Malar Flattening" data-dismech-type="phenotype">
                     <div class="item-name">
                         Malar Flattening
 
@@ -6018,7 +6258,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-micrognathia" data-dismech-node="Micrognathia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Micrognathia
 
@@ -6088,7 +6328,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-food-allergy" data-dismech-node="Food Allergy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Food Allergy
 
@@ -6147,7 +6387,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eczematoid-dermatitis" data-dismech-node="Eczematoid Dermatitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Eczematoid Dermatitis
 
@@ -6217,7 +6457,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-translucent-skin" data-dismech-node="Translucent Skin" data-dismech-type="phenotype">
                     <div class="item-name">
                         Translucent Skin
 
@@ -6276,7 +6516,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-striae-distensae" data-dismech-node="Striae Distensae" data-dismech-type="phenotype">
                     <div class="item-name">
                         Striae Distensae
 
@@ -6337,7 +6577,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-scarring-of-skin" data-dismech-node="Atypical Scarring of Skin" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atypical Scarring of Skin
 
@@ -6407,7 +6647,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-clubfoot" data-dismech-node="Clubfoot" data-dismech-type="phenotype">
                     <div class="item-name">
                         Clubfoot
 
@@ -6468,7 +6708,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arachnodactyly" data-dismech-node="Arachnodactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arachnodactyly
 
@@ -6529,7 +6769,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes Planus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Planus
 
@@ -6621,7 +6861,7 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -6682,7 +6922,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-excavatum" data-dismech-node="Pectus Excavatum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Excavatum
 
@@ -6765,7 +7005,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Hypermobility
 
@@ -6848,7 +7088,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-instability" data-dismech-node="Cervical Spine Instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cervical Spine Instability
 
@@ -6907,7 +7147,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteoporosis" data-dismech-node="Osteoporosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteoporosis
 
@@ -6966,7 +7206,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-osteoarthritis" data-dismech-node="Early-Onset Osteoarthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Early-Onset Osteoarthritis
 
@@ -7047,7 +7287,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-dislocation" data-dismech-node="Joint Dislocation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Dislocation
 
@@ -7117,7 +7357,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pregnancy-related-vascular-complications" data-dismech-node="Pregnancy-Related Vascular Complications" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pregnancy-Related Vascular Complications
 
@@ -7207,7 +7447,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tall Stature
 
@@ -7277,7 +7517,7 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-dissection" data-dismech-node="Arterial Dissection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arterial Dissection
 
@@ -7338,7 +7578,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-camptodactyly" data-dismech-node="Camptodactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Camptodactyly
 
@@ -7399,7 +7639,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-uterine-rupture" data-dismech-node="Uterine Rupture" data-dismech-type="phenotype">
                     <div class="item-name">
                         Uterine Rupture
 
@@ -7460,7 +7700,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-asthma" data-dismech-node="Asthma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Asthma
 
@@ -7543,7 +7783,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-regurgitation" data-dismech-node="Mitral Regurgitation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral Regurgitation
 
@@ -7604,7 +7844,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spontaneous-pneumothorax" data-dismech-node="Spontaneous Pneumothorax" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spontaneous Pneumothorax
 
@@ -7665,7 +7905,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eosinophilic-esophageal-infiltration" data-dismech-node="Eosinophilic Esophageal Infiltration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Eosinophilic Esophageal Infiltration
 
@@ -7765,7 +8005,7 @@
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfbr1-mutations-lds-type-1" data-dismech-node="TGFBR1 Mutations (LDS Type 1)" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFBR1 Mutations (LDS Type 1)
 
@@ -7831,9 +8071,38 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-missense-mutations-in-kinase-domain-tgfbr1" data-dismech-node="Missense mutations in kinase domain (TGFBR1)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Missense mutations in kinase domain (TGFBR1)
+
+    </div>
+
+
+    <div class="item-desc">Missense mutations in the intracellular kinase domain of TGFBR1 that impair receptor signaling.
+</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfbr2-mutations-lds-type-2" data-dismech-node="TGFBR2 Mutations (LDS Type 2)" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFBR2 Mutations (LDS Type 2)
 
@@ -7899,9 +8168,38 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-missense-mutations-in-kinase-domain-tgfbr2" data-dismech-node="Missense mutations in kinase domain (TGFBR2)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Missense mutations in kinase domain (TGFBR2)
+
+    </div>
+
+
+    <div class="item-desc">Missense mutations affecting the kinase domain of TGFBR2.
+</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad3-mutations-lds-type-3" data-dismech-node="SMAD3 Mutations (LDS Type 3)" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD3 Mutations (LDS Type 3)
 
@@ -7967,9 +8265,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfb2-mutations-lds-type-4" data-dismech-node="TGFB2 Mutations (LDS Type 4)" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFB2 Mutations (LDS Type 4)
 
@@ -8035,9 +8334,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfb3-mutations-lds-type-5" data-dismech-node="TGFB3 Mutations (LDS Type 5)" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFB3 Mutations (LDS Type 5)
 
@@ -8081,9 +8381,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad2-mutations" data-dismech-node="SMAD2 Mutations" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD2 Mutations
 
@@ -8127,9 +8428,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ipo8-mutations" data-dismech-node="IPO8 Mutations" data-dismech-type="genetic">
                 <div class="item-name">
                     IPO8 Mutations
 
@@ -8173,9 +8475,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfbr1" data-dismech-node="TGFBR1" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFBR1
 
@@ -8236,9 +8539,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8250,7 +8557,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prophylactic-aortic-root-replacement" data-dismech-node="Prophylactic Aortic Root Replacement" data-dismech-type="treatment">
                 <div class="item-name">
                     Prophylactic Aortic Root Replacement
                 </div>
@@ -8372,7 +8679,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-losartan-arb-therapy" data-dismech-node="Losartan/ARB Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Losartan/ARB Therapy
                 </div>
@@ -8446,7 +8753,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-blocker-therapy" data-dismech-node="Beta-Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta-Blocker Therapy
                 </div>
@@ -8498,7 +8805,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-comprehensive-vascular-surveillance" data-dismech-node="Comprehensive Vascular Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Comprehensive Vascular Surveillance
                 </div>
@@ -9810,7 +10117,7 @@ genetic:
     Most mutations cluster in the serine/threonine kinase domain. Accounts
     for 20-25% of LDS cases.
   variants:
-  - name: Missense mutations in kinase domain
+  - name: Missense mutations in kinase domain (TGFBR1)
     description: &gt;
       Missense mutations in the intracellular kinase domain of TGFBR1
       that impair receptor signaling.
@@ -9838,7 +10145,7 @@ genetic:
     Mutations primarily affect the kinase domain. Most common genetic cause,
     accounting for 55-60% of LDS cases.
   variants:
-  - name: Missense mutations in kinase domain
+  - name: Missense mutations in kinase domain (TGFBR2)
     description: &gt;
       Missense mutations affecting the kinase domain of TGFBR2.
   evidence:
@@ -10537,7 +10844,7 @@ Primary mechanisms
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Loeys-Dietz Syndrome", "mondoId": "MONDO:0018954", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Loeys-Dietz_Syndrome", "yamlRevision": "a2d598607933"};
+        const OS_CONFIG = {"diseaseName": "Loeys-Dietz Syndrome", "mondoId": "MONDO:0018954", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Loeys-Dietz_Syndrome", "yamlRevision": "fedd08fb2d50"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

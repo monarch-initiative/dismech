@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3492,7 +3723,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">22</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3501,7 +3732,7 @@
             <a class="stat-link" href="#mechanistic-hypotheses">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◈</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Hypotheses</div>
             </div>
             </a>
@@ -3532,6 +3763,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3753,7 +3985,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
                 <h2 class="card-title">Mechanistic Hypotheses</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box hypothesis-box anchor-target" id="hypothesis-aims-cerebrovascular-white-matter">
@@ -3892,6 +4124,87 @@
 
 
                 <div class="evidence-explanation">Supplies the developmental cerebrovascular role, but in animal and cell models rather than AIMS patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target hypothesis-deprecated" id="hypothesis-cav1-1-calcium-influx-myopathy">
+                <div class="item-name">CaV1.1-mediated calcium influx as the driver of AIMS myopathy</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">cav1_1_calcium_influx_myopathy</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-DEPRECATED">⚠ DEPRECATED</span>
+
+
+                </div>
+
+                <div class="hypothesis-overturned">
+                    <div class="hypothesis-overturned-title">⚠ Overturned model &mdash; shown for reference, not as current mechanism</div>
+                    <p>
+                        DisMech records superseded hypotheses explicitly rather than deleting
+                        them, so that claims still circulating in reviews, textbooks and older
+                        diagnostic criteria can be checked against an assessment. This model is
+                        <strong>not</strong> part of the disease mechanism DisMech asserts.
+                    </p>
+                    <p>
+                        Citation volume does not decide standing here. A hypothesis may retain
+                        more supporting than refuting citations simply because the supporting
+                        literature accumulated for decades before the refutation landed; where
+                        the two conflict, DisMech follows the more recent and more direct
+                        evidence. Supporting citations below are retained for the historical
+                        record.
+                    </p>
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-REFUTE">1 refute</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">Excessive calcium influx through skeletal-muscle CaV1.1 channels was tested as the downstream cause of the SUR2 loss-of-function myopathy. The model is not retained as the current mechanism: making CaV1.1 non-permeable did not reverse the pathology, while verapamil caused premature death in AIMS mice. The directly observed unstimulated-force phenotype remains established, but its downstream effector is unresolved.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37154692" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37154692" target="_blank">PMID:37154692</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We sought to determine whether excessive Ca2+ influx through CaV 1.1 channels was responsible for myopathology but found that the Ca2+ channel blocker verapamil unexpectedly resulted in premature death of AIMS mice and that rendering CaV 1.1 channels nonpermeable by mutation failed to reverse..."</div>
+
+
+                <div class="evidence-explanation">Direct pharmacologic and genetic tests failed to support CaV1.1-mediated calcium influx as the cause of the myopathy; the drug intervention was additionally harmful.</div>
 
 
 
@@ -4872,7 +5185,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-membrane-potential-stabilization-during-fatigue" data-dismech-node="Failure of Membrane Potential Stabilization During Fatigue" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Membrane Potential Stabilization During Fatigue</div>
 
-                <div class="item-desc">Loss of the fatigue-activated potassium conductance removes the brake on sarcolemmal excitability during sustained activity, so the fibre cannot limit calcium entry or recover normally from fatigue.</div>
+                <div class="item-desc">Loss of the fatigue-activated potassium conductance removes the brake on sarcolemmal excitability during sustained activity, impairing recovery from fatigue and predisposing the fibre to contraction without stimulation.</div>
 
 
 
@@ -4956,9 +5269,9 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Unstimulated Force Generation and Calcium Overload</span>
+	                            <span class="crosslink-meta">Unstimulated Force Generation</span>
 
-	                            <span class="crosslink-desc">Unopposed depolarisation during fatigue produces contraction in the absence of stimulation and excessive calcium entry.</span>
+	                            <span class="crosslink-desc">Loss of KATP-dependent electrical adaptation during fatigue is followed by contraction in the absence of stimulation.</span>
 
 
 	                        </div>
@@ -5003,10 +5316,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-unstimulated-force-generation-and-calcium-overload" data-dismech-node="Unstimulated Force Generation and Calcium Overload" data-dismech-type="pathophysiology">
-                <div class="item-name">Unstimulated Force Generation and Calcium Overload</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-unstimulated-force-generation" data-dismech-node="Unstimulated Force Generation" data-dismech-type="pathophysiology">
+                <div class="item-name">Unstimulated Force Generation</div>
 
-                <div class="item-desc">SUR2-null muscle generates force without stimulation under fatiguing conditions, the proposed cellular correlate of the painful spasms reported by patients. Excessive calcium influx was the hypothesised downstream effector, but blocking CaV1.1 permeation genetically did not reverse the pathology and the calcium channel blocker verapamil was harmful, so the calcium arm is not established as the sole effector.</div>
+                <div class="item-desc">SUR2-null muscle generates force without stimulation under fatiguing conditions, the proposed cellular correlate of the painful spasms reported by patients. The downstream effector remains unresolved; CaV1.1-mediated calcium influx was tested directly and did not explain the myopathy.</div>
 
 
 
@@ -5046,39 +5359,6 @@
 
 
 
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        calcium ion transmembrane transport
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070588">GO:0070588</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
 
 
 
@@ -5104,7 +5384,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -5125,28 +5405,6 @@
 
 
                 <div class="evidence-explanation">Establishes the unstimulated-force phenotype and its proposed clinical correlate.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37154692" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37154692" target="_blank">PMID:37154692</a>
-                    </span>
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We sought to determine whether excessive Ca2+ influx through CaV 1.1 channels was responsible for myopathology but found that the Ca2+ channel blocker verapamil unexpectedly resulted in premature death of AIMS mice and that rendering CaV 1.1 channels nonpermeable by mutation failed to reverse..."</div>
-
-
-                <div class="evidence-explanation">Recorded as REFUTE against the specific sub-hypothesis that excessive CaV1.1-mediated calcium influx is the effector of the myopathy: both the pharmacological and the genetic test of that hypothesis failed, and the pharmacological one was harmful. The unstimulated-force phenotype itself is unaffected by this refutation; only the calcium-influx explanation of it is.</div>
 
 
 
@@ -5325,7 +5583,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cardiomyocyte-katp-conductance" data-dismech-node="Loss of Cardiomyocyte KATP Conductance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cardiomyocyte KATP Conductance</div>
 
-                <div class="item-desc">SUR2A partners Kir6.2 in the cardiomyocyte sarcolemma, where KATP opening protects the myocyte during metabolic stress. Its absence removes that protection.</div>
+                <div class="item-desc">SUR2-containing KATP channels in cardiomyocytes couple cellular metabolism to membrane excitability. Loss of functional SUR2 removes that metabolically responsive conductance.</div>
 
 
 
@@ -6152,7 +6410,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCC9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"genes\": [\"ABCC9\"], \"gene_terms\": [{\"label\": \"ABCC9\", \"id\": \"hgnc:60\"}], \"association\": \"Causative\"}}, {\"id\": \"Biallelic ABCC9 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in ABCC9 - splice-site alleles causing in-frame exon skipping, and nonsense or frameshift alleles causing nonsense-mediated decay or drastic truncation - abolish production of functional SUR2 protein. This is the root lesion of AIMS and is the opposite direction of effect to the gain-of-function ABCC9 variants that cause Cantu syndrome.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"ABCC9\"], \"gene_terms\": [{\"label\": \"ABCC9\", \"id\": \"hgnc:60\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Cardiac Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced systolic function, documented in the two oldest patients of the index cohort and reproduced in SUR2-null mice and zebrafish. It is an age-related feature rather than a presenting one.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebral White Matter Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebral white matter hyperintensities were present in every patient of the index cohort and white matter abnormalities, often with corpus callosum involvement, recur across the later cohorts. In the most recent series the pattern resembles periventricular leukomalacia or small vessel disease and is described as a key hallmark of the disorder. Lesions can progress over time.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Failure of Membrane Potential Stabilization During Fatigue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the fatigue-activated potassium conductance removes the brake on sarcolemmal excitability during sustained activity, so the fibre cannot limit calcium entry or recover normally from fatigue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"regulation of membrane potential\"]}}, {\"id\": \"Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KCNJ8/ABCC9-containing KATP channels are expressed on brain mural cell progenitors and are required cell-autonomously for arterial and arteriolar smooth muscle differentiation. Loss of channel function suppresses that differentiation and, in the corresponding knockout, degrades vasoconstrictive capacity and neuronally evoked vasodilation - the machinery that fine-tunes cerebral blood flow.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"vascular associated smooth muscle cell differentiation\", \"regulation of cerebral blood circulation\"]}}, {\"id\": \"Increased Seizure Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Seizures occur in a proportion of AIMS patients, and abcc9 loss of function lowers the chemoconvulsant threshold in zebrafish. In the index cohort one patient had clinical tonic-clonic episodes without EEG correlate, so the epileptic phenotype is not uniform.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual Disability and Developmental Delay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Psychomotor delay followed by intellectual disability, mild in the index Norwegian families and of variable severity across the expanded cohorts. Motor and cognitive decline has now been documented in older individuals, including a sexagenarian presenting with signs of dementia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Cardiomyocyte KATP Conductance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUR2A partners Kir6.2 in the cardiomyocyte sarcolemma, where KATP opening protects the myocyte during metabolic stress. Its absence removes that protection.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"potassium ion transmembrane transport\"]}}, {\"id\": \"Loss of Sarcolemmal KATP Conductance in Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In healthy skeletal muscle the sarcolemmal KATP channel is closed at rest and opens as intracellular ATP falls during metabolic stress or fatigue. In AIMS muscle this metabolically gated conductance is absent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"response to muscle activity\"]}}, {\"id\": \"Non-Functional SUR2-Containing KATP Channels\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUR2 is the regulatory subunit that confers ATP/ADP sensitivity and trafficking competence on Kir6.x pore subunits in skeletal muscle, cardiac muscle and vascular smooth muscle. Without functional SUR2, the SUR2-containing KATP channels of those tissues are absent or non-conducting, so cellular metabolic state can no longer be translated into membrane potassium conductance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\", \"cardiac muscle cell\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"potassium ion transmembrane transport\"], \"molecular_functions\": [\"ATP-activated inward rectifier potassium channel activity\"], \"genes\": [\"ABCC9\"], \"gene_terms\": [{\"label\": \"ABCC9\", \"id\": \"hgnc:60\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Pyramidal Tract Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lower-limb hyperreflexia and spasticity, appearing in the older patients of the index cohort and recorded as spasticity across the expanded cohort.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Skeletal-Muscle-Delimited Myopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A myopathy that is clinically prominent but histologically and electrophysiologically bland: patients have generalised hypotonia, reduced strength, fatigability and exercise-induced pain, with normal serum creatine kinase, normal nerve conduction and essentially normal electromyography.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"skeletal muscle contraction\"]}}, {\"id\": \"Unstimulated Force Generation and Calcium Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUR2-null muscle generates force without stimulation under fatiguing conditions, the proposed cellular correlate of the painful spasms reported by patients. Excessive calcium influx was the hypothesised downstream effector, but blocking CaV1.1 permeation genetically did not reverse the pathology and the calcium channel blocker verapamil was harmful, so the calcium arm is not established as the sole effector.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"calcium ion transmembrane transport\"]}}], \"edges\": [{\"source\": \"Biallelic ABCC9 Loss of Function\", \"target\": \"Non-Functional SUR2-Containing KATP Channels\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of functional SUR2 protein prevents assembly of working SUR2-containing KATP channels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Loss of Sarcolemmal KATP Conductance in Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fast-twitch skeletal muscle depends on noncanonical Kir6.2/SUR2 sarcolemmal KATP channels, so SUR2 loss removes essentially the whole sarcolemmal KATP conductance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Loss of Cardiomyocyte KATP Conductance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUR2A is the cardiac sulfonylurea receptor, so its loss removes cardiomyocyte KATP current.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KCNJ8/ABCC9-containing KATP channels are required cell-autonomously for brain arterial and arteriolar smooth muscle differentiation, so their loss compromises cerebral vascular maturation.\", \"hypothesis_groups\": [\"aims_cerebrovascular_white_matter\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Increased Seizure Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of abcc9 lowers the threshold for chemically provoked seizure-like motor activity in vivo.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Sarcolemmal KATP Conductance in Skeletal Muscle\", \"target\": \"Failure of Membrane Potential Stabilization During Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without KATP opening, the fatiguing fibre cannot shorten its action potential or stabilise its resting membrane potential.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Membrane Potential Stabilization During Fatigue\", \"target\": \"Unstimulated Force Generation and Calcium Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unopposed depolarisation during fatigue produces contraction in the absence of stimulation and excessive calcium entry.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unstimulated Force Generation and Calcium Overload\", \"target\": \"Skeletal-Muscle-Delimited Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The contractile abnormality is intrinsic to skeletal muscle rather than secondary to cardiac or vascular disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cardiomyocyte KATP Conductance\", \"target\": \"Cardiac Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cardiomyocyte KATP is followed by impaired systolic performance in patients and in both animal models.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling\", \"target\": \"Cerebral White Matter Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cerebral small-vessel mechanism is the leading explanation for the white matter lesions, which radiologically resemble periventricular leukomalacia or small vessel disease.\", \"hypothesis_groups\": [\"aims_cerebrovascular_white_matter\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral White Matter Injury\", \"target\": \"Intellectual Disability and Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive phenotype tracks with the white matter burden, but no mediating cellular step has been demonstrated and a purely vascular account is not proven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral White Matter Injury\", \"target\": \"Pyramidal Tract Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors attribute the lower-limb hyperreflexia of the older patients to the white matter abnormalities and consequent loss of upper motor neuron inhibition.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ABCC9\", \"target\": \"Biallelic ABCC9 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCC9\", \"target\": \"Non-Functional SUR2-Containing KATP Channels\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABCC9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 8, \"genes\": [\"ABCC9\"], \"gene_terms\": [{\"label\": \"ABCC9\", \"id\": \"hgnc:60\"}], \"association\": \"Causative\"}}, {\"id\": \"Biallelic ABCC9 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic loss-of-function variants in ABCC9 - splice-site alleles causing in-frame exon skipping, and nonsense or frameshift alleles causing nonsense-mediated decay or drastic truncation - abolish production of functional SUR2 protein. This is the root lesion of AIMS and is the opposite direction of effect to the gain-of-function ABCC9 variants that cause Cantu syndrome.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"ABCC9\"], \"gene_terms\": [{\"label\": \"ABCC9\", \"id\": \"hgnc:60\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Cardiac Systolic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced systolic function, documented in the two oldest patients of the index cohort and reproduced in SUR2-null mice and zebrafish. It is an age-related feature rather than a presenting one.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cerebral White Matter Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cerebral white matter hyperintensities were present in every patient of the index cohort and white matter abnormalities, often with corpus callosum involvement, recur across the later cohorts. In the most recent series the pattern resembles periventricular leukomalacia or small vessel disease and is described as a key hallmark of the disorder. Lesions can progress over time.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Failure of Membrane Potential Stabilization During Fatigue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the fatigue-activated potassium conductance removes the brake on sarcolemmal excitability during sustained activity, impairing recovery from fatigue and predisposing the fibre to contraction without stimulation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"regulation of membrane potential\"]}}, {\"id\": \"Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KCNJ8/ABCC9-containing KATP channels are expressed on brain mural cell progenitors and are required cell-autonomously for arterial and arteriolar smooth muscle differentiation. Loss of channel function suppresses that differentiation and, in the corresponding knockout, degrades vasoconstrictive capacity and neuronally evoked vasodilation - the machinery that fine-tunes cerebral blood flow.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular associated smooth muscle cell\"], \"biological_processes\": [\"vascular associated smooth muscle cell differentiation\", \"regulation of cerebral blood circulation\"]}}, {\"id\": \"Increased Seizure Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Seizures occur in a proportion of AIMS patients, and abcc9 loss of function lowers the chemoconvulsant threshold in zebrafish. In the index cohort one patient had clinical tonic-clonic episodes without EEG correlate, so the epileptic phenotype is not uniform.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intellectual Disability and Developmental Delay\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Psychomotor delay followed by intellectual disability, mild in the index Norwegian families and of variable severity across the expanded cohorts. Motor and cognitive decline has now been documented in older individuals, including a sexagenarian presenting with signs of dementia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Cardiomyocyte KATP Conductance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUR2-containing KATP channels in cardiomyocytes couple cellular metabolism to membrane excitability. Loss of functional SUR2 removes that metabolically responsive conductance.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"potassium ion transmembrane transport\"]}}, {\"id\": \"Loss of Sarcolemmal KATP Conductance in Skeletal Muscle\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In healthy skeletal muscle the sarcolemmal KATP channel is closed at rest and opens as intracellular ATP falls during metabolic stress or fatigue. In AIMS muscle this metabolically gated conductance is absent.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"response to muscle activity\"]}}, {\"id\": \"Non-Functional SUR2-Containing KATP Channels\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUR2 is the regulatory subunit that confers ATP/ADP sensitivity and trafficking competence on Kir6.x pore subunits in skeletal muscle, cardiac muscle and vascular smooth muscle. Without functional SUR2, the SUR2-containing KATP channels of those tissues are absent or non-conducting, so cellular metabolic state can no longer be translated into membrane potassium conductance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\", \"cardiac muscle cell\", \"vascular associated smooth muscle cell\"], \"biological_processes\": [\"potassium ion transmembrane transport\"], \"molecular_functions\": [\"ATP-activated inward rectifier potassium channel activity\"], \"genes\": [\"ABCC9\"], \"gene_terms\": [{\"label\": \"ABCC9\", \"id\": \"hgnc:60\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Pyramidal Tract Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lower-limb hyperreflexia and spasticity, appearing in the older patients of the index cohort and recorded as spasticity across the expanded cohort.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Skeletal-Muscle-Delimited Myopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A myopathy that is clinically prominent but histologically and electrophysiologically bland: patients have generalised hypotonia, reduced strength, fatigability and exercise-induced pain, with normal serum creatine kinase, normal nerve conduction and essentially normal electromyography.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"skeletal muscle contraction\"]}}, {\"id\": \"Unstimulated Force Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SUR2-null muscle generates force without stimulation under fatiguing conditions, the proposed cellular correlate of the painful spasms reported by patients. The downstream effector remains unresolved; CaV1.1-mediated calcium influx was tested directly and did not explain the myopathy.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"]}}], \"edges\": [{\"source\": \"Biallelic ABCC9 Loss of Function\", \"target\": \"Non-Functional SUR2-Containing KATP Channels\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of functional SUR2 protein prevents assembly of working SUR2-containing KATP channels.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Loss of Sarcolemmal KATP Conductance in Skeletal Muscle\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fast-twitch skeletal muscle depends on noncanonical Kir6.2/SUR2 sarcolemmal KATP channels, so SUR2 loss removes essentially the whole sarcolemmal KATP conductance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Loss of Cardiomyocyte KATP Conductance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SUR2A is the cardiac sulfonylurea receptor, so its loss removes cardiomyocyte KATP current.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KCNJ8/ABCC9-containing KATP channels are required cell-autonomously for brain arterial and arteriolar smooth muscle differentiation, so their loss compromises cerebral vascular maturation.\", \"hypothesis_groups\": [\"aims_cerebrovascular_white_matter\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Non-Functional SUR2-Containing KATP Channels\", \"target\": \"Increased Seizure Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of abcc9 lowers the threshold for chemically provoked seizure-like motor activity in vivo.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Sarcolemmal KATP Conductance in Skeletal Muscle\", \"target\": \"Failure of Membrane Potential Stabilization During Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without KATP opening, the fatiguing fibre cannot shorten its action potential or stabilise its resting membrane potential.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Membrane Potential Stabilization During Fatigue\", \"target\": \"Unstimulated Force Generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of KATP-dependent electrical adaptation during fatigue is followed by contraction in the absence of stimulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unstimulated Force Generation\", \"target\": \"Skeletal-Muscle-Delimited Myopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The contractile abnormality is intrinsic to skeletal muscle rather than secondary to cardiac or vascular disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cardiomyocyte KATP Conductance\", \"target\": \"Cardiac Systolic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cardiomyocyte KATP is followed by impaired systolic performance in patients and in both animal models.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling\", \"target\": \"Cerebral White Matter Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cerebral small-vessel mechanism is the leading explanation for the white matter lesions, which radiologically resemble periventricular leukomalacia or small vessel disease.\", \"hypothesis_groups\": [\"aims_cerebrovascular_white_matter\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral White Matter Injury\", \"target\": \"Intellectual Disability and Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cognitive phenotype tracks with the white matter burden, but no mediating cellular step has been demonstrated and a purely vascular account is not proven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebral White Matter Injury\", \"target\": \"Pyramidal Tract Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The authors attribute the lower-limb hyperreflexia of the older patients to the white matter abnormalities and consequent loss of upper motor neuron inhibition.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ABCC9\", \"target\": \"Biallelic ABCC9 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCC9\", \"target\": \"Non-Functional SUR2-Containing KATP Channels\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6165,7 +6423,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">22</span>
+                <span class="card-count">29</span>
             </div>
 
 
@@ -6173,19 +6431,21 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6198,7 +6458,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-systolic-dysfunction" data-dismech-node="Left ventricular systolic dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Left ventricular systolic dysfunction
 
@@ -6288,11 +6548,112 @@
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding difficulties" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Feeding difficulties
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Feeding difficulties
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: CHILDHOOD</span>
+
+
+
+
+
+
+                    </div>
+
+
+                    <div class="item-desc">Frequency derivation: PMID:31575858 reports childhood feeding difficulties in all six index patients (6/6 = 100%), supporting VERY_FREQUENT (80-100%). The exact snippet retains the source PDF&#39;s &#34;fi&#34; ligature.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Feeding dif ﬁculties in childhood were reported in all individuals."</div>
+
+
+                <div class="evidence-explanation">Gives both the childhood timing and the 6/6 index-cohort denominator.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural hearing impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural hearing impairment
 
@@ -6353,14 +6714,75 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Strabismus
+
+
+                    <span class="phenotype-id">
+                        Strabismus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">The evidence snippet begins at &#34;bismus&#34; because the source PDF extracts &#34;Strabismus&#34; across a line break as &#34;Stra-&#34; plus &#34;bismus&#34;. The retained span is the longest byte-exact text that carries the cohort qualifier.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bismus and myopia were found in several individuals"</div>
+
+
+                <div class="evidence-explanation">Directly reports strabismus in several index patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotelorism" data-dismech-node="Hypotelorism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotelorism
 
@@ -6424,10 +6846,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Consistent with hypotelorism observed in multiple AIMS"</div>
+                <div class="evidence-snippet">"Consistent with hypotelorism observed in multiple AIMS patients, signi ﬁcantly decreased interorbital distance, normalized to overall larval body length, was observed in SUR2-STOP zebraﬁsh"</div>
 
 
-                <div class="evidence-explanation">Cross-species link: the SUR2-STOP zebrafish shows a decreased interorbital distance, the only dysmorphic feature of AIMS the model reproduces.</div>
+                <div class="evidence-explanation">Directly links the significantly decreased interorbital distance in the SUR2-STOP zebrafish to hypotelorism in patients with AIMS.</div>
 
 
 
@@ -6445,14 +6867,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
@@ -6511,16 +6933,75 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-face" data-dismech-node="Flat face" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Flat face
+
+
+                    <span class="phenotype-id">
+                        Flat face
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012368" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012368">HP:0012368</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ridges, ﬂat face, and thin upper lip vermilion"</div>
+
+
+                <div class="evidence-explanation">Names flat face within the facial features shared across the index families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscle weakness
 
@@ -6605,7 +7086,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized hypotonia
 
@@ -6668,7 +7149,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-spasm" data-dismech-node="Muscle spasm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscle spasm
 
@@ -6749,7 +7230,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spasticity
 
@@ -6808,7 +7289,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lumbar-hyperlordosis" data-dismech-node="Lumbar hyperlordosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lumbar hyperlordosis
 
@@ -6873,14 +7354,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual disability
 
@@ -6965,7 +7446,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global developmental delay
 
@@ -7046,7 +7527,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postural-instability" data-dismech-node="Postural instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Postural instability
 
@@ -7109,7 +7590,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperintensity-of-cerebral-white-matter-on-mri" data-dismech-node="Hyperintensity of cerebral white matter on MRI" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperintensity of cerebral white matter on MRI
 
@@ -7136,7 +7617,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -7184,6 +7665,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lesions have increased signiﬁcantly since the ﬁrst investigation."</div>
+
+
+                <div class="evidence-explanation">Serial MRI documented progression of the white matter lesions in an index patient.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -7194,7 +7697,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-corpus-callosum-morphology" data-dismech-node="Abnormal corpus callosum morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal corpus callosum morphology
 
@@ -7253,7 +7756,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizure
 
@@ -7334,9 +7837,11 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperreflexia
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
                     <span class="phenotype-id">
@@ -7352,7 +7857,7 @@
                     </div>
 
 
-                    <div class="item-desc">Frequency band deliberately omitted. PMID:31575858 does state hyperreflexia in the oldest four of six index patients, which would map to FREQUENT, but every sentence in the cached text that carries that count spells &#34;hyperreflexia&#34; across a PDF ligature-plus-line-break artifact (&#34;hyperre&#34; + ligature + &#34;flexia&#34;), so no byte-exact quote of the counting sentence is possible from the cache. Rather than record a band whose supporting sentence cannot be quoted, the band is omitted and the count is recorded here. The evidence item below quotes the authors&#39; clean sentence attributing the hyperreflexia to the white matter injury.</div>
+                    <div class="item-desc">Frequency derivation: PMID:31575858 reports hyperreflexia in the oldest four of six index patients (4/6 = 67%), supporting FREQUENT (30-79%). The exact snippet below retains the source PDF&#39;s &#34;fl&#34; ligature.</div>
 
 
 
@@ -7376,10 +7881,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"which might be caused by the white matter abnormalities and decreased inhibition or increased activation of upper motor neurons"</div>
+                <div class="evidence-snippet">"hyperreﬂexia is found in the oldest four."</div>
 
 
-                <div class="evidence-explanation">The authors&#39; own sentence about the observed lower-limb hyperreflexia and its proposed white-matter origin.</div>
+                <div class="evidence-explanation">Gives the 4/6 index-cohort denominator for hyperreflexia.</div>
 
 
 
@@ -7395,7 +7900,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anxiety
 
@@ -7454,7 +7959,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dementia" data-dismech-node="Dementia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dementia
 
@@ -7537,14 +8042,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short stature
 
@@ -7605,14 +8110,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-easy-fatigability" data-dismech-node="Easy fatigability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Easy fatigability
 
@@ -7719,7 +8224,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periventricular-leukomalacia" data-dismech-node="Periventricular leukomalacia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Periventricular leukomalacia
 
@@ -7800,7 +8305,245 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-upper-lip-vermilion" data-dismech-node="Thin upper lip vermilion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin upper lip vermilion
+
+
+                    <span class="phenotype-id">
+                        Thin upper lip vermilion
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000219">HP:0000219</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ridges, ﬂat face, and thin upper lip vermilion"</div>
+
+
+                <div class="evidence-explanation">Names thin upper lip vermilion within the shared facial gestalt.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-incisor-macrodontia" data-dismech-node="Incisor macrodontia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Incisor macrodontia
+
+
+                    <span class="phenotype-id">
+                        Incisor macrodontia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011081" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011081">HP:0011081</a>
+
+
+                    </span>
+
+                    </div>
+
+
+                    <div class="item-desc">The evidence snippet begins at &#34;dontia&#34; because the source PDF extracts &#34;macrodontia&#34; across a line break as &#34;macro-&#34; plus &#34;dontia&#34;.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dontia and/or widely spaced upper central incisors and dental malocclusion."</div>
+
+
+                <div class="evidence-explanation">Names macrodontia among the shared dental features of the index families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dental-malocclusion" data-dismech-node="Dental malocclusion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dental malocclusion
+
+
+                    <span class="phenotype-id">
+                        Dental malocclusion
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000689" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000689">HP:0000689</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dontia and/or widely spaced upper central incisors and dental malocclusion."</div>
+
+
+                <div class="evidence-explanation">Names dental malocclusion among the shared dental features of the index families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-widely-spaced-maxillary-central-incisors" data-dismech-node="Widely-spaced maxillary central incisors" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Widely-spaced maxillary central incisors
+
+
+                    <span class="phenotype-id">
+                        Widely-spaced maxillary central incisors
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001566" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001566">HP:0001566</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dontia and/or widely spaced upper central incisors and dental malocclusion."</div>
+
+
+                <div class="evidence-explanation">Names widely spaced upper central incisors among the shared dental features of the index families.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-supraorbital-ridges" data-dismech-node="Prominent supraorbital ridges" data-dismech-type="phenotype">
                     <div class="item-name">
                         Prominent supraorbital ridges
 
@@ -7843,7 +8586,7 @@
                 <div class="evidence-snippet">"Affected individuals from the two families share some similar facial features, including prominent supraorbital ridges,"</div>
 
 
-                <div class="evidence-explanation">Names prominent supraorbital ridges as part of the shared facial gestalt. The sentence continues with flat face, thin upper lip vermilion, macrodontia and dental malocclusion, but that continuation cannot be quoted byte-exactly because the cached PDF text breaks it across a ligature and a hyphenated line break.</div>
+                <div class="evidence-explanation">Names prominent supraorbital ridges as part of the shared facial gestalt.</div>
 
 
 
@@ -7898,7 +8641,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-abcc9" data-dismech-node="ABCC9" data-dismech-type="genetic">
                 <div class="item-name">
                     ABCC9
 
@@ -8011,9 +8754,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8025,7 +8772,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-and-multidisciplinary-care" data-dismech-node="Supportive and multidisciplinary care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive and multidisciplinary care
                 </div>
@@ -8060,7 +8807,7 @@
 
 
 
-                <div class="item-desc">No disease-modifying therapy exists for AIMS. Management is supportive and targeted at the individual manifestations: developmental and educational support, physiotherapy and activity pacing for fatigability and weakness, anti-seizure medication where seizures are documented, and cardiac surveillance in older individuals. The most recent cohort additionally recommends monitoring for motor and cognitive decline in older individuals and flags deterioration following surgical procedures.</div>
+                <div class="item-desc">No AIMS-specific disease-modifying treatment is reported in the cited cohorts. The most recent cohort recommends monitoring older individuals for motor and cognitive decline and highlights deterioration following surgical procedures; manifestation-directed treatments reported elsewhere in this entry remain case-based rather than AIMS-specific protocols.</div>
 
 
 
@@ -8073,13 +8820,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42290677" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:42290677" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42290677" target="_blank">PMID:42290677</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8089,7 +8836,7 @@
                 <div class="evidence-snippet">"These latest findings also highlight neonatal presentation of disease, deterioration following surgical procedures, and the potential for motor and cognitive decline, which should be monitored in older individuals."</div>
 
 
-                <div class="evidence-explanation">The only management-directed statement in the AIMS literature: monitor for decline and be alert to peri-procedural deterioration.</div>
+                <div class="evidence-explanation">Supports monitoring for decline and peri-procedural caution, but not a complete multidisciplinary-care protocol; therefore marked PARTIAL.</div>
 
 
 
@@ -8102,7 +8849,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-avoidance-of-calcium-channel-blockers" data-dismech-node="Avoidance of calcium channel blockers" data-dismech-type="treatment">
                 <div class="item-name">
                     Avoidance of calcium channel blockers
                 </div>
@@ -8167,7 +8914,7 @@
 
 
 
-                <div class="item-desc">Calcium channel blockade is contraindicated on current evidence. Verapamil was tested in SUR2 loss-of-function mice on the hypothesis that excess CaV1.1-mediated calcium entry drove the myopathy; instead of rescuing the phenotype it caused premature death, and genetically rendering CaV1.1 non-permeable also failed to reverse the pathology. The authors state explicitly that this cautions against calcium channel blockers in AIMS. This is a model-organism safety signal, not a human trial result, and is recorded here because it is the only actionable drug-safety statement in the AIMS literature.</div>
+                <div class="item-desc">Calcium channel blockers warrant strong caution on current preclinical evidence. Verapamil was tested in SUR2 loss-of-function mice on the hypothesis that excess CaV1.1-mediated calcium entry drove the myopathy; instead of rescuing the phenotype it caused premature death, and genetically rendering CaV1.1 non-permeable also failed to reverse the pathology. The authors state explicitly that this cautions against calcium channel blockers in AIMS. This is a model-organism safety signal, not a human trial result, and is recorded here because it is the only actionable drug-safety statement in the AIMS literature.</div>
 
 
 
@@ -8231,7 +8978,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physiotherapy-and-activity-pacing" data-dismech-node="Physiotherapy and activity pacing" data-dismech-type="treatment">
                 <div class="item-name">
                     Physiotherapy and activity pacing
                 </div>
@@ -8308,7 +9055,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-heart-failure-pharmacotherapy" data-dismech-node="Heart failure pharmacotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Heart failure pharmacotherapy
                 </div>
@@ -8437,7 +9184,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-seizure-medication" data-dismech-node="Anti-seizure medication" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-seizure medication
                 </div>
@@ -8568,7 +9315,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-creatine-kinase" data-dismech-node="Serum creatine kinase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum creatine kinase
 
@@ -9091,7 +9838,7 @@
 
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
-                    Acquired periventricular leukomalacia from perinatal hypoxic-ischaemic injury is the standard explanation for the MRI pattern that AIMS produces, and is the reason AIMS is under-diagnosed. The most recent AIMS cohort describes the white matter abnormalities explicitly as resembling periventricular leukomalacia. A child with spastic motor impairment, developmental delay and a leukomalacia-like MRI is routinely labelled with cerebral palsy of perinatal origin and never sequenced. In the index AIMS families pregnancy and birth were uneventful, and one patient was instead investigated for tuberous sclerosis on the basis of the MRI.
+                    The most recent AIMS cohort describes its white matter abnormalities as resembling periventricular leukomalacia, making acquired perinatal injury an important radiological differential. AIMS is distinguished by its biallelic ABCC9 loss-of-function cause and accompanying myopathic phenotype; pregnancy and birth were uneventful in a documented index patient.
                 </div>
 
 
@@ -9100,9 +9847,9 @@
 
                     <ul>
 
-                        <li>Acquired perinatal insult, typically with a documented history of prematurity, hypoxia-ischaemia or perinatal complications - absent in the AIMS index families, where pregnancy and birth were uneventful</li>
+                        <li>Acquired perinatal insult typically has a relevant perinatal history, whereas a documented AIMS index patient had an uneventful pregnancy and birth</li>
 
-                        <li>Non-progressive by definition, whereas AIMS lesions increased significantly on serial imaging in at least one patient</li>
+                        <li>Acquired perinatal leukomalacia is non-progressive, whereas serial MRI documented progression of AIMS white matter lesions in an index patient</li>
 
                         <li>No accompanying fatigable myopathy with painful post-exercise spasms</li>
 
@@ -9118,7 +9865,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -9157,10 +9904,32 @@
 
                 </div>
 
-                <div class="evidence-snippet">"All have cerebral white matter hyperintensities"</div>
+                <div class="evidence-snippet">"Pregnancy and birth were uneventful."</div>
 
 
-                <div class="evidence-explanation">Cerebral white matter change in every patient of a cohort whose pregnancies and births were uneventful is precisely the finding otherwise attributed to perinatal injury.</div>
+                <div class="evidence-explanation">Documents the absence of an acquired perinatal explanation in an index patient with the genetic syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lesions have increased signiﬁcantly since the ﬁrst investigation."</div>
+
+
+                <div class="evidence-explanation">Documents progression on serial imaging, distinguishing the AIMS pattern from a static acquired perinatal lesion.</div>
 
 
 
@@ -9270,7 +10039,7 @@
 
                 <div class="differential-similarities">
                     <strong>Overlapping Features</strong>
-                    Primary mitochondrial disease is the standard alternative for a child with myopathy, exercise intolerance, cerebral white matter change and a lactate rise during illness - the exact AIMS phenotype. The index families had mitochondrial DNA sequence and deletion screening, plus screening for inborn errors of metabolism, performed and normal before exome sequencing found ABCC9, and the one AIMS muscle biopsy performed showed mitochondrial aggregation, which reinforces the confusion rather than resolving it.
+                    Mitochondrial disease is an important alternative for the combination of myopathy, exercise intolerance and cerebral white matter change. In several index patients, mitochondrial DNA sequence/deletion testing and screening for inborn errors of metabolism were among investigations reported as normal before ABCC9 was identified.
                 </div>
 
 
@@ -9283,11 +10052,9 @@
 
                         <li>Normal mitochondrial DNA sequencing and deletion screening in the AIMS index families</li>
 
-                        <li>Baseline serum lactate, creatine kinase, nerve conduction and electromyography are normal in AIMS; lactate rises only during acute decompensation</li>
+                        <li>Baseline serum lactate, creatine kinase, nerve conduction and electromyography were normal in the index cohort</li>
 
                         <li>Strictly autosomal recessive, without the maternal transmission or heteroplasmy-dependent variability of mtDNA disease</li>
-
-                        <li>Non-specific muscle biopsy findings, not ragged-red fibres or respiratory-chain enzyme deficiency</li>
 
                     </ul>
 
@@ -9297,7 +10064,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -9345,6 +10112,30 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:31575858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31575858" target="_blank">PMID:31575858</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"performed with normal results in several of the patients"</div>
+
+
+                <div class="evidence-explanation">Establishes that the extensive pre-exome investigations were normal in several index patients.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -9451,7 +10242,6 @@ classifications:
 notes: &gt;-
   Scope, named-entity and provenance notes for this entry.
 
-
   (1) Named-entity confusion is the central curation risk here, and the
   discriminator is direction of effect, not gene identity. ABCC9 causes two
   mechanistically opposite diseases. Cantu syndrome (MONDO:0009406,
@@ -9465,7 +10255,6 @@ notes: &gt;-
   this entry only inside the Cantu differential-diagnosis entry and in the
   contrast sentences of AIMS papers themselves, and are labelled as such.
 
-
   (2) ABCC8 versus ABCC9. ABCC8 (SUR1) is one character away from ABCC9 (SUR2)
   and is the other sulfonylurea-receptor KATP subunit. ABCC8 loss of function
   causes congenital hyperinsulinism and ABCC8 gain of function causes neonatal
@@ -9473,7 +10262,6 @@ notes: &gt;-
   curated here as bound differentials so the distinction is machine-readable.
   No snippet in this entry that is attributed to ABCC9 comes from an
   ABCC8-only paper.
-
 
   (3) No GeneReviews chapter exists for AIMS. PubMed searches on 2026-08-01 for
   &#34;ABCC9 GeneReviews[All Fields]&#34;, &#34;\&#34;intellectual disability and myopathy
@@ -9489,7 +10277,6 @@ notes: &gt;-
   deliberately NOT transferred to AIMS - those are KATP openers whose rationale
   is the opposite direction of effect.
 
-
   (4) Phenotype frequency bands are derived only where a published denominator
   exists and the derivation is recorded on each phenotype. The three cohorts
   above give 20 reported patients in total, but they do not report a uniform
@@ -9498,7 +10285,6 @@ notes: &gt;-
   &#34;the two oldest patients&#34;, &#34;the oldest four&#34;). Where a feature is listed in a
   narrative series without a denominator (for example anxiety, hearing loss,
   dementia), the frequency slot is omitted rather than guessed.
-
 
   (5) Heterozygous ABCC9 loss-of-function is a separate question from AIMS and
   is not curated as an AIMS phenotype. Heterozygous carriers in the AIMS
@@ -9512,21 +10298,18 @@ notes: &gt;-
   there is no Cantu syndrome entry in the KB to cross-reference, so the Cantu
   differential below carries its own bound MONDO term instead.
 
-
   (6) The excess of intra-uterine fetal death reported in AIMS families
   (PMID:38217872) is recorded as a reproductive observation in the genetic
   section rather than as a patient phenotype, because the paper reports it in
   heterozygous parents and does not establish the fetal genotypes.
 
-
   (7) No ORPHA, ClinGen (CGGV) or ClinGen Dosage (CGDS) structured-source
   citation is used in this entry. Both structured-source pins are stale and
-  un-refreshable (tracked in issue #7622), and bumping data/*/MANIFEST.yaml is
+  un-refreshable (tracked in GitHub issue 7622), and bumping data/*/MANIFEST.yaml is
   out of scope for a curation PR, so any row that would have needed a manifest
   refresh was skipped rather than cited from a stale snapshot. The deep-research
   run additionally reports that no Orphanet code exists for AIMS at all, so no
   ORPHA prevalence class would have been citable even with a fresh pin.
-
 
   (8) Provenance. Deep research was run with the claude_code provider; the
   report is at
@@ -9543,7 +10326,6 @@ notes: &gt;-
   full-text details cannot be quoted verbatim from the cache. The verapamil /
   calcium-channel-blocker hazard IS curated because it is stated in the
   PMID:37154692 abstract and verifies byte-exact.
-
 
   (9) A KATP-opener therapy (diazoxide, pinacidil, minoxidil, nicorandil) is
   deliberately NOT listed as a candidate treatment, despite being the inviting
@@ -9861,8 +10643,8 @@ pathophysiology:
   biological_scale: CELLULAR
   description: &gt;-
     Loss of the fatigue-activated potassium conductance removes the brake on
-    sarcolemmal excitability during sustained activity, so the fibre cannot
-    limit calcium entry or recover normally from fatigue.
+    sarcolemmal excitability during sustained activity, impairing recovery from
+    fatigue and predisposing the fibre to contraction without stimulation.
   biological_processes:
   - preferred_term: regulation of membrane potential
     term:
@@ -9882,10 +10664,10 @@ pathophysiology:
     snippet: &#34;Therefore, loss of KATP function might be expected to result in failure to recover from fatigue&#34;
     explanation: The authors&#39; explicit mechanistic prediction for what loss of the conductance does to a fatiguing fibre.
   downstream:
-  - target: Unstimulated Force Generation and Calcium Overload
+  - target: Unstimulated Force Generation
     description: &gt;-
-      Unopposed depolarisation during fatigue produces contraction in the
-      absence of stimulation and excessive calcium entry.
+      Loss of KATP-dependent electrical adaptation during fatigue is followed
+      by contraction in the absence of stimulation.
     causal_link_type: DIRECT
     evidence:
     - reference: PMID:37154692
@@ -9900,26 +10682,18 @@ pathophysiology:
       evidence_source: MODEL_ORGANISM
       snippet: &#34;Under fatiguing conditions, isometric tetanic contraction experiments on murine extensor digitorum longus (EDL) revealed delayed loss of stimulated forces, and significant development of unstimulated forces, in muscles lacking Kir6.2 or SUR2 subunits, whereas loss of the SUR1 subunit did not impact muscle functionality.&#34;
       explanation: Replicates unstimulated force development specifically in SUR2-null muscle under fatigue.
-- name: Unstimulated Force Generation and Calcium Overload
+- name: Unstimulated Force Generation
   biological_scale: CELLULAR
   description: &gt;-
     SUR2-null muscle generates force without stimulation under fatiguing
     conditions, the proposed cellular correlate of the painful spasms reported
-    by patients. Excessive calcium influx was the hypothesised downstream
-    effector, but blocking CaV1.1 permeation genetically did not reverse the
-    pathology and the calcium channel blocker verapamil was harmful, so the
-    calcium arm is not established as the sole effector.
+    by patients. The downstream effector remains unresolved; CaV1.1-mediated
+    calcium influx was tested directly and did not explain the myopathy.
   cell_types:
   - preferred_term: skeletal muscle fiber
     term:
       id: CL:0008002
       label: skeletal muscle fiber
-  biological_processes:
-  - preferred_term: calcium ion transmembrane transport
-    term:
-      id: GO:0070588
-      label: calcium ion transmembrane transport
-    modifier: INCREASED
   evidence:
   - reference: PMID:37154692
     reference_title: Skeletal muscle delimited myopathy and verapamil toxicity in SUR2 mutant mouse models of AIMS.
@@ -9927,18 +10701,6 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;In isolated muscle, SUR2 LoF results in abnormal generation of unstimulated forces, potentially explaining painful spasms in AIMS.&#34;
     explanation: Establishes the unstimulated-force phenotype and its proposed clinical correlate.
-  - reference: PMID:37154692
-    reference_title: Skeletal muscle delimited myopathy and verapamil toxicity in SUR2 mutant mouse models of AIMS.
-    supports: REFUTE
-    evidence_source: MODEL_ORGANISM
-    snippet: &#34;We sought to determine whether excessive Ca2+ influx through CaV 1.1 channels was responsible for myopathology but found that the Ca2+ channel blocker verapamil unexpectedly resulted in premature death of AIMS mice and that rendering CaV 1.1 channels nonpermeable by mutation failed to reverse pathology; results which caution against the use of calcium channel blockers in AIMS.&#34;
-    explanation: &gt;-
-      Recorded as REFUTE against the specific sub-hypothesis that excessive
-      CaV1.1-mediated calcium influx is the effector of the myopathy: both the
-      pharmacological and the genetic test of that hypothesis failed, and the
-      pharmacological one was harmful. The unstimulated-force phenotype itself
-      is unaffected by this refutation; only the calcium-influx explanation of
-      it is.
   downstream:
   - target: Skeletal-Muscle-Delimited Myopathy
     description: &gt;-
@@ -9994,9 +10756,9 @@ pathophysiology:
 - name: Loss of Cardiomyocyte KATP Conductance
   biological_scale: CELLULAR
   description: &gt;-
-    SUR2A partners Kir6.2 in the cardiomyocyte sarcolemma, where KATP opening
-    protects the myocyte during metabolic stress. Its absence removes that
-    protection.
+    SUR2-containing KATP channels in cardiomyocytes couple cellular metabolism
+    to membrane excitability. Loss of functional SUR2 removes that
+    metabolically responsive conductance.
   cell_types:
   - preferred_term: cardiac muscle cell
     term:
@@ -10348,8 +11110,8 @@ phenotypes:
   category: Nervous System
   description: &gt;-
     Objectively measured balance impairment. Formal miniBESTest assessment
-    found moderate to severe balance deficits in every index patient, alongside
-    a reduced 6-minute walk distance.
+    found balance deficits in every index patient, alongside a reduced
+    6-minute walk distance.
   phenotype_term:
     preferred_term: Balance impairment
     term:
@@ -10479,13 +11241,20 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, we report a syndrome in six patients from two families with a consistent phenotype of mild intellectual disability, similar facies, myopathy, and cerebral white matter hyperintensities, with cardiac systolic dysfunction present in the two oldest patients.&#34;
     explanation: White matter hyperintensity is part of the founding syndrome definition.
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Lesions have increased signiﬁcantly since the ﬁrst investigation.&#34;
+    explanation: Serial MRI documented progression of the white matter lesions in an index patient.
 - name: Periventricular leukomalacia
   category: Nervous System
   description: &gt;-
     A periventricular-leukomalacia-like white matter pattern, described in the
-    most recent cohort as a key radiological hallmark. It is a mimic of acquired
-    perinatal hypoxic-ischaemic injury and is the main source of diagnostic
-    confusion in AIMS.
+    most recent cohort as a key radiological hallmark. The radiological
+    resemblance makes acquired periventricular leukomalacia an important
+    differential, but the cited cohort does not establish a hypoxic-ischaemic
+    cause for the AIMS lesions.
   phenotype_term:
     preferred_term: Periventricular leukomalacia
     term:
@@ -10572,25 +11341,18 @@ phenotypes:
     term:
       id: HP:0001347
       label: Hyperreflexia
+  frequency: FREQUENT
   notes: &gt;-
-    Frequency band deliberately omitted. PMID:31575858 does state hyperreflexia
-    in the oldest four of six index patients, which would map to FREQUENT, but
-    every sentence in the cached text that carries that count spells
-    &#34;hyperreflexia&#34; across a PDF ligature-plus-line-break artifact
-    (&#34;hyperre&#34; + ligature + &#34;flexia&#34;), so no byte-exact quote of the counting
-    sentence is possible from the cache. Rather than record a band whose
-    supporting sentence cannot be quoted, the band is omitted and the count is
-    recorded here. The evidence item below quotes the authors&#39; clean sentence
-    attributing the hyperreflexia to the white matter injury.
+    Frequency derivation: PMID:31575858 reports hyperreflexia in the oldest four
+    of six index patients (4/6 = 67%), supporting FREQUENT (30-79%). The exact
+    snippet below retains the source PDF&#39;s &#34;fl&#34; ligature.
   evidence:
   - reference: PMID:31575858
     reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;which might be caused by the white matter abnormalities and decreased inhibition or increased activation of upper motor neurons&#34;
-    explanation: &gt;-
-      The authors&#39; own sentence about the observed lower-limb hyperreflexia and
-      its proposed white-matter origin.
+    snippet: &#34;hyperreﬂexia is found in the oldest four.&#34;
+    explanation: Gives the 4/6 index-cohort denominator for hyperreflexia.
 - name: Microcephaly
   category: Growth
   description: Reduced head circumference, reported in the expanded cohort.
@@ -10724,6 +11486,47 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Lumbar lordosis is found in all but one, and scoliosis in one.&#34;
     explanation: Gives the 5/6 denominator for lumbar lordosis and 1/6 for scoliosis.
+- name: Feeding difficulties
+  category: Digestive System
+  description: Feeding difficulties were reported during childhood in all six index patients.
+  phenotype_term:
+    preferred_term: Feeding difficulties
+    term:
+      id: HP:0011968
+      label: Feeding difficulties
+    onset:
+      onset_category: CHILDHOOD
+  frequency: VERY_FREQUENT
+  notes: &gt;-
+    Frequency derivation: PMID:31575858 reports childhood feeding difficulties
+    in all six index patients (6/6 = 100%), supporting VERY_FREQUENT (80-100%).
+    The exact snippet retains the source PDF&#39;s &#34;fi&#34; ligature.
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Feeding dif ﬁculties in childhood were reported in all individuals.&#34;
+    explanation: Gives both the childhood timing and the 6/6 index-cohort denominator.
+- name: Strabismus
+  category: Eye
+  description: Strabismus was reported in several affected individuals.
+  phenotype_term:
+    preferred_term: Strabismus
+    term:
+      id: HP:0000486
+      label: Strabismus
+  notes: &gt;-
+    The evidence snippet begins at &#34;bismus&#34; because the source PDF extracts
+    &#34;Strabismus&#34; across a line break as &#34;Stra-&#34; plus &#34;bismus&#34;. The retained
+    span is the longest byte-exact text that carries the cohort qualifier.
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;bismus and myopia were found in several individuals&#34;
+    explanation: Directly reports strabismus in several index patients.
 - name: Hypotelorism
   category: Head and Neck
   description: &gt;-
@@ -10756,18 +11559,95 @@ phenotypes:
     reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
-    snippet: &#34;Consistent with hypotelorism observed in multiple AIMS&#34;
+    snippet: &#34;Consistent with hypotelorism observed in multiple AIMS patients, signi ﬁcantly decreased interorbital distance, normalized to overall larval body length, was observed in SUR2-STOP zebraﬁsh&#34;
     explanation: &gt;-
-      Cross-species link: the SUR2-STOP zebrafish shows a decreased interorbital
-      distance, the only dysmorphic feature of AIMS the model reproduces.
+      Directly links the significantly decreased interorbital distance in the
+      SUR2-STOP zebrafish to hypotelorism in patients with AIMS.
+- name: Flat face
+  category: Head and Neck
+  description: Flat facial shape was part of the shared facial appearance in the two index families.
+  phenotype_term:
+    preferred_term: Flat face
+    term:
+      id: HP:0012368
+      label: Flat face
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ridges, ﬂat face, and thin upper lip vermilion&#34;
+    explanation: Names flat face within the facial features shared across the index families.
+- name: Thin upper lip vermilion
+  category: Head and Neck
+  description: Thin upper lip vermilion was part of the shared facial appearance in the two index families.
+  phenotype_term:
+    preferred_term: Thin upper lip vermilion
+    term:
+      id: HP:0000219
+      label: Thin upper lip vermilion
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ridges, ﬂat face, and thin upper lip vermilion&#34;
+    explanation: Names thin upper lip vermilion within the shared facial gestalt.
+- name: Incisor macrodontia
+  category: Head and Neck
+  description: Incisor macrodontia was part of the shared dental appearance in the two index families.
+  phenotype_term:
+    preferred_term: Incisor macrodontia
+    term:
+      id: HP:0011081
+      label: Incisor macrodontia
+  notes: &gt;-
+    The evidence snippet begins at &#34;dontia&#34; because the source PDF extracts
+    &#34;macrodontia&#34; across a line break as &#34;macro-&#34; plus &#34;dontia&#34;.
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;dontia and/or widely spaced upper central incisors and dental malocclusion.&#34;
+    explanation: Names macrodontia among the shared dental features of the index families.
+- name: Dental malocclusion
+  category: Head and Neck
+  description: Dental malocclusion was part of the shared dental appearance in the two index families.
+  phenotype_term:
+    preferred_term: Dental malocclusion
+    term:
+      id: HP:0000689
+      label: Dental malocclusion
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;dontia and/or widely spaced upper central incisors and dental malocclusion.&#34;
+    explanation: Names dental malocclusion among the shared dental features of the index families.
+- name: Widely-spaced maxillary central incisors
+  category: Head and Neck
+  description: Widely spaced upper central incisors were part of the shared dental appearance in the two index families.
+  phenotype_term:
+    preferred_term: Widely-spaced maxillary central incisors
+    term:
+      id: HP:0001566
+      label: Widely-spaced maxillary central incisors
+  evidence:
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;dontia and/or widely spaced upper central incisors and dental malocclusion.&#34;
+    explanation: Names widely spaced upper central incisors among the shared dental features of the index families.
 - name: Prominent supraorbital ridges
   category: Head and Neck
   description: &gt;-
-    Part of the shared facial gestalt of the index families, which also
-    included a flat face, thin upper lip vermilion, macrodontia and dental
-    malocclusion. The gestalt is explicitly NOT the coarse acromegaloid face of
-    Cantu syndrome, and the original authors cautioned that with only two
-    families it is not yet established as consistent.
+    Prominent supraorbital ridges were one component of the similar facial
+    appearance shared by affected individuals in the two index families. The
+    small number of families limits confidence that this is a consistent AIMS
+    feature.
   phenotype_term:
     preferred_term: Prominent supraorbital ridges
     term:
@@ -10779,12 +11659,7 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Affected individuals from the two families share some similar facial features, including prominent supraorbital ridges,&#34;
-    explanation: &gt;-
-      Names prominent supraorbital ridges as part of the shared facial gestalt.
-      The sentence continues with flat face, thin upper lip vermilion,
-      macrodontia and dental malocclusion, but that continuation cannot be
-      quoted byte-exactly because the cached PDF text breaks it across a
-      ligature and a hyphenated line break.
+    explanation: Names prominent supraorbital ridges as part of the shared facial gestalt.
 - name: Sensorineural hearing impairment
   category: Ear
   description: &gt;-
@@ -10922,13 +11797,11 @@ genetic:
 treatments:
 - name: Supportive and multidisciplinary care
   description: &gt;-
-    No disease-modifying therapy exists for AIMS. Management is supportive and
-    targeted at the individual manifestations: developmental and educational
-    support, physiotherapy and activity pacing for fatigability and weakness,
-    anti-seizure medication where seizures are documented, and cardiac
-    surveillance in older individuals. The most recent cohort additionally
-    recommends monitoring for motor and cognitive decline in older individuals
-    and flags deterioration following surgical procedures.
+    No AIMS-specific disease-modifying treatment is reported in the cited
+    cohorts. The most recent cohort recommends monitoring older individuals for
+    motor and cognitive decline and highlights deterioration following surgical
+    procedures; manifestation-directed treatments reported elsewhere in this
+    entry remain case-based rather than AIMS-specific protocols.
   treatment_term:
     preferred_term: Supportive Care
     term:
@@ -10937,16 +11810,17 @@ treatments:
   evidence:
   - reference: PMID:42290677
     reference_title: &#34;Cognitive Decline, Neurologic Involvement, and Neonatal Crisis in ABCC9-Related Intellectual Disability and Myopathy Syndrome.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These latest findings also highlight neonatal presentation of disease, deterioration following surgical procedures, and the potential for motor and cognitive decline, which should be monitored in older individuals.&#34;
     explanation: &gt;-
-      The only management-directed statement in the AIMS literature: monitor for
-      decline and be alert to peri-procedural deterioration.
+      Supports monitoring for decline and peri-procedural caution, but not a
+      complete multidisciplinary-care protocol; therefore marked PARTIAL.
 - name: Avoidance of calcium channel blockers
   description: &gt;-
-    Calcium channel blockade is contraindicated on current evidence. Verapamil
-    was tested in SUR2 loss-of-function mice on the hypothesis that excess
+    Calcium channel blockers warrant strong caution on current preclinical
+    evidence. Verapamil was tested in SUR2 loss-of-function mice on the
+    hypothesis that excess
     CaV1.1-mediated calcium entry drove the myopathy; instead of rescuing the
     phenotype it caused premature death, and genetically rendering CaV1.1
     non-permeable also failed to reverse the pathology. The authors state
@@ -11089,11 +11963,9 @@ diagnosis:
 - name: Molecular genetic testing of ABCC9
   description: &gt;-
     Diagnosis rests on identifying biallelic loss-of-function ABCC9 variants,
-    usually by exome or genome sequencing. Direction of effect must be
-    established: a monoallelic missense ABCC9 variant points to Cantu syndrome,
-    not AIMS. In the index families years of targeted neuromuscular,
-    mitochondrial and metabolic testing had been normal before exome sequencing
-    found the answer.
+    with comprehensive clinical exome sequencing used in the index families.
+    Direction of effect and zygosity must be established because dominant
+    gain-of-function ABCC9 variants cause Cantu syndrome rather than AIMS.
   diagnosis_term:
     preferred_term: Genetic Testing
     term:
@@ -11112,14 +11984,18 @@ diagnosis:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here we identify nine additional subjects, from seven unrelated families, harbouring different homozygous loss-of-function variants in ABCC9 and presenting with a conserved range of clinical features.&#34;
     explanation: Confirms that homozygous loss-of-function ABCC9 genotyping is the diagnostic route.
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;families are investigated by comprehensive clinical exome sequencing&#34;
+    explanation: Identifies clinical exome sequencing as the test used to solve the index families.
 - name: Brain MRI
   description: &gt;-
-    Brain MRI is the highest-yield imaging study. It shows cerebral white matter
-    hyperintensities, often with a periventricular-leukomalacia-like or small
-    vessel disease pattern, and may show corpus callosum abnormalities. Because
-    the pattern mimics acquired perinatal injury, a leukomalacia-like MRI in a
-    child with myopathy and no perinatal history should prompt genetic testing
-    rather than closing the case.
+    Brain MRI shows cerebral white matter hyperintensities, often with a
+    periventricular-leukomalacia-like or small-vessel-disease pattern. This
+    radiological hallmark is diagnostically useful when it occurs with the
+    developmental and myopathic features of AIMS.
   diagnosis_term:
     preferred_term: Magnetic Resonance Imaging
     term:
@@ -11245,6 +12121,26 @@ mechanistic_hypotheses:
     explanation: &gt;-
       Supplies the developmental cerebrovascular role, but in animal and cell
       models rather than AIMS patients.
+- hypothesis_group_id: cav1_1_calcium_influx_myopathy
+  hypothesis_label: CaV1.1-mediated calcium influx as the driver of AIMS myopathy
+  status: DEPRECATED
+  description: &gt;-
+    Excessive calcium influx through skeletal-muscle CaV1.1 channels was tested
+    as the downstream cause of the SUR2 loss-of-function myopathy. The model is
+    not retained as the current mechanism: making CaV1.1 non-permeable did not
+    reverse the pathology, while verapamil caused premature death in AIMS mice.
+    The directly observed unstimulated-force phenotype remains established, but
+    its downstream effector is unresolved.
+  evidence:
+  - reference: PMID:37154692
+    reference_title: Skeletal muscle delimited myopathy and verapamil toxicity in SUR2 mutant mouse models of AIMS.
+    supports: REFUTE
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;We sought to determine whether excessive Ca2+ influx through CaV 1.1 channels was responsible for myopathology but found that the Ca2+ channel blocker verapamil unexpectedly resulted in premature death of AIMS mice and that rendering CaV 1.1 channels nonpermeable by mutation failed to reverse pathology; results which caution against the use of calcium channel blockers in AIMS.&#34;
+    explanation: &gt;-
+      Direct pharmacologic and genetic tests failed to support CaV1.1-mediated
+      calcium influx as the cause of the myopathy; the drug intervention was
+      additionally harmful.
 discussions:
 - discussion_id: aims_id_anxiety_model_mismatch
   kind: HUMAN_MODEL_MISMATCH
@@ -11554,18 +12450,14 @@ differential_diagnoses:
     explanation: Establishes that the AIMS carrier state is not itself a recognisable clinical phenotype.
 - name: Periventricular leukomalacia of perinatal hypoxic-ischaemic origin
   description: &gt;-
-    Acquired periventricular leukomalacia from perinatal hypoxic-ischaemic
-    injury is the standard explanation for the MRI pattern that AIMS produces,
-    and is the reason AIMS is under-diagnosed. The most recent AIMS cohort
-    describes the white matter abnormalities explicitly as resembling
-    periventricular leukomalacia. A child with spastic motor impairment,
-    developmental delay and a leukomalacia-like MRI is routinely labelled with
-    cerebral palsy of perinatal origin and never sequenced. In the index AIMS
-    families pregnancy and birth were uneventful, and one patient was instead
-    investigated for tuberous sclerosis on the basis of the MRI.
+    The most recent AIMS cohort describes its white matter abnormalities as
+    resembling periventricular leukomalacia, making acquired perinatal injury
+    an important radiological differential. AIMS is distinguished by its
+    biallelic ABCC9 loss-of-function cause and accompanying myopathic phenotype;
+    pregnancy and birth were uneventful in a documented index patient.
   distinguishing_features:
-  - Acquired perinatal insult, typically with a documented history of prematurity, hypoxia-ischaemia or perinatal complications - absent in the AIMS index families, where pregnancy and birth were uneventful
-  - Non-progressive by definition, whereas AIMS lesions increased significantly on serial imaging in at least one patient
+  - Acquired perinatal insult typically has a relevant perinatal history, whereas a documented AIMS index patient had an uneventful pregnancy and birth
+  - Acquired perinatal leukomalacia is non-progressive, whereas serial MRI documented progression of AIMS white matter lesions in an index patient
   - No accompanying fatigable myopathy with painful post-exercise spasms
   - No familial recurrence pattern; AIMS is recessive with affected siblings
   - No late systolic cardiac dysfunction
@@ -11591,11 +12483,18 @@ differential_diagnoses:
     reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;All have cerebral white matter hyperintensities&#34;
+    snippet: &#34;Pregnancy and birth were uneventful.&#34;
     explanation: &gt;-
-      Cerebral white matter change in every patient of a cohort whose pregnancies
-      and births were uneventful is precisely the finding otherwise attributed to
-      perinatal injury.
+      Documents the absence of an acquired perinatal explanation in an index
+      patient with the genetic syndrome.
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Lesions have increased signiﬁcantly since the ﬁrst investigation.&#34;
+    explanation: &gt;-
+      Documents progression on serial imaging, distinguishing the AIMS pattern
+      from a static acquired perinatal lesion.
 - name: Tuberous sclerosis
   description: &gt;-
     A documented misdiagnosis in AIMS, not a hypothetical one. One index
@@ -11630,19 +12529,16 @@ differential_diagnoses:
       the childhood brain MRI of an AIMS patient.
 - name: Mitochondrial disease
   description: &gt;-
-    Primary mitochondrial disease is the standard alternative for a child with
-    myopathy, exercise intolerance, cerebral white matter change and a lactate
-    rise during illness - the exact AIMS phenotype. The index families had
-    mitochondrial DNA sequence and deletion screening, plus screening for
-    inborn errors of metabolism, performed and normal before exome sequencing
-    found ABCC9, and the one AIMS muscle biopsy performed showed mitochondrial
-    aggregation, which reinforces the confusion rather than resolving it.
+    Mitochondrial disease is an important alternative for the combination of
+    myopathy, exercise intolerance and cerebral white matter change. In several
+    index patients, mitochondrial DNA sequence/deletion testing and screening
+    for inborn errors of metabolism were among investigations reported as
+    normal before ABCC9 was identified.
   distinguishing_features:
   - Caused by biallelic nuclear ABCC9 variants, not by mtDNA or nuclear-encoded mitochondrial gene defects
   - Normal mitochondrial DNA sequencing and deletion screening in the AIMS index families
-  - Baseline serum lactate, creatine kinase, nerve conduction and electromyography are normal in AIMS; lactate rises only during acute decompensation
+  - Baseline serum lactate, creatine kinase, nerve conduction and electromyography were normal in the index cohort
   - Strictly autosomal recessive, without the maternal transmission or heteroplasmy-dependent variability of mtDNA disease
-  - Non-specific muscle biopsy findings, not ragged-red fibres or respiratory-chain enzyme deficiency
   disease_term:
     preferred_term: mitochondrial disease
     term:
@@ -11672,6 +12568,18 @@ differential_diagnoses:
       The imaging in one index patient was read as leukodystrophy-like, which
       is the same white-matter route by which mitochondrial and leukodystrophic
       diagnoses are reached before AIMS is considered.
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;performed with normal results in several of the patients&#34;
+    explanation: Establishes that the extensive pre-exome investigations were normal in several index patients.
+  - reference: PMID:31575858
+    reference_title: ABCC9-related Intellectual disability Myopathy Syndrome is a K(ATP) channelopathy with loss-of-function mutations in ABCC9.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;screening for mitochondrial DNA sequence variants/deletions, and screening for inborn errors of metabolism.&#34;
+    explanation: Identifies mitochondrial DNA and metabolic testing among those normal investigations.
 references:
 - reference: PMID:25275207
   title: Cantú Syndrome.
@@ -13278,7 +14186,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ABCC9-Related Intellectual Disability and Myopathy Syndrome", "mondoId": "MONDO:0859224", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome", "yamlRevision": "f9c2b32eff2d"};
+        const OS_CONFIG = {"diseaseName": "ABCC9-Related Intellectual Disability and Myopathy Syndrome", "mondoId": "MONDO:0859224", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome", "yamlRevision": "706d7806342c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
