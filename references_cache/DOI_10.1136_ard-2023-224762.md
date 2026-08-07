@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1136/ard-2023-224762"
+reference_id: DOI:10.1136/ard-2023-224762
 title: "EULAR recommendations for the management of systemic lupus erythematosus: 2023 update"
 authors:
 - Antonis Fanouriakis
@@ -48,6 +48,7 @@ journal: Annals of the Rheumatic Diseases
 year: '2024'
 doi: 10.1136/ard-2023-224762
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # EULAR recommendations for the management of systemic lupus erythematosus: 2023 update

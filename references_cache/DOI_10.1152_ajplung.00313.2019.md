@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1152/ajplung.00313.2019"
+reference_id: DOI:10.1152/ajplung.00313.2019
 title: "Respiratory defects in the <i>Crtap</i>KO mouse model of osteogenesis imperfecta"
 authors:
 - Milena Dimori
@@ -13,6 +13,7 @@ journal: American Journal of Physiology-Lung Cellular and Molecular Physiology
 year: '2020'
 doi: 10.1152/ajplung.00313.2019
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Respiratory defects in the <i>Crtap</i>KO mouse model of osteogenesis imperfecta

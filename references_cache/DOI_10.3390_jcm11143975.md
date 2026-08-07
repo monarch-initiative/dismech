@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm11143975"
+reference_id: DOI:10.3390/jcm11143975
 title: Efficacy and Safety of Two Salts of Trientine in the Treatment of Wilson’s Disease
 authors:
 - France Woimant
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2022'
 doi: 10.3390/jcm11143975
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Efficacy and Safety of Two Salts of Trientine in the Treatment of Wilson’s Disease

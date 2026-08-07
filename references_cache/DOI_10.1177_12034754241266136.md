@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/12034754241266136"
+reference_id: DOI:10.1177/12034754241266136
 title: "Biomarkers in Pemphigus Vulgaris: A Systematic Review"
 authors:
 - Ryan S. Q. Geng
@@ -11,6 +11,7 @@ journal: Journal of Cutaneous Medicine and Surgery
 year: '2024'
 doi: 10.1177/12034754241266136
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Biomarkers in Pemphigus Vulgaris: A Systematic Review

@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE13162"
+reference_id: GEO:GSE13162
 title: Expression data from postmortem human brain samples with and without FTLD-U
 content_type: summary
+full_text_attempted: true
 ---
 
 # Expression data from postmortem human brain samples with and without FTLD-U

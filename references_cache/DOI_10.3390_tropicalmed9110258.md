@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tropicalmed9110258"
+reference_id: DOI:10.3390/tropicalmed9110258
 title: "Leishmaniasis in Humans and Animals: A One Health Approach for Surveillance, Prevention and Control in a Changing World"
 authors:
 - Claudia Cosma
@@ -11,6 +11,7 @@ journal: Tropical Medicine and Infectious Disease
 year: '2024'
 doi: 10.3390/tropicalmed9110258
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Leishmaniasis in Humans and Animals: A One Health Approach for Surveillance, Prevention and Control in a Changing World

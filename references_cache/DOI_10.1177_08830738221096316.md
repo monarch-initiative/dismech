@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/08830738221096316"
+reference_id: DOI:10.1177/08830738221096316
 title: "Pediatric Nemaline Myopathy: A Systematic Review Using Individual Patient Data"
 authors:
 - Briana Christophers
@@ -11,6 +11,7 @@ journal: Journal of Child Neurology
 year: '2022'
 doi: 10.1177/08830738221096316
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pediatric Nemaline Myopathy: A Systematic Review Using Individual Patient Data

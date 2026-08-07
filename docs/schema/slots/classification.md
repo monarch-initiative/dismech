@@ -22,8 +22,8 @@ Alias: classification
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Subtype](../classes/Subtype.md) |  |  no  |
 | [LogicalCriterion](../classes/LogicalCriterion.md) | A node in a nested boolean membership-criteria expression |  no  |
+| [Subtype](../classes/Subtype.md) |  |  no  |
 
 
 

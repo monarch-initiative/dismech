@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26135954"
+reference_id: DOI:10.3390/ijms26135954
 title: "Inflammasome Signaling in Cardiac Arrhythmias: Linking Inflammation, Fibrosis, and Electrical Remodeling"
 authors:
 - Paschalis Karakasis
@@ -16,6 +16,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26135954
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Inflammasome Signaling in Cardiac Arrhythmias: Linking Inflammation, Fibrosis, and Electrical Remodeling

@@ -3,9 +3,11 @@ from pathlib import Path
 
 import yaml
 
-from dismech.priority_dashboard import PRIORITY_BLOCK_END
-from dismech.priority_dashboard import PRIORITY_BLOCK_START
-from dismech.priority_dashboard import generate_priority_dashboard_report
+from dismech.priority_dashboard import (
+    PRIORITY_BLOCK_END,
+    PRIORITY_BLOCK_START,
+    generate_priority_dashboard_report,
+)
 
 
 def _write(path: Path, content: str) -> None:

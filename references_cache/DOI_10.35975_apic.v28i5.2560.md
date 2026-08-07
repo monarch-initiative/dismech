@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.35975/apic.v28i5.2560"
+reference_id: DOI:10.35975/apic.v28i5.2560
 title: The effect of using low dose norepinephrine before hypotensive resuscitation in hemorrhagic shock; a randomized controlled trial
 authors:
 - Rabab Mohamed Mohamed
@@ -9,6 +9,7 @@ journal: "Anaesthesia, Pain &amp; Intensive Care"
 year: '2024'
 doi: 10.35975/apic.v28i5.2560
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The effect of using low dose norepinephrine before hypotensive resuscitation in hemorrhagic shock; a randomized controlled trial

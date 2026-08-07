@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.v27.i21.2710"
+reference_id: DOI:10.3748/wjg.v27.i21.2710
 title: Molecular alterations in pancreatic tumors
 authors:
 - Michela Visani
@@ -21,6 +21,7 @@ journal: World Journal of Gastroenterology
 year: '2021'
 doi: 10.3748/wjg.v27.i21.2710
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Molecular alterations in pancreatic tumors

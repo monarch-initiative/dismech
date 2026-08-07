@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v16101535"
+reference_id: DOI:10.3390/v16101535
 title: "Taking AIM at Influenza: The Role of the AIM2 Inflammasome"
 authors:
 - Dianne W. Xu
@@ -8,6 +8,7 @@ journal: Viruses
 year: '2024'
 doi: 10.3390/v16101535
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Taking AIM at Influenza: The Role of the AIM2 Inflammasome

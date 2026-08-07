@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13226778"
+reference_id: DOI:10.3390/jcm13226778
 title: Renal Artery Stenosis and Mid-Aortic Syndrome in Children—A Review
 authors:
 - Jakub Pytlos
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13226778
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Renal Artery Stenosis and Mid-Aortic Syndrome in Children—A Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000551227"
+reference_id: DOI:10.1159/000551227
 title: "Atypical Cogan’s Syndrome Presenting as Anterior Scleritis: Case Report"
 authors:
 - João Mendes
@@ -12,6 +12,7 @@ journal: Case Reports in Ophthalmology
 year: '2026'
 doi: 10.1159/000551227
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Atypical Cogan’s Syndrome Presenting as Anterior Scleritis: Case Report

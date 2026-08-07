@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1167/iovs.65.2.39"
+reference_id: DOI:10.1167/iovs.65.2.39
 title: "Best Disease: Global Mutations Review, Genotype–Phenotype Correlation, and Prevalence Analysis in the Israeli Population"
 authors:
 - Avigail Beryozkin
@@ -29,6 +29,7 @@ journal: "Investigative Opthalmology &amp; Visual Science"
 year: '2024'
 doi: 10.1167/iovs.65.2.39
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Best Disease: Global Mutations Review, Genotype–Phenotype Correlation, and Prevalence Analysis in the Israeli Population

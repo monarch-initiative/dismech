@@ -6,9 +6,9 @@ import argparse
 import csv
 import json
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+from typing import Any
 
 EDGE_KEYS = (
     "edges",
@@ -44,7 +44,7 @@ B_KEYS = (
 PAIR_KEYS = ("pair", "pair_id", "pair_key", "edge", "edge_id")
 
 
-def _get_ci(d: Dict[str, Any], *keys: str) -> Any:
+def _get_ci(d: dict[str, Any], *keys: str) -> Any:
     for key in keys:
         if key in d:
             return d[key]
@@ -54,7 +54,7 @@ def _get_ci(d: Dict[str, Any], *keys: str) -> Any:
     return None
 
 
-def _split_pair(pair: str) -> Tuple[Optional[str], Optional[str]]:
+def _split_pair(pair: str) -> tuple[str | None, str | None]:
     if not pair or not isinstance(pair, str):
         return None, None
     for sep in ("-", "/", "|"):
@@ -72,7 +72,7 @@ def _normalize_sex(value: Any) -> str:
     return str(value)
 
 
-def _normalize_direction(record: Dict[str, Any]) -> str:
+def _normalize_direction(record: dict[str, Any]) -> str:
     if record.get("directionality"):
         return str(record["directionality"])
     a_before = record.get("a_before_b")
@@ -95,7 +95,7 @@ def _normalize_direction(record: Dict[str, Any]) -> str:
     return "UNKNOWN"
 
 
-def _record_from_item(item: Dict[str, Any], source_path: str) -> Dict[str, Any]:
+def _record_from_item(item: dict[str, Any], source_path: str) -> dict[str, Any]:
     a_id = None
     b_id = None
     for key in A_KEYS:
@@ -131,13 +131,13 @@ def _record_from_item(item: Dict[str, Any], source_path: str) -> Dict[str, Any]:
     return record
 
 
-def _iter_phase_dict(phase_dict: Dict[str, Any], source_path: str) -> Iterable[Dict[str, Any]]:
+def _iter_phase_dict(phase_dict: dict[str, Any], source_path: str) -> Iterable[dict[str, Any]]:
     for pair_key, payload in phase_dict.items():
         if not isinstance(payload, dict):
             continue
         pair_a, pair_b = _split_pair(str(pair_key))
         sex_keys = [
-            key for key in payload.keys()
+            key for key in payload
             if str(key).lower() in {"male", "female", "all", "both", "unknown"}
         ]
         if sex_keys:
@@ -161,7 +161,7 @@ def _iter_phase_dict(phase_dict: Dict[str, Any], source_path: str) -> Iterable[D
             yield _record_from_item(entry, source_path)
 
 
-def _iter_records(data: Any, source_path: str) -> Iterable[Dict[str, Any]]:
+def _iter_records(data: Any, source_path: str) -> Iterable[dict[str, Any]]:
     if isinstance(data, dict):
         if "phase_dict" in data and isinstance(data["phase_dict"], dict):
             yield from _iter_phase_dict(data["phase_dict"], source_path)
@@ -183,7 +183,7 @@ def _load_json(path: Path) -> Any:
         return json.load(handle)
 
 
-def _write_rows(rows: List[Dict[str, Any]], output: Path | None, fmt: str) -> None:
+def _write_rows(rows: list[dict[str, Any]], output: Path | None, fmt: str) -> None:
     if not rows:
         return
     fieldnames = list(rows[0].keys())

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.31640/ls-2025-4-29"
+reference_id: DOI:10.31640/ls-2025-4-29
 title: "Precision monitoring in chronic myeloid leukemia: digital PCR and quantitative RT-PCR for predicting stable deep molecular response and treatment-free remission"
 authors:
 - П. І. Гордійчук
@@ -10,6 +10,7 @@ journal: Likarska sprava
 year: '2025'
 doi: 10.31640/ls-2025-4-29
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Precision monitoring in chronic myeloid leukemia: digital PCR and quantitative RT-PCR for predicting stable deep molecular response and treatment-free remission

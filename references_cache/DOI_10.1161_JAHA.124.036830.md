@@ -1,7 +1,6 @@
 ---
-reference_id: "DOI:10.1161/JAHA.124.036830"
-title: "<i>RNF213</i>
-            Variant and Infectious Burden Associated With Intracranial Artery Stenosis in Moyamoya Disease"
+reference_id: DOI:10.1161/JAHA.124.036830
+title: "<i>RNF213</i> Variant and Infectious Burden Associated With Intracranial Artery Stenosis in Moyamoya Disease"
 authors:
 - Chaofan Zeng
 - Peicong Ge
@@ -25,10 +24,10 @@ journal: Journal of the American Heart Association
 year: '2025'
 doi: 10.1161/JAHA.124.036830
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# <i>RNF213</i>
-            Variant and Infectious Burden Associated With Intracranial Artery Stenosis in Moyamoya Disease
+# <i>RNF213</i> Variant and Infectious Burden Associated With Intracranial Artery Stenosis in Moyamoya Disease
 **Authors:** Chaofan Zeng, Peicong Ge, Zihan Yin, Junlin Lu, Xiaofan Yu, Junsheng Li, Yuanren Zhai, Chenglong Liu, Qiheng He, Wei Liu, Jia Wang, Xingju Liu, Xun Ye, Qian Zhang, Rong Wang, Yan Zhang, Dong Zhang, Jizong Zhao
 **Journal:** Journal of the American Heart Association (2025)
 **DOI:** [10.1161/JAHA.124.036830](https://doi.org/10.1161/JAHA.124.036830)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16071351"
+reference_id: DOI:10.3390/cancers16071351
 title: History of Developing Acute Promyelocytic Leukemia Treatment and Role of Promyelocytic Leukemia Bodies
 authors:
 - Pierre Bercier
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16071351
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # History of Developing Acute Promyelocytic Leukemia Treatment and Role of Promyelocytic Leukemia Bodies

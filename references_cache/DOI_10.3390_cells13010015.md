@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13010015"
+reference_id: DOI:10.3390/cells13010015
 title: Pathophysiological Effects of Autoantibodies in Autoimmune Encephalitides
 authors:
 - Matias Ryding
@@ -11,6 +11,7 @@ journal: Cells
 year: '2023'
 doi: 10.3390/cells13010015
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Pathophysiological Effects of Autoantibodies in Autoimmune Encephalitides

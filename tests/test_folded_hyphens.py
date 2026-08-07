@@ -10,10 +10,10 @@ See scripts/check_folded_hyphens.py and dismech PR #4799.
 from pathlib import Path
 
 from scripts.check_folded_hyphens import (
+    _baseline_key,
     find_violations_in_text,
     load_baseline,
     scan_repo,
-    _baseline_key,
 )
 
 ROOT = Path(__file__).resolve().parents[1]

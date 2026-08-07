@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/hbsn-22-469"
+reference_id: DOI:10.21037/hbsn-22-469
 title: "A review of 2022 Chinese clinical guidelines on the management of hepatocellular carcinoma: updates and insights"
 authors:
 - Di-Yang Xie
@@ -12,6 +12,7 @@ journal: Hepatobiliary Surgery and Nutrition
 year: '2023'
 doi: 10.21037/hbsn-22-469
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # A review of 2022 Chinese clinical guidelines on the management of hepatocellular carcinoma: updates and insights
