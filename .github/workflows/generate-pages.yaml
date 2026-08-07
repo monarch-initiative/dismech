@@ -59,20 +59,48 @@ jobs:
         with:
           fetch-depth: 0
 
+      # "Stale" has to mean ABANDONED, not merely OLD.
+      #
+      # This workflow reuses a single branch and UPDATES one PR in place rather
+      # than opening a new one per run, so a regen PR that is being actively
+      # refreshed still ages by its creation date. Selecting on createdAt
+      # therefore shoots exactly the PR that carries the newest output:
+      #
+      #   17:16  PR opened
+      #   18:09  a full rebuild force-pushes 29 corrected pages onto it and arms
+      #          auto-merge
+      #   ~18:45 the next run (queued behind it by the concurrency group above)
+      #          sees a PR 89 minutes old and closes it as stale
+      #
+      # That is how the 2026-08-07 environmental-pathograph repair was discarded
+      # after it had already succeeded (#8033, #8085, #8149).
+      #
+      # Two guards. Age is measured from updatedAt, so a refreshed PR is young
+      # again; and the PR whose head IS the branch's current tip is never closed
+      # whatever its age, because that PR is by definition the pending output of
+      # the most recent run rather than a leftover.
       - name: Close stale regen PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          BRANCH_TIP="$(git ls-remote origin refs/heads/auto/generate-pages | cut -f1)"
+          echo "Current auto/generate-pages tip: ${BRANCH_TIP:-<branch absent>}"
+
           mapfile -t stale_prs < <(
             gh pr list \
               --repo "$GITHUB_REPOSITORY" \
               --head "auto/generate-pages" \
               --state open \
               --author "app/github-actions" \
-              --json number,createdAt \
+              --json number,updatedAt,headRefOid \
               --limit 100 \
-              --jq '.[] | select((now - (.createdAt | fromdateiso8601)) >= 3600) | .number'
+            | jq -r --arg tip "$BRANCH_TIP" '
+                .[]
+                | select(.headRefOid != $tip)
+                | select((now - (.updatedAt | fromdateiso8601)) >= 3600)
+                | .number
+              '
           )
 
           if [ "${#stale_prs[@]}" -eq 0 ]; then

@@ -138,6 +138,26 @@ just gen-pages-changed kb/disorders/Asthma.yaml kb/disorders/Marfan_Syndrome.yam
 just gen-pages-changed-from changed.txt
 ```
 
+## The regen PR lifecycle
+
+Generated output reaches `main` through a single reused branch,
+`auto/generate-pages`, and a single PR that each run **updates in place** rather
+than replacing. Two consequences are easy to get wrong:
+
+- **"Stale" must mean abandoned, not old.** Because the PR is refreshed rather
+  than reopened, it keeps ageing by its creation date no matter how current its
+  contents are. The cleanup step therefore measures age from `updatedAt`, and
+  never closes the PR whose head is the branch's current tip — that PR is by
+  definition the pending output of the most recent run. Selecting on `createdAt`
+  closed a PR 36 minutes after a full rebuild had force-pushed 29 corrected pages
+  onto it and armed auto-merge, discarding a repair that had already succeeded
+  ([#8149](https://github.com/monarch-initiative/dismech/pull/8149)).
+- **Queued runs make the delay longer than it looks.** `concurrency` with
+  `cancel-in-progress: false` means a run triggered while another is building
+  does not start until that one finishes, so its "close stale PRs" step can
+  execute an hour after the run was triggered — long enough for a PR that was
+  fresh at trigger time to look abandoned by the time it is judged.
+
 See issue [#5507](https://github.com/monarch-initiative/dismech/issues/5507) for
 the design rationale and [#5198](https://github.com/monarch-initiative/dismech/issues/5198)
 for the broader build-speed work.
