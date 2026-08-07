@@ -137,16 +137,52 @@ jobs:
       # An incremental render only covers THIS push's range. The concurrency group
       # above collapses queued runs, so disorder YAMLs from a collapsed push are
       # never rendered — while app/data.js (always rebuilt in full, below) links to
-      # them anyway. That is how PR #7903 shipped 205 dead links. Compare the page
-      # count with the KB count *after* rendering (before it, every disorder-adding
-      # push looks drifted) and escalate to a full rebuild when they disagree.
+      # them anyway. That is how PR #7903 shipped 205 dead links.
+      #
+      # The check compares the KB with the rendered pages on two axes (see
+      # scripts/classify_page_build.py): page COUNT, and per-page CONTENT via the
+      # sha256 revision stamp each page carries. The content axis exists because
+      # this build's checkout is a snapshot — a KB merge landing mid-build is
+      # absent from it, so its page keeps older content while the counts stay
+      # perfectly equal. That is invisible to a count check and, because the regen
+      # branch is rebuilt from main's already-stale pages every run, permanent: on
+      # 2026-08-07 it left 29 pages stale and overwrote a full rebuild that had
+      # just fixed them (#8033, #8085, #8140).
+      #
+      # It runs *after* rendering on purpose: beforehand, a push that adds a
+      # disorder always shows one more YAML than page.
       - name: Detect page/KB drift after incremental build
         id: drift
         if: steps.scope.outputs.mode == 'incremental'
+        run: |
+          uv run python scripts/classify_page_build.py --check-page-drift \
+            --github-output --stale-files-out "${{ runner.temp }}/stale_disorders.txt"
+
+      # Pure staleness — the counts already agree and re-rendering the drifted
+      # entries lands on exactly the stale pages — is repaired by rendering just
+      # those (measured: 1m28s for 29) instead of everything (~30-60 min). On a repo where
+      # merges land faster than a full build completes, healing at full cost every
+      # time would make this check too expensive to leave switched on.
+      - name: Heal page/KB drift (targeted re-render)
+        if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal == 'targeted'
+        run: just gen-pages-changed-from "${{ runner.temp }}/stale_disorders.txt"
+
+      # Anything a targeted render cannot fix — a count mismatch, or an orphan
+      # page left behind by a rename, which only a full build prunes.
+      - name: Heal page/KB drift (full rebuild)
+        if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal != 'targeted'
+        run: just gen-pages
+
+      # A targeted heal predicts its own repair; this confirms it. If drift
+      # somehow survived, fall back to the full rebuild rather than publishing
+      # pages known to misrepresent their KB entries.
+      - name: Verify targeted heal cleared the drift
+        id: drift_recheck
+        if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal == 'targeted'
         run: uv run python scripts/classify_page_build.py --check-page-drift --github-output
 
-      - name: Heal page/KB drift (full rebuild)
-        if: steps.drift.outputs.drift == 'true'
+      - name: Heal residual drift (full rebuild)
+        if: steps.drift_recheck.outputs.drift == 'true'
         run: just gen-pages
 
       - name: Generate browser data
