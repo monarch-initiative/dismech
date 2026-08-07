@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3469,6 +3698,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3525,6 +3756,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#variants">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -6144,7 +6384,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-heart-morphology" data-dismech-node="Abnormal heart morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal heart morphology
 
@@ -6260,7 +6500,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastrointestinal-problems" data-dismech-node="Gastrointestinal problems" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastrointestinal problems
 
@@ -6330,7 +6570,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-set-ears" data-dismech-node="Low-set ears" data-dismech-type="phenotype">
                     <div class="item-name">
                         Low-set ears
 
@@ -6391,7 +6631,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-impairment" data-dismech-node="Hearing impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hearing impairment
 
@@ -6496,7 +6736,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-otitis-media" data-dismech-node="Recurrent otitis media" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent otitis media
 
@@ -6566,7 +6806,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-impairment" data-dismech-node="Visual impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Visual impairment
 
@@ -6649,7 +6889,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Strabismus
 
@@ -6741,7 +6981,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-facial-shape" data-dismech-node="Abnormal facial shape" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal facial shape
 
@@ -6824,7 +7064,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bulbous-nose" data-dismech-node="Bulbous nose" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bulbous nose
 
@@ -6907,7 +7147,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depressed-nasal-bridge" data-dismech-node="Depressed nasal bridge" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depressed nasal bridge
 
@@ -6968,7 +7208,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-upslanted-palpebral-fissure" data-dismech-node="Upslanted palpebral fissure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Upslanted palpebral fissure
 
@@ -7038,7 +7278,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized hypotonia
 
@@ -7121,7 +7361,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -7213,7 +7453,7 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual disability
 
@@ -7318,7 +7558,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global developmental delay
 
@@ -7401,7 +7641,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-speech-disorder" data-dismech-node="Motor speech disorder" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor speech disorder
 
@@ -7484,7 +7724,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed speech and language development" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed speech and language development
 
@@ -7567,7 +7807,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-speech" data-dismech-node="Absent speech" data-dismech-type="phenotype">
                     <div class="item-name">
                         Absent speech
 
@@ -7628,7 +7868,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor delay
 
@@ -7711,7 +7951,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autistic behavior
 
@@ -7794,7 +8034,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizure
 
@@ -7899,7 +8139,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ataxia
 
@@ -7991,7 +8231,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-brain-morphology" data-dismech-node="Abnormal brain morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal brain morphology
 
@@ -8074,7 +8314,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-open-mouth" data-dismech-node="Open mouth" data-dismech-type="phenotype">
                     <div class="item-name">
                         Open mouth
 
@@ -8157,7 +8397,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-musculoskeletal-system" data-dismech-node="Abnormality of the musculoskeletal system" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormality of the musculoskeletal system
 
@@ -8279,7 +8519,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-med13l-heterozygous-pathogenic-variants" data-dismech-node="MED13L heterozygous pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     MED13L heterozygous pathogenic variants
 
@@ -8396,7 +8636,564 @@
     </details>
 
 
+
             </div>
+
+        </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+        <div class="card" id="variants">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🔬</div>
+                <h2 class="card-title">Variants</h2>
+                <span class="card-count">6</span>
+            </div>
+
+
+    <div class="item-box variant-box anchor-target" id="variant-med13l-c-2597c-t-p-pro866leu" data-dismech-node="MED13L c.2597C&gt;T (p.Pro866Leu)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        MED13L c.2597C&gt;T (p.Pro866Leu)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: MED13L
+
+
+    <a href="https://bioregistry.io/hgnc:22962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22962">hgnc:22962</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Recurrent exon-15 hotspot missense allele. Functionally characterised as destabilising with cytoplasmic mislocalisation, consistent with loss of function, and clinically associated with a severe phenotype including epilepsy and severe motor impairment. In mouse cortical neurons the orthologous variant reduces the number and length of dendrites.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40500968" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40500968" target="_blank">PMID:40500968</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In particular, exon 15 variants (p.Pro866Leu and p.Pro869Ser) correlated with severe phenotypes, including epilepsy and severe motor impairment, whereas p.Gly1899Arg and p.Thr2162Met were associated with milder manifestations."</div>
+
+
+                <div class="evidence-explanation">Assigns the severe clinical correlate to this exon-15 allele.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36798993" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36798993" target="_blank">PMID:36798993</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There, we found that overexpression of the p.P866L variant resulted in reduced number and length of dendrites of cortical layer II/III pyramidal neurons."</div>
+
+
+                <div class="evidence-explanation">In vivo neuronal readout of the variant&#39;s functional consequence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-med13l-c-2605c-t-p-pro869ser" data-dismech-node="MED13L c.2605C&gt;T (p.Pro869Ser)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        MED13L c.2605C&gt;T (p.Pro869Ser)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: MED13L
+
+
+    <a href="https://bioregistry.io/hgnc:22962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22962">hgnc:22962</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Recurrent exon-15 hotspot missense allele and the best-documented MED13L mutational hotspot. Unlike the other characterised missense variants it retains comparatively stable expression and partial nuclear localisation, which is the principal argument for a non-haploinsufficiency (dominant-negative or neomorphic) mechanism, while associating clinically with epilepsy and severe motor impairment.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32646507" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32646507" target="_blank">PMID:32646507</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We used whole-exome sequencing (WES) to detect the genetic aberration of the child and found a de novo mutation, c.2605C &gt; T (p.Pro869Ser), in the MED13L gene."</div>
+
+
+                <div class="evidence-explanation">Documents an independent de novo occurrence of the recurrent allele.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32646507" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32646507" target="_blank">PMID:32646507</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our case further demonstrates that Pro869Ser is a hotspot mutation of the MED13L gene."</div>
+
+
+                <div class="evidence-explanation">Establishes hotspot status.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40500968" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40500968" target="_blank">PMID:40500968</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In particular, exon 15 variants (p.Pro866Leu and p.Pro869Ser) correlated with severe phenotypes, including epilepsy and severe motor impairment, whereas p.Gly1899Arg and p.Thr2162Met were associated with milder manifestations."</div>
+
+
+                <div class="evidence-explanation">Ties the allele to the severe end of the clinical spectrum in a functional genotype-phenotype study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-med13l-c-6485c-t-p-thr2162met" data-dismech-node="MED13L c.6485C&gt;T (p.Thr2162Met)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        MED13L c.6485C&gt;T (p.Thr2162Met)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: MED13L
+
+
+    <a href="https://bioregistry.io/hgnc:22962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22962">hgnc:22962</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">C-terminal missense allele associated with milder manifestations than the exon-15 hotspot variants, illustrating that missense position, not missense class, stratifies severity.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40500968" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40500968" target="_blank">PMID:40500968</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In particular, exon 15 variants (p.Pro866Leu and p.Pro869Ser) correlated with severe phenotypes, including epilepsy and severe motor impairment, whereas p.Gly1899Arg and p.Thr2162Met were associated with milder manifestations."</div>
+
+
+                <div class="evidence-explanation">Assigns the milder clinical correlate to this C-terminal allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-med13l-intragenic-deletion-of-exons-3-10-12q24-21" data-dismech-node="MED13L intragenic deletion of exons 3-10 (12q24.21)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        MED13L intragenic deletion of exons 3-10 (12q24.21)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: MED13L
+
+
+    <a href="https://bioregistry.io/hgnc:22962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22962">hgnc:22962</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Novel heterozygous intragenic deletion resolved at cDNA level, predicted to truncate the protein and remove the MedPIWI and Med13_C domains, functionally confirmed to cause haploinsufficiency.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37512036" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37512036" target="_blank">PMID:37512036</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The analysis of the proband&#39;s cDNA sample allowed for specifying the regions of the breakpoints and identifying the heterozygous deletion that spanned exons 3 to 10 of MED13L, which has not been reported previously."</div>
+
+
+                <div class="evidence-explanation">Molecular definition of the deletion allele.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37512036" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37512036" target="_blank">PMID:37512036</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After MED13L gene editing was performed, reduced cell viability; an accelerated aging process; and inhibition of the RB1, E2F1, and CCNC gene expression were found to exist."</div>
+
+
+                <div class="evidence-explanation">CRISPR knockdown of MED13L in control fibroblasts reproduces cellular consequences, supporting dosage loss as the operative mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-med13l-de-novo-frameshift-variants-c-3765delc-and-c-607dupt" data-dismech-node="MED13L de novo frameshift variants c.3765delC and c.607dupT" data-dismech-type="genetic">
+
+    <div class="item-name">
+        MED13L de novo frameshift variants c.3765delC and c.607dupT
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: MED13L
+
+
+    <a href="https://bioregistry.io/hgnc:22962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22962">hgnc:22962</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Two de novo frameshift alleles identified in an ID cohort selected on the facial gestalt (bulbous nasal tip, short mouth, straight eyebrows), confirming that gestalt-led ascertainment reaches MED13L.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25712080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25712080" target="_blank">PMID:25712080</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found two de novo frameshift variants in MED13L, consisting in single-nucleotide deletion (c.3765delC) and duplication (c.607dupT)."</div>
+
+
+                <div class="evidence-explanation">Documents the two frameshift alleles and their de novo status.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-med13l-splice-acceptor-variant-of-exon-5" data-dismech-node="MED13L splice acceptor variant of exon 5" data-dismech-type="genetic">
+
+    <div class="item-name">
+        MED13L splice acceptor variant of exon 5
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: MED13L
+
+
+    <a href="https://bioregistry.io/hgnc:22962" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:22962">hgnc:22962</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">splice site</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">De novo splice acceptor variant producing an in-frame deletion of 15 amino acids in the conserved MED13L N-terminal domain; the affected proband showed the haploinsufficiency phenotype without a heart defect.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24781760" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24781760" target="_blank">PMID:24781760</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The first patient has a de novo mutation in the splice acceptor site of exon 5 of MED13L. cDNA analysis showed this mutation results in an in-frame deletion, removing 15 amino acids in middle of the conserved MED13L N-terminal domain."</div>
+
+
+                <div class="evidence-explanation">cDNA-level confirmation of the splice consequence, one of the few MED13L alleles characterised at the transcript level.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
 
         </div>
 
@@ -8410,7 +9207,7 @@
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-speech-and-language-therapy" data-dismech-node="Speech and Language Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Speech and Language Therapy
                 </div>
@@ -8540,7 +9337,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy" data-dismech-node="Physical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy
                 </div>
@@ -8648,7 +9445,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-occupational-therapy" data-dismech-node="Occupational Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Occupational Therapy
                 </div>
@@ -8727,7 +9524,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ophthalmologic-surveillance" data-dismech-node="Ophthalmologic Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Ophthalmologic Surveillance
                 </div>
@@ -8830,7 +9627,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-audiologic-and-vestibular-surveillance" data-dismech-node="Audiologic and Vestibular Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Audiologic and Vestibular Surveillance
                 </div>
@@ -8955,7 +9752,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hearing-aids-and-vestibular-rehabilitation" data-dismech-node="Hearing Aids and Vestibular Rehabilitation" data-dismech-type="treatment">
                 <div class="item-name">
                     Hearing Aids and Vestibular Rehabilitation
                 </div>
@@ -9046,7 +9843,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiseizure-pharmacotherapy" data-dismech-node="Antiseizure Pharmacotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiseizure Pharmacotherapy
                 </div>
@@ -9159,7 +9956,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-feeding-therapy-and-nutritional-support" data-dismech-node="Feeding Therapy and Nutritional Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Feeding Therapy and Nutritional Support
                 </div>
@@ -9259,7 +10056,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
@@ -10006,7 +10803,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-med13l-patient-derived-skin-fibroblasts">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-med13l-patient-derived-skin-fibroblasts" data-dismech-node="MED13L patient-derived skin fibroblasts" data-dismech-type="experimental_model">
                 <div class="item-name">
                     MED13L patient-derived skin fibroblasts
 
@@ -10136,7 +10933,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-in-utero-electroporation-of-mouse-cortex-with-med13l-variants">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-in-utero-electroporation-of-mouse-cortex-with-med13l-variants" data-dismech-node="In utero electroporation of mouse cortex with MED13L variants" data-dismech-type="experimental_model">
                 <div class="item-name">
                     In utero electroporation of mouse cortex with MED13L variants
 
@@ -10266,7 +11063,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-ipsc-derived-neural-progenitor-crispri-perturb-seq-platform">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-ipsc-derived-neural-progenitor-crispri-perturb-seq-platform" data-dismech-node="iPSC-derived neural progenitor CRISPRi Perturb-seq platform" data-dismech-type="experimental_model">
                 <div class="item-name">
                     iPSC-derived neural progenitor CRISPRi Perturb-seq platform
 

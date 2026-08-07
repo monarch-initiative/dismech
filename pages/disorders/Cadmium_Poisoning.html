@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Cadmium%20Poisoning"
@@ -3464,6 +3693,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3501,10 +3732,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">22</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -6415,7 +6647,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Pulmonary Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inhalation of cadmium fumes causes acute chemical pneumonitis with diffuse alveolar damage, pulmonary edema, and potentially fatal respiratory failure. Cadmium oxide fumes are particularly hazardous, causing delayed-onset (12-36 hours) acute lung injury that may progress to ARDS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type II pneumocyte\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Acute Respiratory Distress Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute respiratory distress syndrome from cadmium fume inhalation. May be fatal and often presents with delayed onset after initial asymptomatic period. Requires mechanical ventilation and intensive care support.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033677\"}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe bone pain, particularly in the legs, pelvis, and spine. The hallmark symptom of itai-itai disease (literally \\\"it hurts, it hurts\\\" disease). Results from osteomalacia and pathologic fractures.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Cadmium Absorption and Systemic Distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium enters the body via inhalation of fumes/dust or gastrointestinal absorption from contaminated food and water. Inhaled cadmium has 25-50% bioavailability; oral absorption is lower (3-8%) but enhanced by iron deficiency via shared divalent metal transporter 1 (DMT1). Once absorbed, cadmium distributes via the bloodstream bound to albumin and accumulates in liver, kidney, and bone with a biological half-life of 10-30 years.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"cellular response to cadmium ion\"]}}, {\"id\": \"Cadmium-Induced Vascular Cholesterol Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium disrupts cholesterol homeostasis in the vascular wall, promoting atherosclerosis through miRNA-mediated dysregulation of cholesterol uptake (CD36), efflux (ABCA1), and hydrolysis (NCEH1). Cadmium upregulates miR-30d-5p and downregulates miR-504-3p, promoting foam cell formation and intracellular lipid accumulation in macrophages. This pathway links cadmium exposure to increased cardiovascular risk, particularly ischemic stroke.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol homeostasis\"]}}, {\"id\": \"Chronic Kidney Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive decline in renal function from chronic cadmium accumulation. Glomerular filtration rate declines as tubular damage progresses to tubulointerstitial nephritis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Chronic Kidney Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained proximal tubular injury from cadmium accumulation leads to tubulointerstitial inflammation, fibrosis, and progressive nephron loss. Glomerular filtration rate declines as tubulointerstitial nephritis advances, ultimately resulting in chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Defective Bone Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hypophosphataemia from renal phosphate wasting impairs hydroxyapatite crystal deposition in osteoid, causing osteomalacia. Bone becomes soft and prone to deformation and pathologic fractures. In itai-itai disease, severe demineralization causes fractures from minimal trauma, height loss, and skeletal deformities.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bone mineralization\"], \"locations\": [\"bone\"]}}, {\"id\": \"Direct Osteoblast Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium directly inhibits osteoblast differentiation and function independently of the renal phosphate wasting pathway. Cadmium disrupts calcium signaling in osteoblasts, inhibits alkaline phosphatase activity, and promotes osteoclast-mediated resorption, contributing to osteoporosis even before significant renal damage develops.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"], \"locations\": [\"bone\"]}}, {\"id\": \"Hepatic Glutathione Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium depletes hepatic glutathione stores and inhibits antioxidant enzymes (SOD, GSH-Px, CAT), disrupting the cellular redox balance. Lipid peroxidation increases (elevated MDA), and the glutathione metabolic pathway is overwhelmed. Cadmium also affects drug metabolism through altered cytochrome P450 activity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glutathione metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic Metallothionein Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The liver is the primary site of initial cadmium detoxification. Hepatocytes synthesize metallothionein (MT), a cysteine-rich protein that binds cadmium with high affinity. The cadmium-metallothionein (Cd-MT) complex is slowly released into the bloodstream over time. While MT binding initially protects against free cadmium toxicity, the Cd-MT complex is filtered at the glomerulus and taken up by renal tubular cells, effectively transferring the cadmium burden to the kidney.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"detoxification of inorganic compound\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative stress from glutathione depletion triggers hepatocyte apoptosis via mitochondrial pathways. Cadmium causes release of pro- apoptotic proteins (cytochrome c, caspase-3, Bax) and nuclear damage, leading to progressive hepatocellular loss and liver injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hypophosphataemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low serum phosphate levels resulting from impaired proximal tubular phosphate reabsorption. A key driver of cadmium-induced osteomalacia and a diagnostic clue when found with renal tubular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002148\"}}, {\"id\": \"Impaired Tubular Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to proximal tubular cells causes Fanconi syndrome, characterized by impaired reabsorption of low-molecular-weight proteins (beta-2- microglobulin, retinol-binding protein), glucose, amino acids, uric acid, and phosphate. This is the earliest and most sensitive clinical indicator of chronic cadmium nephrotoxicity, detectable before decline in GFR.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"renal tubular reabsorption\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Low-Molecular-Weight Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary excretion of low-molecular-weight proteins (beta-2- microglobulin, retinol-binding protein, alpha-1-microglobulin) reflecting impaired proximal tubular reabsorption. A hallmark biomarker of cadmium nephrotoxicity used for screening in exposed populations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"NF-kB/MAPK Inflammatory Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium activates pro-inflammatory signaling cascades including the NF-kB and MAPK/JNK pathways, leading to increased secretion of pro-inflammatory cytokines (IL-1beta, IL-6, TNF-alpha, IL-8, CCL2) and upregulation of COX-2. This chronic inflammatory state exacerbates organ-specific injury in kidney, liver, and intestine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Osteomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective bone mineralization caused by cadmium-induced renal phosphate wasting, leading to hypophosphataemia. Presents with bone pain, proximal muscle weakness, waddling gait, and pathologic fractures.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002749\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased bone mineral density from combined effects of renal phosphate and calcium wasting, direct cadmium toxicity to osteoblasts, and secondary hyperparathyroidism. Contributes to pathologic fractures, particularly in chronic exposure.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Proximal Tubular Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When intracellular cadmium exceeds the metallothionein binding capacity of proximal tubular cells (typically at renal cortex concentrations above 200 mcg/g), free cadmium ions cause oxidative stress, mitochondrial dysfunction, and activation of apoptotic pathways. Cadmium displaces zinc from zinc-finger proteins and disrupts calcium signaling, leading to tubular cell death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Phosphate Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired proximal tubular phosphate reabsorption leads to chronic phosphaturia and hypophosphataemia. The sustained phosphate loss is the primary metabolic driver of cadmium-induced osteomalacia, as phosphate is essential for hydroxyapatite crystal formation in bone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphate ion transport\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Proximal Tubular Cadmium Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cadmium-metallothionein (Cd-MT) complex is freely filtered at the glomerulus due to its small molecular weight (~7 kDa). Proximal tubular epithelial cells reabsorb Cd-MT via receptor-mediated endocytosis through the megalin/cubilin receptor complex. Once internalized, Cd-MT is degraded in lysosomes, releasing free cadmium ions intracellularly. This mechanism explains the kidney\u0027s particular vulnerability to cadmium accumulation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal renal tubular dysfunction manifesting as Fanconi syndrome with low-molecular-weight proteinuria (beta-2-microglobulinuria), glucosuria, aminoaciduria, and phosphaturia. The earliest and most sensitive indicator of chronic cadmium nephrotoxicity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000124\"}}], \"edges\": [{\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Hepatic Metallothionein Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed cadmium is transported to the liver for initial processing\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"NF-kB/MAPK Inflammatory Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cadmium ions directly activate inflammatory signaling cascades\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Direct Osteoblast Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating cadmium has direct toxic effects on bone cells\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Hepatic Glutathione Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cadmium causes oxidative stress in hepatocytes\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Cadmium-Induced Vascular Cholesterol Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating cadmium disrupts vascular cholesterol homeostasis via miRNA modulation\"}, {\"source\": \"Hepatic Metallothionein Binding\", \"target\": \"Renal Proximal Tubular Cadmium Uptake\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cd-MT complex released from liver is filtered by glomerulus and reabsorbed by proximal tubule\"}, {\"source\": \"Renal Proximal Tubular Cadmium Uptake\", \"target\": \"Proximal Tubular Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated free cadmium exceeds intracellular metallothionein binding capacity\"}, {\"source\": \"Proximal Tubular Cell Injury\", \"target\": \"Impaired Tubular Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tubular cell injury and death cause loss of reabsorptive function\"}, {\"source\": \"Proximal Tubular Cell Injury\", \"target\": \"Chronic Kidney Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained tubular injury leads to tubulointerstitial fibrosis\"}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Renal Phosphate Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired proximal tubular phosphate reabsorption causes phosphaturia\"}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Renal Tubular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of proximal tubular reabsorptive function manifests as Fanconi syndrome (renal tubular dysfunction).\"}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Low-Molecular-Weight Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired receptor-mediated reabsorption of low-molecular-weight proteins (beta-2-microglobulin, retinol-binding protein) produces tubular proteinuria.\"}, {\"source\": \"Renal Phosphate Wasting\", \"target\": \"Hypophosphataemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained renal phosphate loss lowers serum phosphate, producing hypophosphataemia.\"}, {\"source\": \"Renal Phosphate Wasting\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hypophosphataemia impairs hydroxyapatite deposition in bone matrix\"}, {\"source\": \"Chronic Kidney Disease Progression\", \"target\": \"Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive tubulointerstitial nephritis and nephron loss reduce GFR, producing chronic kidney disease.\"}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Osteomalacia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired hydroxyapatite deposition in osteoid produces osteomalacia (soft, undermineralized bone).\"}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteomalacia and resulting pathologic fractures produce the severe bone pain characteristic of itai-itai disease.\"}, {\"source\": \"Direct Osteoblast Toxicity\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired osteoblast function compounds the mineralization defect from phosphate wasting\"}, {\"source\": \"Direct Osteoblast Toxicity\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct osteoblast inhibition and enhanced osteoclastic resorption reduce bone mineral density, producing osteoporosis.\"}, {\"source\": \"Hepatic Glutathione Depletion\", \"target\": \"Hepatocyte Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress from glutathione depletion triggers apoptotic cell death\"}, {\"source\": \"NF-kB/MAPK Inflammatory Signaling\", \"target\": \"Proximal Tubular Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines exacerbate tubular cell damage\"}, {\"source\": \"NF-kB/MAPK Inflammatory Signaling\", \"target\": \"Hepatic Glutathione Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory mediators compound hepatic oxidative stress\"}, {\"source\": \"Acute Pulmonary Injury\", \"target\": \"Acute Respiratory Distress Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse alveolar damage and pulmonary edema from cadmium fume inhalation progress to acute respiratory distress syndrome.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute Pulmonary Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inhalation of cadmium fumes causes acute chemical pneumonitis with diffuse alveolar damage, pulmonary edema, and potentially fatal respiratory failure. Cadmium oxide fumes are particularly hazardous, causing delayed-onset (12-36 hours) acute lung injury that may progress to ARDS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"type II pneumocyte\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"lung\"]}}, {\"id\": \"Acute Respiratory Distress Syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute respiratory distress syndrome from cadmium fume inhalation. May be fatal and often presents with delayed onset after initial asymptomatic period. Requires mechanical ventilation and intensive care support.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0033677\"}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe bone pain, particularly in the legs, pelvis, and spine. The hallmark symptom of itai-itai disease (literally \\\"it hurts, it hurts\\\" disease). Results from osteomalacia and pathologic fractures.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Cadmium Absorption and Systemic Distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium enters the body via inhalation of fumes/dust or gastrointestinal absorption from contaminated food and water. Inhaled cadmium has 25-50% bioavailability; oral absorption is lower (3-8%) but enhanced by iron deficiency via shared divalent metal transporter 1 (DMT1). Once absorbed, cadmium distributes via the bloodstream bound to albumin and accumulates in liver, kidney, and bone with a biological half-life of 10-30 years.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"cellular response to cadmium ion\"]}}, {\"id\": \"Cadmium-Induced Vascular Cholesterol Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium disrupts cholesterol homeostasis in the vascular wall, promoting atherosclerosis through miRNA-mediated dysregulation of cholesterol uptake (CD36), efflux (ABCA1), and hydrolysis (NCEH1). Cadmium upregulates miR-30d-5p and downregulates miR-504-3p, promoting foam cell formation and intracellular lipid accumulation in macrophages. This pathway links cadmium exposure to increased cardiovascular risk, particularly ischemic stroke.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol homeostasis\"]}}, {\"id\": \"Chronic Kidney Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive decline in renal function from chronic cadmium accumulation. Glomerular filtration rate declines as tubular damage progresses to tubulointerstitial nephritis.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0012622\"}}, {\"id\": \"Chronic Kidney Disease Progression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained proximal tubular injury from cadmium accumulation leads to tubulointerstitial inflammation, fibrosis, and progressive nephron loss. Glomerular filtration rate declines as tubulointerstitial nephritis advances, ultimately resulting in chronic kidney disease.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"kidney\"]}}, {\"id\": \"Defective Bone Mineralization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hypophosphataemia from renal phosphate wasting impairs hydroxyapatite crystal deposition in osteoid, causing osteomalacia. Bone becomes soft and prone to deformation and pathologic fractures. In itai-itai disease, severe demineralization causes fractures from minimal trauma, height loss, and skeletal deformities.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bone mineralization\"], \"locations\": [\"bone\"]}}, {\"id\": \"Direct Osteoblast Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium directly inhibits osteoblast differentiation and function independently of the renal phosphate wasting pathway. Cadmium disrupts calcium signaling in osteoblasts, inhibits alkaline phosphatase activity, and promotes osteoclast-mediated resorption, contributing to osteoporosis even before significant renal damage develops.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"osteoblast differentiation\"], \"locations\": [\"bone\"]}}, {\"id\": \"Environmental Cadmium Contamination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Environmental exposure through contaminated food (rice, vegetables grown in cadmium-polluted soil), drinking water, and ambient air near industrial sources. Mining and smelting operations contaminate local waterways and agricultural land, as in the Jinzu River basin in Japan.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hepatic Glutathione Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium depletes hepatic glutathione stores and inhibits antioxidant enzymes (SOD, GSH-Px, CAT), disrupting the cellular redox balance. Lipid peroxidation increases (elevated MDA), and the glutathione metabolic pathway is overwhelmed. Cadmium also affects drug metabolism through altered cytochrome P450 activity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glutathione metabolic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatic Metallothionein Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The liver is the primary site of initial cadmium detoxification. Hepatocytes synthesize metallothionein (MT), a cysteine-rich protein that binds cadmium with high affinity. The cadmium-metallothionein (Cd-MT) complex is slowly released into the bloodstream over time. While MT binding initially protects against free cadmium toxicity, the Cd-MT complex is filtered at the glomerulus and taken up by renal tubular cells, effectively transferring the cadmium burden to the kidney.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"detoxification of inorganic compound\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hepatocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative stress from glutathione depletion triggers hepatocyte apoptosis via mitochondrial pathways. Cadmium causes release of pro- apoptotic proteins (cytochrome c, caspase-3, Bax) and nuclear damage, leading to progressive hepatocellular loss and liver injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"liver\"]}}, {\"id\": \"Hypophosphataemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low serum phosphate levels resulting from impaired proximal tubular phosphate reabsorption. A key driver of cadmium-induced osteomalacia and a diagnostic clue when found with renal tubular dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002148\"}}, {\"id\": \"Impaired Tubular Reabsorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Injury to proximal tubular cells causes Fanconi syndrome, characterized by impaired reabsorption of low-molecular-weight proteins (beta-2- microglobulin, retinol-binding protein), glucose, amino acids, uric acid, and phosphate. This is the earliest and most sensitive clinical indicator of chronic cadmium nephrotoxicity, detectable before decline in GFR.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"renal tubular reabsorption\"], \"locations\": [\"kidney\"]}}, {\"id\": \"Iron Deficiency as Risk Modifier\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Low iron stores increase gastrointestinal cadmium absorption via shared divalent metal transporter 1 (DMT1). Iron-deficient individuals, often women and children, are at higher risk of cadmium accumulation from dietary sources.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Low-Molecular-Weight Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased urinary excretion of low-molecular-weight proteins (beta-2- microglobulin, retinol-binding protein, alpha-1-microglobulin) reflecting impaired proximal tubular reabsorption. A hallmark biomarker of cadmium nephrotoxicity used for screening in exposed populations.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000093\"}}, {\"id\": \"NF-kB/MAPK Inflammatory Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cadmium activates pro-inflammatory signaling cascades including the NF-kB and MAPK/JNK pathways, leading to increased secretion of pro-inflammatory cytokines (IL-1beta, IL-6, TNF-alpha, IL-8, CCL2) and upregulation of COX-2. This chronic inflammatory state exacerbates organ-specific injury in kidney, liver, and intestine.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Occupational Cadmium Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Occupational exposure occurs in silver jewelry manufacturing, zinc smelting, battery production, cadmium plating, welding of cadmium-containing alloys, and pigment manufacturing. Workers inhale cadmium fumes and dust, with the silver cottage industry in developing countries being particularly hazardous due to lack of protective measures.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Osteomalacia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Defective bone mineralization caused by cadmium-induced renal phosphate wasting, leading to hypophosphataemia. Presents with bone pain, proximal muscle weakness, waddling gait, and pathologic fractures.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002749\"}}, {\"id\": \"Osteoporosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased bone mineral density from combined effects of renal phosphate and calcium wasting, direct cadmium toxicity to osteoblasts, and secondary hyperparathyroidism. Contributes to pathologic fractures, particularly in chronic exposure.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000939\"}}, {\"id\": \"Proximal Tubular Cell Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When intracellular cadmium exceeds the metallothionein binding capacity of proximal tubular cells (typically at renal cortex concentrations above 200 mcg/g), free cadmium ions cause oxidative stress, mitochondrial dysfunction, and activation of apoptotic pathways. Cadmium displaces zinc from zinc-finger proteins and disrupts calcium signaling, leading to tubular cell death.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Phosphate Wasting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired proximal tubular phosphate reabsorption leads to chronic phosphaturia and hypophosphataemia. The sustained phosphate loss is the primary metabolic driver of cadmium-induced osteomalacia, as phosphate is essential for hydroxyapatite crystal formation in bone.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphate ion transport\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Proximal Tubular Cadmium Uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cadmium-metallothionein (Cd-MT) complex is freely filtered at the glomerulus due to its small molecular weight (~7 kDa). Proximal tubular epithelial cells reabsorb Cd-MT via receptor-mediated endocytosis through the megalin/cubilin receptor complex. Once internalized, Cd-MT is degraded in lysosomes, releasing free cadmium ions intracellularly. This mechanism explains the kidney\u0027s particular vulnerability to cadmium accumulation.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"proximal tubule cell\"], \"biological_processes\": [\"receptor-mediated endocytosis\"], \"locations\": [\"proximal tubule\"]}}, {\"id\": \"Renal Tubular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal renal tubular dysfunction manifesting as Fanconi syndrome with low-molecular-weight proteinuria (beta-2-microglobulinuria), glucosuria, aminoaciduria, and phosphaturia. The earliest and most sensitive indicator of chronic cadmium nephrotoxicity.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000124\"}}, {\"id\": \"Tobacco Smoke Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Tobacco smoke is a significant non-occupational source of cadmium. Tobacco plants accumulate cadmium from soil; a single cigarette may contain 1-2 mcg cadmium. Smokers typically have blood cadmium levels 4-5 times higher than non-smokers.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Hepatic Metallothionein Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed cadmium is transported to the liver for initial processing\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"NF-kB/MAPK Inflammatory Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cadmium ions directly activate inflammatory signaling cascades\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Direct Osteoblast Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating cadmium has direct toxic effects on bone cells\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Hepatic Glutathione Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cadmium causes oxidative stress in hepatocytes\"}, {\"source\": \"Cadmium Absorption and Systemic Distribution\", \"target\": \"Cadmium-Induced Vascular Cholesterol Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating cadmium disrupts vascular cholesterol homeostasis via miRNA modulation\"}, {\"source\": \"Hepatic Metallothionein Binding\", \"target\": \"Renal Proximal Tubular Cadmium Uptake\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cd-MT complex released from liver is filtered by glomerulus and reabsorbed by proximal tubule\"}, {\"source\": \"Renal Proximal Tubular Cadmium Uptake\", \"target\": \"Proximal Tubular Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated free cadmium exceeds intracellular metallothionein binding capacity\"}, {\"source\": \"Proximal Tubular Cell Injury\", \"target\": \"Impaired Tubular Reabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tubular cell injury and death cause loss of reabsorptive function\"}, {\"source\": \"Proximal Tubular Cell Injury\", \"target\": \"Chronic Kidney Disease Progression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained tubular injury leads to tubulointerstitial fibrosis\"}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Renal Phosphate Wasting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired proximal tubular phosphate reabsorption causes phosphaturia\"}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Renal Tubular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of proximal tubular reabsorptive function manifests as Fanconi syndrome (renal tubular dysfunction).\"}, {\"source\": \"Impaired Tubular Reabsorption\", \"target\": \"Low-Molecular-Weight Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired receptor-mediated reabsorption of low-molecular-weight proteins (beta-2-microglobulin, retinol-binding protein) produces tubular proteinuria.\"}, {\"source\": \"Renal Phosphate Wasting\", \"target\": \"Hypophosphataemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained renal phosphate loss lowers serum phosphate, producing hypophosphataemia.\"}, {\"source\": \"Renal Phosphate Wasting\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic hypophosphataemia impairs hydroxyapatite deposition in bone matrix\"}, {\"source\": \"Chronic Kidney Disease Progression\", \"target\": \"Chronic Kidney Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive tubulointerstitial nephritis and nephron loss reduce GFR, producing chronic kidney disease.\"}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Osteomalacia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired hydroxyapatite deposition in osteoid produces osteomalacia (soft, undermineralized bone).\"}, {\"source\": \"Defective Bone Mineralization\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteomalacia and resulting pathologic fractures produce the severe bone pain characteristic of itai-itai disease.\"}, {\"source\": \"Direct Osteoblast Toxicity\", \"target\": \"Defective Bone Mineralization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired osteoblast function compounds the mineralization defect from phosphate wasting\"}, {\"source\": \"Direct Osteoblast Toxicity\", \"target\": \"Osteoporosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Direct osteoblast inhibition and enhanced osteoclastic resorption reduce bone mineral density, producing osteoporosis.\"}, {\"source\": \"Hepatic Glutathione Depletion\", \"target\": \"Hepatocyte Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress from glutathione depletion triggers apoptotic cell death\"}, {\"source\": \"NF-kB/MAPK Inflammatory Signaling\", \"target\": \"Proximal Tubular Cell Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines exacerbate tubular cell damage\"}, {\"source\": \"NF-kB/MAPK Inflammatory Signaling\", \"target\": \"Hepatic Glutathione Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory mediators compound hepatic oxidative stress\"}, {\"source\": \"Acute Pulmonary Injury\", \"target\": \"Acute Respiratory Distress Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse alveolar damage and pulmonary edema from cadmium fume inhalation progress to acute respiratory distress syndrome.\"}, {\"source\": \"Occupational Cadmium Exposure\", \"target\": \"Cadmium Absorption and Systemic Distribution\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Industrial processes generate cadmium fume and dust that workers inhale, and inhaled cadmium is the higher-bioavailability route into the body at this node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Environmental Cadmium Contamination\", \"target\": \"Cadmium Absorption and Systemic Distribution\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Cadmium-polluted soil and water enter the food chain, so residents of contaminated areas take cadmium in orally over years. Oral bioavailability is lower than inhalational, but the exposure is continuous.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tobacco Smoke Exposure\", \"target\": \"Cadmium Absorption and Systemic Distribution\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Tobacco plants concentrate cadmium from soil, so smoking is an inhalational cadmium source and the dominant non-occupational one. Note the cited sentence establishes smoking as a recognized risk factor for cadmium poisoning; it does not itself measure the absorbed dose.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Iron Deficiency as Risk Modifier\", \"target\": \"Cadmium Absorption and Systemic Distribution\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Low iron stores upregulate the shared divalent metal transporter DMT1, so more of an identical dietary cadmium intake is absorbed. This amplifies absorption rather than providing a source of cadmium, which is why it is a modifier and not a route.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6457,7 +6689,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-tubular-dysfunction" data-dismech-node="Renal Tubular Dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Renal Tubular Dysfunction
 
@@ -6540,7 +6772,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-molecular-weight-proteinuria" data-dismech-node="Low-Molecular-Weight Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Low-Molecular-Weight Proteinuria
 
@@ -6623,7 +6855,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-kidney-disease" data-dismech-node="Chronic Kidney Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Kidney Disease
 
@@ -6693,7 +6925,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypophosphataemia" data-dismech-node="Hypophosphataemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypophosphataemia
 
@@ -6763,7 +6995,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteomalacia" data-dismech-node="Osteomalacia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteomalacia
 
@@ -6846,7 +7078,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteoporosis" data-dismech-node="Osteoporosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteoporosis
 
@@ -6938,7 +7170,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Neuropathy
 
@@ -7030,7 +7262,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute Respiratory Distress Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute Respiratory Distress Syndrome
 
@@ -7124,7 +7356,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-pain" data-dismech-node="Bone Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bone Pain
 
@@ -7240,6 +7472,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -7249,7 +7484,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-chelation-therapy" data-dismech-node="Chelation Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Chelation Therapy
                 </div>
@@ -7390,7 +7625,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-phosphate-supplementation" data-dismech-node="Phosphate Supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Phosphate Supplementation
                 </div>
@@ -7484,7 +7719,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vitamin-d-and-calcium-supplementation" data-dismech-node="Vitamin D and Calcium Supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Vitamin D and Calcium Supplementation
                 </div>
@@ -7606,7 +7841,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-icu-care" data-dismech-node="Supportive ICU Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive ICU Care
                 </div>
@@ -7684,7 +7919,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-exposure-cessation-and-prevention" data-dismech-node="Exposure Cessation and Prevention" data-dismech-type="treatment">
                 <div class="item-name">
                     Exposure Cessation and Prevention
                 </div>
@@ -7769,7 +8004,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-occupational-cadmium-exposure" data-dismech-node="Occupational Cadmium Exposure" data-dismech-type="environmental">
                 <div class="item-name">Occupational Cadmium Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7885,9 +8120,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cadmium Absorption and Systemic Distribution</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Industrial processes generate cadmium fume and dust that workers inhale, and inhaled cadmium is the higher-bioavailability route into the body at this node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18072106" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18072106" target="_blank">PMID:18072106</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Silver is mixed with cadmium and then used to make silver jewelry. During this process there is a formation of cadmium fumes, and the workers inhale the fumes."</div>
+
+
+                <div class="evidence-explanation">Documents cadmium fume formation during silver jewelry manufacture and its inhalation by workers, the occupational inhalational route into the body.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-environmental-cadmium-contamination" data-dismech-node="Environmental Cadmium Contamination" data-dismech-type="environmental">
                 <div class="item-name">Environmental Cadmium Contamination</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7947,9 +8235,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cadmium Absorption and Systemic Distribution</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Cadmium-polluted soil and water enter the food chain, so residents of contaminated areas take cadmium in orally over years. Oral bioavailability is lower than inhalational, but the exposure is continuous.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39111871" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39111871" target="_blank">PMID:39111871</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An elderly female farmer with Cd nephropathy residing in a Cd-polluted area in the northern part of the Akita prefecture was identified through hospital-based screening"</div>
+
+
+                <div class="evidence-explanation">Documents cadmium nephropathy in a farmer living in a cadmium-polluted area, linking residence in a contaminated environment to systemic cadmium disease.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoke-exposure" data-dismech-node="Tobacco Smoke Exposure" data-dismech-type="environmental">
                 <div class="item-name">Tobacco Smoke Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -8009,9 +8350,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cadmium Absorption and Systemic Distribution</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Tobacco plants concentrate cadmium from soil, so smoking is an inhalational cadmium source and the dominant non-occupational one. Note the cited sentence establishes smoking as a recognized risk factor for cadmium poisoning; it does not itself measure the absorbed dose.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41000307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41000307" target="_blank">PMID:41000307</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Common risk factors include smoking and alcohol consumption."</div>
+
+
+                <div class="evidence-explanation">Lists smoking among the common risk factors for cadmium poisoning. It supports smoking as a recognized route of exposure, not a quantified absorption step.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-iron-deficiency-as-risk-modifier" data-dismech-node="Iron Deficiency as Risk Modifier" data-dismech-type="environmental">
                 <div class="item-name">Iron Deficiency as Risk Modifier</div>
 
 
@@ -8053,6 +8447,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Cadmium Absorption and Systemic Distribution</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Low iron stores upregulate the shared divalent metal transporter DMT1, so more of an identical dietary cadmium intake is absorbed. This amplifies absorption rather than providing a source of cadmium, which is why it is a modifier and not a route.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41000307" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41000307" target="_blank">PMID:41000307</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The study also found that low iron stores exacerbate cadmium poisoning."</div>
+
+
+                <div class="evidence-explanation">States that low iron stores exacerbate cadmium poisoning, an amplification of the absorption this node describes rather than an independent exposure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -8067,7 +8514,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-blood-cadmium-level" data-dismech-node="Blood Cadmium Level" data-dismech-type="biochemical">
                 <div class="item-name">
                     Blood Cadmium Level
 
@@ -8114,7 +8561,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-urinary-cadmium-level" data-dismech-node="Urinary Cadmium Level" data-dismech-type="biochemical">
                 <div class="item-name">
                     Urinary Cadmium Level
 
@@ -8161,7 +8608,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-urinary-beta-2-microglobulin" data-dismech-node="Urinary Beta-2-Microglobulin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Urinary Beta-2-Microglobulin
 
@@ -8208,7 +8655,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-phosphate" data-dismech-node="Serum Phosphate" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Phosphate
 
@@ -8255,7 +8702,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hepatic-transaminases-alt-ast" data-dismech-node="Hepatic Transaminases (ALT/AST)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hepatic Transaminases (ALT/AST)
 
@@ -10277,6 +10724,24 @@ treatments:
     explanation: &#34;Calls for occupational regulation to prevent cadmium exposure in the silver industry.&#34;
 environmental:
 - name: Occupational Cadmium Exposure
+  influences_mechanisms:
+  - target: Cadmium Absorption and Systemic Distribution
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Industrial processes generate cadmium fume and dust that workers inhale,
+      and inhaled cadmium is the higher-bioavailability route into the body at
+      this node.
+    evidence:
+    - reference: PMID:18072106
+      reference_title: &#34;Cadmium exposure: health hazards of silver cottage industry in developing countries.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Silver is mixed with cadmium and then used to make silver jewelry. During this process there is a formation of cadmium fumes, and the workers inhale the fumes.&#34;
+      explanation: &gt;-
+        Documents cadmium fume formation during silver jewelry manufacture and
+        its inhalation by workers, the occupational inhalational route into
+        the body.
   exposure_term:
     preferred_term: exposure to cadmium
     term:
@@ -10313,6 +10778,25 @@ environmental:
     snippet: &#34;cadmium poisoning primarily affects adult males and is often associated with occupational exposure.&#34;
     explanation: &#34;Systematic review confirms occupational exposure as the primary route of cadmium poisoning.&#34;
 - name: Environmental Cadmium Contamination
+  influences_mechanisms:
+  - target: Cadmium Absorption and Systemic Distribution
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Cadmium-polluted soil and water enter the food chain, so residents of
+      contaminated areas take cadmium in orally over years. Oral
+      bioavailability is lower than inhalational, but the exposure is
+      continuous.
+    evidence:
+    - reference: PMID:39111871
+      reference_title: &#39;A suspected case of &#34;itai-itai disease&#34; in a cadmium-polluted area in Akita prefecture, Japan.&#39;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;An elderly female farmer with Cd nephropathy residing in a Cd-polluted area in the northern part of the Akita prefecture was identified through hospital-based screening&#34;
+      explanation: &gt;-
+        Documents cadmium nephropathy in a farmer living in a cadmium-polluted
+        area, linking residence in a contaminated environment to systemic
+        cadmium disease.
   exposure_term:
     preferred_term: exposure to cadmium
     term:
@@ -10331,6 +10815,25 @@ environmental:
     snippet: &#34;An elderly female farmer with Cd nephropathy residing in a Cd-polluted area in the northern part of the Akita prefecture was identified through hospital-based screening&#34;
     explanation: &#34;Documents environmental cadmium exposure in an agricultural area with contaminated soil.&#34;
 - name: Tobacco Smoke Exposure
+  influences_mechanisms:
+  - target: Cadmium Absorption and Systemic Distribution
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Tobacco plants concentrate cadmium from soil, so smoking is an
+      inhalational cadmium source and the dominant non-occupational one. Note
+      the cited sentence establishes smoking as a recognized risk factor for
+      cadmium poisoning; it does not itself measure the absorbed dose.
+    evidence:
+    - reference: PMID:41000307
+      reference_title: &#34;Clinical characteristics, management, and outcomes of cadmium poisoning: a systematic review of case reports and case series.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Common risk factors include smoking and alcohol consumption.&#34;
+      explanation: &gt;-
+        Lists smoking among the common risk factors for cadmium poisoning. It
+        supports smoking as a recognized route of exposure, not a quantified
+        absorption step.
   exposure_term:
     preferred_term: exposure to tobacco smoking
     term:
@@ -10349,6 +10852,25 @@ environmental:
     snippet: &#34;Common risk factors include smoking and alcohol consumption.&#34;
     explanation: &#34;Systematic review identifies smoking as a common risk factor for cadmium poisoning.&#34;
 - name: Iron Deficiency as Risk Modifier
+  influences_mechanisms:
+  - target: Cadmium Absorption and Systemic Distribution
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Low iron stores upregulate the shared divalent metal transporter DMT1,
+      so more of an identical dietary cadmium intake is absorbed. This
+      amplifies absorption rather than providing a source of cadmium, which is
+      why it is a modifier and not a route.
+    evidence:
+    - reference: PMID:41000307
+      reference_title: &#34;Clinical characteristics, management, and outcomes of cadmium poisoning: a systematic review of case reports and case series.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The study also found that low iron stores exacerbate cadmium poisoning.&#34;
+      explanation: &gt;-
+        States that low iron stores exacerbate cadmium poisoning, an
+        amplification of the absorption this node describes rather than an
+        independent exposure.
   description: &gt;-
     Low iron stores increase gastrointestinal cadmium absorption via shared
     divalent metal transporter 1 (DMT1). Iron-deficient individuals, often
@@ -12556,7 +13078,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cadmium Poisoning", "mondoId": "MONDO:0043523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cadmium_Poisoning", "yamlRevision": "7b4920601355"};
+        const OS_CONFIG = {"diseaseName": "Cadmium Poisoning", "mondoId": "MONDO:0043523", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cadmium_Poisoning", "yamlRevision": "ad5819442660"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
