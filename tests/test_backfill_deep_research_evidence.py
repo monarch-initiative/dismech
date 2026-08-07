@@ -377,3 +377,50 @@ def test_title_glued_to_the_first_sentence_is_dropped() -> None:
     )
 
     assert backfill.strip_leading_title(candidate, title).startswith('"Liquid biopsy"')
+
+
+def test_ampersand_header_leaves_no_stray_conjunction() -> None:
+    """ "BACKGROUND & AIMS:" is taken apart around the ampersand upstream.
+
+    The global sweep in ``normalize_cache_body`` matches the ``AIMS:`` half
+    only, so the candidate arrives as ``BACKGROUND & <sentence>`` and the
+    ampersand has to be peeled with the label.
+    """
+    assert backfill.strip_leading_section_labels(
+        "BACKGROUND & Alpha-1 antitrypsin deficiency (AATD) is a genetic "
+        "disorder causing pulmonary and liver disease."
+    ) == (
+        "Alpha-1 antitrypsin deficiency (AATD) is a genetic disorder causing "
+        "pulmonary and liver disease."
+    )
+
+
+def test_a_trial_acronym_is_not_mistaken_for_a_section_label(tmp_path: Path) -> None:
+    """ "SEAMARK: phase II study of ..." is a title, not a labelled sentence.
+
+    Stripping the acronym first would leave a headless title that no longer
+    matches the title check, so it would be returned as if it were a claim.
+    """
+    title = "SEAMARK: phase II study of first-line encorafenib and cetuximab."
+    body = f"""---
+reference_id: "PMID:5"
+title: {title}
+---
+
+## Content
+
+1. J Test. 2023 Oct;1(1):1-2. doi: 10.1000/test.
+
+{title}
+
+Smith A(1), Jones B(2).
+
+Patients with both BRAF V600E mutations and MSI-H metastatic colorectal cancer
+have poor prognosis.
+"""
+    cache_path = write_cache(tmp_path, body, name="PMID_5.md")
+
+    supporting_text = backfill.extract_supporting_text(cache_path, title)
+
+    assert supporting_text is not None
+    assert supporting_text.startswith("Patients with both BRAF V600E mutations")

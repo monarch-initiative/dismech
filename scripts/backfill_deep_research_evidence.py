@@ -52,15 +52,20 @@ LEADING_SUBSECTION_LABEL_RE = re.compile(
 # two peel the remainder off generically instead of chasing every journal's
 # header vocabulary. Both are case-SENSITIVE on purpose: an all-caps "AND" is
 # header debris, whereas "TP53 and other tumour suppressors ..." is a sentence
-# that opens on a gene symbol -- relaxing the case ate the gene.
-LEADING_CONJUNCTION_RE = re.compile(r"^(?:[A-Z][A-Z0-9/&'()\-]*\s+)*AND\s+")
+# that opens on a gene symbol -- relaxing the case ate the gene. A leading "&"
+# is always debris: the sentence splitter never breaks before one, so it can
+# only appear once "BACKGROUND & AIMS:" has been taken apart around it.
+LEADING_CONJUNCTION_RE = re.compile(r"^(?:[A-Z][A-Z0-9/&'()\-]*\s+)*(?:AND|&)\s+")
 # The section number of an MDPI-style structured abstract, left behind once the
 # label it introduced ("(1) Background:") has been stripped.
 LEADING_SECTION_NUMBER_RE = re.compile(r"^\(\d+\)\s+")
 # PubMed's translated-article marker, which sits in front of the abstract of a
 # non-English record: "[Article in French] Alport syndrome (AS) is ...".
 LANGUAGE_NOTE_RE = re.compile(r"^\[Article in [^\]]*\]\s*", re.IGNORECASE)
-ALLCAPS_HEADER_RE = re.compile(r"^[A-Z][A-Z0-9/&'()\- ]{1,48}:\s*")
+# The leading class admits "&" so that the tail of "BACKGROUND & AIMS:" is
+# peeled once the label pattern above has taken "BACKGROUND ", instead of
+# leaving a stray "& " on the front of the snippet.
+ALLCAPS_HEADER_RE = re.compile(r"^[A-Z&][A-Z0-9/&'()\- ]{1,48}:\s*")
 
 # Plain-text PubMed/PMC records (the ``full_text_pdf`` / ``full_text_xml`` cache
 # bodies) wrap the abstract in a bibliographic envelope that carries no
@@ -564,8 +569,17 @@ def strip_leading_title(candidate: str, title: str) -> str:
 
 
 def supporting_text_candidates(normalized: str, title: str) -> Iterable[str]:
+    normalized_title = normalize_title(title)
     for sentence in SENTENCE_SPLIT_RE.split(normalized):
-        candidate = strip_leading_section_labels(sentence.strip(" \"'"))
+        raw = sentence.strip(" \"'")
+        # Recognise the title *before* any label surgery. A trial acronym reads
+        # exactly like a section label -- "SEAMARK: phase II study of ..." --
+        # so stripping first would leave a headless title that no longer
+        # matches, and it would be returned as though it were an abstract
+        # sentence.
+        if normalize_title(raw) == normalized_title:
+            continue
+        candidate = strip_leading_section_labels(raw)
         candidate = strip_leading_title(candidate, title)
         if len(candidate) < 40:
             continue
