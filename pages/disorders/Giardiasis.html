@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Giardiasis"
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3503,10 +3734,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">20</div>
+                <div class="stat-value">23</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -5244,7 +5476,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Host epithelial injury severity varies by Giardia assemblage and can intensify during mixed infections.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Caspase-3-dependent enterocyte apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia-induced epithelial injury triggers caspase-3-dependent enterocyte apoptosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Claudin-1 downregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of the tight-junction protein claudin-1 is reduced in chronic human giardiasis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Commensal microbiota biofilm impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia-associated barrier perturbation disrupts commensal microbiota organization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Electrogenic anion secretion activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bumetanide-sensitive secretory current is increased in chronic human giardiasis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Epithelial barrier resistance decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human duodenal giardiasis is associated with reduced epithelial resistance and barrier dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hypoxia-dependent PKC alpha/beta II dephosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low-oxygen conditions in infected IECs drive PKC alpha/beta II dephosphorylation linked to barrier injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hypoxia\"]}}, {\"id\": \"Ingestion of infectious Giardia cysts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection begins with ingestion of environmentally transmitted cysts.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Mucus layer disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia impairs mucus barrier integrity at the host-microbe interface.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Post-infectious irritable bowel syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"MONDO:0005052\"}}, {\"id\": \"Sodium-glucose symport impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sodium-dependent glucose transport is reduced in chronic human giardiasis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002570\"}}, {\"id\": \"Tight-junction disassembly in infected enterocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia infection causes tight-junction disruption in intestinal epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tight junction disassembly\"]}}, {\"id\": \"Trophozoite colonization of the proximal small-intestinal epithelial surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia trophozoites persist at the proximal small-intestinal lumen-epithelium interface without mucosal invasion.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"small intestine\"]}}, {\"id\": \"Weight loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Ingestion of infectious Giardia cysts\", \"target\": \"Trophozoite colonization of the proximal small-intestinal epithelial surface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ingested parasites establish non-invasive colonization at the mucosal surface.\"}, {\"source\": \"Trophozoite colonization of the proximal small-intestinal epithelial surface\", \"target\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonizing trophozoites initiate epithelial injury programs that vary by infecting assemblage.\"}, {\"source\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"target\": \"Caspase-3-dependent enterocyte apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Trophozoite-triggered epithelial injury activates caspase-3-dependent apoptosis.\"}, {\"source\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"target\": \"Tight-junction disassembly in infected enterocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Trophozoite-triggered epithelial injury induces tight-junction disruption.\"}, {\"source\": \"Caspase-3-dependent enterocyte apoptosis\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased epithelial apoptosis contributes to loss of mucosal barrier integrity.\"}, {\"source\": \"Tight-junction disassembly in infected enterocytes\", \"target\": \"Claudin-1 downregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tight-junction injury is associated with reduced claudin-1 expression.\"}, {\"source\": \"Tight-junction disassembly in infected enterocytes\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tight-junction injury contributes to reduced epithelial resistance.\"}, {\"source\": \"Claudin-1 downregulation\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Claudin-1 loss contributes to impaired epithelial barrier function.\"}, {\"source\": \"Hypoxia-dependent PKC alpha/beta II dephosphorylation\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoxia-dependent PKC signaling changes exacerbate permeability defects.\"}, {\"source\": \"Epithelial barrier resistance decline\", \"target\": \"Sodium-glucose symport impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier pathology is accompanied by reduced Na-glucose absorption.\"}, {\"source\": \"Epithelial barrier resistance decline\", \"target\": \"Electrogenic anion secretion activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier pathology is accompanied by increased secretory current.\"}, {\"source\": \"Sodium-glucose symport impairment\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced sodium-glucose transport contributes to malabsorptive disease.\"}, {\"source\": \"Electrogenic anion secretion activation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased epithelial secretory drive contributes to diarrheal output.\"}, {\"source\": \"Mucus layer disruption\", \"target\": \"Commensal microbiota biofilm impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucus-layer perturbation is associated with altered commensal biofilm architecture.\"}, {\"source\": \"Commensal microbiota biofilm impairment\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microbiota and epithelial barrier perturbation may reinforce nutrient malabsorption.\"}, {\"source\": \"Malabsorption\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fat malabsorption contributes to steatorrheal stool phenotype.\"}, {\"source\": \"Malabsorption\", \"target\": \"Weight loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged malabsorption contributes to loss of body weight.\"}, {\"source\": \"Malabsorption\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe pediatric nutritional compromise can present as failure to thrive.\"}, {\"source\": \"Malabsorption\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic giardiasis in poorly nourished settings can contribute to linear growth faltering.\"}, {\"source\": \"Malabsorption\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In vulnerable pediatric populations, chronic giardiasis-associated nutritional disruption may contribute to cognitive deficits.\"}, {\"source\": \"Malabsorption\", \"target\": \"Post-infectious irritable bowel syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset develops persistent post-infectious bowel dysfunction after acute gastroenteritis.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Host epithelial injury severity varies by Giardia assemblage and can intensify during mixed infections.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Caspase-3-dependent enterocyte apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia-induced epithelial injury triggers caspase-3-dependent enterocyte apoptosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"Childcare and close-contact fecal-oral exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contact with diapered children and close household/sexual contact contexts increase transmission risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Claudin-1 downregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expression of the tight-junction protein claudin-1 is reduced in chronic human giardiasis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cognitive impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100543\"}}, {\"id\": \"Commensal microbiota biofilm impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia-associated barrier perturbation disrupts commensal microbiota organization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Electrogenic anion secretion activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bumetanide-sensitive secretory current is increased in chronic human giardiasis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Epithelial barrier resistance decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human duodenal giardiasis is associated with reduced epithelial resistance and barrier dysfunction.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Growth delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hypoxia-dependent PKC alpha/beta II dephosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Low-oxygen conditions in infected IECs drive PKC alpha/beta II dephosphorylation linked to barrier injury.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to hypoxia\"]}}, {\"id\": \"Ingestion of infectious Giardia cysts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Infection begins with ingestion of environmentally transmitted cysts.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Mucus layer disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia impairs mucus barrier integrity at the host-microbe interface.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Post-infectious irritable bowel syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"MONDO:0005052\"}}, {\"id\": \"Sodium-glucose symport impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sodium-dependent glucose transport is reduced in chronic human giardiasis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Steatorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002570\"}}, {\"id\": \"Tight-junction disassembly in infected enterocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia infection causes tight-junction disruption in intestinal epithelial cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"tight junction disassembly\"]}}, {\"id\": \"Trophozoite colonization of the proximal small-intestinal epithelial surface\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Giardia trophozoites persist at the proximal small-intestinal lumen-epithelium interface without mucosal invasion.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"small intestine\"]}}, {\"id\": \"Untreated freshwater exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to untreated freshwater increases acquisition risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Water infrastructure failure and rainfall-associated contamination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Outbreaks are associated with treatment failures and rainfall-driven contamination events.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Ingestion of infectious Giardia cysts\", \"target\": \"Trophozoite colonization of the proximal small-intestinal epithelial surface\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ingested parasites establish non-invasive colonization at the mucosal surface.\"}, {\"source\": \"Trophozoite colonization of the proximal small-intestinal epithelial surface\", \"target\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonizing trophozoites initiate epithelial injury programs that vary by infecting assemblage.\"}, {\"source\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"target\": \"Caspase-3-dependent enterocyte apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Trophozoite-triggered epithelial injury activates caspase-3-dependent apoptosis.\"}, {\"source\": \"Assemblage-specific trophozoite-epithelial injury signaling\", \"target\": \"Tight-junction disassembly in infected enterocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Trophozoite-triggered epithelial injury induces tight-junction disruption.\"}, {\"source\": \"Caspase-3-dependent enterocyte apoptosis\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased epithelial apoptosis contributes to loss of mucosal barrier integrity.\"}, {\"source\": \"Tight-junction disassembly in infected enterocytes\", \"target\": \"Claudin-1 downregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tight-junction injury is associated with reduced claudin-1 expression.\"}, {\"source\": \"Tight-junction disassembly in infected enterocytes\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tight-junction injury contributes to reduced epithelial resistance.\"}, {\"source\": \"Claudin-1 downregulation\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Claudin-1 loss contributes to impaired epithelial barrier function.\"}, {\"source\": \"Hypoxia-dependent PKC alpha/beta II dephosphorylation\", \"target\": \"Epithelial barrier resistance decline\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoxia-dependent PKC signaling changes exacerbate permeability defects.\"}, {\"source\": \"Epithelial barrier resistance decline\", \"target\": \"Sodium-glucose symport impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier pathology is accompanied by reduced Na-glucose absorption.\"}, {\"source\": \"Epithelial barrier resistance decline\", \"target\": \"Electrogenic anion secretion activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Barrier pathology is accompanied by increased secretory current.\"}, {\"source\": \"Sodium-glucose symport impairment\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced sodium-glucose transport contributes to malabsorptive disease.\"}, {\"source\": \"Electrogenic anion secretion activation\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased epithelial secretory drive contributes to diarrheal output.\"}, {\"source\": \"Mucus layer disruption\", \"target\": \"Commensal microbiota biofilm impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucus-layer perturbation is associated with altered commensal biofilm architecture.\"}, {\"source\": \"Commensal microbiota biofilm impairment\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microbiota and epithelial barrier perturbation may reinforce nutrient malabsorption.\"}, {\"source\": \"Malabsorption\", \"target\": \"Steatorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fat malabsorption contributes to steatorrheal stool phenotype.\"}, {\"source\": \"Malabsorption\", \"target\": \"Weight loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged malabsorption contributes to loss of body weight.\"}, {\"source\": \"Malabsorption\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe pediatric nutritional compromise can present as failure to thrive.\"}, {\"source\": \"Malabsorption\", \"target\": \"Growth delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic giardiasis in poorly nourished settings can contribute to linear growth faltering.\"}, {\"source\": \"Malabsorption\", \"target\": \"Cognitive impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In vulnerable pediatric populations, chronic giardiasis-associated nutritional disruption may contribute to cognitive deficits.\"}, {\"source\": \"Malabsorption\", \"target\": \"Post-infectious irritable bowel syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset develops persistent post-infectious bowel dysfunction after acute gastroenteritis.\"}, {\"source\": \"Untreated freshwater exposure\", \"target\": \"Ingestion of infectious Giardia cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Swallowing untreated surface water while swimming or drinking delivers environmentally robust cysts directly to the gut.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Childcare and close-contact fecal-oral exposure\", \"target\": \"Ingestion of infectious Giardia cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Person-to-person faecal-oral spread needs no water vehicle at all: cysts pass on hands and surfaces in nappy-changing and close-contact settings.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Water infrastructure failure and rainfall-associated contamination\", \"target\": \"Ingestion of infectious Giardia cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Treatment failure and heavy rainfall do not themselves infect anyone: they load cysts into drinking and recreational water, which is then consumed. The intermediates are known, so the link is indirect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5284,7 +5516,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diarrhea
 
@@ -5345,7 +5577,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flatulence" data-dismech-node="Flatulence" data-dismech-type="phenotype">
                     <div class="item-name">
                         Flatulence
 
@@ -5406,7 +5638,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-distention" data-dismech-node="Abdominal distention" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal distention
 
@@ -5467,7 +5699,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-steatorrhea" data-dismech-node="Steatorrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Steatorrhea
 
@@ -5528,7 +5760,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malabsorption" data-dismech-node="Malabsorption" data-dismech-type="phenotype">
                     <div class="item-name">
                         Malabsorption
 
@@ -5620,7 +5852,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive impairment
 
@@ -5712,7 +5944,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal pain
 
@@ -5795,7 +6027,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-post-infectious-dyspepsia" data-dismech-node="Post-infectious dyspepsia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Post-infectious dyspepsia
 
@@ -5865,7 +6097,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight loss
 
@@ -5926,7 +6158,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to thrive
 
@@ -6009,7 +6241,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-delay" data-dismech-node="Growth delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Growth delay
 
@@ -6101,7 +6333,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-post-infectious-irritable-bowel-syndrome" data-dismech-node="Post-infectious irritable bowel syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Post-infectious irritable bowel syndrome
 
@@ -6217,6 +6449,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6226,7 +6461,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nitroimidazole-pharmacotherapy-tinidazole-or-metronidazole" data-dismech-node="Nitroimidazole pharmacotherapy (tinidazole or metronidazole)" data-dismech-type="treatment">
                 <div class="item-name">
                     Nitroimidazole pharmacotherapy (tinidazole or metronidazole)
                 </div>
@@ -6354,7 +6589,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nitazoxanide-alternative-therapy" data-dismech-node="Nitazoxanide alternative therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Nitazoxanide alternative therapy
                 </div>
@@ -6454,7 +6689,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-paromomycin-in-pregnancy-or-nitroimidazole-constrained-settings" data-dismech-node="Paromomycin in pregnancy or nitroimidazole-constrained settings" data-dismech-type="treatment">
                 <div class="item-name">
                     Paromomycin in pregnancy or nitroimidazole-constrained settings
                 </div>
@@ -6548,7 +6783,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-investigational-therapy-for-resistant-refractory-giardiasis" data-dismech-node="Investigational therapy for resistant/refractory giardiasis" data-dismech-type="treatment">
                 <div class="item-name">
                     Investigational therapy for resistant/refractory giardiasis
                 </div>
@@ -6659,7 +6894,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-untreated-freshwater-exposure" data-dismech-node="Untreated freshwater exposure" data-dismech-type="environmental">
                 <div class="item-name">Untreated freshwater exposure</div>
 
 
@@ -6701,9 +6936,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ingestion of infectious Giardia cysts</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Swallowing untreated surface water while swimming or drinking delivers environmentally robust cysts directly to the gut.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30020611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30020611" target="_blank">PMID:30020611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In high-income countries, risk factors for giardiasis include international travel, exposure to untreated freshwater sources, male-male sexual contact, contact with diapered children, recent antibiotic use, and underlying chronic gastrointestinal disease."</div>
+
+
+                <div class="evidence-explanation">Names exposure to untreated freshwater sources among the established risk factors for giardiasis, a route by which cysts are ingested.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-childcare-and-close-contact-fecal-oral-exposure" data-dismech-node="Childcare and close-contact fecal-oral exposure" data-dismech-type="environmental">
                 <div class="item-name">Childcare and close-contact fecal-oral exposure</div>
 
 
@@ -6745,9 +7033,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ingestion of infectious Giardia cysts</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Person-to-person faecal-oral spread needs no water vehicle at all: cysts pass on hands and surfaces in nappy-changing and close-contact settings.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30020611" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30020611" target="_blank">PMID:30020611</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In high-income countries, risk factors for giardiasis include international travel, exposure to untreated freshwater sources, male-male sexual contact, contact with diapered children, recent antibiotic use, and underlying chronic gastrointestinal disease."</div>
+
+
+                <div class="evidence-explanation">Names contact with diapered children among the established risk factors, the person-to-person faecal-oral route of cyst ingestion.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-water-infrastructure-failure-and-rainfall-associated-contamination" data-dismech-node="Water infrastructure failure and rainfall-associated contamination" data-dismech-type="environmental">
                 <div class="item-name">Water infrastructure failure and rainfall-associated contamination</div>
 
 
@@ -6788,6 +7129,59 @@
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ingestion of infectious Giardia cysts</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Treatment failure and heavy rainfall do not themselves infect anyone: they load cysts into drinking and recreational water, which is then consumed. The intermediates are known, so the link is indirect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41280732" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41280732" target="_blank">PMID:41280732</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recreational and drinking water sources were the most commonly implicated, with contamination events often associated with specific incidents or treatment failures, and heavy rainfall suggested as contributing factor to pathogen entry."</div>
+
+
+                <div class="evidence-explanation">Implicates recreational and drinking water sources with contamination events tied to treatment failures and heavy rainfall, the step that puts cysts into the water later ingested.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8422,6 +8816,22 @@ biochemical: []
 genetic: []
 environmental:
 - name: Untreated freshwater exposure
+  influences_mechanisms:
+  - target: Ingestion of infectious Giardia cysts
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Swallowing untreated surface water while swimming or drinking delivers
+      environmentally robust cysts directly to the gut.
+    evidence:
+    - reference: PMID:30020611
+      reference_title: &#34;Giardiasis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;In high-income countries, risk factors for giardiasis include international travel, exposure to untreated freshwater sources, male-male sexual contact, contact with diapered children, recent antibiotic use, and underlying chronic gastrointestinal disease.&#34;
+      explanation: &gt;-
+        Names exposure to untreated freshwater sources among the established
+        risk factors for giardiasis, a route by which cysts are ingested.
   description: Exposure to untreated freshwater increases acquisition risk.
   effect: Increases risk of waterborne giardiasis.
   evidence:
@@ -8432,6 +8842,22 @@ environmental:
     snippet: &#34;In high-income countries, risk factors for giardiasis include international travel, exposure to untreated freshwater sources, male-male sexual contact, contact with diapered children, recent antibiotic use, and underlying chronic gastrointestinal disease.&#34;
     explanation: Supports untreated freshwater as an environmental risk factor.
 - name: Childcare and close-contact fecal-oral exposure
+  influences_mechanisms:
+  - target: Ingestion of infectious Giardia cysts
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Person-to-person faecal-oral spread needs no water vehicle at all: cysts
+      pass on hands and surfaces in nappy-changing and close-contact settings.
+    evidence:
+    - reference: PMID:30020611
+      reference_title: &#34;Giardiasis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;In high-income countries, risk factors for giardiasis include international travel, exposure to untreated freshwater sources, male-male sexual contact, contact with diapered children, recent antibiotic use, and underlying chronic gastrointestinal disease.&#34;
+      explanation: &gt;-
+        Names contact with diapered children among the established risk
+        factors, the person-to-person faecal-oral route of cyst ingestion.
   description: Contact with diapered children and close household/sexual contact contexts increase transmission risk.
   effect: Increases person-to-person transmission probability.
   evidence:
@@ -8442,6 +8868,24 @@ environmental:
     snippet: &#34;In high-income countries, risk factors for giardiasis include international travel, exposure to untreated freshwater sources, male-male sexual contact, contact with diapered children, recent antibiotic use, and underlying chronic gastrointestinal disease.&#34;
     explanation: Supports close-contact transmission-promoting environments.
 - name: Water infrastructure failure and rainfall-associated contamination
+  influences_mechanisms:
+  - target: Ingestion of infectious Giardia cysts
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Treatment failure and heavy rainfall do not themselves infect anyone:
+      they load cysts into drinking and recreational water, which is then
+      consumed. The intermediates are known, so the link is indirect.
+    evidence:
+    - reference: PMID:41280732
+      reference_title: &#34;Giardia and Campylobacter: Fifteen years (2010-2024) of waterborne outbreaks in Europe.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Recreational and drinking water sources were the most commonly implicated, with contamination events often associated with specific incidents or treatment failures, and heavy rainfall suggested as contributing factor to pathogen entry.&#34;
+      explanation: &gt;-
+        Implicates recreational and drinking water sources with contamination
+        events tied to treatment failures and heavy rainfall, the step that
+        puts cysts into the water later ingested.
   description: Outbreaks are associated with treatment failures and rainfall-driven contamination events.
   effect: Increases risk of community waterborne outbreaks.
   evidence:
@@ -10665,7 +11109,7 @@ Imported cases were common and predominantly affected adults aged 20–39 years,
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Giardiasis", "mondoId": "MONDO:0001103", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Giardiasis", "yamlRevision": "91816945815c"};
+        const OS_CONFIG = {"diseaseName": "Giardiasis", "mondoId": "MONDO:0001103", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Giardiasis", "yamlRevision": "ca0bc00ccf21"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

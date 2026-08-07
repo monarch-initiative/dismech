@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Organophosphate%20Poisoning"
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3521,7 +3752,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3534,6 +3765,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -5570,7 +5802,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acetylcholinesterase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The active organophosphate phosphorylates the serine hydroxyl in the catalytic site of acetylcholinesterase, covalently inactivating the enzyme that normally hydrolyzes acetylcholine, so acetylcholine breakdown falls.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"acetylcholine catabolic process\"]}}, {\"id\": \"Aging of inhibited acetylcholinesterase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After phosphorylation, the enzyme-organophosphate adduct can lose an alkyl group (\\\"aging\\\"), converting the initially reversible inhibition into an irreversible bond that oxime reactivators can no longer cleave; recovery then requires synthesis of new enzyme. The aging rate is compound-dependent and sets the therapeutic window for oxime therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"acetylcholine catabolic process\"]}}, {\"id\": \"Atropine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atropine, a competitive muscarinic antagonist, is the primary antidote for the muscarinic features (bronchorrhea, bronchospasm, bradycardia, secretions), titrated to drying of secretions; it does not treat nicotinic (muscle) effects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atropine\"]}}, {\"id\": \"Benzodiazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Benzodiazepines such as diazepam control organophosphate-induced seizures and status epilepticus and reduce central-nervous-system injury.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"diazepam\"]}}, {\"id\": \"Central cholinergic overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acetylcholine accumulation in the central nervous system overstimulates central cholinergic pathways, producing anxiety, confusion, seizures and status epilepticus, depression of the central respiratory drive, and coma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cholinergic synaptic transmission\"]}}, {\"id\": \"Decontamination and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removal of contaminated clothing, skin and eye decontamination, airway protection, oxygen, and hemodynamic support are essential first steps and reduce ongoing absorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Distal axonal degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One to four weeks after exposure, a distal dying-back degeneration of long axons in peripheral nerves and central tracts, with axonal degeneration and secondary demyelination, produces the predominantly motor sensorimotor polyneuropathy of OPIDN.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"axonal transport\"]}}, {\"id\": \"Intermediate syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Roughly 24-96 hours after the acute crisis, a subset of patients develop proximal limb, neck flexor, cranial nerve, and respiratory muscle weakness attributed to persistent postsynaptic neuromuscular-junction dysfunction, independent of ongoing muscarinic signs and unresponsive to atropine and oximes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"muscle cell\"], \"biological_processes\": [\"neuromuscular synaptic transmission\"]}}, {\"id\": \"Magnesium sulfate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Magnesium sulfate is an investigational adjunct proposed to reduce acetylcholine release and calcium influx at the neuromuscular junction; it is among several promising but not yet established treatment alternatives.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"magnesium sulfate\"]}}, {\"id\": \"Mechanical ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Airway management and mechanical ventilation support patients through respiratory failure from the cholinergic crisis and the intermediate syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscarinic receptor overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated acetylcholine overstimulates muscarinic receptors on smooth muscle, glands, and the heart, producing parasympathetic and secretory excess: miosis, lacrimation, salivation, bronchorrhea, bronchoconstriction, bradycardia, gastrointestinal hypermotility, sweating, and urinary incontinence (the SLUDGE/DUMBELS pattern).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled acetylcholine receptor signaling pathway\"]}}, {\"id\": \"Neuropathy target esterase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Certain organophosphates inhibit and then age a second serine esterase, neuropathy target esterase (NTE/PNPLA6), an integral membrane protein in neurons. This mechanism is independent of acetylcholinesterase inhibition and initiates the delayed neuropathy after a 1-3 week latency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"phospholipid metabolic process\"]}}, {\"id\": \"Nicotinic receptor overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated acetylcholine overstimulates nicotinic receptors at the neuromuscular junction and autonomic ganglia, causing fasciculations followed by depolarizing neuromuscular blockade and weakness, together with sympathetic ganglionic effects such as tachycardia and hypertension.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"muscle cell\"], \"biological_processes\": [\"neuromuscular synaptic transmission\"]}}, {\"id\": \"Organophosphate bioactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many organophosphate insecticides are phosphorothioate (P=S, \\\"thion\\\") pro-toxicants that require hepatic cytochrome P450-mediated oxidative desulfuration to their active oxon (P=O) form, a far more potent cholinesterase inhibitor. Direct-acting oxons and nerve agents skip this step, and the speed of activation varies between compounds.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"xenobiotic metabolic process\"]}}, {\"id\": \"Organophosphate exposure and absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Organophosphorus compounds enter the body across the skin, respiratory tract, and gastrointestinal tract following agricultural, occupational, intentional, or chemical-warfare exposure, and are distributed systemically to reach their molecular targets; in high doses they are toxic or lethal. This shared entry point feeds both the acetylcholinesterase arm (via bioactivation) and the delayed neuropathy-target-esterase arm.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"xenobiotic metabolic process\"]}}, {\"id\": \"Pralidoxime\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pralidoxime and other oximes reactivate phosphorylated acetylcholinesterase before it ages, targeting the nicotinic (neuromuscular) features atropine does not; however, clinical trial evidence for pralidoxime benefit is uncertain and contested.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pralidoxime\"]}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure from combined bronchorrhea, respiratory-muscle weakness, and central depression is the leading cause of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Synaptic acetylcholine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With acetylcholinesterase inhibited, acetylcholine released at cholinergic synapses is not degraded and accumulates at autonomic, neuromuscular, and central synapses, producing sustained receptor stimulation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"cholinergic synaptic transmission\"]}}], \"edges\": [{\"source\": \"Organophosphate exposure and absorption\", \"target\": \"Organophosphate bioactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed phosphorothioate pro-toxicants undergo hepatic activation to their oxon form.\"}, {\"source\": \"Organophosphate exposure and absorption\", \"target\": \"Neuropathy target esterase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed neuropathic organophosphates reach peripheral and central neurons and inhibit neuropathy target esterase.\"}, {\"source\": \"Organophosphate bioactivation\", \"target\": \"Acetylcholinesterase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The activated oxon phosphorylates and inhibits acetylcholinesterase.\"}, {\"source\": \"Acetylcholinesterase inhibition\", \"target\": \"Aging of inhibited acetylcholinesterase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phosphorylated enzyme can undergo dealkylation that makes inhibition irreversible.\"}, {\"source\": \"Acetylcholinesterase inhibition\", \"target\": \"Synaptic acetylcholine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of acetylcholinesterase activity prevents breakdown of acetylcholine at synapses.\"}, {\"source\": \"Synaptic acetylcholine accumulation\", \"target\": \"Muscarinic receptor overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess acetylcholine overstimulates muscarinic acetylcholine receptors.\"}, {\"source\": \"Synaptic acetylcholine accumulation\", \"target\": \"Nicotinic receptor overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess acetylcholine overstimulates nicotinic acetylcholine receptors.\"}, {\"source\": \"Synaptic acetylcholine accumulation\", \"target\": \"Central cholinergic overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess acetylcholine overstimulates central nervous system cholinergic pathways.\"}, {\"source\": \"Muscarinic receptor overstimulation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bronchorrhea and bronchoconstriction impair gas exchange and contribute to respiratory failure.\"}, {\"source\": \"Nicotinic receptor overstimulation\", \"target\": \"Intermediate syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged nicotinic overstimulation and postsynaptic neuromuscular-junction dysfunction give rise to the delayed intermediate syndrome.\"}, {\"source\": \"Nicotinic receptor overstimulation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuromuscular block from nicotinic overstimulation weakens the respiratory muscles and contributes to respiratory failure.\"}, {\"source\": \"Central cholinergic overstimulation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central depression of the respiratory center contributes to respiratory failure.\"}, {\"source\": \"Intermediate syndrome\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakness of the respiratory muscles in the intermediate syndrome can precipitate respiratory failure after the acute crisis has resolved.\"}, {\"source\": \"Neuropathy target esterase inhibition\", \"target\": \"Distal axonal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inhibition and aging of neuropathy target esterase triggers a distal, dying-back axonopathy.\"}, {\"source\": \"Decontamination and supportive care\", \"target\": \"Acetylcholinesterase inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atropine\", \"target\": \"Muscarinic receptor overstimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pralidoxime\", \"target\": \"Acetylcholinesterase inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Benzodiazepine\", \"target\": \"Central cholinergic overstimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mechanical ventilation\", \"target\": \"Respiratory failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Magnesium sulfate\", \"target\": \"Synaptic acetylcholine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accidental pesticide exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Accidental exposure occurs through contaminated food, improper storage, and dermal contact with treated surfaces, and is a common route in children.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Acetylcholinesterase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The active organophosphate phosphorylates the serine hydroxyl in the catalytic site of acetylcholinesterase, covalently inactivating the enzyme that normally hydrolyzes acetylcholine, so acetylcholine breakdown falls.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"acetylcholine catabolic process\"]}}, {\"id\": \"Aging of inhibited acetylcholinesterase\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After phosphorylation, the enzyme-organophosphate adduct can lose an alkyl group (\\\"aging\\\"), converting the initially reversible inhibition into an irreversible bond that oxime reactivators can no longer cleave; recovery then requires synthesis of new enzyme. The aging rate is compound-dependent and sets the therapeutic window for oxime therapy.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"acetylcholine catabolic process\"]}}, {\"id\": \"Agricultural insecticide exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Occupational exposure to organophosphate insecticides during mixing, spraying, and harvesting is a major route of poisoning in agricultural settings.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atropine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atropine, a competitive muscarinic antagonist, is the primary antidote for the muscarinic features (bronchorrhea, bronchospasm, bradycardia, secretions), titrated to drying of secretions; it does not treat nicotinic (muscle) effects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atropine\"]}}, {\"id\": \"Benzodiazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Benzodiazepines such as diazepam control organophosphate-induced seizures and status epilepticus and reduce central-nervous-system injury.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"diazepam\"]}}, {\"id\": \"Central cholinergic overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acetylcholine accumulation in the central nervous system overstimulates central cholinergic pathways, producing anxiety, confusion, seizures and status epilepticus, depression of the central respiratory drive, and coma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"cholinergic synaptic transmission\"]}}, {\"id\": \"Decontamination and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Removal of contaminated clothing, skin and eye decontamination, airway protection, oxygen, and hemodynamic support are essential first steps and reduce ongoing absorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Distal axonal degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"One to four weeks after exposure, a distal dying-back degeneration of long axons in peripheral nerves and central tracts, with axonal degeneration and secondary demyelination, produces the predominantly motor sensorimotor polyneuropathy of OPIDN.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"motor neuron\"], \"biological_processes\": [\"axonal transport\"]}}, {\"id\": \"Intentional self-poisoning by ingestion\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Deliberate ingestion of concentrated organophosphate pesticides is a leading method of self-harm and a major cause of poisoning deaths in low- and middle-income countries.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intermediate syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Roughly 24-96 hours after the acute crisis, a subset of patients develop proximal limb, neck flexor, cranial nerve, and respiratory muscle weakness attributed to persistent postsynaptic neuromuscular-junction dysfunction, independent of ongoing muscarinic signs and unresponsive to atropine and oximes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"muscle cell\"], \"biological_processes\": [\"neuromuscular synaptic transmission\"]}}, {\"id\": \"Magnesium sulfate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Magnesium sulfate is an investigational adjunct proposed to reduce acetylcholine release and calcium influx at the neuromuscular junction; it is among several promising but not yet established treatment alternatives.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"magnesium sulfate\"]}}, {\"id\": \"Mechanical ventilation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Airway management and mechanical ventilation support patients through respiratory failure from the cholinergic crisis and the intermediate syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Muscarinic receptor overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated acetylcholine overstimulates muscarinic receptors on smooth muscle, glands, and the heart, producing parasympathetic and secretory excess: miosis, lacrimation, salivation, bronchorrhea, bronchoconstriction, bradycardia, gastrointestinal hypermotility, sweating, and urinary incontinence (the SLUDGE/DUMBELS pattern).\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"G protein-coupled acetylcholine receptor signaling pathway\"]}}, {\"id\": \"Nerve agent exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Organophosphate nerve agents (e.g., sarin, VX) are chemical-warfare and terrorism agents that act by the same acetylcholinesterase-inhibition mechanism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neuropathy target esterase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Certain organophosphates inhibit and then age a second serine esterase, neuropathy target esterase (NTE/PNPLA6), an integral membrane protein in neurons. This mechanism is independent of acetylcholinesterase inhibition and initiates the delayed neuropathy after a 1-3 week latency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"phospholipid metabolic process\"]}}, {\"id\": \"Nicotinic receptor overstimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulated acetylcholine overstimulates nicotinic receptors at the neuromuscular junction and autonomic ganglia, causing fasciculations followed by depolarizing neuromuscular blockade and weakness, together with sympathetic ganglionic effects such as tachycardia and hypertension.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"muscle cell\"], \"biological_processes\": [\"neuromuscular synaptic transmission\"]}}, {\"id\": \"Organophosphate bioactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Many organophosphate insecticides are phosphorothioate (P=S, \\\"thion\\\") pro-toxicants that require hepatic cytochrome P450-mediated oxidative desulfuration to their active oxon (P=O) form, a far more potent cholinesterase inhibitor. Direct-acting oxons and nerve agents skip this step, and the speed of activation varies between compounds.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"xenobiotic metabolic process\"]}}, {\"id\": \"Organophosphate exposure and absorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Organophosphorus compounds enter the body across the skin, respiratory tract, and gastrointestinal tract following agricultural, occupational, intentional, or chemical-warfare exposure, and are distributed systemically to reach their molecular targets; in high doses they are toxic or lethal. This shared entry point feeds both the acetylcholinesterase arm (via bioactivation) and the delayed neuropathy-target-esterase arm.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"xenobiotic metabolic process\"]}}, {\"id\": \"Pralidoxime\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pralidoxime and other oximes reactivate phosphorylated acetylcholinesterase before it ages, targeting the nicotinic (neuromuscular) features atropine does not; however, clinical trial evidence for pralidoxime benefit is uncertain and contested.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pralidoxime\"]}}, {\"id\": \"Respiratory failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory failure from combined bronchorrhea, respiratory-muscle weakness, and central depression is the leading cause of death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002093\"}}, {\"id\": \"Synaptic acetylcholine accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With acetylcholinesterase inhibited, acetylcholine released at cholinergic synapses is not degraded and accumulates at autonomic, neuromuscular, and central synapses, producing sustained receptor stimulation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cholinergic neuron\"], \"biological_processes\": [\"cholinergic synaptic transmission\"]}}], \"edges\": [{\"source\": \"Organophosphate exposure and absorption\", \"target\": \"Organophosphate bioactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed phosphorothioate pro-toxicants undergo hepatic activation to their oxon form.\"}, {\"source\": \"Organophosphate exposure and absorption\", \"target\": \"Neuropathy target esterase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed neuropathic organophosphates reach peripheral and central neurons and inhibit neuropathy target esterase.\"}, {\"source\": \"Organophosphate bioactivation\", \"target\": \"Acetylcholinesterase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The activated oxon phosphorylates and inhibits acetylcholinesterase.\"}, {\"source\": \"Acetylcholinesterase inhibition\", \"target\": \"Aging of inhibited acetylcholinesterase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The phosphorylated enzyme can undergo dealkylation that makes inhibition irreversible.\"}, {\"source\": \"Acetylcholinesterase inhibition\", \"target\": \"Synaptic acetylcholine accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of acetylcholinesterase activity prevents breakdown of acetylcholine at synapses.\"}, {\"source\": \"Synaptic acetylcholine accumulation\", \"target\": \"Muscarinic receptor overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess acetylcholine overstimulates muscarinic acetylcholine receptors.\"}, {\"source\": \"Synaptic acetylcholine accumulation\", \"target\": \"Nicotinic receptor overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess acetylcholine overstimulates nicotinic acetylcholine receptors.\"}, {\"source\": \"Synaptic acetylcholine accumulation\", \"target\": \"Central cholinergic overstimulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excess acetylcholine overstimulates central nervous system cholinergic pathways.\"}, {\"source\": \"Muscarinic receptor overstimulation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bronchorrhea and bronchoconstriction impair gas exchange and contribute to respiratory failure.\"}, {\"source\": \"Nicotinic receptor overstimulation\", \"target\": \"Intermediate syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged nicotinic overstimulation and postsynaptic neuromuscular-junction dysfunction give rise to the delayed intermediate syndrome.\"}, {\"source\": \"Nicotinic receptor overstimulation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuromuscular block from nicotinic overstimulation weakens the respiratory muscles and contributes to respiratory failure.\"}, {\"source\": \"Central cholinergic overstimulation\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central depression of the respiratory center contributes to respiratory failure.\"}, {\"source\": \"Intermediate syndrome\", \"target\": \"Respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Weakness of the respiratory muscles in the intermediate syndrome can precipitate respiratory failure after the acute crisis has resolved.\"}, {\"source\": \"Neuropathy target esterase inhibition\", \"target\": \"Distal axonal degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inhibition and aging of neuropathy target esterase triggers a distal, dying-back axonopathy.\"}, {\"source\": \"Agricultural insecticide exposure\", \"target\": \"Organophosphate exposure and absorption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Agricultural and vector-control spraying puts organophosphate on skin and in breathed air, the routes by which it is absorbed at work.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intentional self-poisoning by ingestion\", \"target\": \"Organophosphate exposure and absorption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Deliberate ingestion of concentrated pesticide delivers a far larger absorbed dose than occupational contact, which is why this route dominates mortality.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accidental pesticide exposure\", \"target\": \"Organophosphate exposure and absorption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Accidental exposure is predominantly oral: eating produce treated with organophosphate delivers the compound by the gastrointestinal route.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nerve agent exposure\", \"target\": \"Organophosphate exposure and absorption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Nerve agents are organophosphates delivered deliberately as vapour or liquid, entering by the same dermal and respiratory routes but at far higher potency than the insecticides.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Decontamination and supportive care\", \"target\": \"Acetylcholinesterase inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atropine\", \"target\": \"Muscarinic receptor overstimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pralidoxime\", \"target\": \"Acetylcholinesterase inhibition\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Benzodiazepine\", \"target\": \"Central cholinergic overstimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mechanical ventilation\", \"target\": \"Respiratory failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Magnesium sulfate\", \"target\": \"Synaptic acetylcholine accumulation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5616,7 +5848,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bradycardia" data-dismech-node="Bradycardia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bradycardia
 
@@ -5684,7 +5916,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diarrhea
 
@@ -5743,7 +5975,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vomiting" data-dismech-node="Vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vomiting
 
@@ -5811,7 +6043,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lacrimation" data-dismech-node="Lacrimation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lacrimation
 
@@ -5879,7 +6111,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-salivation" data-dismech-node="Excessive salivation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Excessive salivation
 
@@ -5947,7 +6179,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscle weakness
 
@@ -6015,7 +6247,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fasciculations" data-dismech-node="Fasciculations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fasciculations
 
@@ -6074,7 +6306,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
@@ -6133,7 +6365,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coma" data-dismech-node="Coma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coma
 
@@ -6192,7 +6424,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral neuropathy
 
@@ -6260,7 +6492,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory failure
 
@@ -6319,7 +6551,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchospasm" data-dismech-node="Bronchospasm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bronchospasm
 
@@ -6387,7 +6619,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-miosis" data-dismech-node="Miosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Miosis
 
@@ -6446,7 +6678,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neck-flexor-weakness" data-dismech-node="Neck flexor weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neck flexor weakness
 
@@ -6505,7 +6737,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchorrhea" data-dismech-node="Bronchorrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bronchorrhea
 
@@ -6595,7 +6827,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pon1" data-dismech-node="PON1" data-dismech-type="genetic">
                 <div class="item-name">
                     PON1
 
@@ -6680,9 +6912,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6694,7 +6930,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-decontamination-and-supportive-care" data-dismech-node="Decontamination and supportive care" data-dismech-type="treatment">
                 <div class="item-name">
                     Decontamination and supportive care
                 </div>
@@ -6790,7 +7026,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-atropine" data-dismech-node="Atropine" data-dismech-type="treatment">
                 <div class="item-name">
                     Atropine
                 </div>
@@ -6924,7 +7160,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pralidoxime" data-dismech-node="Pralidoxime" data-dismech-type="treatment">
                 <div class="item-name">
                     Pralidoxime
                 </div>
@@ -7036,7 +7272,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-benzodiazepine" data-dismech-node="Benzodiazepine" data-dismech-type="treatment">
                 <div class="item-name">
                     Benzodiazepine
                 </div>
@@ -7148,7 +7384,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mechanical-ventilation" data-dismech-node="Mechanical ventilation" data-dismech-type="treatment">
                 <div class="item-name">
                     Mechanical ventilation
                 </div>
@@ -7244,7 +7480,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-magnesium-sulfate" data-dismech-node="Magnesium sulfate" data-dismech-type="treatment">
                 <div class="item-name">
                     Magnesium sulfate
                 </div>
@@ -7368,7 +7604,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-agricultural-insecticide-exposure" data-dismech-node="Agricultural insecticide exposure" data-dismech-type="environmental">
                 <div class="item-name">Agricultural insecticide exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7428,9 +7664,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Organophosphate exposure and absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Agricultural and vector-control spraying puts organophosphate on skin and in breathed air, the routes by which it is absorbed at work.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25455666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25455666" target="_blank">PMID:25455666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Organophosphates (OPs) and carbamates have a wide variety of applications, most commonly as pesticides used to eradicate agricultural pests or control populations of disease-carrying vectors."</div>
+
+
+                <div class="evidence-explanation">Establishes agricultural and vector-control pesticide use as the dominant setting in which people encounter organophosphates.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-intentional-self-poisoning-by-ingestion" data-dismech-node="Intentional self-poisoning by ingestion" data-dismech-type="environmental">
                 <div class="item-name">Intentional self-poisoning by ingestion</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7490,9 +7779,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Organophosphate exposure and absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Deliberate ingestion of concentrated pesticide delivers a far larger absorbed dose than occupational contact, which is why this route dominates mortality.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17706760" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17706760" target="_blank">PMID:17706760</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Organophosphorus pesticide self-poisoning is an important clinical problem in rural regions of the developing world, and kills an estimated 200,000 people every year."</div>
+
+
+                <div class="evidence-explanation">The scale of mortality from deliberate ingestion reflects the large absorbed dose this route delivers.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-accidental-pesticide-exposure" data-dismech-node="Accidental pesticide exposure" data-dismech-type="environmental">
                 <div class="item-name">Accidental pesticide exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7552,9 +7894,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Organophosphate exposure and absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Accidental exposure is predominantly oral: eating produce treated with organophosphate delivers the compound by the gastrointestinal route.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18090104" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18090104" target="_blank">PMID:18090104</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common route of exposure was ingestion of agricultural products treated with OPs (71%)."</div>
+
+
+                <div class="evidence-explanation">Quantifies ingestion of treated produce as the dominant accidental route to absorbed organophosphate in this series.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-nerve-agent-exposure" data-dismech-node="Nerve agent exposure" data-dismech-type="environmental">
                 <div class="item-name">Nerve agent exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7614,6 +8009,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Organophosphate exposure and absorption</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Nerve agents are organophosphates delivered deliberately as vapour or liquid, entering by the same dermal and respiratory routes but at far higher potency than the insecticides.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25455666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25455666" target="_blank">PMID:25455666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Certain organophosphorus compounds, known as nerve agents, have been employed in chemical warfare and terrorism incidents."</div>
+
+
+                <div class="evidence-explanation">Identifies nerve agents as organophosphorus compounds, so their deliberate release is an organophosphate exposure like any other.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -7628,7 +8076,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-erythrocyte-acetylcholinesterase" data-dismech-node="Erythrocyte acetylcholinesterase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Erythrocyte acetylcholinesterase
 
@@ -7675,7 +8123,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-butyrylcholinesterase" data-dismech-node="Plasma butyrylcholinesterase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Plasma butyrylcholinesterase
 
@@ -8525,6 +8973,22 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;Organophosphates (OPs) and carbamates have a wide variety of applications, most commonly as pesticides used to eradicate agricultural pests or control populations of disease-carrying vectors.&#34;
     explanation: Supports agricultural pesticide use as the dominant application and exposure route.
+  influences_mechanisms:
+  - target: Organophosphate exposure and absorption
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Agricultural and vector-control spraying puts organophosphate on skin
+      and in breathed air, the routes by which it is absorbed at work.
+    evidence:
+    - reference: PMID:25455666
+      reference_title: &#34;Organophosphate and carbamate poisoning.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Organophosphates (OPs) and carbamates have a wide variety of applications, most commonly as pesticides used to eradicate agricultural pests or control populations of disease-carrying vectors.&#34;
+      explanation: &gt;-
+        Establishes agricultural and vector-control pesticide use as the
+        dominant setting in which people encounter organophosphates.
 - name: Intentional self-poisoning by ingestion
   exposure_term:
     preferred_term: exposure to pesticide
@@ -8542,6 +9006,23 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;Organophosphorus pesticide self-poisoning is an important clinical problem in rural regions of the developing world, and kills an estimated 200,000 people every year.&#34;
     explanation: Supports self-poisoning as a major cause of death in the developing world.
+  influences_mechanisms:
+  - target: Organophosphate exposure and absorption
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Deliberate ingestion of concentrated pesticide delivers a far larger
+      absorbed dose than occupational contact, which is why this route
+      dominates mortality.
+    evidence:
+    - reference: PMID:17706760
+      reference_title: &#34;Management of acute organophosphorus pesticide poisoning.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Organophosphorus pesticide self-poisoning is an important clinical problem in rural regions of the developing world, and kills an estimated 200,000 people every year.&#34;
+      explanation: &gt;-
+        The scale of mortality from deliberate ingestion reflects the large
+        absorbed dose this route delivers.
 - name: Accidental pesticide exposure
   exposure_term:
     preferred_term: exposure to pesticide
@@ -8558,6 +9039,22 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The most common route of exposure was ingestion of agricultural products treated with OPs (71%).&#34;
     explanation: Supports accidental exposure via treated agricultural products, a common pediatric route.
+  influences_mechanisms:
+  - target: Organophosphate exposure and absorption
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Accidental exposure is predominantly oral: eating produce treated with
+      organophosphate delivers the compound by the gastrointestinal route.
+    evidence:
+    - reference: PMID:18090104
+      reference_title: &#34;Unintentional organophosphate intoxication in children.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The most common route of exposure was ingestion of agricultural products treated with OPs (71%).&#34;
+      explanation: &gt;-
+        Quantifies ingestion of treated produce as the dominant accidental
+        route to absorbed organophosphate in this series.
 - name: Nerve agent exposure
   exposure_term:
     preferred_term: exposure to chemical
@@ -8575,6 +9072,23 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;Certain organophosphorus compounds, known as nerve agents, have been employed in chemical warfare and terrorism incidents.&#34;
     explanation: Supports nerve agents as organophosphorus chemical-warfare exposures.
+  influences_mechanisms:
+  - target: Organophosphate exposure and absorption
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Nerve agents are organophosphates delivered deliberately as vapour or
+      liquid, entering by the same dermal and respiratory routes but at far
+      higher potency than the insecticides.
+    evidence:
+    - reference: PMID:25455666
+      reference_title: &#34;Organophosphate and carbamate poisoning.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Certain organophosphorus compounds, known as nerve agents, have been employed in chemical warfare and terrorism incidents.&#34;
+      explanation: &gt;-
+        Identifies nerve agents as organophosphorus compounds, so their
+        deliberate release is an organophosphate exposure like any other.
 treatments:
 - name: Decontamination and supportive care
   description: &gt;-
@@ -9258,7 +9772,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Organophosphate Poisoning", "mondoId": "MONDO:0800386", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Organophosphate_Poisoning", "yamlRevision": "4749e1f3e3f7"};
+        const OS_CONFIG = {"diseaseName": "Organophosphate Poisoning", "mondoId": "MONDO:0800386", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Organophosphate_Poisoning", "yamlRevision": "9e42fb6024df"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
