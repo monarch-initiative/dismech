@@ -199,8 +199,9 @@ def test_compound_structured_header_is_stripped_whole() -> None:
         )
         == "Beta-ketothiolase deficiency is a rare inborn error of metabolism."
     )
-    # The global header sweep in normalize_cache_body eats "OBJECTIVES:" and
-    # "METHODS:" first, which is what leaves the dangling conjunction behind.
+    # Defensive: a compound header whose second half has already been taken
+    # off elsewhere still leaves a dangling conjunction, and PDF-derived bodies
+    # arrive in that shape on their own.
     assert (
         backfill.strip_leading_section_labels(
             "BACKGROUND AND To demonstrate that the analog is a positive modulator."
@@ -380,11 +381,11 @@ def test_title_glued_to_the_first_sentence_is_dropped() -> None:
 
 
 def test_ampersand_header_leaves_no_stray_conjunction() -> None:
-    """ "BACKGROUND & AIMS:" is taken apart around the ampersand upstream.
+    """ "BACKGROUND & AIMS:" must not leave its ampersand behind.
 
-    The global sweep in ``normalize_cache_body`` matches the ``AIMS:`` half
-    only, so the candidate arrives as ``BACKGROUND & <sentence>`` and the
-    ampersand has to be peeled with the label.
+    A candidate arriving as ``BACKGROUND & <sentence>`` has to lose the
+    ampersand along with the label, or the snippet opens on punctuation and is
+    no longer a verbatim substring of the source.
     """
     assert backfill.strip_leading_section_labels(
         "BACKGROUND & Alpha-1 antitrypsin deficiency (AATD) is a genetic "
@@ -424,3 +425,72 @@ have poor prognosis.
 
     assert supporting_text is not None
     assert supporting_text.startswith("Patients with both BRAF V600E mutations")
+
+
+def test_a_title_that_splits_into_two_sentences_is_not_quoted(tmp_path: Path) -> None:
+    """A title with its own sentence break is still a title, in both halves.
+
+    The sentence splitter cuts it, so neither half ever *equals* the title, and
+    the question half was being quoted as though it were a finding.
+    """
+    title = (
+        "Does heart surgery change the capacity of alpha1-antitrypsin to inhibit "
+        "the release of interleukin-1beta? A preliminary study."
+    )
+    body = f"""---
+reference_id: "PMID:6"
+title: {title}
+---
+
+## Content
+
+1. Int Immunopharmacol. 2020 Apr;81:106297. doi: 10.1016/j.intimp.2020.106297.
+
+{title}
+
+Smith A(1), Jones B(2).
+
+Heart surgery involving cardiopulmonary bypass induces systemic inflammation.
+"""
+    cache_path = write_cache(tmp_path, body, name="PMID_6.md")
+
+    supporting_text = backfill.extract_supporting_text(cache_path, title)
+
+    assert supporting_text == (
+        "Heart surgery involving cardiopulmonary bypass induces systemic inflammation."
+    )
+
+
+def test_supporting_text_stays_a_verbatim_substring(tmp_path: Path) -> None:
+    """Whatever is stripped must be a prefix, never a splice.
+
+    A snippet is checked by substring match against the cached body, so any
+    edit that removes text from the *middle* of a candidate produces a quote
+    that cannot be verified against the source it came from.
+    """
+    body = """---
+reference_id: "PMID:7"
+title: A labelled abstract.
+---
+
+## Content
+
+1. J Test. 2020 Jan;1(1):1-2. doi: 10.1000/test.
+
+A labelled abstract.
+
+Smith A(1).
+
+STUDY OBJECTIVES: Chronic disruptions to sleep in childhood are associated with
+psychiatric disease. METHODS: Participants were recruited from a birth cohort.
+"""
+    cache_path = write_cache(tmp_path, body, name="PMID_7.md")
+
+    supporting_text = backfill.extract_supporting_text(
+        cache_path, "A labelled abstract."
+    )
+
+    assert supporting_text is not None
+    assert supporting_text.startswith("Chronic disruptions to sleep in childhood")
+    collapsed_body = " ".join(body.split())
+    assert " ".join(supporting_text.split()) in collapsed_body

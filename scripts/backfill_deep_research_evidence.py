@@ -40,8 +40,12 @@ LEADING_SUBSECTION_LABEL_RE = re.compile(
     # Safe at any case because a label word must follow: "TP53 and other tumour
     # suppressors" is not touched.
     r"^(?:and\s+)?"
-    r"(?:background(?:/introduction)?|context and justification|purpose|objectives?|"
-    r"methods(?: and main results)?|results?|conclusions?|discussion|introduction|aims?)"
+    # "purpose of review" before bare "purpose", or only the first word goes and
+    # the snippet opens on a dangling "of review ...".
+    r"(?:purpose of (?:review|(?:the |this |present )?study)|"
+    r"background(?:/introduction)?|context and justification|purpose|objectives?|"
+    r"methods(?: and main results)?|results?|conclusions?|discussion|introduction|"
+    r"importance|aims?)"
     r"\s*[:/\-]?\s*",
     re.IGNORECASE,
 )
@@ -66,6 +70,12 @@ LANGUAGE_NOTE_RE = re.compile(r"^\[Article in [^\]]*\]\s*", re.IGNORECASE)
 # peeled once the label pattern above has taken "BACKGROUND ", instead of
 # leaving a stray "& " on the front of the snippet.
 ALLCAPS_HEADER_RE = re.compile(r"^[A-Z&][A-Z0-9/&'()\- ]{1,48}:\s*")
+# Web-scraped cache bodies carry page furniture -- inline scripts, style rules --
+# which survives tag stripping and reads like a long sentence.
+MARKUP_NOISE_RE = re.compile(
+    r"^(?:var|function|try|catch|if|else|window|document)\b|@media\b|\bdocument\.",
+    re.IGNORECASE,
+)
 
 # Plain-text PubMed/PMC records (the ``full_text_pdf`` / ``full_text_xml`` cache
 # bodies) wrap the abstract in a bibliographic envelope that carries no
@@ -458,6 +468,8 @@ def is_bibliographic(candidate: str) -> bool:
         return True
     if IMPRINT_LINE_RE.match(candidate):
         return True
+    if MARKUP_NOISE_RE.search(candidate):
+        return True
     return looks_like_author_list(candidate)
 
 
@@ -515,12 +527,6 @@ def normalize_cache_body(body: str) -> str:
         text = text.split("BACKGROUND:", 1)[1]
     elif "\nBackground:" in text:
         text = text.split("\nBackground:", 1)[1]
-    text = re.sub(
-        r"\b(BACKGROUND|OBJECTIVES|METHODS(?: AND MAIN RESULTS)?|RESULTS|CONCLUSION|DISCUSSION|INTRODUCTION|AIMS?)\s*:\s*",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -568,6 +574,20 @@ def strip_leading_title(candidate: str, title: str) -> str:
     return remainder.lstrip(" .:;?!")
 
 
+def is_title_text(candidate: str, normalized_title: str) -> bool:
+    """True when a candidate is the title, or any part of it.
+
+    Containment rather than equality: a title carrying its own sentence break
+    ("... interleukin-1beta? A preliminary study.") is split by the sentence
+    splitter, so neither half ever *equals* the title, and the question half
+    was being quoted as though it were a finding. A question is not a claim.
+    """
+    normalized_candidate = normalize_title(candidate)
+    if not normalized_candidate or not normalized_title:
+        return False
+    return normalized_candidate in normalized_title
+
+
 def supporting_text_candidates(normalized: str, title: str) -> Iterable[str]:
     normalized_title = normalize_title(title)
     for sentence in SENTENCE_SPLIT_RE.split(normalized):
@@ -577,17 +597,21 @@ def supporting_text_candidates(normalized: str, title: str) -> Iterable[str]:
         # so stripping first would leave a headless title that no longer
         # matches, and it would be returned as though it were an abstract
         # sentence.
-        if normalize_title(raw) == normalized_title:
+        if is_title_text(raw, normalized_title):
             continue
         candidate = strip_leading_section_labels(raw)
-        candidate = strip_leading_title(candidate, title)
+        # Removing the title can uncover a label that was sitting behind it,
+        # so the labels get a second pass.
+        candidate = strip_leading_section_labels(
+            strip_leading_title(candidate, title)
+        )
         if len(candidate) < 40:
             continue
         if candidate.lower().startswith(("author information", "copyright")):
             continue
         if is_bibliographic(candidate):
             continue
-        if normalize_title(candidate) == normalize_title(title):
+        if is_title_text(candidate, normalized_title):
             continue
         yield candidate
 
