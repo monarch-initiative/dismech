@@ -14310,8 +14310,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Anaplastic Large Cell Lymphoma",
@@ -15302,7 +15302,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -15860,7 +15860,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -60365,8 +60365,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Diamond-Blackfan Anemia",
@@ -63336,8 +63336,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dysembryoplastic Neuroepithelial Tumor",
@@ -66535,8 +66535,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Endometrial Endometrioid Adenocarcinoma",
@@ -68559,8 +68559,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Esophageal Squamous Cell Carcinoma",
@@ -84444,8 +84444,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Greig Cephalopolysyndactyly Syndrome",
@@ -87151,7 +87151,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "7"
   },
   {
@@ -98389,6 +98389,101 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development",
+    "disease_id": "MONDO:0032685",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "inborn error of metabolism"
+    ],
+    "creation_date": "2026-08-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An inborn error of glutamate metabolism (CASGID; OMIM 618339) caused by a de novo hypermorphic p.Ser482Cys variant in GLS, the gene encoding phosphate-activated glutaminase. This is the mechanistic mirror image of GLS glutaminase deficiency: instead of losing the enzyme that hydrolyzes glutamine to glutamate, the variant makes glutaminase intrinsically hyperactive, so glutamate accumulates and glutamine is depleted. In the brain, magnetic resonance spectroscopic imaging showed extremely high glutamate in both grey and white matter with glutamine almost undetectable; given the neurotoxicity of excess glutamate, this is the proposed explanation for the profound developmental delay. A second consequence is a reduced capacity to detoxify reactive oxygen species, offering an explanation for the infantile cataract \u2014 a phenotype reproduced in zebrafish expressing the hypermorphic allele and alleviated by pharmacological GLS inhibition. Beyond the two title features, the reported patient had axial hypotonia, kyphosis, agitated and self-injuring behaviour, cerebral white matter involvement, and mild hyperammonemia.\nThe Ser482 residue is conserved across roughly 12,000 GLS protein sequences from more than 1,000 genera, to the same degree as the catalytic residues, which the original authors interpret as evolutionary selection for an optimal but deliberately submaximal glutaminase activity. Together with the loss-of-function entities \u2014 Neonatal Epileptic Encephalopathy Due to Glutaminase Deficiency (MONDO:0032678 / OMIM 618328) and Global Developmental Delay, Progressive Ataxia, and Elevated Glutamine (MONDO:0032733 / OMIM 618412) \u2014 this disorder makes GLS an unusually clean example of one gene producing opposite-direction disease through opposite-direction lesions. It is also a documented counterexample to the assumption that mono-allelic variants in enzyme-encoding genes are harmless.\n",
+    "pathophysiology": [
+      "De Novo GLS p.Ser482Cys Hypermorphic Variant",
+      "Intrinsic Glutaminase Hyperactivity",
+      "Failed Homeostatic Compensation",
+      "Glutamate Excess and Glutamine Depletion",
+      "Broad Metabolic Network Remodeling",
+      "Glutamate Neurotoxicity",
+      "Impaired Reactive Oxygen Species Detoxification",
+      "Lens Opacification",
+      "Early-Onset Bilateral Cataract",
+      "Cerebral White Matter Involvement",
+      "Profound Developmental Delay"
+    ],
+    "cell_types": [
+      "neuron",
+      "lens fiber cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0011004"
+    ],
+    "biological_processes": [
+      "L-glutamine catabolic process",
+      "L-glutamate biosynthetic process",
+      "glutamate metabolic process",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Cataract",
+      "Profound global developmental delay",
+      "Skin abnormality",
+      "Axial hypotonia",
+      "Kyphosis",
+      "Self-injurious behavior",
+      "Abnormal cerebral white matter morphology"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Neurologic",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000518",
+      "HP:0012736",
+      "HP:0000951",
+      "HP:0008936",
+      "HP:0002808",
+      "HP:0100716",
+      "HP:0002500"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GLS"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Genetic Counseling",
+      "Glutaminase Inhibition (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Urine glutamate",
+      "Urine glutamine",
+      "Brain glutamate (MR spectroscopic imaging)",
+      "Plasma and CSF glutamate and glutamine"
+    ],
+    "source_file": "Infantile_Cataract_Skin_Abnormalities_Glutamate_Excess_and_Impaired_Intellectual_Development.yaml",
+    "page_url": "../pages/disorders/Infantile_Cataract,_Skin_Abnormalities,_Glutamate_Excess,_and_Impaired_Intellectual_Development.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Infantile Hypercalcemia",
@@ -110897,7 +110992,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "1"
   },
   {
@@ -129410,6 +129505,114 @@ window.searchData = [
     "num_genes": 11,
     "num_treatments": 7,
     "causal_graph_edges": "35",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Neonatal Epileptic Encephalopathy Due to Glutaminase Deficiency",
+    "disease_id": "MONDO:0032678",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "inborn error of metabolism",
+      "Epileptic Encephalopathy"
+    ],
+    "creation_date": "2026-08-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The severe, neonatal-onset end of the GLS glutaminase-deficiency spectrum: an autosomal recessive inborn error of amino acid metabolism caused by biallelic loss-of-function variants in GLS, the gene encoding phosphate-activated glutaminase. Because glutaminase hydrolyzes glutamine to glutamate, complete enzyme deficiency both blocks glutamine catabolism \u2014 so glutamine accumulates in blood and cerebrospinal fluid \u2014 and removes the neuronal route to glutamate, the principal excitatory neurotransmitter of the central nervous system. Affected neonates present in the first days of life with therapy-refractory seizures and status epilepticus on a burst-suppression EEG, respiratory insufficiency requiring ventilation, and structural brain abnormalities (simplified gyral pattern, diffuse volume loss, cerebral edema, and cystic lesions resembling those of urea cycle defects). Outcome is usually death in the neonatal period or progression to a persistent vegetative state, though at least one reported patient survived to age six.\nNamed \"developmental and epileptic encephalopathy, 71\" (DEE71) in OMIM/MONDO and \"neonatal epileptic encephalopathy due to glutaminase deficiency\" in Orphanet, this entity sits under the MONDO grouping class glutaminase deficiency (MONDO:0600001) alongside spastic ataxia-dysarthria due to glutaminase deficiency (MONDO:0034146). It is allelic to, but clinically and mechanistically distinct from, the milder repeat-expansion form Global Developmental Delay, Progressive Ataxia, and Elevated Glutamine (MONDO:0032733 / OMIM 618412), and from the mechanistically opposite de novo gain-of-function (hypermorphic) GLS disorder characterized by glutamate excess (MONDO:0032685 / OMIM 618339).\n",
+    "pathophysiology": [
+      "Biallelic GLS Loss-of-Function Variants",
+      "Complete Phosphate-Activated Glutaminase Deficiency",
+      "Impaired Glutamine Catabolism and Glutamine Accumulation",
+      "Glutamine Neurotoxicity",
+      "Impaired Glutamatergic Neurotransmission",
+      "Organelle Stress and Mitochondrial Bioenergetic Failure",
+      "Neonatal Epileptic Encephalopathy",
+      "Central Respiratory Failure",
+      "Structural Brain Injury",
+      "Neonatal Death or Persistent Vegetative State"
+    ],
+    "cell_types": [
+      "astrocyte",
+      "neuron",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000127",
+      "CL:0000540",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "L-glutamine catabolic process",
+      "L-glutamate biosynthetic process",
+      "glutamate secretion, neurotransmission",
+      "response to endoplasmic reticulum stress",
+      "mitochondrial fission"
+    ],
+    "phenotypes": [
+      "Neonatal seizures",
+      "Status epilepticus",
+      "EEG with burst suppression",
+      "Respiratory failure",
+      "Apnea",
+      "Simplified gyral pattern",
+      "Cerebral atrophy",
+      "Cerebral edema",
+      "Hyperglutaminemia",
+      "Increased CSF glutamine concentration",
+      "Increased CSF glycine concentration",
+      "Hyperalaninemia",
+      "Vegetative state"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Respiratory",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0032807",
+      "HP:0002133",
+      "HP:0010851",
+      "HP:0002878",
+      "HP:0002104",
+      "HP:0009879",
+      "HP:0002059",
+      "HP:0002181",
+      "HP:0003217",
+      "HP:0500197",
+      "HP:0500230",
+      "HP:0003348",
+      "HP:0031358"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GLS"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma glutamine",
+      "CSF glutamine",
+      "Serum alanine",
+      "Blood ammonia"
+    ],
+    "source_file": "Neonatal_Epileptic_Encephalopathy_Due_to_Glutaminase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Neonatal_Epileptic_Encephalopathy_Due_to_Glutaminase_Deficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -162647,7 +162850,7 @@ window.searchData = [
   },
   {
     "name": "SNAP25 Encephalopathy",
-    "disease_id": "MONDO:0032678",
+    "disease_id": "MONDO:0100062",
     "category": "Mendelian",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -168043,8 +168246,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Sengers syndrome",
@@ -192057,15 +192260,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1871,
+  "total_disorder_pages": 1873,
   "total_subtypes": 2834,
-  "total_disorders_and_subtypes": 4705,
-  "total_unique_evidence_sources": 28266,
-  "total_unique_publications": 26444,
+  "total_disorders_and_subtypes": 4707,
+  "total_unique_evidence_sources": 28270,
+  "total_unique_publications": 26448,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 243,
-  "total_pathographs": 1866,
-  "total_unique_pathological_events": 10017,
+  "total_pathographs": 1868,
+  "total_unique_pathological_events": 10034,
   "total_modules": 120,
   "total_research_reports": 2121,
   "total_classifications": 10,
