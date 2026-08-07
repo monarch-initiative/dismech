@@ -1650,10 +1650,18 @@ paper's full text (not the cached abstract) fails here even if a plain
 non-disorder targets, and for the full-text-permitting check; `just
 validate-references-all` sweeps the entire KB.
 
-**Why the split.** Every recipe that calls the reference validator first
-re-normalizes the whole `references_cache/` (tens of thousands of files), so a
-single large entry can run past ten minutes and a file-at-a-time tranche may not
-finish at all. That cost is exactly what tempts a curator (or an agent) into
+**Why the split.** `just validate-references` on a single entry (Cholera, 187
+snippets) was measured at **65 minutes** — against 1.4 seconds for
+`count-verified-snippets` over that entry plus Asthma together (376 snippets).
+Two costs stack up. Every recipe that calls the reference validator first
+re-normalizes the whole `references_cache/` (tens of thousands of files); then
+the validator tries to download full text for each citation, and most publisher
+PDFs answer with a 403 or simply hang until a 30-60 second connect timeout
+expires. That second cost dominates: the 65-minute run burned under a minute of
+actual CPU. It is also why `validate-disorders` is so much cheaper — its
+`--no-full-text` flag skips those doomed downloads entirely.
+
+That wall-clock cost is exactly what tempts a curator (or an agent) into
 recording the check as run when it was killed partway — which happened, and cost
 four correction commits to retract (#8119). `count-verified-snippets` walks the
 same evidence pairs with the same matching rules and finishes in seconds, so
@@ -1664,8 +1672,8 @@ you pay the slow cost once.
 
 | | `count-verified-snippets` | `validate-disorders` / `validate-references` |
 |---|---|---|
-| Speed | seconds | minutes to tens of minutes |
-| Network | never — cache only | fetches missing references |
+| Speed | seconds | minutes to over an hour per file |
+| Network | never — cache only | fetches missing references, and full text unless `--no-full-text` |
 | Checks snippet is in the cited reference | yes | yes |
 | Reports uncached references | yes, counted in the summary | fetches them instead |
 | Also checks schema + ontology terms | no | `validate-disorders` does |
