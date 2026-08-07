@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from dismech.frontmatter import split_frontmatter
 from dismech.yaml_io import safe_load, safe_load_path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -65,13 +66,12 @@ def _snapshot_date() -> str:
 
 
 def _split_front_matter(text: str) -> dict:
-    if not text.startswith("---"):
-        return {}
-    parts = text.split("---", 2)
-    if len(parts) < 3:
+    # Delimiter-aware (issue #7697): ``---`` inside a value is not a delimiter.
+    split = split_frontmatter(text)
+    if split is None:
         return {}
     try:
-        return safe_load(parts[1]) or {}
+        return safe_load(split.frontmatter) or {}
     except yaml.YAMLError:
         return {}
 

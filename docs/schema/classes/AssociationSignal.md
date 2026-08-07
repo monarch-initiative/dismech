@@ -49,6 +49,17 @@ URI: [dismech:class/AssociationSignal](https://w3id.org/monarch-initiative/disme
         
       AssociationSignal : disorder_b_count
         
+      AssociationSignal : effect_direction
+        
+          
+    
+        
+        
+        AssociationSignal --> "0..1" ComorbidityEffectDirectionEnum : effect_direction
+        click ComorbidityEffectDirectionEnum href "../../enums/ComorbidityEffectDirectionEnum/"
+    
+
+        
       AssociationSignal : evidence
         
           
@@ -158,6 +169,7 @@ URI: [dismech:class/AssociationSignal](https://w3id.org/monarch-initiative/disme
 | [limited_precision](../slots/limited_precision.md) | 0..1 <br/> [Boolean](../types/Boolean.md) | Whether the signal has limited statistical precision due to small co-occurren... | direct |
 | [precision_count_threshold](../slots/precision_count_threshold.md) | 0..1 <br/> [Integer](../types/Integer.md) | Co-occurrence count threshold used to flag limited precision | direct |
 | [directionality](../slots/directionality.md) | 0..1 <br/> [ComorbidityDirectionEnum](../enums/ComorbidityDirectionEnum.md) | Direction of a comorbidity/trajectory association | direct |
+| [effect_direction](../slots/effect_direction.md) | 0..1 <br/> [ComorbidityEffectDirectionEnum](../enums/ComorbidityEffectDirectionEnum.md) | The sign of the association - whether one condition raises (RISK) or lowers (... | direct |
 | [a_before_b](../slots/a_before_b.md) | 0..1 <br/> [Float](../types/Float.md) | Probability or fraction of A before B in an EHR signal | direct |
 | [b_before_a](../slots/b_before_a.md) | 0..1 <br/> [Float](../types/Float.md) | Probability or fraction of B before A in an EHR signal | direct |
 | [same_time](../slots/same_time.md) | 0..1 <br/> [Float](../types/Float.md) | Probability or fraction of A and B occurring in the same time window | direct |
@@ -240,6 +252,7 @@ slots:
 - limited_precision
 - precision_count_threshold
 - directionality
+- effect_direction
 - a_before_b
 - b_before_a
 - same_time
@@ -332,6 +345,7 @@ attributes:
     - PhenotypeContext
     - ReferenceRange
     - Prevalence
+    - GeneCaseFraction
     - AssociationSignal
     range: string
   demographics:
@@ -419,6 +433,21 @@ attributes:
     - ComorbidityAssociation
     - AssociationSignal
     range: ComorbidityDirectionEnum
+  effect_direction:
+    name: effect_direction
+    description: The sign of the association - whether one condition raises (RISK)
+      or lowers (PROTECTIVE) the risk/incidence/severity of the other, is context-dependent
+      (MIXED), null, or unknown. Orthogonal to `directionality` (temporal ordering).
+      Defaults conceptually to RISK for conventional comorbidities; set PROTECTIVE
+      for inverse associations such as the cancer/Alzheimer's-disease paradox.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: effect_direction
+    owner: AssociationSignal
+    domain_of:
+    - ComorbidityAssociation
+    - AssociationSignal
+    range: ComorbidityEffectDirectionEnum
   a_before_b:
     name: a_before_b
     description: Probability or fraction of A before B in an EHR signal
@@ -507,17 +536,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -533,6 +566,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -577,12 +611,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
