@@ -20,6 +20,7 @@ import re
 import time
 from functools import wraps
 
+from bs4 import BeautifulSoup
 from ruamel.yaml import YAML
 
 from dismech.frontmatter import contains_frontmatter_delimiter, split_frontmatter
@@ -146,6 +147,42 @@ def _wrap_fulltext_method(original):
     return wrapper
 
 
+def _wrap_xml_extractor(original):
+    """Recover JATS bodies carrying the harmless ``restricted-by`` metadata tag.
+
+    Current PMC/Europe PMC JATS 1.4 documents can include
+    ``<restricted-by>pmc</restricted-by>`` in ``processing-meta`` even when the
+    complete article body is present.  Upstream treats any occurrence of the
+    word ``restricted`` as an unavailable article and discards that body.  Keep
+    its normal behavior first, then recover only documents that actually contain
+    non-empty body paragraphs; genuinely restricted records still have no body
+    and remain unavailable.
+    """
+
+    @wraps(original)
+    def wrapper(self, data, *args, **kwargs):
+        result = original(self, data, *args, **kwargs)
+        if result is not None:
+            return result
+
+        text_data = data.decode("utf-8") if isinstance(data, bytes) else data
+        if "<restricted-by" not in text_data:
+            return None
+
+        soup = BeautifulSoup(text_data, "xml")
+        body = soup.find("body")
+        if body is None:
+            return None
+        paragraphs = [
+            paragraph.get_text()
+            for paragraph in body.find_all("p")
+            if paragraph.get_text().strip()
+        ]
+        return "\n\n".join(paragraphs) if paragraphs else None
+
+    return wrapper
+
+
 def _dump_frontmatter(data) -> str:
     """Serialize a frontmatter mapping back to YAML text."""
     buffer = io.StringIO()
@@ -266,6 +303,7 @@ def _wrap_load_markdown_format(original):
 def apply_patch():
     """Apply monkey-patches for network resilience and cache compatibility."""
     try:
+        from linkml_reference_validator.etl.extract.xml import XMLExtractor
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
         from linkml_reference_validator.etl.sources.pmid import PMIDSource
     except ImportError:
@@ -288,6 +326,11 @@ def apply_patch():
 
         PMIDSource._network_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied network resilience patch to PMIDSource")
+
+    if not getattr(XMLExtractor, "_restricted_by_patch_applied", False):
+        XMLExtractor.extract = _wrap_xml_extractor(XMLExtractor.extract)
+        XMLExtractor._restricted_by_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied restricted-by metadata patch to XMLExtractor")
 
     if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
         original_get_cache_path = ReferenceFetcher.get_cache_path
@@ -330,7 +373,9 @@ def apply_patch():
 
         ReferenceFetcher._save_to_disk = save_to_disk_with_author_coercion
         ReferenceFetcher._author_coercion_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied author-normalization patch to ReferenceFetcher._save_to_disk")
+        logger.debug(
+            "Applied author-normalization patch to ReferenceFetcher._save_to_disk"
+        )
 
     if not getattr(ReferenceFetcher, "_frontmatter_split_patch_applied", False):
         ReferenceFetcher._load_markdown_format = _wrap_load_markdown_format(
