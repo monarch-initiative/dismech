@@ -64,18 +64,50 @@ published 205 such dead links (1,826 KB entries vs. 1,621 rendered pages).
 Two mechanisms now close that gap:
 
 1. **Self-healing escalation.** After an incremental render, the workflow runs
-   `classify_page_build.py --check-page-drift`, which compares the number of
-   `kb/disorders/*.yaml` inputs with the number of `pages/disorders/*.html`
-   files. They are 1:1 in a healthy tree (page filenames are
-   `slugify(disease name).html`, and slugs are unique). Any inequality means an
-   earlier build under- or over-rendered, and the workflow escalates to
-   `just gen-pages` in the same run. The check runs *after* rendering on purpose —
-   before it, every disorder-adding push looks drifted and would escalate.
+   `classify_page_build.py --check-page-drift`, which compares the KB with the
+   rendered pages on two axes:
+
+   - **Count.** The number of `kb/disorders/*.yaml` inputs against the number of
+     `pages/disorders/*.html` files. They are 1:1 in a healthy tree (page
+     filenames are `slugify(disease name).html`, and slugs are unique), so any
+     inequality means an earlier build under- or over-rendered.
+   - **Content.** Every page is stamped with `sha256(source yaml)[:12]` — the
+     renderer computes it for the OpenScientist panel and the template emits it
+     as `yamlRevision` — so comparing that stamp against a fresh digest of the
+     file says whether a page is *current*, not merely *present*.
+
+   The check runs *after* rendering on purpose — before it, every
+   disorder-adding push looks drifted and would escalate.
+
+   The content axis was added after the count axis proved blind to the more
+   common failure. A build's checkout is a snapshot and a full build takes
+   30–60 minutes, so a KB merge landing mid-build is simply absent from it; the
+   resulting page keeps older content while the file counts stay perfectly
+   equal. Worse, it does not heal: the `auto/generate-pages` branch is rebuilt
+   from `main`'s already-stale pages on every run and force-pushed, so a
+   12-minute incremental build silently overwrote a 32-minute full rebuild that
+   had just corrected 29 pages. On 2026-08-07 that left the whole
+   [#8085](https://github.com/monarch-initiative/dismech/issues/8085)
+   environmental-pathograph backfill invisible on the site with 1,871 YAMLs and
+   1,871 pages — zero count drift. See
+   [#8033](https://github.com/monarch-initiative/dismech/issues/8033) and
+   [PR #8140](https://github.com/monarch-initiative/dismech/pull/8140).
+
+   **Repair is proportional.** Pure staleness — the counts already agree and
+   re-rendering the drifted entries would land on exactly the stale pages — is
+   healed by rendering only those (~3 min for 29) rather than everything
+   (~30–60 min); the checker writes that worklist with `--stale-files-out` and
+   reports `heal=targeted`. A count mismatch, or an orphan page left by a
+   rename, reports `heal=full`, because only a full build prunes. A targeted
+   heal is re-checked afterwards and falls back to a full rebuild if drift
+   survives. Without the cheap path, a repo whose merges outpace a full build
+   would sit in permanent full-rebuild mode.
 2. **A hard gate before publishing.** After `just gen-browser-data`, the workflow
    runs [`just check-browser-links`](https://github.com/monarch-initiative/dismech/blob/main/scripts/check_browser_data_links.py),
    which resolves every `page_url` in `window.searchData` against the filesystem
-   and **fails the job** if any target is missing. A count comparison cannot see
-   a rename that keeps the counts equal but changes a slug; this can.
+   and **fails the job** if any target is missing. The drift check escalates and
+   repairs; this one refuses to publish, and it is checking a different thing —
+   the links `data.js` actually emits, rather than the KB/page correspondence.
 
 The gate also catches a second, sneakier shape: a page that renders perfectly on
 the build machine but is dropped from the commit by `.gitignore`, and so never
