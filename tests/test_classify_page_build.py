@@ -370,9 +370,50 @@ def test_orphan_page_from_rename_forces_full_heal(tmp_path):
     assert files == []
 
 
-def test_count_mismatch_forces_full_heal(tmp_path):
+def test_disorder_added_mid_build_heals_targeted(tmp_path):
+    """A count mismatch is not automatically a full rebuild.
+
+    Re-anchoring on current main makes a mid-build addition the common case: the
+    new disorder is in kb/ with no page yet. Rendering it is a provably complete
+    repair, so gating on equal counts would make an expensive full rebuild the
+    routine response to the most routine event.
+    """
     disorders_dir, pages_dir = _make_tree(
         tmp_path, ["Asthma", "Sarcoidosis"], ["Asthma"]
+    )
+    strategy, files = plan_heal(disorders_dir, pages_dir)
+    assert strategy == "targeted"
+    assert files == [str(disorders_dir / "Sarcoidosis.yaml")]
+
+
+def test_disorder_deleted_leaves_a_page_only_a_full_build_can_prune(tmp_path):
+    # The mirror image of the addition: nothing will rewrite the orphan page.
+    disorders_dir, pages_dir = _make_tree(tmp_path, ["Asthma"], ["Asthma", "Removed"])
+    assert plan_heal(disorders_dir, pages_dir) == ("full", [])
+
+
+def test_addition_alongside_staleness_still_heals_targeted(tmp_path):
+    # Both drifted inputs map onto pages the render will write, so the subset
+    # test holds even though the counts disagree.
+    disorders_dir, pages_dir = _make_tree(
+        tmp_path,
+        ["Asthma", "Sarcoidosis", "Newly_Added"],
+        ["Asthma", "Sarcoidosis"],
+        stale=["Sarcoidosis"],
+    )
+    strategy, files = plan_heal(disorders_dir, pages_dir)
+    assert strategy == "targeted"
+    assert files == [
+        str(disorders_dir / "Newly_Added.yaml"),
+        str(disorders_dir / "Sarcoidosis.yaml"),
+    ]
+
+
+def test_rename_alongside_an_addition_still_forces_full(tmp_path):
+    # The orphan from the rename is not in the render's output set, so the
+    # presence of a repairable addition must not rescue it.
+    disorders_dir, pages_dir = _make_tree(
+        tmp_path, ["New_Name", "Newly_Added"], ["Old_Name"]
     )
     assert plan_heal(disorders_dir, pages_dir) == ("full", [])
 

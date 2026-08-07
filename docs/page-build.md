@@ -61,11 +61,14 @@ is *always* rebuilt from the whole KB. The browser index then lists disorders
 whose `page_url` 404s. [PR #7903](https://github.com/monarch-initiative/dismech/pull/7903)
 published 205 such dead links (1,826 KB entries vs. 1,621 rendered pages).
 
-Two mechanisms now close that gap:
+Three mechanisms now close that gap:
 
-1. **Self-healing escalation.** After an incremental render, the workflow runs
+1. **Self-healing escalation.** After rendering — and after the re-anchor in (2),
+   which is what gives it a current KB to compare against — the workflow runs
    `classify_page_build.py --check-page-drift`, which compares the KB with the
-   rendered pages on two axes:
+   rendered pages on two axes. It runs for full builds as well as incremental
+   ones: post-re-anchor, even a full rebuild's pages can be stale with respect to
+   a disorder that merged while it was running.
 
    - **Count.** The number of `kb/disorders/*.yaml` inputs against the number of
      `pages/disorders/*.html` files. They are 1:1 in a healthy tree (page
@@ -75,6 +78,13 @@ Two mechanisms now close that gap:
      renderer computes it for the OpenScientist panel and the template emits it
      as `yamlRevision` — so comparing that stamp against a fresh digest of the
      file says whether a page is *current*, not merely *present*.
+
+     Note what that stamp covers: the **source YAML**, not the renderer. A
+     template, CSS, or `render.py` change merging mid-build leaves every stamp
+     matching while every page is out of date, so the drift check will report
+     clean. That case is handled upstream instead — any change under `src/**`
+     classifies the *next* build as `full` (see "How the mode is decided"), which
+     re-renders everything regardless.
 
    The check runs *after* rendering on purpose — before it, every
    disorder-adding push looks drifted and would escalate.
@@ -93,16 +103,57 @@ Two mechanisms now close that gap:
    [#8033](https://github.com/monarch-initiative/dismech/issues/8033) and
    [PR #8140](https://github.com/monarch-initiative/dismech/pull/8140).
 
-   **Repair is proportional.** Pure staleness — the counts already agree and
-   re-rendering the drifted entries would land on exactly the stale pages — is
-   healed by rendering only those (measured: 1m28s for 29) rather than everything
-   (~30–60 min); the checker writes that worklist with `--stale-files-out` and
-   reports `heal=targeted`. A count mismatch, or an orphan page left by a
-   rename, reports `heal=full`, because only a full build prunes. A targeted
+   **Repair is proportional.** One question decides it: a targeted render
+   rewrites exactly the pages the drifted inputs map to, so is every stale page
+   one of those? If so the checker writes that worklist with `--stale-files-out`
+   and reports `heal=targeted`, and only those pages are rendered (measured:
+   1m28s for 29) rather than everything (~30–60 min). If not — a page left
+   orphaned by a rename or a deletion, which nothing in the render's output will
+   rewrite — it reports `heal=full`, because only a full build prunes. A targeted
    heal is re-checked afterwards and falls back to a full rebuild if drift
-   survives. Without the cheap path, a repo whose merges outpace a full build
-   would sit in permanent full-rebuild mode.
-2. **A hard gate before publishing.** After `just gen-browser-data`, the workflow
+   survives.
+
+   Note that counting inputs against pages is the right *drift* signal but the
+   wrong *repair* signal: it cannot tell an addition, which a targeted render
+   fixes, from a deletion, which it cannot. That distinction matters because
+   re-anchoring (2) makes a disorder added mid-build the common case, and gating
+   the cheap path on equal counts would make a second full rebuild the routine
+   response to the most routine event. Without the cheap path, a repo whose
+   merges outpace a full build would sit in permanent full-rebuild mode.
+2. **Re-anchoring the output on current `main`.** Immediately after rendering and
+   *before* the drift check, the job commits the pages it rendered, fetches
+   `main`, recreates `auto/generate-pages` at that new tip, and re-applies **only
+   the pages this build actually changed**.
+
+   This is what lets tier 1 above see anything at all. The job checked `main` out
+   once, 30–60 minutes earlier; without re-anchoring, a disorder merged mid-build
+   is missing from the tree *along with* its page, so the drift check compares a
+   stale KB against its own matching stale pages, finds perfect agreement, and
+   reports clean. Re-anchoring makes `kb/` current while keeping this build's
+   rendered pages, which is exactly the mismatch the check is looking for. It
+   also puts the aggregates (`app/data.js`, dashboard, pathographs, schema docs —
+   all generated *after* this step, deliberately) on current data.
+
+   And it stops the regen PR conflicting. A branch built at a stale checkout
+   collides with any later regen that touched the same page; that is what left
+   [PR #8140](https://github.com/monarch-initiative/dismech/pull/8140)
+   `CONFLICTING` with auto-merge armed but unable to fire, so a full rebuild that
+   had already corrected 29 pages sat unmergeable until an incremental build
+   overwrote it.
+
+   **The re-apply must stay narrow.** Restoring all of `pages/` instead of just
+   the changed files carries this build's stale copy of every *other* page with
+   it and overwrites whatever `main` corrected in the meantime — converting the
+   fix into a revert. The selective restore is the explicit form of what a
+   three-way merge did implicitly.
+
+   Not a `--force-with-lease` problem, which is the tempting reading. The lease
+   works; it guards against the branch moving between this job's fetch and its
+   push. On 2026-08-07 the clobbering run fetched at 15:53, two minutes *after*
+   the rebuild it went on to overwrite, so its lease was legitimately current.
+   What was stale was the page content it rebuilt from `main`, not its view of
+   the branch.
+3. **A hard gate before publishing.** After `just gen-browser-data`, the workflow
    runs [`just check-browser-links`](https://github.com/monarch-initiative/dismech/blob/main/scripts/check_browser_data_links.py),
    which resolves every `page_url` in `window.searchData` against the filesystem
    and **fails the job** if any target is missing. The drift check escalates and

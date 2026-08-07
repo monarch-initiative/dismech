@@ -162,41 +162,109 @@ jobs:
         if: steps.scope.outputs.mode == 'incremental'
         run: just gen-pages-changed-from "${{ runner.temp }}/changed_disorders.txt"
 
-      # An incremental render only covers THIS push's range. The concurrency group
-      # above collapses queued runs, so disorder YAMLs from a collapsed push are
-      # never rendered — while app/data.js (always rebuilt in full, below) links to
-      # them anyway. That is how PR #7903 shipped 205 dead links.
+      # Re-base the generated output onto the CURRENT tip of main before anything
+      # else looks at it.
       #
+      # This job checked main out once, at the start, and a build takes 30-60
+      # minutes. Everything below — the drift check, the aggregates, the commit —
+      # would otherwise reason about a snapshot of the KB that is already
+      # historical. Two consequences, both observed on 2026-08-07:
+      #
+      #   1. Disorders merged mid-build are absent from the tree entirely, so the
+      #      drift check compares a stale KB against its own matching stale pages,
+      #      sees perfect agreement, and reports clean.
+      #   2. The regen branch is built at this job's checkout, so merging its PR
+      #      REVERTS any page that a later regen already corrected on main.
+      #
+      # Re-anchoring makes the working tree kb/ current while keeping the pages
+      # this build rendered, which is exactly the input the drift check needs: it
+      # now compares fresh KB against our pages and heals whatever we missed.
+      #
+      # Note this is NOT a --force-with-lease problem, which is the tempting
+      # reading. The lease works: it guards against the branch moving between this
+      # job's fetch and its push. On 2026-08-07 the clobbering run fetched at
+      # 15:53, two minutes AFTER the full rebuild it went on to overwrite, so its
+      # lease was legitimately current. What was stale was the page content it
+      # rebuilt from main, not its view of the branch.
+      - name: Re-anchor generated output on current main
+        shell: bash
+        env:
+          BRANCH_NAME: auto/generate-pages
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Park this build's pages in a throwaway commit so changing base cannot
+          # lose them. Only pages/ needs parking: app/data.js, pathographs/,
+          # dashboard/ and elements/ are all generated further down, and doing so
+          # AFTER this step is what makes them come from the fresh KB.
+          BASE="$(git rev-parse HEAD)"
+          git add -A pages/
+          git commit -q -m "wip: rendered pages" || echo "no page changes to park"
+          PARKED="$(git rev-parse HEAD)"
+
+          # Explicit refspec, and it must stay scoped to main. Relying on git's
+          # opportunistic remote-tracking update would fail as a silent no-op that
+          # still reports success; and a bare `git fetch` would also refresh
+          # refs/remotes/origin/auto/generate-pages, which is the ref the
+          # --force-with-lease at the push step compares against — quietly turning
+          # the lease into an unconditional force.
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          if [ "$(git rev-parse origin/main)" = "$BASE" ]; then
+            echo "main did not move during this build."
+          else
+            echo "main advanced to $(git rev-parse --short origin/main) during this build; re-anchoring."
+          fi
+          git checkout -q -f -B "$BRANCH_NAME" origin/main
+
+          # Re-apply ONLY the pages this build actually changed, never the whole
+          # directory. Restoring all of pages/ would carry this build's stale copy
+          # of every OTHER page along with it and overwrite anything main corrected
+          # while we were rendering — turning a fix into a revert. This is the
+          # explicit form of what a three-way merge used to do implicitly, and it
+          # is the part that has to stay narrow.
+          git diff --name-status --no-renames -z "$BASE" "$PARKED" -- pages/ |
+            while IFS= read -r -d '' status && IFS= read -r -d '' path; do
+              case "$status" in
+                D) git rm -q --ignore-unmatch -- "$path" ;;
+                *) git checkout -q "$PARKED" -- "$path" ;;
+              esac
+            done
+
+          echo "Re-applied $(git diff --name-only --cached HEAD -- pages/ | wc -l) page(s) onto $(git rev-parse --short HEAD)."
+
       # The check compares the KB with the rendered pages on two axes (see
       # scripts/classify_page_build.py): page COUNT, and per-page CONTENT via the
-      # sha256 revision stamp each page carries. The content axis exists because
-      # this build's checkout is a snapshot — a KB merge landing mid-build is
-      # absent from it, so its page keeps older content while the counts stay
-      # perfectly equal. That is invisible to a count check and, because the regen
-      # branch is rebuilt from main's already-stale pages every run, permanent: on
-      # 2026-08-07 it left 29 pages stale and overwrote a full rebuild that had
-      # just fixed them (#8033, #8085, #8140).
+      # sha256 revision stamp each page carries. The content axis catches the page
+      # that is present but stale — invisible to a count check, and before #8150
+      # permanent, because the regen branch is rebuilt from main's pages every run.
+      # On 2026-08-07 that left 29 pages stale (#8033, #8085, #8140).
       #
       # It runs *after* rendering on purpose: beforehand, a push that adds a
-      # disorder always shows one more YAML than page.
-      - name: Detect page/KB drift after incremental build
+      # disorder always shows one more YAML than page. It runs for FULL builds too,
+      # not just incremental ones: after the re-anchor above, even a full rebuild's
+      # pages can be stale with respect to a disorder that merged while it ran.
+      - name: Detect page/KB drift
         id: drift
-        if: steps.scope.outputs.mode == 'incremental'
         run: |
           uv run python scripts/classify_page_build.py --check-page-drift \
             --github-output --stale-files-out "${{ runner.temp }}/stale_disorders.txt"
 
-      # Pure staleness — the counts already agree and re-rendering the drifted
-      # entries lands on exactly the stale pages — is repaired by rendering just
-      # those (measured: 1m28s for 29) instead of everything (~30-60 min). On a repo where
-      # merges land faster than a full build completes, healing at full cost every
-      # time would make this check too expensive to leave switched on.
+      # Drift whose every stale page is one the targeted render will rewrite —
+      # pure staleness, and a disorder added mid-build, which after the re-anchor
+      # above is the common case — is repaired by rendering just those entries
+      # (measured: 1m28s for 29) instead of everything (~30-60 min). On a repo
+      # where merges land faster than a full build completes, healing at full cost
+      # every time would make this check too expensive to leave switched on.
       - name: Heal page/KB drift (targeted re-render)
         if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal == 'targeted'
         run: just gen-pages-changed-from "${{ runner.temp }}/stale_disorders.txt"
 
-      # Anything a targeted render cannot fix — a count mismatch, or an orphan
-      # page left behind by a rename, which only a full build prunes.
+      # Anything a targeted render cannot fix: a page that nothing in the render's
+      # output set will rewrite, left by a rename or a deletion, and removable
+      # only by the prune a full build does. NOT every count mismatch — a disorder
+      # added mid-build also makes the counts disagree and is repaired above.
       - name: Heal page/KB drift (full rebuild)
         if: steps.drift.outputs.drift == 'true' && steps.drift.outputs.heal != 'targeted'
         run: just gen-pages
@@ -238,12 +306,17 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
-          if git diff --quiet pages/ app/data.js pathographs/ dashboard/ elements/; then
+          # Compare against HEAD, not the index: the re-anchor step STAGES the
+          # rendered pages (git checkout <parked> -- pages/), and a bare `git diff`
+          # only reports unstaged changes, so it would see nothing and skip the PR.
+          # Against HEAD (= current origin/main after the re-anchor) this is
+          # exactly the regeneration delta.
+          if git diff --quiet HEAD -- pages/ app/data.js pathographs/ dashboard/ elements/; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "Changed files:"
-            git diff --stat pages/ app/data.js pathographs/ dashboard/ elements/
+            git diff --stat HEAD -- pages/ app/data.js pathographs/ dashboard/ elements/
           fi
 
       - name: Create or update Pull Request
@@ -256,7 +329,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           BRANCH_NAME="auto/generate-pages"
-          git checkout -B "$BRANCH_NAME"
+          # No `git checkout -B` here: the re-anchor step already created this
+          # branch AT CURRENT MAIN and we have been on it ever since. Re-creating
+          # it at HEAD was how the branch came to sit on this job's original
+          # checkout, which is what made merging its PR revert pages that a later
+          # regen had already corrected on main.
+          #
+          # Since that safety net is gone, assert the invariant rather than
+          # force-pushing whatever branch we happen to be standing on.
+          CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+          if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+            echo "Expected to be on $BRANCH_NAME after the re-anchor step, but HEAD is $CURRENT_BRANCH." >&2
+            exit 1
+          fi
 
           git add pages/ app/data.js pathographs/ dashboard/ elements/
 
