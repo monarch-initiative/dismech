@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000533391"
+reference_id: DOI:10.1159/000533391
 title: Primary Prevention and Early Detection of Hereditary Breast Cancer
 authors:
 - Dorothee Speiser
@@ -8,6 +8,7 @@ journal: Breast Care
 year: '2023'
 doi: 10.1159/000533391
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Prevention and Early Detection of Hereditary Breast Cancer

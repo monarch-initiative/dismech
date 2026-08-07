@@ -9,7 +9,6 @@ import pytest
 from dismech.reference_cache_frontmatter import check_cache_file
 from dismech.structured_sources.civic import CivicSource
 
-
 ASSERTION_HEADER = (
     "molecular_profile\tmolecular_profile_id\tdisease\tdoid\tphenotypes\t"
     "therapies\tassertion_type\tassertion_direction\tsignificance\t"

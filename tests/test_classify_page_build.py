@@ -135,3 +135,63 @@ def test_multiple_disorders_sorted_and_deduped():
     )
     assert d.mode == "incremental"
     assert d.disorder_files == ["kb/disorders/Asthma.yaml", "kb/disorders/Zed.yaml"]
+
+
+# --- post-render page/KB drift detection (PR #7903 follow-up) ----------------
+
+detect_page_drift = classify_page_build.detect_page_drift
+
+
+def _make_tree(tmp_path, disorders, pages):
+    disorders_dir = tmp_path / "kb" / "disorders"
+    pages_dir = tmp_path / "pages" / "disorders"
+    disorders_dir.mkdir(parents=True)
+    pages_dir.mkdir(parents=True)
+    for name in disorders:
+        (disorders_dir / f"{name}.yaml").write_text("name: x\n")
+    for name in pages:
+        (pages_dir / f"{name}.html").write_text("<html></html>")
+    return disorders_dir, pages_dir
+
+
+def test_no_drift_when_counts_match(tmp_path):
+    disorders_dir, pages_dir = _make_tree(
+        tmp_path, ["Asthma", "Marfan_Syndrome"], ["Asthma", "Marfan_Syndrome"]
+    )
+    assert detect_page_drift(disorders_dir, pages_dir) is None
+
+
+def test_unrendered_disorder_is_drift(tmp_path):
+    # The PR #7903 shape: a collapsed run's disorder never got a page.
+    disorders_dir, pages_dir = _make_tree(
+        tmp_path, ["Asthma", "Marfan_Syndrome"], ["Asthma"]
+    )
+    reason = detect_page_drift(disorders_dir, pages_dir)
+    assert reason is not None
+    assert "+1" in reason
+
+
+def test_stale_extra_page_is_drift(tmp_path):
+    disorders_dir, pages_dir = _make_tree(tmp_path, ["Asthma"], ["Asthma", "Deleted"])
+    reason = detect_page_drift(disorders_dir, pages_dir)
+    assert reason is not None
+    assert "-1" in reason
+
+
+def test_history_yaml_is_not_counted_as_a_page_input(tmp_path):
+    disorders_dir, pages_dir = _make_tree(tmp_path, ["Asthma"], ["Asthma"])
+    (disorders_dir / "Asthma.history.yaml").write_text("x: 1\n")
+    assert detect_page_drift(disorders_dir, pages_dir) is None
+
+
+def test_missing_directories_fail_safe_to_drift(tmp_path):
+    disorders_dir, pages_dir = _make_tree(tmp_path, ["Asthma"], ["Asthma"])
+    assert detect_page_drift(disorders_dir, tmp_path / "nope") is not None
+    assert detect_page_drift(tmp_path / "nope", pages_dir) is not None
+
+
+def test_drift_check_does_not_affect_diff_classification():
+    # Drift is a separate, post-render signal; classify() stays diff-only so a
+    # normal curation push is still incremental.
+    d = classify([("A", "kb/disorders/New_Disease.yaml")])
+    assert d.mode == "incremental"

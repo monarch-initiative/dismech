@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/vaccines12080870"
+reference_id: DOI:10.3390/vaccines12080870
 title: Treatments and the Perspectives of Developing a Vaccine for Chagas Disease
 authors:
 - Priscila Silva Grijó Farani
@@ -9,6 +9,7 @@ journal: Vaccines
 year: '2024'
 doi: 10.3390/vaccines12080870
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatments and the Perspectives of Developing a Vaccine for Chagas Disease

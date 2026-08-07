@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-23-1283"
+reference_id: DOI:10.1158/1078-0432.ccr-23-1283
 title: "Clinical and Genomic Landscape of FGFR3-Altered Urothelial Carcinoma and Treatment Outcomes with Erdafitinib: A Real-World Experience"
 authors:
 - Brendan J. Guercio
@@ -29,6 +29,7 @@ journal: Clinical Cancer Research
 year: '2023'
 doi: 10.1158/1078-0432.ccr-23-1283
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinical and Genomic Landscape of FGFR3-Altered Urothelial Carcinoma and Treatment Outcomes with Erdafitinib: A Real-World Experience

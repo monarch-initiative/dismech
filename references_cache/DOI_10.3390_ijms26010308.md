@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26010308"
+reference_id: DOI:10.3390/ijms26010308
 title: "EML4-ALK: Update on ALK Inhibitors"
 authors:
 - Alessandra Bearz
@@ -19,6 +19,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26010308
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # EML4-ALK: Update on ALK Inhibitors

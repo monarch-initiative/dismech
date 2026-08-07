@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/edrv.23.3.0466"
+reference_id: DOI:10.1210/edrv.23.3.0466
 title: "Autoimmune Adrenal Insufficiency and Autoimmune Polyendocrine Syndromes: Autoantibodies, Autoantigens, and Their Applicability in Diagnosis and Disease Prediction"
 authors:
 - Corrado Betterle
@@ -10,6 +10,7 @@ journal: Endocrine Reviews
 year: '2002'
 doi: 10.1210/edrv.23.3.0466
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Autoimmune Adrenal Insufficiency and Autoimmune Polyendocrine Syndromes: Autoantibodies, Autoantigens, and Their Applicability in Diagnosis and Disease Prediction

@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT01379625"
+reference_id: clinicaltrials:NCT01379625
 title: Phase 2 Study of Triheptanoin for Treatment of Long-Chain Fatty Acid Oxidation Disorders
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 2 Study of Triheptanoin for Treatment of Long-Chain Fatty Acid Oxidation Disorders

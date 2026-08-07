@@ -20,7 +20,6 @@ from dismech.node_embeddings import (
 )
 from dismech.node_embeddings.nodes import PathoNode
 
-
 # --------------------------------------------------------------------------- #
 # node extraction + text rendering
 # --------------------------------------------------------------------------- #

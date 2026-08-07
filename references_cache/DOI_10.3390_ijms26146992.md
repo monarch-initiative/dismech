@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26146992"
+reference_id: DOI:10.3390/ijms26146992
 title: "Branched-Chain Amino Acids in Parkinson’s Disease: Molecular Mechanisms and Therapeutic Potential"
 authors:
 - Hui-Yu Huang
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26146992
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Branched-Chain Amino Acids in Parkinson’s Disease: Molecular Mechanisms and Therapeutic Potential

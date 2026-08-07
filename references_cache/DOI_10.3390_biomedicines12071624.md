@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12071624"
+reference_id: DOI:10.3390/biomedicines12071624
 title: "Preclinical Models of Hepatocellular Carcinoma: Current Utility, Limitations, and Challenges"
 authors:
 - Antonio Cigliano
@@ -12,6 +12,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12071624
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Preclinical Models of Hepatocellular Carcinoma: Current Utility, Limitations, and Challenges

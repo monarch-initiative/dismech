@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15204947"
+reference_id: DOI:10.3390/cancers15204947
 title: "Primary Sclerosing Cholangitis-Associated Cholangiocarcinoma: From Pathogenesis to Diagnostic and Surveillance Strategies"
 authors:
 - Elisa Catanzaro
@@ -10,6 +10,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15204947
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Sclerosing Cholangitis-Associated Cholangiocarcinoma: From Pathogenesis to Diagnostic and Surveillance Strategies

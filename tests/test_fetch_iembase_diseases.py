@@ -3,10 +3,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import fetch_iembase_diseases as fib  # noqa: E402
+import fetch_iembase_diseases as fib
 
 
 def test_extract_disease_index_records_flattens_browse_context() -> None:

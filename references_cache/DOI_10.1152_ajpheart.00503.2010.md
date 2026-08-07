@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1152/ajpheart.00503.2010"
+reference_id: DOI:10.1152/ajpheart.00503.2010
 title: "Defining new insight into atypical arrhythmia: a computational model of ankyrin-B syndrome"
 authors:
 - Roseanne M. Wolf
@@ -11,6 +11,7 @@ journal: American Journal of Physiology-Heart and Circulatory Physiology
 year: '2010'
 doi: 10.1152/ajpheart.00503.2010
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Defining new insight into atypical arrhythmia: a computational model of ankyrin-B syndrome
