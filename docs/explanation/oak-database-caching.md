@@ -44,12 +44,29 @@ The heavy ones are now all handled: `conf/oak_config.yaml` routes the giants —
 NCBITaxon (~13.5 GB), CHEBI (~3.7 GB), NCIT (~2.7 GB), HP (~1.1 GB) — plus
 MONDO, GO, UBERON, CL, PATO, ENVO, and FOODON to EBI's Ontology Lookup Service
 (`ols:`) instead, which does cheap single-term lookups against EBI's servers and
-never touches our bucket (see issue #5160). **No multi-GB build remains local.**
-What is still pulled from the bucket is small: `hgnc`, `geno`, `icd10cm`,
-`icd11f`, `ecto`, `xco`, `opl`.
+never touches our bucket (see issue #5160).
 
 Concretely, `just validate-terms-schema` from a clean OAK cache used to download
 `chebi.db` (~3.5 GB unpacked); it now pulls only `geno.db` (~5 MB).
+
+**This covers the term-validation path only — it is not the whole story.**
+`conf/oak_config.yaml` governs the validators (`linkml-term-validator` and the
+enum-cache tooling). Along that path, no multi-GB build remains local: what is
+still fetched is small (`hgnc`, `geno`, `icd10cm`, `icd11f`, `ecto`, `xco`,
+`opl`).
+
+Several modules bypass the config entirely and construct an adapter directly.
+The one that matters for egress is `HPOCategoryResolver`
+(`src/dismech/export/browser_export.py`), which hardcodes `sqlite:obo:hp` and is
+called per HP id. It is reached by `just gen-browser-data` in
+`.github/workflows/generate-pages.yaml` — a workflow with **no** OAK cache step,
+running on every push to `main` that touches `kb/` — so `hp.db` (~1.1 GB) is
+still pulled cold on each run, and after the OLS migration that is plausibly the
+largest remaining bbop-sqlite egress from this repo. This is not a regression
+(it predates the migration) but it is the obvious next thing to fix, and it is
+tracked separately from the config-driven work. `scripts/validate_terms.py`,
+`src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py` bypass the config
+the same way, at much lower frequency.
 
 Moving a prefix to `ols:` is only safe when OLS agrees with the local build on
 both the canonical label *and* whether its `rdfs:subClassOf` ancestor closure

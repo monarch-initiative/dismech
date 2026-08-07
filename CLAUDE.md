@@ -99,8 +99,17 @@ Maps ontology prefixes to OAK adapters for term validation:
   `ols:<name>` (EBI Ontology Lookup Service; avoids the large local builds — see
   issue #5160 and the note at the bottom of `conf/oak_config.yaml`, which also
   records the precondition for migrating a further prefix)
-- HGNC, GENO, ECTO, XCO, OPL, ICD → `sqlite:obo:<name>`
+- HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
+  ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
 - NCIT (NCI Thesaurus) for treatment/clinical-intervention and cancer concepts
+
+Note this governs **automated term validation** only. Several modules build an
+adapter directly and ignore this file — notably
+`src/dismech/export/browser_export.py`, which still uses `sqlite:obo:hp`. Ad-hoc
+`runoak` lookups on the command line are likewise a separate path: a local build
+is often still the right tool there, and `-O obo` output is not implemented for
+`ols:` adapters, so the `sqlite:obo:*` examples elsewhere in this file are
+deliberate and should not be mechanically rewritten to `ols:`.
 
 Term validation is cache-first, so an `ols:` prefix is consulted over the network
 only for a CURIE missing from the relevant cache. The two caches answer different

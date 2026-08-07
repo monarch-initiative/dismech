@@ -56,8 +56,12 @@ else
     # uses (e.g. the note explaining why NCBITaxon was moved off
     # sqlite:obo:ncbitaxon). Grepping the raw file matched those mentions and
     # queued a 13.5 GB download for an ontology now served over OLS.
+    #
+    # Only treat '#' as a comment at start-of-line or after whitespace, so a '#'
+    # inside a quoted scalar is not mistaken for one. (No adapter string
+    # contains '#' today; this keeps that from silently mattering later.)
     mapfile -t names < <(
-        sed 's/#.*//' "$OAK_CONFIG" \
+        sed 's/\(^\|[[:space:]]\)#.*/\1/' "$OAK_CONFIG" \
             | grep -oE 'sqlite:obo:[a-z0-9_]+' \
             | sed 's|sqlite:obo:||' \
             | sort -u
