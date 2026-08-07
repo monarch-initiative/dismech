@@ -435,7 +435,14 @@ just validate-all
 # Ontology term validation (catches fake/mismatched term IDs)
 just validate-terms
 
-# Reference validation (confirms snippets appear in cited papers)
+# Snippet check against the local reference cache (seconds — use this while you
+# curate; it accepts any number of files)
+just count-verified-snippets kb/disorders/YourFile.yaml
+
+# Before opening the PR: the batched schema + terms + references sweep CI runs
+just validate-disorders kb/disorders/YourFile.yaml
+
+# Reference validation for one file (slow; permits full-text matches)
 just validate-references kb/disorders/YourFile.yaml
 ```
 
