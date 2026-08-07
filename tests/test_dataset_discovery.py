@@ -191,6 +191,47 @@ def test_omicsdi_authoritative_human_beats_a_model_system_in_the_title():
     }
 
 
+def test_omicsdi_human_tropic_virus_name_is_not_read_as_a_human_sample():
+    # NCBI taxon names for these viruses begin with "Human", so a substring
+    # match would claim the sample is human and suppress the title fallback.
+    for virus in (
+        "Human papillomavirus",
+        "Human immunodeficiency virus 1",
+        "Human herpesvirus 4",
+    ):
+        hit = {
+            "title": "Viral replication in Vero cells",
+            "organisms": [{"name": virus}],
+        }
+        assert infer_organism(hit) == {
+            "preferred_term": "African green monkey",
+            "term": {"id": "NCBITaxon:60711", "label": "Chlorocebus sabaeus"},
+        }, virus
+
+
+def test_omicsdi_model_organism_virus_name_is_not_read_as_that_host():
+    # The same trap predates HUMAN_NAMES: these virus taxon names contain a
+    # model-organism word, so the pathogen was being reported as the sample.
+    for virus in (
+        "Murine leukemia virus",
+        "Rat cytomegalovirus",
+        "Canine parvovirus",
+    ):
+        hit = {
+            "title": "Viral replication in Vero cells",
+            "organisms": [{"name": virus}],
+        }
+        assert infer_organism(hit)["term"]["id"] == "NCBITaxon:60711", virus
+
+
+def test_omicsdi_human_entry_with_a_taxon_suffix_still_matches():
+    hit = {
+        "title": "mouse comparison",
+        "organisms": [{"name": "Homo sapiens (ncbitaxon:9606)"}],
+    }
+    assert infer_organism(hit)["term"]["id"] == "NCBITaxon:9606"
+
+
 def test_omicsdi_named_model_organism_wins_over_its_human_source():
     # Xenograft/patient-derived records name both; the model organism is the
     # conservative answer, so pattern order must not be reversed by the fix.

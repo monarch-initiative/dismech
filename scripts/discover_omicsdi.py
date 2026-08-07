@@ -83,7 +83,15 @@ OMICS_TYPE_TO_DATA_TYPE = {
     "proteomics": "PROTEOMICS",
 }
 
-HUMAN_PATTERN = re.compile(r"\b(?:homo sapiens|humans?)\b", re.IGNORECASE)
+HUMAN_NAMES = frozenset({"homo sapiens", "human", "humans"})
+
+# An `organisms` entry naming a virus is the pathogen under study, not the host
+# that was sampled -- and virus taxon names routinely *contain a host species*:
+# "Human papillomavirus", "Human immunodeficiency virus 1", "Murine leukemia
+# virus", "Rat cytomegalovirus", "Canine parvovirus". Reading a host out of one
+# is exactly backwards, so these entries are dropped, which is what lets the
+# title fallback find the cell line a viral study actually ran in.
+PATHOGEN_HINT = re.compile(r"virus|viroid|viridae|virinae|phage", re.IGNORECASE)
 
 ORGANISM_PATTERNS = (
     (
@@ -164,6 +172,21 @@ def infer_data_type(hit: dict) -> str:
     return ""
 
 
+def _host_names(hit: dict) -> list[str]:
+    """``organisms`` entries that name a sampled host, pathogens excluded.
+
+    OmicsDI appends a taxon in parentheses on some sources
+    (``"Mus Musculus (ncbitaxon:10090)"``), which is stripped so a whole-name
+    comparison still works.
+    """
+    names = []
+    for item in hit.get("organisms") or []:
+        name = re.sub(r"\(.*?\)", "", str(item.get("name") or "")).strip()
+        if name and not PATHOGEN_HINT.search(name):
+            names.append(name)
+    return names
+
+
 def _match_organism(text: str) -> dict | None:
     for pattern, preferred_term, taxon_id, label in ORGANISM_PATTERNS:
         if pattern.search(text):
@@ -184,20 +207,18 @@ def infer_organism(hit: dict) -> dict | None:
     labelled with that model's taxon, since ``organisms`` asserting Homo sapiens
     matched no pattern and fell through.
     """
-    organism_text = " ".join(
-        str(item.get("name") or "") for item in hit.get("organisms") or []
-    )
+    hosts = _host_names(hit)
 
     # Model organisms first: a record naming both a model and its human source
     # (xenograft, patient-derived model) is a model-organism study.
-    match = _match_organism(organism_text)
+    match = _match_organism(" ".join(hosts))
     if match:
         return match
 
-    # Matched against `organisms` only, never the title: "human" appears in far
-    # too many titles to be evidence of what was sampled, whereas `organisms`
+    # Read from `organisms` only, never the title: "human" appears in far too
+    # many titles to be evidence of what was sampled, whereas `organisms`
     # naming Homo sapiens is a direct assertion and stops the title fallback.
-    if HUMAN_PATTERN.search(organism_text):
+    if any(name.lower() in HUMAN_NAMES for name in hosts):
         return {
             "preferred_term": "human",
             "term": {"id": "NCBITaxon:9606", "label": "Homo sapiens"},
