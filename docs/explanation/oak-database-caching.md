@@ -36,24 +36,30 @@ https://s3.amazonaws.com/bbop-sqlite/<name>.db.gz
 This bucket is part of the Berkeley/OBO ontology-tooling infrastructure that our
 own institution helps host. Every uncached download is **egress we are
 effectively paying for**. A single fresh runner re-pulling, say, `chebi.db`
-(~3.7 GB uncompressed) on every curation PR adds up quickly across the many CI
-runs this repo does each week.
+(~3.7 GB uncompressed) on every curation PR added up quickly across the many CI
+runs this repo does each week — which is why CHEBI, and the other large
+ontologies, are no longer fetched at all (see below).
 
-The heavy ones are already handled where possible: `conf/oak_config.yaml` routes
-the two giants — NCIT (~2.7 GB) and NCBITaxon (~13.5 GB) — plus MONDO, GO,
-UBERON, and now HP, CL, and PATO to EBI's Ontology Lookup Service (`ols:`)
-instead, which does cheap single-term lookups against EBI's servers and never
-touches our bucket (see issue #5160). What remains on `sqlite:obo:` and can
-still be pulled from the bucket: `chebi` (the big one), `hgnc`, `geno`, and the
-smaller `icd10cm`, `icd11f`, `ecto`, `envo`, `foodon`, `xco`, `opl`.
+The heavy ones are now all handled: `conf/oak_config.yaml` routes the giants —
+NCBITaxon (~13.5 GB), CHEBI (~3.7 GB), NCIT (~2.7 GB), HP (~1.1 GB) — plus
+MONDO, GO, UBERON, CL, PATO, ENVO, and FOODON to EBI's Ontology Lookup Service
+(`ols:`) instead, which does cheap single-term lookups against EBI's servers and
+never touches our bucket (see issue #5160). **No multi-GB build remains local.**
+What is still pulled from the bucket is small: `hgnc`, `geno`, `icd10cm`,
+`icd11f`, `ecto`, `xco`, `opl`.
 
-Moving a prefix to `ols:` is only safe when OLS's `rdfs:subClassOf` ancestor
-closure still reaches the enum source nodes that prefix is validated against —
-verify that before migrating another one. The counter-example is instructive:
-newer MONDO terms have an OLS closure that omits `MONDO:0000001`, so per-value
-`reachable_from` checks fail for them even though label lookup works. HP
-(`HP:0000118`, `HP:0000005`) and CL (`CL:0000000`) were checked and behave the
-same on OLS as locally.
+Concretely, `just validate-terms-schema` from a clean OAK cache used to download
+`chebi.db` (~3.5 GB unpacked); it now pulls only `geno.db` (~5 MB).
+
+Moving a prefix to `ols:` is only safe when OLS agrees with the local build on
+both the canonical label *and* whether its `rdfs:subClassOf` ancestor closure
+reaches the enum source nodes that prefix is validated against. Verify that
+term-by-term before migrating another one — it is not automatic. The
+counter-example is instructive: newer MONDO terms have an OLS closure that omits
+`MONDO:0000001`, so per-value `reachable_from` checks fail for them even though
+label lookup works. HP, CL, CHEBI, ENVO, and FOODON were each compared against
+their local build with zero disagreements; the per-prefix source nodes are
+listed in the note at the bottom of `conf/oak_config.yaml`.
 
 ## What we are NOT doing
 
@@ -127,8 +133,8 @@ The action:
    `ols:`.
 
 Because the cache accumulates lazily, it only ever contains the databases that
-validation actually needed — typically a few hundred MB, and the multi-GB
-`chebi.db` only if a new CHEBI term was introduced.
+validation actually needed. Now that CHEBI is served over OLS, that is only the
+small remaining builds — tens of MB rather than the multi-GB `chebi.db`.
 
 Workflows currently using the action: `main.yaml` (the PR validation path —
 `validate-terms-schema`, `validate-disorders`, `test-kb`) and
@@ -145,7 +151,7 @@ it needs into `~/.data/oaklib` and every later run reuses it. To pre-provision
 
 ```bash
 just fetch-ontology-dbs             # all sqlite:obo:* DBs in oak_config.yaml
-just fetch-ontology-dbs chebi hgnc  # just the named ones
+just fetch-ontology-dbs hgnc geno   # just the named ones
 ```
 
 If you keep your ontology cache somewhere other than the default, set

@@ -60,8 +60,9 @@ validate-all:
 # Full validation of a single disorder file (schema + terms + references)
 # Note: default validation runs only the offline enum-cache structural check.
 # The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
-# can pull multi-GB sqlite:obo:* DBs (e.g. chebi ~3.7 GB), so run it
-# explicitly only when refreshing/auditing enum cache membership.
+# re-queries every ontology source node, so run it explicitly only when
+# refreshing/auditing enum cache membership. With the large ontologies now on
+# `ols:`, the cost is OLS round trips rather than a multi-GB download.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -580,7 +581,7 @@ check-cache-order:
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
 #   just fetch-ontology-dbs
-#   just fetch-ontology-dbs chebi hgnc
+#   just fetch-ontology-dbs hgnc geno
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}

@@ -5,18 +5,21 @@
 #
 # Background: `just validate-all` / `just qc` (and, historically, single-file
 # `just validate`) can make OAK lazily fetch every `sqlite:obo:<name>` database
-# referenced by conf/oak_config.yaml — including large ones (chebi ~3.7 GB
-# uncompressed is the biggest that remains local; the ncit/ncbitaxon giants, and
-# later hp/cl/pato, were moved to ols: — see issue #5160 and the note at the
-# bottom of conf/oak_config.yaml). The lazy OAK
-# downloader has no resume/retry, so one interrupted big-file fetch fails the
-# whole run. This script fetches those DBs up front from the public bbop-sqlite
-# S3 bucket using `curl -C -` (resume) with retries, then gunzips them into
-# OAK's cache dir.
+# referenced by conf/oak_config.yaml. The lazy OAK downloader has no
+# resume/retry, so one interrupted fetch fails the whole run. This script
+# fetches those DBs up front from the public bbop-sqlite S3 bucket using
+# `curl -C -` (resume) with retries, then gunzips them into OAK's cache dir.
+#
+# The DBs that remain local are now all small (hgnc, geno, ecto, xco, opl,
+# icd10cm, icd11f): every large ontology — ncbitaxon, chebi, ncit, hp, plus
+# mondo/go/uberon/cl/pato/envo/foodon — has been moved to ols:. See issue #5160
+# and the note at the bottom of conf/oak_config.yaml. This script is therefore
+# far less load-bearing than it was, but is kept for constrained/offline
+# environments and in case a prefix is ever moved back to a local build.
 #
 # Usage:
 #   scripts/fetch_ontology_dbs.sh                 # fetch every DB in oak_config.yaml
-#   scripts/fetch_ontology_dbs.sh chebi hgnc      # fetch only the named ontologies
+#   scripts/fetch_ontology_dbs.sh hgnc geno       # fetch only the named ontologies
 #   PYSTOW_HOME=/path scripts/fetch_ontology_dbs.sh   # canonical cache location
 #
 # IMPORTANT — where OAK actually looks: OAK resolves sqlite:obo:<name> to
@@ -49,8 +52,13 @@ mkdir -p "$DB_DIR"
 if [[ $# -gt 0 ]]; then
     names=("$@")
 else
+    # Strip YAML comments first: the config *discusses* adapters it no longer
+    # uses (e.g. the note explaining why NCBITaxon was moved off
+    # sqlite:obo:ncbitaxon). Grepping the raw file matched those mentions and
+    # queued a 13.5 GB download for an ontology now served over OLS.
     mapfile -t names < <(
-        grep -oE 'sqlite:obo:[a-z0-9_]+' "$OAK_CONFIG" \
+        sed 's/#.*//' "$OAK_CONFIG" \
+            | grep -oE 'sqlite:obo:[a-z0-9_]+' \
             | sed 's|sqlite:obo:||' \
             | sort -u
     )
