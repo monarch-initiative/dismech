@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3526,6 +3757,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -6287,7 +6519,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperinsulinemia" data-dismech-node="Hyperinsulinemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperinsulinemia
 
@@ -6357,7 +6589,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diabetic-retinopathy" data-dismech-node="Diabetic Retinopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diabetic Retinopathy
 
@@ -6397,7 +6629,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyuria" data-dismech-node="Polyuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Polyuria
 
@@ -6465,7 +6697,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperglycemia" data-dismech-node="Hyperglycemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperglycemia
 
@@ -6544,7 +6776,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-insulin-resistance" data-dismech-node="Insulin Resistance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Insulin Resistance
 
@@ -6603,7 +6835,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-glucose-tolerance" data-dismech-node="Impaired Glucose Tolerance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impaired Glucose Tolerance
 
@@ -6641,7 +6873,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polydipsia" data-dismech-node="Polydipsia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Polydipsia
 
@@ -6700,7 +6932,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Neuropathy
 
@@ -6740,7 +6972,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -6778,7 +7010,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Obesity
 
@@ -6846,7 +7078,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tcf7l2" data-dismech-node="TCF7L2" data-dismech-type="genetic">
                 <div class="item-name">
                     TCF7L2
 
@@ -6875,9 +7107,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pparg" data-dismech-node="PPARG" data-dismech-type="genetic">
                 <div class="item-name">
                     PPARG
 
@@ -6906,9 +7139,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-kcnj11" data-dismech-node="KCNJ11" data-dismech-type="genetic">
                 <div class="item-name">
                     KCNJ11
 
@@ -6937,9 +7171,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-slc30a8" data-dismech-node="SLC30A8" data-dismech-type="genetic">
                 <div class="item-name">
                     SLC30A8
 
@@ -6968,9 +7203,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6982,7 +7221,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-metformin" data-dismech-node="Metformin" data-dismech-type="treatment">
                 <div class="item-name">
                     Metformin
                 </div>
@@ -7063,7 +7302,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lifestyle-modification" data-dismech-node="Lifestyle Modification" data-dismech-type="treatment">
                 <div class="item-name">
                     Lifestyle Modification
                 </div>
@@ -7126,7 +7365,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-glp-1-receptor-agonists" data-dismech-node="GLP-1 Receptor Agonists" data-dismech-type="treatment">
                 <div class="item-name">
                     GLP-1 Receptor Agonists
                 </div>
@@ -7220,7 +7459,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sglt2-inhibitors" data-dismech-node="SGLT2 Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     SGLT2 Inhibitors
                 </div>
@@ -7283,7 +7522,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-insulin-therapy" data-dismech-node="Insulin Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Insulin Therapy
                 </div>
@@ -7347,7 +7586,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-glp-1-gip-dual-agonists" data-dismech-node="GLP-1/GIP Dual Agonists" data-dismech-type="treatment">
                 <div class="item-name">
                     GLP-1/GIP Dual Agonists
                 </div>
@@ -7453,7 +7692,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-sedentary-lifestyle" data-dismech-node="Sedentary Lifestyle" data-dismech-type="environmental">
                 <div class="item-name">Sedentary Lifestyle</div>
 
 
@@ -7463,9 +7702,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-high-calorie-diet" data-dismech-node="High-Calorie Diet" data-dismech-type="environmental">
                 <div class="item-name">High-Calorie Diet</div>
 
 
@@ -7475,13 +7715,15 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-obesity" data-dismech-node="Obesity" data-dismech-type="environmental">
                 <div class="item-name">Obesity</div>
 
 
                 <div class="item-desc">Primary risk factor for insulin resistance</div>
+
 
 
 
@@ -7512,7 +7754,7 @@
                     Metformin treatment effects on gut microbiome in T2D
 
                     <span class="dataset-accession">
-                        <a href="https://www.ncbi.nlm.nih.gov/sra/PRJNA361402" target="_blank">sra:PRJNA361402</a>
+                        <a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA361402" target="_blank">bioproject:PRJNA361402</a>
                     </span>
 
                 </div>
@@ -7569,7 +7811,7 @@
                     Gut microbiome in urban African type 2 diabetes
 
                     <span class="dataset-accession">
-                        <a href="https://www.ncbi.nlm.nih.gov/sra/PRJNA607849" target="_blank">sra:PRJNA607849</a>
+                        <a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA607849" target="_blank">bioproject:PRJNA607849</a>
                     </span>
 
                 </div>
@@ -7622,7 +7864,7 @@
                     Gut microbiota in obese T2DM patients - Pakistani cohort
 
                     <span class="dataset-accession">
-                        <a href="https://www.ncbi.nlm.nih.gov/sra/PRJNA554535" target="_blank">sra:PRJNA554535</a>
+                        <a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA554535" target="_blank">bioproject:PRJNA554535</a>
                     </span>
 
                 </div>
@@ -7679,7 +7921,7 @@
                     Chinese MGWAS of gut microbiome in type 2 diabetes
 
                     <span class="dataset-accession">
-                        <a href="https://www.ncbi.nlm.nih.gov/sra/PRJNA422434" target="_blank">sra:PRJNA422434</a>
+                        <a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA422434" target="_blank">bioproject:PRJNA422434</a>
                     </span>
 
                 </div>
@@ -7753,7 +7995,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-topp-beta-cell-mass-insulin-glucose-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-topp-beta-cell-mass-insulin-glucose-model" data-dismech-node="Topp Beta-Cell Mass / Insulin / Glucose Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     Topp Beta-Cell Mass / Insulin / Glucose Model
 
@@ -8900,7 +9142,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-pancreatic-beta-cell-genome-scale-metabolic-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-pancreatic-beta-cell-genome-scale-metabolic-model" data-dismech-node="Pancreatic Beta Cell Genome-Scale Metabolic Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     Pancreatic Beta Cell Genome-Scale Metabolic Model
 
@@ -8939,7 +9181,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-whole-body-human-metabolic-model-for-diabetes">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-whole-body-human-metabolic-model-for-diabetes" data-dismech-node="Whole-Body Human Metabolic Model for Diabetes" data-dismech-type="computational_model">
                 <div class="item-name">
                     Whole-Body Human Metabolic Model for Diabetes
 
@@ -8982,7 +9224,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-pbpk-model-for-glp-1-receptor-agonists">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-pbpk-model-for-glp-1-receptor-agonists" data-dismech-node="PBPK Model for GLP-1 Receptor Agonists" data-dismech-type="computational_model">
                 <div class="item-name">
                     PBPK Model for GLP-1 Receptor Agonists
 
@@ -9014,7 +9256,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-agora2-gut-microbiome-metabolic-models">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-agora2-gut-microbiome-metabolic-models" data-dismech-node="AGORA2 Gut Microbiome Metabolic Models" data-dismech-type="computational_model">
                 <div class="item-name">
                     AGORA2 Gut Microbiome Metabolic Models
 
@@ -9055,7 +9297,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-micom-community-metabolic-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-micom-community-metabolic-model" data-dismech-node="MICOM Community Metabolic Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     MICOM Community Metabolic Model
 
@@ -10006,7 +10248,7 @@ discussions:
 datasets:
 # Type 2 Diabetes Gut Microbiome Studies
 
-- accession: sra:PRJNA361402
+- accession: bioproject:PRJNA361402
   title: Metformin treatment effects on gut microbiome in T2D
   description: &gt;-
     Shotgun metagenomics from 40 individuals in a randomized, placebo-controlled,
@@ -10034,7 +10276,7 @@ datasets:
   - type 2 diabetes placebo
   notes: Nature Communications 2022 - metformin-microbiome interactions
 
-- accession: sra:PRJNA607849
+- accession: bioproject:PRJNA607849
   title: Gut microbiome in urban African type 2 diabetes
   description: &gt;-
     16S rRNA gene sequencing of gut microbiome profiles from type 2 diabetes
@@ -10060,7 +10302,7 @@ datasets:
   - healthy controls
   notes: Frontiers Cellular Infection Microbiology 2020
 
-- accession: sra:PRJNA554535
+- accession: bioproject:PRJNA554535
   title: Gut microbiota in obese T2DM patients - Pakistani cohort
   description: &gt;-
     16S rRNA sequencing of gut microbiota from 60 Pakistani adults comparing
@@ -10087,7 +10329,7 @@ datasets:
   - healthy controls
   publication: PMID:31809500
 
-- accession: sra:PRJNA422434
+- accession: bioproject:PRJNA422434
   title: Chinese MGWAS of gut microbiome in type 2 diabetes
   description: &gt;-
     Landmark metagenome-wide association study (MGWAS) comparing gut microbial
@@ -10803,7 +11045,7 @@ Some lines of evidence (e.g., direct human islet amyloid dynamics and detailed U
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Type 2 Diabetes Mellitus", "mondoId": "MONDO:0005148", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Type_2_Diabetes_Mellitus", "yamlRevision": "a7d4b6e76c66"};
+        const OS_CONFIG = {"diseaseName": "Type 2 Diabetes Mellitus", "mondoId": "MONDO:0005148", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Type_2_Diabetes_Mellitus", "yamlRevision": "693f062b1b53"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
