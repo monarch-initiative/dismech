@@ -17,8 +17,8 @@ Alias: phase
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  yes  |
 | [ProgressionInfo](../classes/ProgressionInfo.md) |  |  no  |
+| [ClinicalTrial](../classes/ClinicalTrial.md) | A clinical trial relevant to treatment or research of a disease |  yes  |
 
 
 

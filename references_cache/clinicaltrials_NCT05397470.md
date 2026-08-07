@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05397470"
+reference_id: clinicaltrials:NCT05397470
 title: "A Phase 3 Global, Randomized, Double-Blind, Placebo-Controlled, 48-Week, Parallel-Group Study of the Efficacy and Safety of Losmapimod in Treating Patients With Facioscapulohumeral Muscular Dystrophy (FSHD) (REACH)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 3 Global, Randomized, Double-Blind, Placebo-Controlled, 48-Week, Parallel-Group Study of the Efficacy and Safety of Losmapimod in Treating Patients With Facioscapulohumeral Muscular Dystrophy (FSHD) (REACH)

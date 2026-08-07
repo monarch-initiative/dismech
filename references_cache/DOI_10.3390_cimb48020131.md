@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb48020131"
+reference_id: DOI:10.3390/cimb48020131
 title: "Precision Oncology in Ocular Melanoma: Integrating Molecular and Liquid Biopsy Biomarkers"
 authors:
 - Snježana Kaštelan
@@ -11,6 +11,7 @@ journal: Current Issues in Molecular Biology
 year: '2026'
 doi: 10.3390/cimb48020131
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Precision Oncology in Ocular Melanoma: Integrating Molecular and Liquid Biopsy Biomarkers

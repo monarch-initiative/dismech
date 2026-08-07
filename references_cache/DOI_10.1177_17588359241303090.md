@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1177/17588359241303090"
-title: "Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with
-                    <i>EGFR</i>
-                    -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study"
+reference_id: DOI:10.1177/17588359241303090
+title: "Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with <i>EGFR</i> -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study"
 authors:
 - Ichidai Tanaka
 - Kazumi Hori
@@ -23,11 +21,10 @@ journal: Therapeutic Advances in Medical Oncology
 year: '2024'
 doi: 10.1177/17588359241303090
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with
-                    <i>EGFR</i>
-                    -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study
+# Femoral bone metastasis is a poor prognostic factor in EGFR-TKIs-treated patients with <i>EGFR</i> -mutated non-small-cell lung cancer: a retrospective, multicenter cohort study
 **Authors:** Ichidai Tanaka, Kazumi Hori, Junji Koyama, Soei Gen, Masahiro Morise, Yuta Kodama, Akira Matsui, Ayako Miyazawa, Tetsunari Hase, Yoshitaka Hibino, Toshihiko Yokoyama, Tomoki Kimura, Norio Yoshida, Mitsuo Sato, Makoto Ishii
 **Journal:** Therapeutic Advances in Medical Oncology (2024)
 **DOI:** [10.1177/17588359241303090](https://doi.org/10.1177/17588359241303090)

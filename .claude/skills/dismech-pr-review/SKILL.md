@@ -38,7 +38,7 @@ If the case seems nuanced, consult issue #1430 for further guidance.
 
 **Do NOT second-guess deterministic validation.**
 
-The dismech CI pipeline runs `just validate`, `just validate-terms-file`, and `just validate-references` on every PR. If a file passes those checks, it is schema-valid and structurally correct. The reviewer's job is NOT to re-inspect the output of these checks — that is redundant and leads to false positives.
+The dismech CI pipeline runs `just validate`, `just validate-terms`, and `just validate-references` on every PR. If a file passes those checks, it is schema-valid and structurally correct. The reviewer's job is NOT to re-inspect the output of these checks — that is redundant and leads to false positives.
 
 Concretely:
 - **Do not flag empty YAML keys** (e.g., `datasets:` with no content). In LinkML, a null value, an empty list, and a missing key are semantically equivalent. If validation passes, the entry is valid.
@@ -48,7 +48,7 @@ Concretely:
 
 ### CRITICAL: Do NOT use `cache/enums/*.csv` as a term validation proxy
 
-**The `cache/enums/*.csv` files are static CI snapshot artifacts.** They materialize schema enum constraints at a point in time but do NOT reflect the full, current HPO/GO/CL/MAXO/etc. ontology. These CSV files are regularly stale relative to the OAK/`sqlite:obo:*` adapters used by `just validate-terms`.
+**The `cache/enums/*.csv` files are static CI snapshot artifacts.** They materialize schema enum constraints at a point in time but do NOT reflect the full, current HPO/GO/CL/NCIT/etc. ontology. These CSV files are regularly stale relative to the OAK/`sqlite:obo:*` adapters used by `just validate-terms`.
 
 **If a term appears absent from a `cache/enums/*.csv` file, that is NOT evidence it will fail `just validate-terms`.** The actual term validator queries the live ontology database — it is authoritative. The CSV is not.
 
@@ -205,14 +205,14 @@ that are not covered by dedicated slots.
 Put content in the correct section:
 - Comorbidities -> `comorbidities`, not `histopathology`
 - Diagnostic procedures -> `diagnosis`, not `treatments`
-- MAXO diagnostic branch != treatment terms
+- NCIT diagnostic procedures belong in `diagnosis`, not `treatments`
 
 8. Treatment Modeling
-- For new entries, NCIT is favored over MAXO
-- When MAXO is used, use specific MAXO terms, not generic "pharmacotherapy"  if a better term exists (but this term is ok if combined with other terms)
+- Treatment terms use NCIT clinical-intervention terms (reachable from `NCIT:C25218`)
+- Use a specific NCIT term, not generic "Pharmacotherapy", when a better term exists (generic is ok if combined with a `therapeutic_agent`)
 - Explicitly model ion therapies when relevant
 - Include therapeutic agents (CHEBI) when known
-- Generic MAXO terms are acceptable but less informative. Always check for a more informative NCIT
+- Generic terms (e.g. Pharmacotherapy) are acceptable but less informative. Always check for a more specific NCIT term
 
 9. Genetic Section Content
 Only genetic information belongs in `genetic`:

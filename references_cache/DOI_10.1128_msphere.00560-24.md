@@ -1,10 +1,6 @@
 ---
-reference_id: "DOI:10.1128/msphere.00560-24"
-title: "Diversity of
-            <i>Campylobacter</i>
-            spp. circulating in a rhesus macaque (
-            <i>Macaca mulatta</i>
-            ) breeding colony using culture and molecular methods"
+reference_id: DOI:10.1128/msphere.00560-24
+title: "Diversity of <i>Campylobacter</i> spp. circulating in a rhesus macaque ( <i>Macaca mulatta</i> ) breeding colony using culture and molecular methods"
 authors:
 - Rebecca L. Bacon
 - Carolyn L. Hodo
@@ -20,13 +16,10 @@ journal: mSphere
 year: '2024'
 doi: 10.1128/msphere.00560-24
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Diversity of
-            <i>Campylobacter</i>
-            spp. circulating in a rhesus macaque (
-            <i>Macaca mulatta</i>
-            ) breeding colony using culture and molecular methods
+# Diversity of <i>Campylobacter</i> spp. circulating in a rhesus macaque ( <i>Macaca mulatta</i> ) breeding colony using culture and molecular methods
 **Authors:** Rebecca L. Bacon, Carolyn L. Hodo, Jing Wu, Shannara Welch, Colette Nickodem, Javier Vinasco, Deborah Threadgill, Stanton B. Gray, Keri N. Norman, Sara D. Lawhon
 **Journal:** mSphere (2024)
 **DOI:** [10.1128/msphere.00560-24](https://doi.org/10.1128/msphere.00560-24)

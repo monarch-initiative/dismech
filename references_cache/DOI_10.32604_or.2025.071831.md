@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.32604/or.2025.071831"
+reference_id: DOI:10.32604/or.2025.071831
 title: "Clinical Molecular Pathology and Treatment Developments in Advanced Uveal Melanoma: State of the Art"
 authors:
 - Stefano Dore
@@ -11,6 +11,7 @@ journal: Oncology Research
 year: '2026'
 doi: 10.32604/or.2025.071831
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Clinical Molecular Pathology and Treatment Developments in Advanced Uveal Melanoma: State of the Art

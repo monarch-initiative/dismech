@@ -184,7 +184,7 @@ def test_disorder_to_cx2_exports_event_location_links() -> None:
     aspects = _aspect_map(cx2)
     nodes, _ = _nodes_by_name(aspects)
 
-    event_node = nodes["Promyelocyte Accumulation"]
+    event_node = nodes["Promyelocyte Compartment Expansion"]
     assert event_node["v"]["location_ids"] == ["UBERON:0002371"]
     assert "UBERON:0002371" in event_node["v"]["location_links"]
     assert event_node["v"]["cell_type_ids"] == ["CL:0000836"]
@@ -400,3 +400,65 @@ def test_upload_cx2_to_ndex_replaces_existing_networks_by_name(monkeypatch) -> N
     assert calls["deleted"] == ["older-uuid"]
     assert calls["visibility"] == [("PUBLIC", "newer-uuid")]
     assert url == "https://test.ndexbio.org/viewer/networks/newer-uuid"
+
+
+def test_disorder_to_cx2_styles_environmental_edges() -> None:
+    """Environmental edges get their own styling, including INDIRECT dashing."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Airway Inflammation"},
+            {"name": "Allergic Sensitization"},
+            {"name": "Remote Mechanism"},
+        ],
+        "environmental": [
+            {
+                "name": "Tobacco smoke exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Airway Inflammation",
+                        "environmental_effect": "EXACERBATES",
+                        "causal_link_type": "DIRECT",
+                    }
+                ],
+            },
+            {
+                "name": "Early-life farm microbial exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Allergic Sensitization",
+                        "environmental_effect": "PROTECTS_AGAINST",
+                    }
+                ],
+            },
+            {
+                "name": "Ambient particulate exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Remote Mechanism",
+                        "environmental_effect": "TRIGGERS",
+                        "causal_link_type": "INDIRECT_KNOWN_INTERMEDIATES",
+                    }
+                ],
+            },
+        ],
+    }
+
+    edges = _edges_by_endpoints(_aspect_map(disorder_to_cx2(disorder)))
+
+    direct = edges[("Tobacco smoke exposure", "Airway Inflammation")]["v"]
+    assert direct["predicate"] == "exacerbates"
+    assert direct["line_style"] == "solid"
+
+    # A protective exposure must not carry a causal arrowhead.
+    protective = edges[
+        ("Early-life farm microbial exposure", "Allergic Sensitization")
+    ]["v"]
+    assert protective["predicate"] == "protects_against"
+    assert protective["target_arrow_shape"] == "tee"
+    assert protective["line_style"] == "dashed"
+
+    # INDIRECT dashing must reach environmental predicates, not just causes/leads_to.
+    indirect = edges[("Ambient particulate exposure", "Remote Mechanism")]["v"]
+    assert indirect["predicate"] == "triggers"
+    assert indirect["line_style"] == "dashed"

@@ -3,6 +3,7 @@
 # Default schema path
 schema_path := "src/dismech/schema/dismech.yaml"
 history_schema_path := "src/dismech/schema/history.yaml"
+synthesis_schema_path := "src/dismech/schema/research_synthesis.yaml"
 kb_dir := "kb/disorders"
 modules_dir := "kb/modules"
 comorbidity_dir := "kb/comorbidities"
@@ -162,6 +163,33 @@ validate-history-all:
     printf 'Validating %s history record(s).\n' "${#files[@]}"
     uv run linkml-validate --schema {{history_schema_path}} --target-class HistoryRecord "${files[@]}"
 
+# Validate a single cross-provider research synthesis (research/*-research-synthesis.yaml)
+[group('QC')]
+validate-synthesis file:
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis {{file}}
+    uv run python -m dismech.research_synthesis {{file}}
+
+# Validate all cross-provider research syntheses
+[group('QC')]
+validate-synthesis-all:
+    #!/usr/bin/env bash
+    set -e
+    if [[ ! -d "{{research_dir}}" ]]; then
+        echo "No research directory found."
+        exit 0
+    fi
+    files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(find "{{research_dir}}" -type f -name '*-research-synthesis.yaml' | sort)
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "No research synthesis YAML files found in {{research_dir}}."
+        exit 0
+    fi
+    printf 'Validating %s research synthesis file(s).\n' "${#files[@]}"
+    uv run linkml-validate --schema {{synthesis_schema_path}} --target-class ResearchSynthesis "${files[@]}"
+    uv run python -m dismech.research_synthesis "${files[@]}"
+
 # Schema validation for all files (batched: one process startup for all files)
 [group('QC')]
 validate-schema-all:
@@ -210,6 +238,51 @@ validate-comorbidity file:
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
+# Full validation of one or more comorbidity files, batched by validator phase.
+# This is intended for CI changed-file validation. Reference validation stays
+# cache-bound (`--no-full-text`) so CI does not expand the reference cache or
+# download PDFs.
+[group('QC')]
+validate-comorbidity-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Use real positional args rather than interpolating {{files}} as shell text.
+    for f in "$@"; do
+        if [[ "$f" == {{comorbidity_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-comorbidity file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing comorbidity YAML files to validate."
+        exit 0
+    fi
+
+    exit_code=0
+    echo "Validating ${#existing[@]} comorbidity file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class ComorbidityAssociation "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more comorbidity files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} comorbidity file(s) passed validation."
+
 # Full validation of all comorbidity YAML files (schema + terms + references)
 [group('QC')]
 validate-comorbidities-all:
@@ -247,7 +320,11 @@ validate-comorbidities-all:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -313,7 +390,11 @@ validate-modules:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -393,7 +474,11 @@ validate-groupings:
             failed_files+=("$f")
             echo -e "$errors"
         else
-            echo "  ✓ OK"
+            # Surface the wrapper's affirmative snippet count (issue #7252):
+            # without it this loop prints a wall of "✓ OK" that is
+            # indistinguishable from having checked nothing.
+            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
+            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
         fi
     done
     echo ""
@@ -484,6 +569,13 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
+# Report non-canonical CURIE ordering in enum and ontology term caches.
+# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
+# cache normalization cutover enables strict ordering.
+[group('QC')]
+check-cache-order:
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
@@ -495,7 +587,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-folded-hyphens validate-all validate-modules validate-groupings qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -634,10 +726,21 @@ sync-epic-checkboxes *args:
 
 # Validate snippet/reference pairs against PubMed (checks that quotes appear in cited papers)
 # Note: First run fetches from PubMed and caches; subsequent runs use cache
+# Note: linkml-reference-validator's "Total checks: 0" counts *issues found*, not
+# checks performed (issue #7252) -- read the "Snippets checked: N/N verified"
+# line the wrapper appends for the affirmative count.
 [group('QC')]
 validate-references file:
     @just fix-references-cache
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+
+# Count reference/snippet pairs and re-verify each against references_cache/,
+# without running the (network-touching) validator. Advisory only: it reports
+# "Snippets checked: N/N verified" and never gates. Pass --strict to exit 1 on a
+# snippet that is not present in its cached reference text. See issue #7252.
+[group('QC')]
+count-verified-snippets *args:
+    uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
@@ -645,6 +748,19 @@ validate-references file:
 check-reference-cache-frontmatter:
     @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# Catches the ad-hoc-seeding corruption in #7682: a row built by string
+# concatenation whose label contains a comma parses to >3 fields and is
+# silently truncated at that comma, and a later "repair" pass cements the
+# truncation as clean-looking data that `just validate-terms` then reports as
+# ontology truth. Also covers cache/enums/*.csv, the dynamic-enum membership
+# caches, which stand in for an authority the same way. Structural facts only
+# -- it does NOT re-derive labels from OAK, so `just validate-terms` remains
+# the last line of defence. Runs in `qc` before the heavier data validators.
+# Deterministically validate the structure of cache/*/terms.csv + enums (#7682).
+[group('QC')]
+check-term-cache-integrity:
+    uv run python -m dismech.term_cache_integrity cache
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
@@ -658,6 +774,28 @@ check-folded-hyphens:
 [group('QC')]
 update-folded-hyphen-baseline:
     uv run python scripts/check_folded_hyphens.py --update-baseline
+
+# Guard against NEW degenerate evidence snippets in kb/ -- bare terms too short
+# to carry a claim (e.g. snippet: 'Strabismus'), which support nothing and are
+# usually lifted from a table that never survives text extraction (#7450).
+# Pipe-delimited structured-source rows are exempt; the pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+# resolve_baseline() falls back to the committed baseline if origin/main is not
+# present locally, so `just qc` and CI agree.
+[group('QC')]
+check-snippet-length:
+    uv run python scripts/check_snippet_length.py --against-ref origin/main
+
+# List every short snippet, baselined or not (triage view).
+[group('QC')]
+list-short-snippets:
+    uv run python scripts/check_snippet_length.py --all
+
+# Regenerate the short-snippet baseline after intentionally changing the set
+# (e.g. fixing backlog entries). Review the diff before committing.
+[group('QC')]
+update-snippet-length-baseline:
+    uv run python scripts/check_snippet_length.py --update-baseline
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
@@ -730,6 +868,11 @@ warm-reference-cache-preview limit="0":
 test-search:
     node --test tests/js/*.test.mjs
 
+# Run dismech-curator browser-extension tests (pure Node, no dependencies)
+[group('QC')]
+test-extension:
+    node extension/test/run.mjs
+
 # Run pytest tests (with verbose output)
 [group('QC')]
 pytest-all:
@@ -790,10 +933,23 @@ schema-doc:
 gen-browser-data:
     uv run python -c "from pathlib import Path; from dismech.export import BrowserExporter; files=[p for p in sorted(Path('kb/disorders').glob('*.yaml')) if not p.name.endswith('.history.yaml')]; BrowserExporter().export_to_js(files, Path('app/data.js'))"
 
+# Verify every page_url in app/data.js points at a rendered page (no dead links).
+# data.js is always rebuilt from the whole KB while pages may build incrementally,
+# so the two can drift apart — this is the gate that catches it (see PR #7903).
+[group('Browser')]
+check-browser-links:
+    uv run python scripts/check_browser_data_links.py
+
 # Generate discussions browser data.js from disorder + module discussions
 [group('Browser')]
 gen-discussions-data:
     uv run python -m dismech.export.discussions_export
+
+# Generate computational-models browser data.js from disorder + module models
+[group('Browser')]
+gen-models-data:
+    uv run python -m dismech.export.models_export
+
 # Generate Mondo-keyed pathograph JSON artifact (for runtime embedding, e.g. Monarch pages)
 [group('Browser')]
 gen-pathographs:
@@ -801,7 +957,7 @@ gen-pathographs:
 
 # Serve the browser app locally
 [group('Browser')]
-serve-browser: gen-browser-data gen-discussions-data
+serve-browser: gen-browser-data gen-discussions-data gen-models-data
     @echo "Starting local server at http://localhost:8000/app/"
     uv run python -m http.server 8000
 
@@ -815,6 +971,8 @@ deploy-browser: gen-browser-data
 # (Grouping pages are intentionally excluded — they re-parse every disorder and
 # are generated by their own, less-frequent workflow. Run `just gen-grouping-pages`
 # explicitly, or `just gen-all` to include them locally.)
+# Being a FULL build, this also prunes pages left behind by renamed/deleted
+# entries (issue #7426); the incremental recipes below never prune.
 [group('Pages')]
 gen-pages:
     uv run python -m dismech.render --all
@@ -890,19 +1048,38 @@ gen-project-pages:
     uv run python -m dismech.render --project projects
     @echo "Generated $(ls -1 pages/projects/*.html 2>/dev/null | wc -l | tr -d ' ') project pages"
 
+# Generate the NIH funding-topic coverage summary page (pages/nih-topics/index.html)
+[group('Pages')]
+gen-nih-topics-page:
+    uv run python scripts/gen_nih_topics_summary.py
+
 # Generate static schema docs site via MkDocs (served at /elements/)
+#
+# SOURCE_DATE_EPOCH pins the build clock (reproducible-builds.org). Without it
+# MkDocs stamps every page's `update_date` with *today*, which lands in
+# elements/sitemap.xml as ~2,950 <lastmod> lines. elements/ is committed and
+# `deploy-docs` fails the build unless a fresh render matches it byte for byte,
+# so a date-stamped sitemap makes that check fail on every push made on a
+# different day from the last regeneration — which is exactly what happened
+# (red on main from 2026-08-03 onward, 3013 insertions / 3013 deletions).
+#
+# The value is an arbitrary fixed constant, not a real modification time. That
+# loses nothing: MkDocs stamps every page with the *build* date, so `lastmod`
+# never carried per-page modification info to begin with — it was uniformly
+# wrong, and is now uniformly stable. Do not change it to something that varies
+# (git commit time, `date`), or the check starts failing again.
 [group('Pages')]
 gen-schema-docs:
     just gen-doc
     # Normalize LinkML-generated mermaid cardinalities (e.g., "* _recommended_")
     # that break Mermaid v11 parsing in class diagrams.
     uv run python scripts/fix_schema_mermaid.py
-    uv run mkdocs build --clean
+    SOURCE_DATE_EPOCH=1735689600 uv run mkdocs build --clean
     @echo "Generated schema docs in elements/"
 
 # Generate all pages and browser data
 [group('Pages')]
-gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-pages gen-grouping-pages gen-project-pages gen-schema-docs
+gen-all: gen-browser-data gen-pathographs gen-discussions-data gen-models-data gen-pages gen-grouping-pages gen-project-pages gen-nih-topics-page gen-schema-docs
     @echo "Generated browser data, pathographs, disorder/comorbidity/grouping/project pages, and schema docs"
 
 # ============== KGX Export ==============
@@ -1059,6 +1236,95 @@ upload-cx2-test-all *args="":
 # Directory for deep research outputs
 research_dir := "research"
 templates_dir := "templates"
+
+# Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
+# The report is a source of *candidate* accessions only: every accession it
+# returns must be resolved against the repository API with
+# `just verify-datasets --accession <acc>` before it is curated into a
+# `datasets:` block. See `just discover-datasets` for the deterministic
+# NCBI-search-based candidate generator that complements this.
+# Examples:
+#   just research-datasets openscientist Marfan_Syndrome
+#   just research-datasets openscientist Asthma -- --param max_iterations=1
+[group('Research')]
+research-datasets provider disorder *args="":
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p {{research_dir}}/datasets
+    yaml_file="{{kb_dir}}/{{disorder}}.yaml"
+    if [ ! -f "$yaml_file" ]; then
+        echo "Error: Disorder file not found: $yaml_file"
+        exit 1
+    fi
+    disease_name=$(grep "^name:" "$yaml_file" | head -1 | sed 's/name: *//' | tr '_' ' ')
+    category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
+    mondo_id=$(grep -A3 "^disease_term:" "$yaml_file" | grep -o "MONDO:[0-9]*" | head -1 || echo "")
+    output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
+    echo "Dataset discovery: $disease_name ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    uv run deep-research-client research \
+        --template {{templates_dir}}/disease_datasets_research.md \
+        --var "disease_name=$disease_name" \
+        --var "mondo_id=$mondo_id" \
+        --var "category=$category" \
+        $provider_arg \
+        --output "$output_file" \
+        --separate-citations "$output_file.citations.md" \
+        {{args}}
+
+# Verify that datasets[].accession values resolve to real repository records.
+# Nothing else in the validation stack checks dataset accessions, so run this
+# before committing any new `datasets:` block.
+# Examples:
+#   just verify-datasets --all
+#   just verify-datasets kb/disorders/Asthma.yaml
+#   just verify-datasets --accession geo:GSE67472
+[group('Research')]
+verify-datasets *args="":
+    @uv run python scripts/verify_dataset_accessions.py {{args}}
+
+# Deterministically generate candidate datasets for a disorder by searching the
+# NCBI GEO DataSets index (and optionally EBI repositories). Every candidate it
+# emits is real by construction -- the metadata comes back from the repository.
+# Examples:
+#   just discover-datasets Asthma
+#   just discover-datasets Asthma --limit 10 --json /tmp/asthma.json
+[group('Research')]
+discover-datasets disorder *args="":
+    @uv run python scripts/discover_datasets.py {{disorder}} {{args}}
+
+# Report which KB entries have no datasets yet (the dataset-curation worklist).
+[group('Research')]
+datasets-coverage *args="":
+    @uv run python scripts/discover_datasets.py --coverage {{args}}
+
+# Find EGA studies naming the disease in their own title. EGA holds the
+# controlled-access human cohorts GEO cannot index.
+#   just discover-ega --refresh
+#   just discover-ega Cystic_Fibrosis
+[group('Research')]
+discover-ega *args="":
+    @uv run python scripts/discover_ega.py {{args}}
+
+# Find ArrayExpress NATIVE submissions (E-GEOD GEO re-imports are excluded:
+# 73.6% of the collection, and curating them duplicates GEO accessions).
+[group('Research')]
+discover-arrayexpress *args="":
+    @uv run python scripts/discover_arrayexpress.py {{args}}
+
+# Find datasets via OmicsDI, restricted to repositories with no other route
+# here (Metabolomics Workbench, MassIVE, dbGaP). 89% of OmicsDI duplicates
+# sources already covered and is filtered out.
+[group('Research')]
+discover-omicsdi *args="":
+    @uv run python scripts/discover_omicsdi.py {{args}}
+
+# Find PRIDE (proteomics) and MetaboLights (metabolomics) datasets naming the
+# disease in their own title. These assay types matter most for metabolic and
+# rare disease, which transcriptomic archives cover poorly.
+[group('Research')]
+discover-ebi-omics *args="":
+    @uv run python scripts/discover_ebi_omics.py {{args}}
 
 # Deep research on a disorder using specified provider
 # Examples:
@@ -1295,6 +1561,20 @@ research-disorder-cyberian-codex disorder *args="":
 [group('Research')]
 research-providers:
     uv run deep-research-client providers
+
+# Named Entity Confusion (NEC) preflight: verify a deep-research report is about
+# the disease entity you intend to curate, by cross-checking the report's
+# gene-mention frequencies and OMIM IDs against the MONDO term's canonical gene
+# (issue #3889). Run this BEFORE using any DR content.
+# Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
+# discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
+# Exits non-zero on FAIL, or on WARN too with --strict.
+# Examples:
+#   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
+#   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
+[group('Research')]
+preflight-dr report mondo *args="":
+    uv run python -m dismech.preflight_dr "$1" "$2" {{args}}
 
 # One TSV row per disorder summarizing deep-research provider coverage.
 # Summary lines are prefixed with "#" so the table stays easy to grep/awk.
@@ -1877,7 +2157,7 @@ normalize-cache:
     for f in cache/enums/*.csv; do
         header=$(head -1 "$f")
         tmp="$tmp_dir/$(basename "$f")"
-        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | sort -u > "$tmp"
+        tail -n+2 "$f" | grep -E '^[A-Za-z][A-Za-z0-9_.-]*:[A-Za-z0-9_./-]+$' | LC_ALL=C sort -u > "$tmp"
         echo "$header" > "$f"
         cat "$tmp" >> "$f"
     done
@@ -1939,6 +2219,33 @@ g2p-compare-json gene:
 [group('Analysis')]
 perturb file *args="":
     uv run python -m dismech.perturb {{file}} {{args}}
+
+# Export dismech-perturb model configs as SED-ML / COMBINE archives, so any
+# SED-ML-capable engine (COPASI, tellurium, VCell, runBioSimulations, ...) can
+# run a dismech scenario. Writes exports/sedml/<model_id>/ (committed) and,
+# with --omex, the zipped exports/sedml/<model_id>.omex (derived, gitignored).
+# Examples:
+#   just sedml-export
+#   just sedml-export --id urate_homeostasis --omex
+[group('Analysis')]
+sedml-export *args="":
+    uv run python -m dismech.perturb.sedml_export {{args}}
+
+# Run every dismech-perturb scenario and persist the results (final observable
+# values, fold change vs baseline, and the HP phenotypes the curated thresholds
+# activate) to exports/model_runs/<model_id>.json. Derived artifact, committed
+# so the disorder pages can render it; regenerate rather than hand-edit.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+gen-model-results *args="":
+    uv run python -m dismech.perturb.results_export {{args}}
+
+# Check the exported archives reproduce dismech-perturb's own numbers by
+# running each .omex through tellurium's SED-ML interpreter and diffing.
+# Requires tellurium: uv pip install tellurium
+[group('Analysis')]
+verify-sedml-export *args="":
+    uv run python scripts/verify_sedml_export.py {{args}}
 
 # ============== Agent Helper Commands ==============
 # These commands help Claude Code agents explore the KB without requiring
@@ -2048,6 +2355,17 @@ cron-profile-preview name:
 [group('Cron profiles')]
 cron-profile name:
     uv run python scripts/apply_cron_profile.py {{name}}
+
+# ============== Deterministic PR auto-merge (pr-shepherd closing step) ==============
+
+# Report which open PRs the pr-shepherd auto-merge sweep would squash-merge:
+# approved, unassigned, conflict-free, green, and older than `days`.
+# Example: just auto-merge-preview 3
+[group('Auto-merge')]
+auto-merge-preview days='3':
+    uv run --no-project python scripts/auto_merge_ready_prs.py \
+        --repo "$(gh repo view --json nameWithOwner -q .nameWithOwner)" \
+        --min-age-days {{days}} --dry-run
 
 # ============== Phenoagent: case-to-disease matching ==============
 

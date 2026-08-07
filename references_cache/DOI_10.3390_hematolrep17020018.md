@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/hematolrep17020018"
+reference_id: DOI:10.3390/hematolrep17020018
 title: "Genetic Profiling of Acute and Chronic Leukemia via Next-Generation Sequencing: Current Insights and Future Perspectives"
 authors:
 - Laras Pratiwi
@@ -11,6 +11,7 @@ journal: Hematology Reports
 year: '2025'
 doi: 10.3390/hematolrep17020018
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic Profiling of Acute and Chronic Leukemia via Next-Generation Sequencing: Current Insights and Future Perspectives

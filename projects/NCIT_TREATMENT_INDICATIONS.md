@@ -1,6 +1,8 @@
 ---
 title: NCIT P302 Treatment Indications (Accepted_Therapeutic_Use_For)
 status: IN_PROGRESS
+nih_topics:
+  - NIH_HT_79_data_usage_utility_to_advance_biomedical
 tags:
   - treatments
   - structured-sources
