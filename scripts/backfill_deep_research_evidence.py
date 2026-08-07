@@ -41,12 +41,13 @@ LEADING_SUBSECTION_LABEL_RE = re.compile(
     re.IGNORECASE,
 )
 # Compound structured-abstract headers ("INTRODUCTION AND IMPORTANCE:",
-# "BACKGROUND AND OBJECTIVES:") are only half-recognised by the two label
-# patterns above, which leaves a dangling all-caps conjunction or an unlisted
-# second header on the front of the snippet. These two peel the remainder off
-# generically instead of chasing every journal's header vocabulary. Both are
-# case-SENSITIVE on purpose: a sentence genuinely starting "And ..." is prose,
-# a leading all-caps "AND " (or "MATERIAL AND ") is header debris.
+# "BACKGROUND AND OBJECTIVES:", "MATERIAL AND METHODS:") are only half
+# recognised by the two label patterns above, which leaves a dangling all-caps
+# conjunction or an unlisted second header on the front of the snippet. These
+# two peel the remainder off generically instead of chasing every journal's
+# header vocabulary. Both are case-SENSITIVE on purpose: an all-caps "AND" is
+# header debris, whereas "TP53 and other tumour suppressors ..." is a sentence
+# that opens on a gene symbol -- relaxing the case ate the gene.
 LEADING_CONJUNCTION_RE = re.compile(r"^(?:[A-Z][A-Z0-9/&'()\-]*\s+)*AND\s+")
 # The section number of an MDPI-style structured abstract, left behind once the
 # label it introduced ("(1) Background:") has been stripped.
@@ -127,6 +128,11 @@ IMPRINT_LINE_RE = re.compile(
 AUTHOR_NAME_RE = re.compile(
     r"^[^\W\d_][^\W\d_'’\-]*(?:[ \-][^\W\d_][^\W\d_'’\-]*)*"
     r"\s+(?P<initials>[^\W\d_]{1,4})(?:\(\d+\))*$"
+)
+# Nobiliary particles, which carry the lowercase start of a surname that is
+# capitalised further along ("van der Meer AB", "de Groot J").
+AUTHOR_PARTICLE_RE = re.compile(
+    r"^(?:van|von|de[nrl]?|della|del|di|da|dos|du|la|le|ter)\s+", re.IGNORECASE
 )
 # Share of comma-separated segments that must parse as names before a candidate
 # is called an author list rather than a sentence that happens to list people.
@@ -394,7 +400,14 @@ def is_author_name(segment: str) -> bool:
     match = AUTHOR_NAME_RE.match(segment)
     if match is None:
         return False
-    return segment[:1].isupper() and match.group("initials").isupper()
+    # "van der Meer AB" is a surname; the capital lives past the particles.
+    stem = segment
+    while True:
+        stripped = AUTHOR_PARTICLE_RE.sub("", stem, count=1)
+        if stripped == stem:
+            break
+        stem = stripped
+    return stem[:1].isupper() and match.group("initials").isupper()
 
 
 def looks_like_author_list(text: str) -> bool:
@@ -527,11 +540,22 @@ def strip_leading_title(candidate: str, title: str) -> str:
     The sentence splitter only breaks before ``[A-Z0-9(]``, so a title followed
     by an abstract opening on a quotation mark or a lowercase word arrives as
     one candidate and slips past the title-equality test.
+
+    A sentence boundary has to follow the title text for it to count as a title.
+    A review of a single disease is titled after that disease and its abstract
+    opens with the same words as the sentence's *subject* -- "Scimitar syndrome."
+    then "Scimitar syndrome is a rare congenital anomaly ..." -- and cutting the
+    prefix there decapitates the claim into "is a rare congenital anomaly ...".
+    That failure is invisible to every existing check, because the beheaded
+    remainder is still a verbatim substring of the source.
     """
-    for prefix in (title, title.rstrip(".")):
-        if prefix and candidate.startswith(prefix):
-            return candidate[len(prefix) :].lstrip(" .:;")
-    return candidate
+    stem = title.rstrip(" .")
+    if not stem or not candidate.startswith(stem):
+        return candidate
+    remainder = candidate[len(stem) :]
+    if remainder[:1] not in {".", "?", "!"}:
+        return candidate
+    return remainder.lstrip(" .:;?!")
 
 
 def supporting_text_candidates(normalized: str, title: str) -> Iterable[str]:

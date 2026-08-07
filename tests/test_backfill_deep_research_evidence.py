@@ -328,6 +328,47 @@ PMID: 24091959 [Indexed for MEDLINE]
     )
 
 
+def test_a_title_that_is_the_sentence_subject_is_left_alone() -> None:
+    """A disease review is titled after the disease its abstract opens by naming.
+
+    Cutting the prefix there beheads the claim — "Scimitar syndrome is a rare
+    congenital anomaly ..." becomes "is a rare congenital anomaly ...". The
+    remainder is still a verbatim substring, so no downstream check would catch
+    it.
+    """
+    for title, sentence in [
+        (
+            "Scimitar syndrome.",
+            (
+                "Scimitar syndrome is a rare congenital anomaly consisting in "
+                "part of right pulmonary venous return to the inferior vena cava."
+            ),
+        ),
+        (
+            "Multiple system atrophy.",
+            "Multiple system atrophy (MSA) is a rare neurodegenerative disease.",
+        ),
+        (
+            "Phenylalanine hydroxylase deficiency.",
+            (
+                "Phenylalanine hydroxylase deficiency is an autosomal recessive "
+                "disorder of amino acid metabolism."
+            ),
+        ),
+    ]:
+        assert backfill.strip_leading_title(sentence, title) == sentence
+
+
+def test_particle_led_surnames_still_count_as_a_byline() -> None:
+    assert backfill.is_author_name("van der Meer AB")
+    assert backfill.is_author_name("de Groot J")
+    assert backfill.is_bibliographic(
+        "van der Meer AB(1), de Groot J(2), Bakker PW(3), Visser MJ(1)."
+    )
+    # A "de novo" clause is not a name: the capital never arrives.
+    assert not backfill.is_author_name("de novo variants were found in patient A")
+
+
 def test_title_glued_to_the_first_sentence_is_dropped() -> None:
     title = "Circulating Tumor DNA Testing Overcomes Limitations of Genomic Profiling."
     candidate = (
