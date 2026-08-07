@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Thallium%20Poisoning"
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3521,10 +3752,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -5731,7 +5963,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse alopecia is a characteristic delayed manifestation of thallium poisoning and often becomes a key diagnostic clue after the initial toxic phase.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001596\"}}, {\"id\": \"Altered mental status\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe poisoning can cause confusion, delirium, or other alterations in mental status alongside peripheral neurotoxicity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Autonomic and central neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In more severe poisoning, thallium toxicity extends beyond painful peripheral neuropathy into autonomic dysfunction and central nervous system injury.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"autonomic neuron\", \"central nervous system neuron\"], \"locations\": [\"autonomic nervous system\", \"central nervous system\"]}}, {\"id\": \"Bioenergetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once inside cells, thallium impairs glycolysis, the Krebs cycle, and oxidative phosphorylation, creating a broad failure of energy production that contributes to multi-organ toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"tricarboxylic acid cycle\", \"oxidative phosphorylation\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a characteristic gastrointestinal feature of thallium poisoning and may be more typical than diarrhea.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Exposure cessation and source removal\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management begins with immediate cessation of exposure and removal of the toxic source to prevent ongoing absorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gastrointestinal absorption of thallium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium salts are rapidly and nearly completely absorbed after exposure, with gastrointestinal ingestion being the most common route to clinically important poisoning.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transmembrane transport\"], \"locations\": [\"gastrointestinal tract\"]}}, {\"id\": \"Hair follicle toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium causes dystrophic anagen injury in hair follicles, which then manifests clinically as delayed diffuse alopecia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hair follicle cell\"], \"biological_processes\": [\"hair follicle development\", \"hair cycle\"], \"locations\": [\"hair follicle\", \"hair shaft\"]}}, {\"id\": \"Keratin affinity and appendage accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium has affinity for keratin-rich tissues and accumulates in hair and nails, establishing a distinct appendage-toxicity branch of poisoning.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin of body\", \"hair shaft\"]}}, {\"id\": \"Peripheral nervous system injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium poisoning prominently injures the peripheral nervous system, producing a rapidly progressive, extremely painful ascending neuropathy and leaving persistent neurologic sequelae in some survivors.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"peripheral nervous system\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thallium poisoning commonly causes a rapidly progressive, painful, ascending sensory-predominant peripheral neuropathy that may leave persistent neurologic deficits.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Potassium-mimetic cellular uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium enters cells through potassium-handling pathways because its ionic charge and radius closely resemble potassium, disrupting intracellular ionic homeostasis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to potassium ion\", \"potassium ion transport\", \"intracellular monoatomic ion homeostasis\"]}}, {\"id\": \"Prussian blue therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prussian blue is the preferred antidotal therapy for acute thallium poisoning because it enhances gastrointestinal elimination and has the best available safety profile among proposed drug therapies.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"Prussian blue\"]}}, {\"id\": \"Sodium-potassium ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium inhibits sodium-potassium ATPase, destabilizing membrane ion homeostasis and contributing to autonomic and central neurotoxicity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sodium ion transport\", \"potassium ion transport\"]}}, {\"id\": \"Sulfhydryl-dependent molecular binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium binds sulfhydryl-containing molecules, perturbing protein function and contributing to downstream neurotoxicity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic thallium distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After absorption, thallium rapidly distributes throughout the body, including nervous tissue, skin, and hair, enabling multisystem toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"abnormal localization\"]}}, {\"id\": \"Transplacental thallium transfer and fetal toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium crosses the placenta freely and is excreted in breast milk, so maternal poisoning can extend to the fetus and neonate, with reported fetal demise and a trend toward prematurity and low birth weight after early-gestation exposure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transmembrane transport\"], \"locations\": [\"placenta\"]}}], \"edges\": [{\"source\": \"Gastrointestinal absorption of thallium\", \"target\": \"Systemic thallium distribution\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed thallium rapidly redistributes throughout the body and reaches multiple target organs.\"}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Potassium-mimetic cellular uptake\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed thallium enters cells by exploiting potassium-like physicochemical properties.\"}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Keratin affinity and appendage accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed thallium also accumulates in keratin-rich tissues such as hair and nails.\"}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Transplacental thallium transfer and fetal toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed thallium also crosses the placenta and enters breast milk, extending toxicity to the fetus and neonate.\"}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Bioenergetic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular thallium disrupts core pathways of ATP generation.\"}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sodium-potassium ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular thallium interferes with sodium-potassium ATPase activity and membrane ion homeostasis.\"}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sulfhydryl-dependent molecular binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular thallium also binds sulfhydryl-containing molecules and perturbs protein function.\"}, {\"source\": \"Bioenergetic failure\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energetically vulnerable peripheral nerves develop toxic injury with painful sensorimotor dysfunction.\"}, {\"source\": \"Sodium-potassium ATPase inhibition\", \"target\": \"Autonomic and central neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ion-pump failure contributes to dysautonomia and central nervous system dysfunction in more severe poisoning.\"}, {\"source\": \"Sulfhydryl-dependent molecular binding\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfhydryl-dependent molecular dysfunction contributes to progressive peripheral nerve injury.\"}, {\"source\": \"Peripheral nervous system injury\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve injury causes the characteristic painful ascending neuropathy.\"}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic neurotoxicity contributes to characteristic lower-gastrointestinal dysmotility.\"}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Altered mental status\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neurotoxicity can extend to central neurologic dysfunction and encephalopathy.\"}, {\"source\": \"Keratin affinity and appendage accumulation\", \"target\": \"Hair follicle toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratin-associated accumulation contributes to direct hair follicle injury.\"}, {\"source\": \"Hair follicle toxicity\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair follicle toxicity and keratin-associated accumulation lead to delayed diffuse alopecia.\"}, {\"source\": \"Exposure cessation and source removal\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prussian blue therapy\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Diffuse alopecia is a characteristic delayed manifestation of thallium poisoning and often becomes a key diagnostic clue after the initial toxic phase.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001596\"}}, {\"id\": \"Altered mental status\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe poisoning can cause confusion, delirium, or other alterations in mental status alongside peripheral neurotoxicity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001289\"}}, {\"id\": \"Autonomic and central neurotoxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In more severe poisoning, thallium toxicity extends beyond painful peripheral neuropathy into autonomic dysfunction and central nervous system injury.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"autonomic neuron\", \"central nervous system neuron\"], \"locations\": [\"autonomic nervous system\", \"central nervous system\"]}}, {\"id\": \"Bioenergetic failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once inside cells, thallium impairs glycolysis, the Krebs cycle, and oxidative phosphorylation, creating a broad failure of energy production that contributes to multi-organ toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glycolytic process\", \"tricarboxylic acid cycle\", \"oxidative phosphorylation\"]}}, {\"id\": \"Coal combustion and cement manufacturing exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Environmental thallium contamination can arise from industrial waste linked to coal combustion and cement manufacture.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation is a characteristic gastrointestinal feature of thallium poisoning and may be more typical than diarrhea.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Contaminated alternative medicine exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contaminated traditional or alternative medicines can be an underrecognized source of acute thallium ingestion.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Deliberate beverage contamination\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Criminal poisoning by thallium-adulterated food or beverages remains an important forensic exposure context.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exposure cessation and source removal\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management begins with immediate cessation of exposure and removal of the toxic source to prevent ongoing absorption.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Gastrointestinal absorption of thallium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium salts are rapidly and nearly completely absorbed after exposure, with gastrointestinal ingestion being the most common route to clinically important poisoning.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transmembrane transport\"], \"locations\": [\"gastrointestinal tract\"]}}, {\"id\": \"Hair follicle toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium causes dystrophic anagen injury in hair follicles, which then manifests clinically as delayed diffuse alopecia.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hair follicle cell\"], \"biological_processes\": [\"hair follicle development\", \"hair cycle\"], \"locations\": [\"hair follicle\", \"hair shaft\"]}}, {\"id\": \"Industrial thallium salt exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Occupational or environmental exposure can occur through industrial thallium salts used in manufacturing processes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Keratin affinity and appendage accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium has affinity for keratin-rich tissues and accumulates in hair and nails, establishing a distinct appendage-toxicity branch of poisoning.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin of body\", \"hair shaft\"]}}, {\"id\": \"Peripheral nervous system injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium poisoning prominently injures the peripheral nervous system, producing a rapidly progressive, extremely painful ascending neuropathy and leaving persistent neurologic sequelae in some survivors.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"peripheral nervous system neuron\"], \"locations\": [\"peripheral nervous system\"]}}, {\"id\": \"Peripheral neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thallium poisoning commonly causes a rapidly progressive, painful, ascending sensory-predominant peripheral neuropathy that may leave persistent neurologic deficits.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0009830\"}}, {\"id\": \"Potassium-mimetic cellular uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium enters cells through potassium-handling pathways because its ionic charge and radius closely resemble potassium, disrupting intracellular ionic homeostasis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to potassium ion\", \"potassium ion transport\", \"intracellular monoatomic ion homeostasis\"]}}, {\"id\": \"Prussian blue therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prussian blue is the preferred antidotal therapy for acute thallium poisoning because it enhances gastrointestinal elimination and has the best available safety profile among proposed drug therapies.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"Prussian blue\"]}}, {\"id\": \"Rodenticide exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Thallium-containing rodenticides have historically caused accidental and intentional poisonings where access remained possible.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sodium-potassium ATPase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium inhibits sodium-potassium ATPase, destabilizing membrane ion homeostasis and contributing to autonomic and central neurotoxicity.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"sodium ion transport\", \"potassium ion transport\"]}}, {\"id\": \"Sulfhydryl-dependent molecular binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium binds sulfhydryl-containing molecules, perturbing protein function and contributing to downstream neurotoxicity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Systemic thallium distribution\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"After absorption, thallium rapidly distributes throughout the body, including nervous tissue, skin, and hair, enabling multisystem toxicity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"abnormal localization\"]}}, {\"id\": \"Transplacental thallium transfer and fetal toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thallium crosses the placenta freely and is excreted in breast milk, so maternal poisoning can extend to the fetus and neonate, with reported fetal demise and a trend toward prematurity and low birth weight after early-gestation exposure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"transmembrane transport\"], \"locations\": [\"placenta\"]}}], \"edges\": [{\"source\": \"Gastrointestinal absorption of thallium\", \"target\": \"Systemic thallium distribution\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absorbed thallium rapidly redistributes throughout the body and reaches multiple target organs.\"}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Potassium-mimetic cellular uptake\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed thallium enters cells by exploiting potassium-like physicochemical properties.\"}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Keratin affinity and appendage accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed thallium also accumulates in keratin-rich tissues such as hair and nails.\"}, {\"source\": \"Systemic thallium distribution\", \"target\": \"Transplacental thallium transfer and fetal toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed thallium also crosses the placenta and enters breast milk, extending toxicity to the fetus and neonate.\"}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Bioenergetic failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular thallium disrupts core pathways of ATP generation.\"}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sodium-potassium ATPase inhibition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular thallium interferes with sodium-potassium ATPase activity and membrane ion homeostasis.\"}, {\"source\": \"Potassium-mimetic cellular uptake\", \"target\": \"Sulfhydryl-dependent molecular binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intracellular thallium also binds sulfhydryl-containing molecules and perturbs protein function.\"}, {\"source\": \"Bioenergetic failure\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energetically vulnerable peripheral nerves develop toxic injury with painful sensorimotor dysfunction.\"}, {\"source\": \"Sodium-potassium ATPase inhibition\", \"target\": \"Autonomic and central neurotoxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ion-pump failure contributes to dysautonomia and central nervous system dysfunction in more severe poisoning.\"}, {\"source\": \"Sulfhydryl-dependent molecular binding\", \"target\": \"Peripheral nervous system injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sulfhydryl-dependent molecular dysfunction contributes to progressive peripheral nerve injury.\"}, {\"source\": \"Peripheral nervous system injury\", \"target\": \"Peripheral neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral nerve injury causes the characteristic painful ascending neuropathy.\"}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic neurotoxicity contributes to characteristic lower-gastrointestinal dysmotility.\"}, {\"source\": \"Autonomic and central neurotoxicity\", \"target\": \"Altered mental status\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe neurotoxicity can extend to central neurologic dysfunction and encephalopathy.\"}, {\"source\": \"Keratin affinity and appendage accumulation\", \"target\": \"Hair follicle toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Keratin-associated accumulation contributes to direct hair follicle injury.\"}, {\"source\": \"Hair follicle toxicity\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair follicle toxicity and keratin-associated accumulation lead to delayed diffuse alopecia.\"}, {\"source\": \"Industrial thallium salt exposure\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Occupational contact with thallium salts used in manufacturing puts absorbable thallium in reach of the worker.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rodenticide exposure\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Thallium rodenticide is formulated as bait, so accidental or intentional access delivers a swallowed thallium salt dose.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coal combustion and cement manufacturing exposure\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Industrial waste raises background thallium in the environment, which increases the opportunity for absorbable exposure rather than constituting a documented poisoning route in its own right. Modelled as PREDISPOSES because the cited concern is contamination, not cases.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Contaminated alternative medicine exposure\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A contaminated remedy is swallowed as medicine, giving thallium the gastrointestinal route that most reliably produces toxicity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deliberate beverage contamination\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Thallium salt dissolved into a drink is swallowed unknowingly, the classic deliberate-poisoning route and the one that most reliably produces toxicity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure cessation and source removal\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prussian blue therapy\", \"target\": \"Gastrointestinal absorption of thallium\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5771,7 +6003,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tachycardia" data-dismech-node="Tachycardia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tachycardia
 
@@ -5839,7 +6071,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-constipation" data-dismech-node="Constipation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Constipation
 
@@ -5900,7 +6132,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-injury" data-dismech-node="Hepatic injury" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatic injury
 
@@ -5990,7 +6222,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-alopecia" data-dismech-node="Alopecia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Alopecia
 
@@ -6051,7 +6283,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mees-lines" data-dismech-node="Mees lines" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mees lines
 
@@ -6119,7 +6351,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral neuropathy
 
@@ -6180,7 +6412,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-altered-mental-status" data-dismech-node="Altered mental status" data-dismech-type="phenotype">
                     <div class="item-name">
                         Altered mental status
 
@@ -6250,7 +6482,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal pain
 
@@ -6344,6 +6576,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6353,7 +6588,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-exposure-cessation-and-source-removal" data-dismech-node="Exposure cessation and source removal" data-dismech-type="treatment">
                 <div class="item-name">
                     Exposure cessation and source removal
                 </div>
@@ -6481,7 +6716,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prussian-blue-therapy" data-dismech-node="Prussian blue therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Prussian blue therapy
                 </div>
@@ -6670,7 +6905,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multiple-dose-activated-charcoal" data-dismech-node="Multiple-dose activated charcoal" data-dismech-type="treatment">
                 <div class="item-name">
                     Multiple-dose activated charcoal
                 </div>
@@ -6765,7 +7000,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-potassium-supplementation" data-dismech-node="Potassium supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Potassium supplementation
                 </div>
@@ -6881,7 +7116,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-extracorporeal-elimination-adjuncts" data-dismech-node="Extracorporeal elimination adjuncts" data-dismech-type="treatment">
                 <div class="item-name">
                     Extracorporeal elimination adjuncts
                 </div>
@@ -7015,7 +7250,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-industrial-thallium-salt-exposure" data-dismech-node="Industrial thallium salt exposure" data-dismech-type="environmental">
                 <div class="item-name">Industrial thallium salt exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7087,9 +7322,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Gastrointestinal absorption of thallium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Occupational contact with thallium salts used in manufacturing puts absorbable thallium in reach of the worker.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14579545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14579545" target="_blank">PMID:14579545</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thallium salts are rapidly and nearly completely absorbed by virtually all routes, with gastrointestinal exposure being the most common route to produce toxicity."</div>
+
+
+                <div class="evidence-explanation">Thallium salts reaching the body by any route are absorbed rapidly and near-completely, so this exposure translates into a systemic thallium load with essentially no absorptive barrier.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-rodenticide-exposure" data-dismech-node="Rodenticide exposure" data-dismech-type="environmental">
                 <div class="item-name">Rodenticide exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7149,9 +7437,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Gastrointestinal absorption of thallium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Thallium rodenticide is formulated as bait, so accidental or intentional access delivers a swallowed thallium salt dose.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14579545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14579545" target="_blank">PMID:14579545</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thallium salts are rapidly and nearly completely absorbed by virtually all routes, with gastrointestinal exposure being the most common route to produce toxicity."</div>
+
+
+                <div class="evidence-explanation">Thallium salts reaching the body by any route are absorbed rapidly and near-completely, so this exposure translates into a systemic thallium load with essentially no absorptive barrier.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-coal-combustion-and-cement-manufacturing-exposure" data-dismech-node="Coal combustion and cement manufacturing exposure" data-dismech-type="environmental">
                 <div class="item-name">Coal combustion and cement manufacturing exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7211,9 +7552,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Gastrointestinal absorption of thallium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Industrial waste raises background thallium in the environment, which increases the opportunity for absorbable exposure rather than constituting a documented poisoning route in its own right. Modelled as PREDISPOSES because the cited concern is contamination, not cases.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14579545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14579545" target="_blank">PMID:14579545</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"environmental concerns are growing, as thallium is a waste product of coal combustion and the manufacturing of cement."</div>
+
+
+                <div class="evidence-explanation">Names these industries as sources of environmental thallium. The source frames this as a growing concern about contamination, which is why the link is PREDISPOSES rather than TRIGGERS.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-contaminated-alternative-medicine-exposure" data-dismech-node="Contaminated alternative medicine exposure" data-dismech-type="environmental">
                 <div class="item-name">Contaminated alternative medicine exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7273,9 +7667,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Gastrointestinal absorption of thallium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A contaminated remedy is swallowed as medicine, giving thallium the gastrointestinal route that most reliably produces toxicity.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28761262" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28761262" target="_blank">PMID:28761262</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a case of acute, nonintentional thallium poisoning due to thallium-contaminated alternative medicine"</div>
+
+
+                <div class="evidence-explanation">A documented case in which ingesting a contaminated remedy produced acute systemic thallium poisoning.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-deliberate-beverage-contamination" data-dismech-node="Deliberate beverage contamination" data-dismech-type="environmental">
                 <div class="item-name">Deliberate beverage contamination</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7334,6 +7781,59 @@
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Gastrointestinal absorption of thallium</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Thallium salt dissolved into a drink is swallowed unknowingly, the classic deliberate-poisoning route and the one that most reliably produces toxicity.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33438838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33438838" target="_blank">PMID:33438838</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Following this investigation, a criminal suspect confessed to two instances of adulterating thallium sulfate in the patient&#39;s beverage."</div>
+
+
+                <div class="evidence-explanation">Documents thallium sulfate added to a beverage and ingested, producing the poisoning under investigation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8565,6 +9065,23 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thallium salts have been used as medicinal agents, as key ingredients in a variety of manufacturing processes, and as a potent rodenticide.&#34;
     explanation: Supports industrial thallium salts as an important exposure source.
+  influences_mechanisms:
+  - target: Gastrointestinal absorption of thallium
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Occupational contact with thallium salts used in manufacturing puts
+      absorbable thallium in reach of the worker.
+    evidence:
+    - reference: PMID:14579545
+      reference_title: &#34;Thallium toxicity and the role of Prussian blue in therapy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Thallium salts are rapidly and nearly completely absorbed by virtually all routes, with gastrointestinal exposure being the most common route to produce toxicity.&#34;
+      explanation: &gt;-
+        Thallium salts reaching the body by any route are absorbed rapidly and
+        near-completely, so this exposure translates into a systemic thallium
+        load with essentially no absorptive barrier.
 - name: Rodenticide exposure
   description: &gt;-
     Thallium-containing rodenticides have historically caused accidental and
@@ -8602,6 +9119,23 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Thallium salts have been used as medicinal agents, as key ingredients in a variety of manufacturing processes, and as a potent rodenticide.&#34;
     explanation: Supports rodenticide use as a recognized exposure source for thallium poisoning.
+  influences_mechanisms:
+  - target: Gastrointestinal absorption of thallium
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Thallium rodenticide is formulated as bait, so accidental or
+      intentional access delivers a swallowed thallium salt dose.
+    evidence:
+    - reference: PMID:14579545
+      reference_title: &#34;Thallium toxicity and the role of Prussian blue in therapy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Thallium salts are rapidly and nearly completely absorbed by virtually all routes, with gastrointestinal exposure being the most common route to produce toxicity.&#34;
+      explanation: &gt;-
+        Thallium salts reaching the body by any route are absorbed rapidly and
+        near-completely, so this exposure translates into a systemic thallium
+        load with essentially no absorptive barrier.
 - name: Coal combustion and cement manufacturing exposure
   description: &gt;-
     Environmental thallium contamination can arise from industrial waste linked
@@ -8629,6 +9163,25 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;environmental concerns are growing, as thallium is a waste product of coal combustion and the manufacturing of cement.&#34;
     explanation: Supports coal combustion and cement manufacturing as environmental contamination sources.
+  influences_mechanisms:
+  - target: Gastrointestinal absorption of thallium
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Industrial waste raises background thallium in the environment, which
+      increases the opportunity for absorbable exposure rather than
+      constituting a documented poisoning route in its own right. Modelled
+      as PREDISPOSES because the cited concern is contamination, not cases.
+    evidence:
+    - reference: PMID:14579545
+      reference_title: &#34;Thallium toxicity and the role of Prussian blue in therapy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;environmental concerns are growing, as thallium is a waste product of coal combustion and the manufacturing of cement.&#34;
+      explanation: &gt;-
+        Names these industries as sources of environmental thallium. The source
+        frames this as a growing concern about contamination, which is why the
+        link is PREDISPOSES rather than TRIGGERS.
 - name: Contaminated alternative medicine exposure
   description: &gt;-
     Contaminated traditional or alternative medicines can be an underrecognized
@@ -8666,6 +9219,22 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Here, we report a case of acute, nonintentional thallium poisoning due to thallium-contaminated alternative medicine&#34;
     explanation: Directly supports contaminated alternative medicine as a real-world exposure source.
+  influences_mechanisms:
+  - target: Gastrointestinal absorption of thallium
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      A contaminated remedy is swallowed as medicine, giving thallium the
+      gastrointestinal route that most reliably produces toxicity.
+    evidence:
+    - reference: PMID:28761262
+      reference_title: &#34;Acute Alopecia: Evidence to Thallium Poisoning.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Here, we report a case of acute, nonintentional thallium poisoning due to thallium-contaminated alternative medicine&#34;
+      explanation: &gt;-
+        A documented case in which ingesting a contaminated remedy produced
+        acute systemic thallium poisoning.
 - name: Deliberate beverage contamination
   description: &gt;-
     Criminal poisoning by thallium-adulterated food or beverages remains an
@@ -8703,6 +9272,23 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Following this investigation, a criminal suspect confessed to two instances of adulterating thallium sulfate in the patient&#39;s beverage.&#34;
     explanation: Supports deliberate beverage adulteration as a documented exposure scenario.
+  influences_mechanisms:
+  - target: Gastrointestinal absorption of thallium
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Thallium salt dissolved into a drink is swallowed unknowingly, the classic
+      deliberate-poisoning route and the one that most reliably produces
+      toxicity.
+    evidence:
+    - reference: PMID:33438838
+      reference_title: &#34;Long-term misdiagnosis and neurologic outcomes of thallium poisoning: A case report and literature review.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Following this investigation, a criminal suspect confessed to two instances of adulterating thallium sulfate in the patient&#39;s beverage.&#34;
+      explanation: &gt;-
+        Documents thallium sulfate added to a beverage and ingested, producing
+        the poisoning under investigation.
 diagnosis:
 - name: Blood and urine thallium measurement
   description: &gt;-
@@ -9749,7 +10335,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thallium Poisoning", "mondoId": "MONDO:0041996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thallium_Poisoning", "yamlRevision": "a4068fd1721d"};
+        const OS_CONFIG = {"diseaseName": "Thallium Poisoning", "mondoId": "MONDO:0041996", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thallium_Poisoning", "yamlRevision": "35209326957d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
