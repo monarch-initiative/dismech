@@ -6855,8 +6855,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Acute Hypotension",
@@ -11602,7 +11602,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
   },
   {
@@ -14130,7 +14130,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 22,
     "num_treatments": 11,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "4"
   },
   {
@@ -14909,7 +14909,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
   },
   {
@@ -18927,7 +18927,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 17,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
   },
   {
@@ -19676,7 +19676,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
   {
@@ -40800,7 +40800,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -40924,7 +40924,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 8,
-    "causal_graph_edges": "59",
+    "causal_graph_edges": "63",
     "causal_graph_longest_path": "5"
   },
   {
@@ -41709,8 +41709,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 12,
     "num_treatments": 6,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Central Areolar Choroidal Dystrophy",
@@ -43104,8 +43104,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 10,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cerebral Proliferative Angiopathy",
@@ -45360,7 +45360,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -46058,7 +46058,7 @@ window.searchData = [
     "num_pathophysiology": 19,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "9"
   },
   {
@@ -49626,7 +49626,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "2"
   },
   {
@@ -53504,8 +53504,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Cor Pulmonale",
@@ -54692,8 +54692,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "1",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Cowden Syndrome",
@@ -55207,8 +55207,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Craniopharyngioma",
@@ -59358,7 +59358,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "3"
   },
   {
@@ -62392,8 +62392,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 12,
     "num_treatments": 10,
-    "causal_graph_edges": "36",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Down_syndrome",
@@ -65592,8 +65592,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Ehlers-Danlos Syndrome",
@@ -72321,7 +72321,7 @@ window.searchData = [
     "num_pathophysiology": 17,
     "num_genes": 6,
     "num_treatments": 16,
-    "causal_graph_edges": "68",
+    "causal_graph_edges": "74",
     "causal_graph_longest_path": "11"
   },
   {
@@ -86387,8 +86387,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hantavirus Hemorrhagic Fever with Renal Syndrome",
@@ -88535,8 +88535,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hepatitis C",
@@ -91718,7 +91718,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "4"
   },
   {
@@ -104146,8 +104146,8 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 10,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Keratoderma Hereditarium Mutilans",
@@ -120965,7 +120965,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 7,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -121993,7 +121993,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 9,
-    "causal_graph_edges": "49",
+    "causal_graph_edges": "52",
     "causal_graph_longest_path": "7"
   },
   {
@@ -138635,8 +138635,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Osteosarcoma",
@@ -143492,8 +143492,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Parenti-Mignot Neurodevelopmental Syndrome",
@@ -147903,8 +147903,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 9,
     "num_treatments": 8,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Plague",
@@ -160209,8 +160209,8 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 8,
     "num_treatments": 8,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Rosai-Dorfman Disease",
@@ -165515,7 +165515,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "7"
   },
   {
@@ -168911,8 +168911,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 7,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Short-Rib Polydactyly Syndrome",
@@ -180153,8 +180153,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Thymic Carcinoma",
@@ -192060,8 +192060,8 @@ window.searchMetrics = {
   "total_disorder_pages": 1871,
   "total_subtypes": 2834,
   "total_disorders_and_subtypes": 4705,
-  "total_unique_evidence_sources": 28264,
-  "total_unique_publications": 26442,
+  "total_unique_evidence_sources": 28266,
+  "total_unique_publications": 26444,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 243,
   "total_pathographs": 1866,
