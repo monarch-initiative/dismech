@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1183/16000617.0170-2023"
+reference_id: DOI:10.1183/16000617.0170-2023
 title: "Nine controversial questions about augmentation therapy for alpha-1 antitrypsin deficiency: a viewpoint"
 authors:
 - Marc Miravitlles
@@ -9,6 +9,7 @@ journal: European Respiratory Review
 year: '2023'
 doi: 10.1183/16000617.0170-2023
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Nine controversial questions about augmentation therapy for alpha-1 antitrypsin deficiency: a viewpoint

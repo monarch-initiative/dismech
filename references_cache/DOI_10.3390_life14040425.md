@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/life14040425"
+reference_id: DOI:10.3390/life14040425
 title: "Unraveling the Complexities of Oxidative Stress and Inflammation Biomarkers in Obstructive Sleep Apnea Syndrome: A Comprehensive Review"
 authors:
 - Salvatore Lavalle
@@ -23,6 +23,7 @@ journal: Life
 year: '2024'
 doi: 10.3390/life14040425
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unraveling the Complexities of Oxidative Stress and Inflammation Biomarkers in Obstructive Sleep Apnea Syndrome: A Comprehensive Review

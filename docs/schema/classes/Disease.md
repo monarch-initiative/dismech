@@ -62,6 +62,17 @@ URI: [dismech:class/Disease](https://w3id.org/monarch-initiative/dismech/class/D
     
 
         
+      Disease : clinical_burden
+        
+          
+    
+        
+        
+        Disease --> "0..1" ClinicalBurden : clinical_burden
+        click ClinicalBurden href "../../classes/ClinicalBurden/"
+    
+
+        
       Disease : clinical_trials
         
           
@@ -209,6 +220,17 @@ URI: [dismech:class/Disease](https://w3id.org/monarch-initiative/dismech/class/D
     
 
         
+      Disease : gene_sets
+        
+          
+    
+        
+        
+        Disease --> "*" GeneSetAssociation : gene_sets
+        click GeneSetAssociation href "../../classes/GeneSetAssociation/"
+    
+
+        
       Disease : genetic
         
           
@@ -239,6 +261,17 @@ URI: [dismech:class/Disease](https://w3id.org/monarch-initiative/dismech/class/D
         
         Disease --> "*" HistopathologyFinding : histopathology
         click HistopathologyFinding href "../../classes/HistopathologyFinding/"
+    
+
+        
+      Disease : imaging_findings
+        
+          
+    
+        
+        
+        Disease --> "*" ImagingFinding : imaging_findings
+        click ImagingFinding href "../../classes/ImagingFinding/"
     
 
         
@@ -453,10 +486,12 @@ URI: [dismech:class/Disease](https://w3id.org/monarch-initiative/dismech/class/D
 | [has_subtypes](../slots/has_subtypes.md) | * <br/> [Subtype](../classes/Subtype.md) |  | direct |
 | [prevalence](../slots/prevalence.md) | * <br/> [Prevalence](../classes/Prevalence.md) |  | direct |
 | [progression](../slots/progression.md) | * <br/> [ProgressionInfo](../classes/ProgressionInfo.md) |  | direct |
+| [clinical_burden](../slots/clinical_burden.md) | 0..1 <br/> [ClinicalBurden](../classes/ClinicalBurden.md) | Disease-level assessment of the typical clinical burden imposed by this disea... | direct |
 | [pathophysiology](../slots/pathophysiology.md) | * <br/> [Pathophysiology](../classes/Pathophysiology.md) |  | direct |
 | [mechanistic_hypotheses](../slots/mechanistic_hypotheses.md) | * <br/> [MechanisticHypothesis](../classes/MechanisticHypothesis.md) | Disease-level mechanistic hypotheses that group and annotate causal edges | direct |
 | [phenotypes](../slots/phenotypes.md) | * <br/> [Phenotype](../classes/Phenotype.md) |  | direct |
 | [histopathology](../slots/histopathology.md) | * <br/> [HistopathologyFinding](../classes/HistopathologyFinding.md) | Histopathologic findings including microscopic morphology, architectural patt... | direct |
+| [imaging_findings](../slots/imaging_findings.md) | * <br/> [ImagingFinding](../classes/ImagingFinding.md) | In-vivo imaging findings (radiologic, nuclear-medicine, or ultrasound) that r... | direct |
 | [biochemical](../slots/biochemical.md) | * <br/> [Biochemical](../classes/Biochemical.md) |  | direct |
 | [stages](../slots/stages.md) | * <br/> [Stage](../classes/Stage.md) |  | direct |
 | [genetic](../slots/genetic.md) | * <br/> [Genetic](../classes/Genetic.md) |  | direct |
@@ -481,6 +516,7 @@ URI: [dismech:class/Disease](https://w3id.org/monarch-initiative/dismech/class/D
 | [computational_models](../slots/computational_models.md) | * <br/> [ComputationalModel](../classes/ComputationalModel.md) | Computational models (metabolic, mechanistic, ML, digital twins) for this dis... | direct |
 | [classifications](../slots/classifications.md) | 0..1 <br/> [DiseaseClassifications](../classes/DiseaseClassifications.md) | Classification assignments for this disease from various nosologies | direct |
 | [definitions](../slots/definitions.md) | * <br/> [Definition](../classes/Definition.md) | Definitions or diagnostic criteria for this disease | direct |
+| [gene_sets](../slots/gene_sets.md) | * <br/> [GeneSetAssociation](../classes/GeneSetAssociation.md) | Curated links from this disease to external gene sets, each referenced by its... | direct |
 | [mappings](../slots/mappings.md) | 0..1 <br/> [DiseaseMappings](../classes/DiseaseMappings.md) | External identifier mappings for this disease or subtype (SSSOM-inspired) | direct |
 | [external_assertions](../slots/external_assertions.md) | * <br/> [ExternalAssertion](../classes/ExternalAssertion.md) | External curated assertions or registry records relevant to this entity | direct |
 | [tracked_issues](../slots/tracked_issues.md) | * <br/> [TrackedIssue](../classes/TrackedIssue.md) | Structured pointers to external tracker issues (e | direct |
@@ -558,10 +594,12 @@ slots:
 - has_subtypes
 - prevalence
 - progression
+- clinical_burden
 - pathophysiology
 - mechanistic_hypotheses
 - phenotypes
 - histopathology
+- imaging_findings
 - biochemical
 - stages
 - genetic
@@ -586,6 +624,7 @@ slots:
 - computational_models
 - classifications
 - definitions
+- gene_sets
 - mappings
 - external_assertions
 - tracked_issues
@@ -660,6 +699,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -748,6 +788,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -755,6 +796,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -859,6 +901,19 @@ attributes:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  clinical_burden:
+    name: clinical_burden
+    description: Disease-level assessment of the typical clinical burden imposed by
+      this disease. Use phenotype-level `severity` for individual manifestations;
+      use this object for the overall disease burden claim.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: clinical_burden
+    owner: Disease
+    domain_of:
+    - Disease
+    range: ClinicalBurden
+    inlined: true
   pathophysiology:
     name: pathophysiology
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -904,10 +959,12 @@ attributes:
   histopathology:
     name: histopathology
     description: Histopathologic findings including microscopic morphology, architectural
-      patterns, cellular features, growth patterns, and histologic grading.
+      patterns, cellular features, growth patterns, histologic grading, and immunophenotype.
     comments:
     - Separate from phenotypes as these are tissue-level microscopic observations
-    - Use NCIT Morphologic Finding (C35867) or Histologic Grade (C18000) terms
+    - Use NCIT terms from the Histopathology Result branch (C83490) - Morphologic
+      Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding
+      (C43265), Staining Intensity (C127762), or Histologic Grade (C18000)
     - '{''For cancer'': ''includes grade, differentiation, growth patterns, necrosis''}'
     - '{''For other diseases'': ''may include architectural changes, cellular infiltrates''}'
     from_schema: https://w3id.org/monarch-initiative/dismech
@@ -917,6 +974,27 @@ attributes:
     domain_of:
     - Disease
     range: HistopathologyFinding
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  imaging_findings:
+    name: imaging_findings
+    description: In-vivo imaging findings (radiologic, nuclear-medicine, or ultrasound)
+      that reflect disease pathophysiology or define diagnostic criteria. The macroscopic
+      / in-vivo counterpart of the histopathology slot.
+    comments:
+    - Separate from phenotypes - names the modality plus the imaging appearance, even
+      when the abnormality is also curated as an HP phenotype
+    - Not for acquisition protocol, per-patient reads, or diagnostic decision support
+      (see the imaging-scope design decision)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: imaging_findings
+    owner: Disease
+    domain_of:
+    - Disease
+    range: ImagingFinding
+    recommended: false
     multivalued: true
     inlined: true
     inlined_as_list: true
@@ -1230,6 +1308,23 @@ attributes:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  gene_sets:
+    name: gene_sets
+    description: Curated links from this disease to external gene sets, each referenced
+      by its structured-source id (MYGENESET:<id>, resolving to references_cache/MYGENESET_<id>.md).
+      Membership and the curated GO interpretation live upstream / in the cache file;
+      this slot records only the precise disease<->set link and its semantics, and
+      is the anchor for BP alignment (`just genesets-align`).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    rank: 1000
+    alias: gene_sets
+    owner: Disease
+    domain_of:
+    - Disease
+    range: GeneSetAssociation
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   mappings:
     name: mappings
     description: External identifier mappings for this disease or subtype (SSSOM-inspired)
@@ -1324,12 +1419,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease

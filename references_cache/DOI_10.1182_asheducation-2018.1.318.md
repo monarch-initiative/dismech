@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/asheducation-2018.1.318"
+reference_id: DOI:10.1182/asheducation-2018.1.318
 title: Novel insights and therapeutic approaches in idiopathic multicentric Castleman disease
 authors:
 - David C. Fajgenbaum
@@ -7,6 +7,7 @@ journal: Hematology
 year: '2018'
 doi: 10.1182/asheducation-2018.1.318
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Novel insights and therapeutic approaches in idiopathic multicentric Castleman disease

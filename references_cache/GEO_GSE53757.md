@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE53757"
+reference_id: GEO:GSE53757
 title: Gene array analysis of clear cell renal cell carcinoma tissue versus matched normal kidney tissue
 content_type: summary
+full_text_attempted: true
 ---
 
 # Gene array analysis of clear cell renal cell carcinoma tissue versus matched normal kidney tissue

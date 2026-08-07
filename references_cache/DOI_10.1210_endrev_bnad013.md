@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1210/endrev/bnad013"
+reference_id: DOI:10.1210/endrev/bnad013
 title: "Medullary Thyroid Cancer: Updates and Challenges"
 authors:
 - Matti L Gild
@@ -10,6 +10,7 @@ journal: Endocrine Reviews
 year: '2023'
 doi: 10.1210/endrev/bnad013
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Medullary Thyroid Cancer: Updates and Challenges

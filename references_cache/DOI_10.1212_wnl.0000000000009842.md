@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.0000000000009842"
+reference_id: DOI:10.1212/wnl.0000000000009842
 title: Familial language network vulnerability in primary progressive aphasia
 authors:
 - Sandra Weintraub
@@ -17,6 +17,7 @@ journal: Neurology
 year: '2020'
 doi: 10.1212/wnl.0000000000009842
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Familial language network vulnerability in primary progressive aphasia

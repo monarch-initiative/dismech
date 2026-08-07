@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/00048674231219593"
+reference_id: DOI:10.1177/00048674231219593
 title: "Is cognitive behavioral therapy more effective than pharmacotherapy for binge spectrum disorders? A systematic review and meta-analysis"
 authors:
 - Myrto T Samara
@@ -17,6 +17,7 @@ journal: "Australian &amp; New Zealand Journal of Psychiatry"
 year: '2024'
 doi: 10.1177/00048674231219593
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Is cognitive behavioral therapy more effective than pharmacotherapy for binge spectrum disorders? A systematic review and meta-analysis

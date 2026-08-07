@@ -50,6 +50,15 @@ biological_processes:
 | `ABNORMAL` | Qualitatively abnormal | Protein misfolding |
 | `DYSREGULATED` | Regulation impaired (may be either direction) | BBB permeability |
 | `ABSENT` | Not occurring/present | Missing ganglion cells |
+| `GAIN_OF_FUNCTION` | Constitutive or aberrant activation, whatever the mechanism | Viral oncoprotein driving a pathway |
+| `LOSS_OF_FUNCTION` | Reduction or abolition of normal function, whatever the mechanism | Epigenetic silencing, protein sequestration |
+
+`INCREASED`/`DECREASED` are the default for *quantitative* claims — a normally regulated
+process running above or below its normal level — and are PATO-bound.
+`GAIN_OF_FUNCTION`/`LOSS_OF_FUNCTION` are for a *qualitative* change in regulatory control
+and are unbound. For that boundary, and for when to reach for
+`GeneticContext.functional_impact_category` instead, see **"Gain/Loss of Function: which
+slot?"** in `CLAUDE.md`.
 
 **Examples from the knowledge base:**
 
@@ -81,8 +90,8 @@ Specifies the anatomical location where an entity/process occurs or a procedure 
 diagnosis_term:
   preferred_term: right heart catheterization
   term:
-    id: MAXO:0035118
-    label: cardiac catheterization
+    id: NCIT:C38044
+    label: Cardiac Catheterization
   located_in:
     preferred_term: right cardiac chamber
     term:
@@ -335,7 +344,7 @@ treatment_term:
         label: zinc acetate
 ```
 
-**Best practice:** Always prefer specific treatment terms when available (e.g., `MAXO:0000109` for vitamin C supplementation). Use `therapeutic_agent` only when the treatment term is too generic.
+**Best practice:** Always prefer specific treatment terms when available (e.g., a specific NCIT procedure term rather than the generic `NCIT:C15986` Pharmacotherapy). Use `therapeutic_agent` only when the treatment term is too generic.
 
 ### 2. Substrate / Target for Pathophysiology
 

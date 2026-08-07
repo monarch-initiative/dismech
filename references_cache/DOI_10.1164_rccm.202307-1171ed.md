@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1164/rccm.202307-1171ed"
+reference_id: DOI:10.1164/rccm.202307-1171ed
 title: Undiagnosed Alpha-1 Antitrypsin Deficiency and the Perpetuation of Lung Health Inequity
 authors:
 - Oliver J. McElvaney
@@ -10,6 +10,7 @@ journal: American Journal of Respiratory and Critical Care Medicine
 year: '2024'
 doi: 10.1164/rccm.202307-1171ed
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Undiagnosed Alpha-1 Antitrypsin Deficiency and the Perpetuation of Lung Health Inequity
