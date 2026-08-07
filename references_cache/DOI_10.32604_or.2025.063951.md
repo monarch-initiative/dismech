@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.32604/or.2025.063951"
+reference_id: DOI:10.32604/or.2025.063951
 title: "Lynch syndrome and colorectal cancer: A review of current perspectives in molecular genetics and clinical strategies"
 authors:
 - RAQUEL GÓMEZ-MOLINA
@@ -12,6 +12,7 @@ journal: Oncology Research
 year: '2025'
 doi: 10.32604/or.2025.063951
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Lynch syndrome and colorectal cancer: A review of current perspectives in molecular genetics and clinical strategies

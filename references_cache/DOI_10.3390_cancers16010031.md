@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16010031"
+reference_id: DOI:10.3390/cancers16010031
 title: "Selective RET Inhibitors (SRIs) in Cancer: A Journey from Multi-Kinase Inhibitors to the Next Generation of SRIs"
 authors:
 - Liz Clark
@@ -11,6 +11,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers16010031
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Selective RET Inhibitors (SRIs) in Cancer: A Journey from Multi-Kinase Inhibitors to the Next Generation of SRIs

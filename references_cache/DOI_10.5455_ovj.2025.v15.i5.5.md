@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5455/ovj.2025.v15.i5.5"
+reference_id: DOI:10.5455/ovj.2025.v15.i5.5
 title: "&lt;b&gt;Uncovering the truth about cat-scratch disease&lt;/b&gt;"
 authors:
 - Yulianna Puspitasari
@@ -22,6 +22,7 @@ journal: Open Veterinary Journal
 year: '2025'
 doi: 10.5455/ovj.2025.v15.i5.5
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # &lt;b&gt;Uncovering the truth about cat-scratch disease&lt;/b&gt;

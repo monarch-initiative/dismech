@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijerph20032139"
+reference_id: DOI:10.3390/ijerph20032139
 title: Late Diagnosis of Swyer Syndrome in a Patient with Bilateral Germ Cell Tumor Treated with a Contraceptive Due to Primary Amenorrhea
 authors:
 - Elżbieta Sowińska-Przepiera
@@ -13,6 +13,7 @@ journal: International Journal of Environmental Research and Public Health
 year: '2023'
 doi: 10.3390/ijerph20032139
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Late Diagnosis of Swyer Syndrome in a Patient with Bilateral Germ Cell Tumor Treated with a Contraceptive Due to Primary Amenorrhea

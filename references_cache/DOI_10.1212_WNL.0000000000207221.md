@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/WNL.0000000000207221"
+reference_id: DOI:10.1212/WNL.0000000000207221
 title: Predictive Value of Serum Neurofilament Light Chain Levels in Anti-NMDA Receptor Encephalitis
 authors:
 - Juliette Brenner
@@ -19,6 +19,7 @@ journal: Neurology
 year: '2023'
 doi: 10.1212/WNL.0000000000207221
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Predictive Value of Serum Neurofilament Light Chain Levels in Anti-NMDA Receptor Encephalitis

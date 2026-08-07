@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers16040775"
+reference_id: DOI:10.3390/cancers16040775
 title: "The Role of Imaging in Cervical Cancer Staging: ESGO/ESTRO/ESP Guidelines (Update 2023)"
 authors:
 - Daniela Fischerova
@@ -12,6 +12,7 @@ journal: Cancers
 year: '2024'
 doi: 10.3390/cancers16040775
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Role of Imaging in Cervical Cancer Staging: ESGO/ESTRO/ESP Guidelines (Update 2023)

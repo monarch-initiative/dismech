@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/nxi.0000000000200397"
+reference_id: DOI:10.1212/nxi.0000000000200397
 title: Biopsy-Confirmed Small Vessel Primary CNS Vasculitis
 authors:
 - Sumanth P. Reddy
@@ -15,6 +15,7 @@ journal: "Neurology Neuroimmunology &amp; Neuroinflammation"
 year: '2025'
 doi: 10.1212/nxi.0000000000200397
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Biopsy-Confirmed Small Vessel Primary CNS Vasculitis

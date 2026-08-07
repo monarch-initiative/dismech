@@ -29,6 +29,7 @@ def test_cli_gene_perturbation():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "PERTURBATION" in result.stdout
@@ -50,6 +51,7 @@ def test_cli_named_scenario():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "PERTURBATION" in result.stdout
@@ -72,6 +74,7 @@ def test_cli_param_perturbation():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "PERTURBATION" in result.stdout
@@ -96,6 +99,7 @@ def test_cli_phenotypes_activated():
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
     assert "ACTIVATED PHENOTYPES" in result.stdout
@@ -108,6 +112,7 @@ def test_cli_help():
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
     assert result.returncode == 0
     assert (

@@ -14,7 +14,6 @@ from dismech.structured_sources.clingen_dosage import (
     _parse_report_details,
 )
 
-
 CSV_TEXT = """"CLINGEN DOSAGE SENSITIVITY CURATIONS","","","","",""
 "FILE CREATED: 2026-05-09","","","","",""
 "WEBPAGE: https://search.clinicalgenome.org/kb/gene-dosage","","","","",""

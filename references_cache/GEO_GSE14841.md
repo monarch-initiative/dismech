@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE14841"
+reference_id: GEO:GSE14841
 title: Expression data from healthy volunteers and IBS patients
 content_type: summary
+full_text_attempted: true
 ---
 
 # Expression data from healthy volunteers and IBS patients

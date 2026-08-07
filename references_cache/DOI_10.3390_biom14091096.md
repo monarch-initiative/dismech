@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biom14091096"
+reference_id: DOI:10.3390/biom14091096
 title: Mitochondrial Dysfunction in Glycogen Storage Disorders (GSDs)
 authors:
 - Kumudesh Mishra
@@ -8,6 +8,7 @@ journal: Biomolecules
 year: '2024'
 doi: 10.3390/biom14091096
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mitochondrial Dysfunction in Glycogen Storage Disorders (GSDs)

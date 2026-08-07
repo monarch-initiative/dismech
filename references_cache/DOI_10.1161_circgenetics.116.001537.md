@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1161/circgenetics.116.001537"
-title: "Novel Variant in the
-            <i>ANK2</i>
-            Membrane-Binding Domain Is Associated With Ankyrin-B Syndrome and Structural Heart Disease in a First Nations Population With a High Rate of Long QT Syndrome"
+reference_id: DOI:10.1161/circgenetics.116.001537
+title: "Novel Variant in the <i>ANK2</i> Membrane-Binding Domain Is Associated With Ankyrin-B Syndrome and Structural Heart Disease in a First Nations Population With a High Rate of Long QT Syndrome"
 authors:
 - Leigh Anne Swayne
 - Nathaniel P. Murphy
@@ -24,11 +22,10 @@ journal: "Circulation: Cardiovascular Genetics"
 year: '2017'
 doi: 10.1161/circgenetics.116.001537
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Novel Variant in the
-            <i>ANK2</i>
-            Membrane-Binding Domain Is Associated With Ankyrin-B Syndrome and Structural Heart Disease in a First Nations Population With a High Rate of Long QT Syndrome
+# Novel Variant in the <i>ANK2</i> Membrane-Binding Domain Is Associated With Ankyrin-B Syndrome and Structural Heart Disease in a First Nations Population With a High Rate of Long QT Syndrome
 **Authors:** Leigh Anne Swayne, Nathaniel P. Murphy, Sirisha Asuri, Lena Chen, Xiaoxue Xu, Sarah McIntosh, Chao Wang, Peter J. Lancione, Jason D. Roberts, Charles Kerr, Shubhayan Sanatani, Elizabeth Sherwin, Crystal F. Kline, Mingjie Zhang, Peter J. Mohler, Laura T. Arbour
 **Journal:** Circulation: Cardiovascular Genetics (2017)
 **DOI:** [10.1161/circgenetics.116.001537](https://doi.org/10.1161/circgenetics.116.001537)
