@@ -423,6 +423,7 @@ mirroring OWL subclass/equivalence axioms.
 just check-groupings                                 # lint + audit all groupings
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings --strict                        # gate on errors/violations
+just check-groupings --no-closure                    # exact-ID matching (offline)
 ```
 Two tiers: a **structural linter** (`lint_criterion`) classifies every node BRANCH vs LEAF
 and enforces well-formedness (gating, enforced in `tests/test_data.py`); and an **advisory
@@ -430,6 +431,27 @@ membership evaluator** (`evaluate_grouping`) that three-valuedly checks each mem
 entry against `NECESSARY`/`N&S` criteria (`SATISFIED`/`NOT_SATISFIED`/`UNKNOWN`) and, for
 `SUFFICIENT`/`N&S` criteria, flags candidate non-members. The evaluator is advisory because
 criteria are often aspirational (a member may not yet declare a required `conforms_to` edge).
+
+**Criteria are evaluated over the ontology closure.** A leaf asserting "has P" is
+satisfied by a member annotated with any `is_a`/`part_of` **descendant** of P — a
+member curating `HP:0007354` (amyotrophic lateral sclerosis) satisfies a criterion
+citing its parent `HP:0007373` (motor neuron atrophy). Closure applies to the
+`HP` and `GO` predicates (`CLOSURE_PREFIXES` in `groupings.py`); `HAS_GENE` stays
+an exact match because HGNC's hierarchy is gene-group membership, not subsumption.
+Closure is computed over the criteria terms (a bounded set) and cached; if the
+ontology is unreachable it degrades to exact matching, which **under**-reports
+satisfaction rather than failing. Do not write a criterion at descendant-level
+granularity to work around a missing annotation — cite the term you mean.
+
+**A NOT_SATISFIED listed member is reported as a contradiction, not diagnosed.**
+Asserting `D ∈ G` while `G` declares a NECESSARY criterion `D` fails is a
+contradiction between two curated assertions — in OWL it would be an
+inconsistency. The tooling surfaces it and stops there; the resolution may be
+that the entry needs annotating, that the criteria are too strict, or that the
+membership is wrong, and choosing between those is a curator's judgement, not
+the renderer's. There is deliberately **no "acknowledged exception" slot**: an
+exception to a necessary condition is not a thing you can declare, only a
+contradiction you can resolve.
 
 **Per-member differentiating mechanisms:**
 
@@ -461,7 +483,12 @@ Renders `pages/groupings/*.html` (derived — not committed). The detail page sh
 the `grouping_basis`/MONDO mapping, the rationale, the membership-criteria boolean
 tree, and per-member differentiating mechanisms with an advisory audit badge
 (SATISFIED/NOT_SATISFIED/UNKNOWN from `evaluate_grouping`) plus any candidate
-members from SUFFICIENT/N&S criteria.
+members from SUFFICIENT/N&S criteria. The coverage table carries one column per
+criteria *leaf* plus a **Conditions satisfied** column holding the combined
+verdict over the whole boolean expression — a listed member failing it is
+badged `contradiction`, and the count appears in the coverage summary. Without
+that column a member failing an `OR` of three leaves showed three red cells and
+nothing naming the problem.
 
 **Worked examples:** `Mucopolysaccharidoses` (NECESSARY, aspirational members),
 `Inherited_Arrhythmia_Syndromes` (NECESSARY_AND_SUFFICIENT with a NOT leaf +
