@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RP2-Related Retinopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RP2-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RP2-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">RP2-Related Retinopathy: Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-20</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0100442" target="_blank" rel="noopener noreferrer">MONDO:0100442</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">28 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>RP2-Related Retinopathy: Comprehensive Disease Characteristics Report</h1>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview:</strong> RP2-related retinopathy (also termed RP2-associated X-linked retinitis pigmentosa) is a form of inherited retinal degeneration caused by hemizygous pathogenic variants in the <em>RP2</em> gene on the X chromosome. It presents in males as a severe, early-onset, rapidly progressive rod-cone dystrophy, and in female carriers as a highly variable phenotype ranging from asymptomatic to RP-level vision loss due to X-inactivation (Lyonization). RP2 was the second gene identified as a cause of X-linked retinitis pigmentosa (XLRP), historically accounting for roughly <strong>10–20%</strong> of XLRP cases (some sources cite up to 16–20%), with <em>RPGR</em> accounting for the majority (~60–75%) (PMC3124502, PMC5353642).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>Gene/OMIM disease entry:</strong> RP2, OMIM #312600 (Retinitis Pigmentosa 2); gene locus OMIM <em>300757 (RP2 Activator of ARL3 GTPase)
+- </em><em>Related OMIM entries:</em><em> #268000 (Retinitis Pigmentosa, general); #300455 (X-linked RP and sinorespiratory infections ± deafness, RPSRDF — contiguous gene deletion syndrome involving RP2)
+- </em><em>Gene location:</em><em> Xp11.3 (5 exons, ~1,050 bp coding sequence, 350 amino acid protein)
+- </em><em>Orphanet:</em><em> ORPHA791 (Retinitis pigmentosa, umbrella term); a gene-specific Orphanet entry also exists for RP2-related XLRP
+- </em><em>MONDO:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0100442" target="_blank" rel="noopener noreferrer">MONDO:0100442</a> (RP2-related retinopathy, per task); umbrella RP term <a href="http://purl.obolibrary.org/obo/MONDO_0019200" target="_blank" rel="noopener noreferrer">MONDO:0019200</a>
+- </em><em>ICD-10:</em><em> H35.52 (pigmentary retinal dystrophy), broader H35.5
+- </em><em>MeSH:</em><em> Retinitis Pigmentosa (D012174)
+- </em><em>Disease Ontology:</em>* <a href="http://purl.obolibrary.org/obo/DOID_10584" target="_blank" rel="noopener noreferrer">DOID:10584</a></p>
+<p><strong>Data source type:</strong> This report synthesizes aggregated disease-level literature — natural history cohort studies, case series, functional/molecular studies, and model organism data — rather than individual EHR-derived data.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> Purely genetic/monogenic. Hemizygous (males) or heterozygous (females, with variable expressivity) loss-of-function or dysfunction-causing variants in <em>RP2</em> cause disease; no environmental or infectious cause is established.</p>
+<p><strong>Genetic risk factors:</strong>
+- Causal variants in <em>RP2</em>: nonsense, frameshift, splice-site, and missense variants, plus whole-gene/partial-gene deletions (PMC10190057; PMC9738434 natural history study found 5 nonsense, 6 frameshift, 1 splice-site, 1 missense among 24 variants in one cohort).
+- X-linked inheritance means male sex is itself a major risk determinant for full-penetrance disease.
+- Family history of X-linked disease — but per PMC11139645 (female carrier study), <em>"family history of affected females with RP does not exclude X-linked disease,"</em> since carrier females can be symptomatic.</p>
+<p><strong>Environmental/lifestyle risk factors:</strong> None specifically established for RP2; as with RP broadly, no consistent environmental modifiers are documented in the reviewed literature.</p>
+<p><strong>Protective factors:</strong> No validated genetic or environmental protective factors specific to RP2 were identified in the literature searched. In female carriers, favorable (non-random) X-inactivation skewing toward the mutant allele functions as a protective factor at the individual level (PMC11139645): <em>"The disease spectrum is likely explained by Lyonization, whereby random X-chromosome inactivation during embryogenesis leads to variable expression of the wild-type phenotype."</em></p>
+<p><strong>Gene-environment interactions:</strong> None specifically documented for RP2; vitamin A/E supplementation interactions are described for RP broadly (see Prevention/Treatment) but not RP2-specific.</p>
+<p><strong>Modifier genes:</strong> No validated modifier genes were reported; the natural history study (PMC9738434) explicitly found <em>"no evidence of genotype–phenotype correlation"</em> among variant types, and female carrier phenotype is modified primarily by X-inactivation pattern rather than a second gene.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Male (hemizygous) patients — from natural history study of 47 males/33 families (PMC9738434, <em>Ophthalmology</em> 2022/2023, PMC10567581):</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HPO term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nyctalopia (night blindness) — first symptom</td>
+<td>69.6%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a></td>
+</tr>
+<tr>
+<td>Reduced visual acuity as first symptom</td>
+<td>13.0%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" rel="noopener noreferrer">HP:0000572</a> (Visual impairment)</td>
+</tr>
+<tr>
+<td>Nyctalopia + reduced vision combined onset</td>
+<td>8.7%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td>4.4%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></td>
+</tr>
+<tr>
+<td>Asymptomatic at first exam</td>
+<td>4.4%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Intraretinal (bone-spicule) pigmentation</td>
+<td>89.2%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007737" target="_blank" rel="noopener noreferrer">HP:0007737</a></td>
+</tr>
+<tr>
+<td>Attenuated retinal vessels</td>
+<td>94.6%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a></td>
+</tr>
+<tr>
+<td>Macular changes</td>
+<td>58.5%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001103" target="_blank" rel="noopener noreferrer">HP:0001103</a> (Atypical/macular abnormality)</td>
+</tr>
+<tr>
+<td>Optic disc waxy pallor</td>
+<td>27.0%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" rel="noopener noreferrer">HP:0000543</a> (Optic disc pallor)</td>
+</tr>
+<tr>
+<td>Severe loss of fundus autofluorescence</td>
+<td>55.3%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Hyper-autofluorescent ring</td>
+<td>23.8%</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset:</strong> Median first symptoms at 7 years (IQR 2.25–12); median baseline exam age 20 years. Onset is <strong>childhood</strong>, distinctly earlier than typical autosomal RP.</p>
+<p><strong>Severity/progression:</strong> Rapid and progressive.
+- BCVA: median 0.66 logMAR at baseline → 1.3 logMAR at last visit; progression rate of <strong>46–49% acuity loss per decade</strong>; legal blindness reached by a median age of <strong>27 years</strong>.
+- Central retinal thickness declining 12.6–13.9% per decade; photoreceptor+RPE complex declining 27–33.9% per decade.
+- Ellipsoid zone intact in only 34.3% at baseline (median age 14.5y) vs. severely disrupted/atrophic in 65.7% (median age 35y); EZ becomes "largely not measurable from 25 years of age."
+- Overall course: <em>"rapid progression to outer retina atrophy and early macular involvement with substantial vision loss by age 30–40."</em></p>
+<p><strong>High myopia</strong> is a recognized associated feature, and fundus appearance can mimic choroideremia (per PreventionGenetics/differential diagnosis literature) without choroideremia-gene involvement — an important diagnostic pitfall.</p>
+<h3>Female carriers — from cohort of 27 carriers/21 pedigrees (PMC11139645, <em>AJO</em> 2023/2024):</h3>
+<ul>
+<li>85% asymptomatic with normal vision; 15% with RP-level complaints</li>
+<li>Fundus: normal (30%), tapetal-like reflex/TLR (37%), scattered peripheral pigment (19%), overt RP changes (15%)</li>
+<li>Visual acuity (WHO criteria): no/mild impairment 89%, moderate 3.7%, blind 7.4%</li>
+<li>Full-field ERG abnormal in 82% (9/11 tested), often asymmetric</li>
+<li>Radial fundus autofluorescence pattern in virtually all TLR carriers</li>
+<li>Slowly progressive atrophic changes documented over 6.7–11.4 years in symptomatic carriers</li>
+</ul>
+<p><strong>Quality of life impact:</strong> No RP2-specific QOL study was found, but the broader XLRP burden literature (EXPLORE XLRP-2 study, PMC11794432, <em>Eye</em> 2025) is informative: among 169 XLRP patients (RPGR-predominant cohort), anxiety was reported by 74.2% and depression by 15.8%; severe disease correlated with difficulties in low-luminance function, employment, and mobility; mean diagnostic delay from symptom onset to genetic diagnosis was <strong>16.4 years</strong>. These burden patterns are considered broadly applicable to RP2-XLRP given phenotypic overlap.</p>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" rel="noopener noreferrer">HP:0000546</a> (Retinal degeneration/atrophy), <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> (Nyctalopia), <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus), <a href="http://purl.obolibrary.org/obo/HP_0007737" target="_blank" rel="noopener noreferrer">HP:0007737</a> (Bone spicule pigmentation), <a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a> (Attenuation of retinal blood vessels), <a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" rel="noopener noreferrer">HP:0000543</a> (Optic disc pallor), <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment), <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" rel="noopener noreferrer">HP:0000545</a> (Myopia), <a href="http://purl.obolibrary.org/obo/HP_0000577" target="_blank" rel="noopener noreferrer">HP:0000577</a> (Exotropia — if applicable), <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a> (Abnormal electroretinogram).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>RP2</em> (<a href="https://bioregistry.io/HGNC:10295" target="_blank" rel="noopener noreferrer">HGNC:10295</a>), OMIM *300757, chromosome Xp11.3, NCBI Gene ID 6102. Encodes a 350-amino-acid, ubiquitously plasma-membrane/ciliary-localized protein.</p>
+<p><strong>Protein domain structure (UniProt O75695 / GeneCards):</strong>
+- <strong>N-terminal domain</strong>: homologous to tubulin-specific chaperone cofactor C (a β-helix domain involved in tubulin GTPase activation)
+- <strong>C-terminal domain</strong>: homology to nucleoside diphosphate kinases (NDK); <em>"the physiological function of the NDK domain in RP2 remains to be determined"</em> though it has also been reported to have 3'→5' exonuclease activity and nuclear translocation after DNA damage (ScienceDirect, S001448270500621X)</p>
+<p><strong>Variant classification/type (ClinVar, PMC9738434, PMC11139645):</strong>
+- Nonsense, frameshift, splice-site, missense, and whole/partial gene deletions
+- In the 47-male natural history cohort: 24 total variants (13 novel) — 5 nonsense, 6 frameshift, 1 splice-site, 1 missense (proportions approximate; most common: c.352C&gt;T p.(Arg118Cys) and c.358C&gt;T p.(Arg120<em>))
+- In the 21-pedigree carrier cohort: frameshift 28.6%, nonsense 28.6%, missense 23.8%, plus splice-site, whole-gene deletion, and smaller deletions
+- ClinVar: "39 ClinVar submitters have submitted clinical-significance assessments... after 2014, and all submitters classified the variants as pathogenic or likely pathogenic" — reflecting high consensus once a variant is curated, per ACMG/AMP framework
+- Up to </em><em>133 disease-associated variants</em>* have been reported across the literature (PMC3124502)</p>
+<p><strong>Functional consequences:</strong> Frameshift/nonsense variants generally cause complete loss of function via truncation/nonsense-mediated decay; missense variants show <strong>variable pathogenic potential</strong> — some behave as near-null, others as partial hypomorphs (PMC3124502, <em>"Functional Analysis of RP2 Protein Reveals Variable Pathogenic Potential of Disease-Associated Missense Variants"</em>). Missense variants clustering in the ARL3-binding/N-terminal domain most consistently impair GAP activity; notably in the female carrier study, "no carriers with [ARL3-binding domain] variants were affected," while variants in the ferredoxin-like/β-helix domains were more often associated with an affected carrier phenotype — suggesting domain-specific severity even though no clear genotype-phenotype correlation was found in the male cohort.</p>
+<p><strong>Protein function/mechanism:</strong> RP2 acts as a <strong>GTPase-activating protein (GAP) for ARL3</strong> (ADP-ribosylation factor-like 3), a small ciliary GTPase (Reactome R-HSA-5638007). RP2 stimulates GTP hydrolysis on ARL3-GTP, triggering release of UNC119(B)-bound lipidated cargo (e.g., transducin, NPHP3) at the ciliary base/membrane — a key step in selective ciliary protein trafficking.</p>
+<p><strong>Modifier genes:</strong> None validated; X-inactivation pattern (not a second gene) is the principal modifier of female carrier phenotype.</p>
+<p><strong>Epigenetic information:</strong> X-chromosome inactivation (Lyonization) is the central "epigenetic" determinant of phenotype expression in female carriers — this is not a disease-specific epigenetic mechanism but the generic mechanism underlying all X-linked carrier variability.</p>
+<p><strong>Chromosomal abnormalities:</strong> Contiguous gene deletions spanning <em>RP2</em> and neighboring genes cause a distinct contiguous gene deletion syndrome, OMIM #300455 (X-linked RP with sinorespiratory infections ± deafness), illustrating that large deletions removing RP2 plus adjacent loci produce a syndromic phenotype beyond isolated retinopathy.</p>
+<p><strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005096" target="_blank" rel="noopener noreferrer">GO:0005096</a> (GTPase activator activity), <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" rel="noopener noreferrer">GO:0060271</a> (cilium assembly), <a href="http://purl.obolibrary.org/obo/GO_0035861" target="_blank" rel="noopener noreferrer">GO:0035861</a> (site of double-strand break — n/a), <a href="http://purl.obolibrary.org/obo/GO_0060170" target="_blank" rel="noopener noreferrer">GO:0060170</a> (ciliary membrane), <a href="http://purl.obolibrary.org/obo/GO_0032391" target="_blank" rel="noopener noreferrer">GO:0032391</a> (photoreceptor connecting cilium).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No established environmental toxins, occupational exposures, or lifestyle factors are causally linked to RP2-related retinopathy — it is fully genetically determined. No infectious agents are implicated. (Not applicable beyond the general RP literature on vitamin A/E supplementation discussed under Treatment/Prevention.)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain:</strong> Pathogenic <em>RP2</em> variant → loss/reduction of RP2 GAP activity toward ARL3 → failure of ARL3-GTP hydrolysis → impaired release of UNC119-bound lipidated cargo (transducin, and related proteins) at the photoreceptor connecting cilium → <strong>mistrafficking of phototransduction proteins into/through the outer segment</strong> → progressive photoreceptor dysfunction and death.</p>
+<p><strong>Molecular pathway specifics:</strong>
+- RP2-ARL3-UNC119 axis governs trafficking of lipidated proteins (e.g., farnesylated/prenylated cargo) across the connecting cilium (PMC5808637; Reactome R-HSA-5638007).
+- RP2/ARL3 also regulate trafficking of the <strong>ciliary tip kinesins KIF7 and KIF17</strong>, needed for intraflagellar transport (IFT)-related delivery to the cilium tip.
+- RP2 additionally supports <strong>Golgi cohesion</strong> and general vesicle trafficking/tubulin folding (via its cofactor-C-like domain), important for delivering opsins and other outer-segment cargo from the Golgi to the base of the connecting cilium.</p>
+<p><strong>Cellular processes:</strong> Impaired intracellular/intraciliary protein trafficking → progressive <strong>rod and cone photoreceptor degeneration</strong> via apoptosis; in RP2-knockout mouse and iPSC-organoid models, <strong>cone opsin (M-opsin) and rhodopsin mistrafficking</strong>, and diminished cone-specific GRK1 and PDE6 localization in outer segments, precede overt cell death.</p>
+<p><strong>Protein dysfunction:</strong> Predominantly <strong>loss of function</strong> (nonsense/frameshift/deletions) with some missense alleles causing partial or dominant-negative dysfunction of GAP activity (PMC3124502).</p>
+<p><strong>Tissue damage mechanism:</strong> Chronic photoreceptor-intrinsic ciliary trafficking failure leads to progressive apoptotic photoreceptor loss beginning with rods (nyctalopia) and extending to cones and RPE/outer retina (macular/central involvement), culminating in outer retinal atrophy.</p>
+<p><strong>Molecular profiling (model systems):</strong>
+- iPSC-derived retinal organoid transcriptomic/histologic data (Stem Cell Reports 2020, PMC7363745): CRISPR RP2-knockout and R120X patient-derived organoids show peak rod photoreceptor cell death around <strong>day 150</strong> of culture and outer nuclear layer thinning by <strong>day 180</strong>; AAV-mediated RP2 gene augmentation rescued ONL thinning and restored rhodopsin expression.
+- Mouse knockout models show early cone dysfunction (mistrafficking of cone opsin, GRK1, PDE6) preceding degeneration, described as <em>"early-onset cone dysfunction, followed by progressive cone degeneration, mimicking cone vision impairment in XLRP patients,"</em> though overall murine phenotype is milder than human disease.</p>
+<p><strong>Suggested GO/CL terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" rel="noopener noreferrer">GO:0007601</a> (visual perception), <a href="http://purl.obolibrary.org/obo/GO_0035845" target="_blank" rel="noopener noreferrer">GO:0035845</a> (photoreceptor cell outer segment organization), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> (photoreceptor cell), <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> (retinal cone cell), <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (retinal rod cell), <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (retinal pigment epithelial cell — via <a href="http://purl.obolibrary.org/obo/GO_0032391" target="_blank" rel="noopener noreferrer">GO:0032391</a> connecting cilium).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong> Primary organ — the <strong>eye/retina</strong> (neurosensory retina, primarily photoreceptor layer; RPE secondarily). No consistent extra-ocular organ involvement in isolated RP2 disease, though contiguous-gene deletion cases (OMIM #300455) add sinorespiratory and hearing involvement (<a href="http://purl.obolibrary.org/obo/UBERON_0000949" target="_blank" rel="noopener noreferrer">UBERON:0000949</a> endocrine — n/a; <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a> respiratory system; <a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a> - middle ear structures for deafness).</p>
+<p><strong>Tissue/cell level:</strong> Rod photoreceptors (affected earliest — nyctalopia), cone photoreceptors (progressive involvement, central/macular vision loss), retinal pigment epithelium (atrophy with disease progression). Cell Ontology: <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (rod), <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> (cone), <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a> (retinal pigment epithelial cell).</p>
+<p><strong>Subcellular level:</strong> <strong>Connecting cilium / ciliary transition zone</strong> of photoreceptors (<a href="http://purl.obolibrary.org/obo/GO_0032391" target="_blank" rel="noopener noreferrer">GO:0032391</a>); Golgi apparatus (vesicle sorting, <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a>); outer segment membrane disc trafficking machinery.</p>
+<p><strong>Localization:</strong> Bilateral, generally symmetric in males; <strong>asymmetric/unilateral presentations reported in female carriers</strong> and rare male case reports (PMC10190057 — "asymmetric presentation with a novel RP2 gene mutation"). <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> (retina), <a href="http://purl.obolibrary.org/obo/UBERON_0001782" target="_blank" rel="noopener noreferrer">UBERON:0001782</a> (macula lutea, for macular involvement).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Pediatric/childhood — median age at first symptom 7 years in males; insidious onset of nyctalopia, sometimes with early nystagmus in infancy signaling more severe congenital-onset disease.</p>
+<p><strong>Progression:</strong> Rapid and relentlessly progressive (not episodic or relapsing-remitting).
+- Early stage (childhood–adolescence): nyctalopia, peripheral field constriction, intact ellipsoid zone in a minority
+- Intermediate stage (teens–20s): progressive EZ disruption, vessel attenuation, bone-spicule pigment
+- Advanced stage (30s–40s): outer retinal atrophy, macular involvement, legal blindness by median age 27
+- Disease course pattern: chronic, lifelong, progressive (not self-limited); "46–49% BCVA loss per decade" quantifies the rate.</p>
+<p><strong>Patterns:</strong> No spontaneous remission described. In female carriers, disease can remain <strong>stable and mild for decades</strong> if X-inactivation favors the wild-type allele, or progress "slowly" (documented over 6.7–11.4 year follow-up) if unfavorably skewed. No defined "critical window" for intervention is established in the human literature, though preclinical gene-therapy rescue data (mouse, organoid) suggest earlier intervention (before extensive photoreceptor loss) yields better structural/functional rescue.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong> RP overall affects ~1/3,000–5,000; XLRP accounts for <strong>5–15%</strong> of all RP and has a worldwide prevalence of roughly <strong>1:30,000–1:40,000</strong>. Within XLRP, <em>RPGR</em> accounts for ~60–75% of cases and <strong>RP2 accounts for approximately 10–20%</strong> (estimates range 5–20% depending on cohort; PMC3124502, PMC5353642). No RP2-specific population prevalence figure was identified in the literature searched.</p>
+<p><strong>Inheritance pattern:</strong> <strong>X-linked</strong> — historically described as X-linked recessive, though the existence of a substantial fraction of symptomatic female carriers (documented above) means the disease is now often characterized as showing <strong>quasi-dominant or intermediate/semi-dominant inheritance</strong> with sex-limited penetrance modulated by X-inactivation, rather than "true" recessive inheritance.</p>
+<p><strong>Penetrance:</strong> Complete in hemizygous males; <strong>incomplete and variable in heterozygous females</strong> (only 15% symptomatic in the reviewed cohort), governed by random X-inactivation skewing.</p>
+<p><strong>Expressivity:</strong> Highly variable, especially in females (ranging from normal fundus to full RP); in males, expressivity is more uniform/severe, though the natural history study found no genotype-phenotype correlation across variant types.</p>
+<p><strong>Genetic anticipation:</strong> Not reported/not applicable (not a repeat-expansion disorder).</p>
+<p><strong>Germline mosaicism:</strong> Not specifically quantified in the reviewed literature for RP2, though it is a general consideration in X-linked disorder genetic counseling.</p>
+<p><strong>Founder effects/geographic distribution:</strong> No major founder mutations for RP2 were identified in the searched literature (contrast with RPGR ORF15 mutational hotspot, which accounts for ~2/3 of RPGR disease alleles). RP2 variants are described as diverse and largely private/family-specific across cohorts (Chinese, European/US cohorts referenced).</p>
+<p><strong>Consanguinity role:</strong> Not a significant factor given X-linked (not autosomal recessive) inheritance.</p>
+<p><strong>Carrier frequency:</strong> Not specifically reported; inferred to be very low given rarity of RP2 pathogenic alleles (private variants predominating over founder alleles).</p>
+<p><strong>Sex ratio:</strong> Disease manifests fully in males; females are carriers with variable, generally milder or absent phenotype — consistent with the essentially exclusive-male full phenotype pattern of X-linked RP.</p>
+<p><strong>Age distribution:</strong> Concentrated diagnosis in childhood-to-young-adult males (median baseline age in cohort 20 years); carrier females identified across a broad age range (16–76 years in the reviewed cohort) since many are ascertained through family cascade testing rather than symptoms.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical tests:</strong>
+- <strong>Fundus examination/fundus photography</strong>: bone-spicule pigmentation, vessel attenuation, waxy disc pallor
+- <strong>Fundus autofluorescence (FAF)</strong>: hyperautofluorescent ring (parafoveal), radial pattern in carriers, progressive loss of AF signal
+- <strong>Optical coherence tomography (OCT/SD-OCT)</strong>: ellipsoid zone (EZ) width/loss, central retinal thickness, photoreceptor+RPE complex thickness — all quantified with defined decline rates in the natural history study
+- <strong>Full-field electroretinography (ff-ERG)</strong>: rod-cone dysfunction pattern, often severely reduced/non-recordable in advanced male disease; abnormal in 82% of tested carriers
+- <strong>Pattern ERG (PERG)</strong>: used to detect macular dysfunction in carriers
+- <strong>Visual field testing</strong>: documents peripheral constriction
+- <strong>Visual acuity (BCVA, logMAR)</strong>: primary functional endpoint tracked longitudinally</p>
+<p><strong>Genetic testing:</strong>
+- <strong>Single-gene <em>RP2</em> sequencing</strong> or <strong>targeted XLRP gene panels</strong> (RP2 + RPGR ORF15 + OFD1, ± broader IRD panels) are the standard approach given clinical overlap
+- <strong>Whole exome/genome sequencing</strong> used when panel testing is non-diagnostic or phenotype is atypical
+- <strong>Chromosomal microarray</strong>: relevant when contiguous gene deletion (OMIM #300455) is suspected (e.g., syndromic features — deafness, recurrent sinorespiratory infection)
+- Sanger confirmation and segregation analysis in relatives remains standard for variant classification
+- No mitochondrial, repeat-expansion, or karyotype-specific testing is routinely indicated for isolated RP2 disease</p>
+<p><strong>Clinical criteria/differential diagnosis:</strong> Diagnosis relies on typical RP fundus/ERG findings plus X-linked pedigree pattern and confirmed hemizygous <em>RP2</em> variant. Key differentials: <strong>RPGR-associated XLRP</strong> (most common XLRP gene; ORF15 mutational hotspot), <strong>choroideremia</strong> (RP2 disease can closely mimic choroideremia fundus appearance without <em>CHM</em> involvement — an important diagnostic pitfall noted in PreventionGenetics literature), autosomal RP forms, and other syndromic ciliopathies given RP2's ciliary function.</p>
+<p><strong>Screening:</strong> No population newborn screening; family cascade genetic testing/counseling is the main "screening" modality for at-risk relatives (particularly potential female carriers, given the significant proportion who are symptomatic).</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Visual prognosis (not life-threatening — an isolated ocular disease):</strong>
+- Legal blindness reached at a <strong>median age of 27 years</strong> in the male cohort
+- BCVA loss of ~46–49% per decade; substantial vision loss by age 30–40
+- Structural retinal decline (EZ, CRT, PR+RPE thickness) parallels functional loss, with EZ becoming unmeasurable from age 25 onward in many patients — indicating this as a useful structural endpoint for future trials
+- Carrier females: prognosis is bimodal — majority retain good vision lifelong; a minority (~15% symptomatic, up to 7.4% legally blind in the reviewed cohort) progress to significant visual impairment</p>
+<p><strong>Morbidity/QOL:</strong> Drawing on the broader XLRP burden literature (EXPLORE XLRP-2), patients with severe disease show substantially higher rates of anxiety (74.2%), depression (15.8%), and impaired mobility/employment/daily functioning; <strong>diagnostic delay averages 16.4 years</strong> from symptom onset, a modifiable systemic factor affecting timely counseling and trial eligibility.</p>
+<p><strong>Complications:</strong> Cystoid macular edema and cataract can complicate advanced RP generally (not RP2-specific data identified); high myopia is a recognized associated ocular feature.</p>
+<p><strong>Prognostic factors:</strong> Earlier nystagmus at presentation may signal more severe/congenital-onset disease; no genotype-phenotype correlation has been established for variant type/location predicting severity in males. In females, X-inactivation skewing is the dominant prognostic determinant.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy:</strong> No approved disease-modifying drug specific to RP2. General RP literature suggests <strong>vitamin A palmitate</strong> supplementation may modestly slow progression in some RP forms (evidence is weak/"insubstantial"), while <strong>high-dose vitamin E should be avoided</strong> (documented adverse effect on RP progression in the DHOM/Berson-type trials). No RP2-specific pharmacogenomic data exists.</p>
+<p><strong>Gene therapy (most promising avenue, preclinical/early translational stage):</strong>
+- <strong>AAV8/AAV9-mediated RP2 gene augmentation</strong> (full-length human RP2 coding sequence) has shown efficacy in <strong>RP2-knockout mouse models</strong>, achieving <em>"long-term rescue of cone photoreceptor degeneration"</em> (PMC4626763) and in <strong>iPSC-derived retinal organoids</strong> (isogenic RP2-knockout and R120X patient-derived), where AAV-RP2 <em>"rescued the degeneration phenotype... preventing outer nuclear layer thinning and restoring rhodopsin expression"</em> (Stem Cell Reports 2020, PMC7363745).
+- As of the literature reviewed, <strong>no RP2-specific gene therapy has yet reached registered human clinical trials</strong> (unlike RPGR, for which AGTC-501/laruparetigene zosaparvovec and 4D-125 are in Phase 1/2/3 trials, NCT04850118 and NCT04517149). RP2 vectors have been described as advancing toward clinical stage (NIH Tech Transfer listing) but a registered NCT trial specific to RP2 was not identified in this search.</p>
+<p><strong>Surgical/interventional:</strong> <strong>Argus II retinal prosthesis</strong> (FDA-approved for severe-to-profound RP of any genetic cause, age &gt;25) is applicable to end-stage RP2 disease as a vision-restoration option, delivering electrical stimulation to surviving retinal cells via an epiretinal electrode array.</p>
+<p><strong>Supportive/rehabilitative:</strong> Low-vision aids, portable/adaptive lighting, orientation and mobility training, and genetic counseling are mainstays of current management.</p>
+<p><strong>Experimental:</strong> Retinal organoid and AAV vector platforms remain the primary experimental therapeutic pipeline; no RNA-based (ASO/siRNA) or small-molecule targeted therapy for RP2 was identified.</p>
+<p><strong>Suggested MAXO terms:</strong> MAXO term for "gene replacement therapy" (AAV-mediated gene augmentation), "retinal prosthesis implantation" (Argus II), "low vision rehabilitation," "genetic counseling," "dietary supplementation" (vitamin A).</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Not applicable in the traditional sense (monogenic disease); <strong>genetic counseling and carrier testing</strong> for at-risk female relatives is the principal preventive strategy, given that carrier detection informs reproductive decision-making.</p>
+<p><strong>Secondary prevention/screening:</strong> Cascade genetic testing in families with a known <em>RP2</em> variant; given that ~15% of female carriers are symptomatic, comprehensive ophthalmologic and genetic evaluation of at-risk females (not just male relatives) is recommended.</p>
+<p><strong>Reproductive options:</strong> Prenatal testing and preimplantation genetic diagnosis (PGD) are available options for known carrier families, following standard X-linked disorder genetic counseling frameworks (ACMG/NSGC), though no RP2-specific PGD outcome data was identified.</p>
+<p><strong>Tertiary prevention:</strong> Regular monitoring (OCT, FAF, ERG) to time low-vision intervention and clinical trial eligibility; avoidance of vitamin E supplementation; UV/blue-light protection is commonly recommended in general RP care (photoreceptor stress reduction), though direct RP2 evidence is lacking.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy:</strong> <em>Mus musculus</em> (NCBI Taxon 10090) — Rp2-knockout mouse models exist; <em>Danio rerio</em> (NCBI Taxon 7955) — TALEN-generated rp2 knockout zebrafish. </p>
+<p><strong>Canine models — clarification:</strong> Initial search results returned <a href="https://bioregistry.io/OMIA:001518" target="_blank" rel="noopener noreferrer">OMIA:001518</a>-9615 ("X-linked progressive retinal atrophy, type 2," XLPRA2) which is actually caused by <strong><em>RPGR</em></strong> ORF15 mutations, not <em>RP2</em> — this is an important distinction to avoid conflating the two XLRP genes. No well-characterized naturally-occurring canine ortholog model specific to <em>RP2</em> was identified in this search; canine XLPRA1/XLPRA2 remain the standard dog models for XLRP generally (via RPGR) and are useful comparators given similarities in ciliary photoreceptor biology.</p>
+<p><strong>Gene orthologs:</strong> Mouse <em>Rp2</em> (MGI ortholog of human RP2), zebrafish <em>rp2</em>.</p>
+<p><strong>Comparative biology:</strong> Rp2-knockout mice show a <strong>milder phenotype than human disease</strong> — early cone-specific opsin/GRK1/PDE6 mistrafficking (as early as 2 months in one model, with ONL thinning by 5 months; another model showed abnormalities only by 14 months) followed by slow degeneration, useful for mechanistic study and therapy testing but not fully recapitulating the rapid, severe human course. Zebrafish rp2 knockouts show mild visual impairment (30% reduction in scotopic ERG b-wave) at 7 days post-fertilization. iPSC-derived retinal organoids (human, isogenic knockout and patient-derived) more directly recapitulate rod-predominant degeneration with defined kinetics (peak cell death ~day 150, ONL thinning by day 180) and have been used successfully for AAV rescue proof-of-concept.</p>
+<p><strong>Transmission/zoonotic potential:</strong> Not applicable (non-infectious genetic disease).</p>
+<hr />
+<h2>15. Model Organisms Summary</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key findings</th>
+<th>Limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rp2-knockout mouse</td>
+<td>Genetic KO, mammalian</td>
+<td>Early cone opsin/GRK1/PDE6 mistrafficking → progressive cone degeneration; used for successful AAV-RP2 gene therapy rescue (PMC4626763)</td>
+<td>Milder/slower phenotype than human disease</td>
+</tr>
+<tr>
+<td>rp2-knockout zebrafish (TALEN)</td>
+<td>Genetic KO, non-mammalian</td>
+<td>Mild visual impairment, ~30% reduced scotopic ERG b-wave at 7dpf</td>
+<td>Limited characterization to date; less translatable to cone-rich human macula</td>
+</tr>
+<tr>
+<td>Isogenic CRISPR RP2-KO and R120X patient iPSC-retinal organoids</td>
+<td>In vitro, human cellular</td>
+<td>Peak rod death ~day 150, ONL thinning by day 180; AAV-RP2 rescues ONL thinning and restores rhodopsin expression (PMC7363745)</td>
+<td>3D organoid model lacks vasculature/immune context, finite culture duration</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Summary of Key Data Gaps</h2>
+<ul>
+<li>No RP2-specific prevalence/incidence figures (only pooled XLRP figures) were located.</li>
+<li>No RP2-specific registered human gene therapy trial (NCT number) was found — this differentiates RP2 from RPGR, where multiple trials are active/completed.</li>
+<li>No validated modifier genes or founder variants specific to RP2 were identified.</li>
+<li>No RP2-specific naturally-occurring large-animal (canine) model was identified — existing canine XLPRA models are RPGR-linked, not RP2-linked.</li>
+</ul>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3124502/">Functional Analysis of RP2 Protein Reveals Variable Pathogenic Potential of Disease-Associated Missense Variants (PMC3124502)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10190057/">Asymmetric presentation with a novel RP2 gene mutation (PMC10190057)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9738434/">A Natural History Study of RP2-Related Retinopathy (PMC9738434)</a></li>
+<li><a href="https://omim.org/entry/268000">OMIM #268000 Retinitis Pigmentosa</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5353642/">Analysis of RP2 and RPGR Mutations in Five X-Linked Chinese Families (PMC5353642)</a></li>
+<li><a href="https://cdn.clinicaltrials.gov/large-docs/13/NCT03116113/Prot_000.pdf">A Clinical Trial of Retinal Gene Therapy Using BIIB112 (NCT03116113 protocol)</a></li>
+<li><a href="https://omim.org/entry/300455">OMIM #300455 RPSRDF</a></li>
+<li><a href="https://www.omim.org/entry/312600">OMIM #312600 Retinitis Pigmentosa 2</a></li>
+<li><a href="https://www.malacards.org/card/retinitis_pigmentosa">MalaCards Retinitis Pigmentosa</a></li>
+<li><a href="https://icdlist.com/icd-10/H35.52">ICD-10 H35.52 Pigmentary retinal dystrophy</a></li>
+<li><a href="https://www.genecards.org/card/RP2">GeneCards RP2</a></li>
+<li><a href="https://omim.org/entry/300757">OMIM *300757 RP2 Activator of ARL3 GTPase</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5808637/">Arl3 and RP2 regulate trafficking of ciliary tip kinesins (PMC5808637)</a></li>
+<li><a href="https://reactome.org/content/detail/R-HSA-5638007">Reactome: RP2 activates GTPase activity of ARL3</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11139645/">RP2-Associated X-linked Retinopathy: Natural History in Female Carriers (PMC11139645)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10448798/">RP2 X-linked RP carrier state with vascular leakage (PMC10448798)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10567581/">RP2-Associated X-linked Retinopathy (PMC10567581)</a></li>
+<li><a href="https://morancore.utah.edu/section-12-retina-and-vitreous/rp2-associated-retinitis-pigmentosa/">Moran CORE: RP2-Associated Retinitis Pigmentosa</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4626763/">Long-term rescue of cone photoreceptor degeneration in RP2-KO mice (PMC4626763)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7363745/">Modeling and Rescue of RP2 RP Using iPSC-Derived Retinal Organoids (PMC7363745)</a></li>
+<li><a href="https://providers2.genedx.com/Resources/TIS-Files/TIS-TA72.pdf">RP2 Gene Analysis in X-Linked RP (GeneDx)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11794432/">The burden of XLRP on patient experience (EXPLORE XLRP-2, PMC11794432)</a></li>
+<li><a href="https://omia.org/OMIA001518/9615/">OMIA:001518-9615 XLPRA2 (RPGR, not RP2 — noted correction)</a></li>
+<li><a href="https://journals.plos.org/plosgenetics/article?id=10.1371%2Fjournal.pgen.1008659">A putative silencer variant in a spontaneous canine model of RP (PLOS Genetics)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3196536/">Solution Structure of N-Terminal Domain of Tubulin Binding Cofactor C (PMC3196536)</a></li>
+<li><a href="https://sciencedirect.com/science/article/abs/pii/S001448270500621X">The RP2 protein exhibits exonuclease activity (ScienceDirect)</a></li>
+<li><a href="https://www.ajo.com/article/S0002-9394(24)00552-X/fulltext">AGTC-501 HORIZON Phase 1/2 24-month results (AJO)</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT04517149">4D-125 in Patients With XLRP (NCT04517149)</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rothmund-Thomson_Syndrome-falcon.html">← Rothmund-Thomson Syndrome (Falcon)</a>
+                
+                
+                <a href="RP2-Related_Retinopathy-falcon.html">RP2-Related Retinopathy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RP2-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RP2-Related_Retinopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="RP2-Related_Retinopathy-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
