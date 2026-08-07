@@ -11,6 +11,7 @@ from discover_datasets import (
     refine_data_type,
     score_candidate,
 )
+from discover_omicsdi import clean_description, infer_data_type, infer_organism
 from disease_title_match import compile_phrases
 
 
@@ -145,3 +146,46 @@ def test_negated_disease_name_is_rejected_without_leading_qualifier():
     score_candidate(candidate, ["clear cell renal cell carcinoma"], [], [])
     assert candidate.relevance == "CONFLICT"
     assert candidate.score == -10.0
+
+
+def test_omicsdi_description_strips_markup_and_ends_at_sentence():
+    text = (
+        "First sentence. <a href='https://example.org'>Second sentence with markup</a>. "
+        + "x" * 700
+    )
+    cleaned = clean_description(text)
+    assert "<a" not in cleaned
+    assert cleaned.endswith(".")
+    assert len(cleaned) <= 600
+
+
+def test_omicsdi_uses_assay_metadata_not_repository_prefix():
+    hit = {"source": "massive", "omicsType": ["Metabolomics"]}
+    assert infer_data_type(hit) == "METABOLOMICS"
+
+
+def test_omicsdi_explicit_mixed_assays_are_multi_omics():
+    hit = {
+        "title": "Metabolic and Proteomic Changes in Disease",
+        "omicsType": ["Proteomics"],
+    }
+    assert infer_data_type(hit) == "MULTI_OMICS"
+
+
+def test_omicsdi_model_organism_uses_source_metadata():
+    hit = {"organisms": [{"name": "Mus Musculus (ncbitaxon:10090)"}]}
+    assert infer_organism(hit) == {
+        "preferred_term": "mouse",
+        "term": {"id": "NCBITaxon:10090", "label": "Mus musculus"},
+    }
+
+
+def test_omicsdi_vero_title_maps_to_green_monkey():
+    hit = {
+        "title": "Chikungunya replication in Vero cells",
+        "organisms": [{"name": "Chikungunya virus"}],
+    }
+    assert infer_organism(hit) == {
+        "preferred_term": "African green monkey",
+        "term": {"id": "NCBITaxon:60711", "label": "Chlorocebus sabaeus"},
+    }
