@@ -22,8 +22,8 @@ Alias: exclusion_criteria
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [CriteriaSet](../classes/CriteriaSet.md) | A named criteria grouping within a definition |  no  |
 | [Definition](../classes/Definition.md) | A diagnostic or phenotype definition for the disease |  no  |
+| [CriteriaSet](../classes/CriteriaSet.md) | A named criteria grouping within a definition |  no  |
 
 
 
