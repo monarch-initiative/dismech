@@ -6,8 +6,9 @@
 # Background: `just validate-all` / `just qc` (and, historically, single-file
 # `just validate`) can make OAK lazily fetch every `sqlite:obo:<name>` database
 # referenced by conf/oak_config.yaml — including large ones (chebi ~3.7 GB
-# uncompressed is the biggest that remains local; the ncit/ncbitaxon giants were
-# moved to ols: — see issue #5160 and conf/oak_config.yaml). The lazy OAK
+# uncompressed is the biggest that remains local; the ncit/ncbitaxon giants, and
+# later hp/cl/pato, were moved to ols: — see issue #5160 and the note at the
+# bottom of conf/oak_config.yaml). The lazy OAK
 # downloader has no resume/retry, so one interrupted big-file fetch fails the
 # whole run. This script fetches those DBs up front from the public bbop-sqlite
 # S3 bucket using `curl -C -` (resume) with retries, then gunzips them into
@@ -15,7 +16,7 @@
 #
 # Usage:
 #   scripts/fetch_ontology_dbs.sh                 # fetch every DB in oak_config.yaml
-#   scripts/fetch_ontology_dbs.sh ncbitaxon hp    # fetch only the named ontologies
+#   scripts/fetch_ontology_dbs.sh chebi hgnc      # fetch only the named ontologies
 #   PYSTOW_HOME=/path scripts/fetch_ontology_dbs.sh   # canonical cache location
 #
 # IMPORTANT — where OAK actually looks: OAK resolves sqlite:obo:<name> to

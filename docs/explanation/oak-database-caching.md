@@ -40,12 +40,20 @@ effectively paying for**. A single fresh runner re-pulling, say, `chebi.db`
 runs this repo does each week.
 
 The heavy ones are already handled where possible: `conf/oak_config.yaml` routes
-the two giants — NCIT (~2.7 GB) and NCBITaxon (~13.5 GB) — plus MONDO, GO, and
-UBERON to EBI's Ontology Lookup Service (`ols:`) instead, which does cheap
-single-term lookups against EBI's servers and never touches our bucket (see
-issue #5160). What remains on `sqlite:obo:` and can still be pulled from the
-bucket: `chebi` (the big one), `cl`, `hp`, `hgnc`, `geno`, and the
+the two giants — NCIT (~2.7 GB) and NCBITaxon (~13.5 GB) — plus MONDO, GO,
+UBERON, and now HP, CL, and PATO to EBI's Ontology Lookup Service (`ols:`)
+instead, which does cheap single-term lookups against EBI's servers and never
+touches our bucket (see issue #5160). What remains on `sqlite:obo:` and can
+still be pulled from the bucket: `chebi` (the big one), `hgnc`, `geno`, and the
 smaller `icd10cm`, `icd11f`, `ecto`, `envo`, `foodon`, `xco`, `opl`.
+
+Moving a prefix to `ols:` is only safe when OLS's `rdfs:subClassOf` ancestor
+closure still reaches the enum source nodes that prefix is validated against —
+verify that before migrating another one. The counter-example is instructive:
+newer MONDO terms have an OLS closure that omits `MONDO:0000001`, so per-value
+`reachable_from` checks fail for them even though label lookup works. HP
+(`HP:0000118`, `HP:0000005`) and CL (`CL:0000000`) were checked and behave the
+same on OLS as locally.
 
 ## What we are NOT doing
 
@@ -137,7 +145,7 @@ it needs into `~/.data/oaklib` and every later run reuses it. To pre-provision
 
 ```bash
 just fetch-ontology-dbs             # all sqlite:obo:* DBs in oak_config.yaml
-just fetch-ontology-dbs hp chebi    # just the named ones
+just fetch-ontology-dbs chebi hgnc  # just the named ones
 ```
 
 If you keep your ontology cache somewhere other than the default, set

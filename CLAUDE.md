@@ -95,8 +95,14 @@ just --list
 
 ### Ontology Configuration (`conf/oak_config.yaml`)
 Maps ontology prefixes to OAK adapters for term validation:
-- HP, CL, GO, MONDO, UBERON, CHEBI, GENO, HGNC → `sqlite:obo:<name>`
+- HP, CL, PATO, GO, MONDO, UBERON, NCIT, NCBITaxon → `ols:<name>` (EBI Ontology
+  Lookup Service; avoids multi-hundred-MB local builds — see issue #5160 and the
+  note at the bottom of `conf/oak_config.yaml`)
+- CHEBI, HGNC, GENO, ECTO, XCO, ENVO, FOODON, OPL, ICD → `sqlite:obo:<name>`
 - NCIT (NCI Thesaurus) for treatment/clinical-intervention and cancer concepts
+
+Term validation is cache-first (`cache/<prefix>/terms.csv` + `cache/enums/*.csv`),
+so an `ols:` prefix is consulted over the network only for a CURIE not yet cached.
 
 ### CURIE Prefix Casing
 

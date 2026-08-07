@@ -26,11 +26,12 @@ ontology_adapters:
   ICD10CM: sqlite:obo:icd10cm
   icd11f: sqlite:obo:icd11f
 
-  # Phenotype ontology
-  HP: sqlite:obo:hp
+  # Phenotype ontology. Served via OLS rather than the local SQLite build; see
+  # the "OBO ontologies served via OLS" note at the bottom of this file.
+  HP: ols:hp
 
-  # Cell type ontology
-  CL: sqlite:obo:cl
+  # Cell type ontology. Served via OLS — see the note at the bottom of this file.
+  CL: ols:cl
 
   # Gene Ontology (biological processes, molecular functions, cellular components)
   GO: ols:go
@@ -49,8 +50,10 @@ ontology_adapters:
   # Genotype ontology (for inheritance patterns, variant effects)
   GENO: sqlite:obo:geno
 
-  # Quality/modifier ontology
-  PATO: sqlite:obo:pato
+  # Quality/modifier ontology. Only four static `meaning:` values in the schema
+  # bind PATO, so a local build is pure overhead. Served via OLS — see the note
+  # at the bottom of this file.
+  PATO: ols:pato
 
   # NCI Thesaurus (treatment/clinical-intervention and cancer concepts). Served
   # via OLS instead of the large ~2.7GB local SQLite build. See issue #5160.
@@ -75,6 +78,40 @@ ontology_adapters:
 
   # Parasite life cycle ontology
   OPL: sqlite:obo:opl
+
+  # ---------------------------------------------------------------------------
+  # OBO ontologies served via OLS (HP, CL, PATO — plus MONDO, GO, UBERON above)
+  #
+  # These are OBO-library ontologies that OLS serves directly, so `ols:<name>`
+  # is an authoritative source, not a substitute one. Moving them off
+  # `sqlite:obo:*` drops the corresponding multi-hundred-MB downloads from every
+  # fresh checkout and CI run (hp ~1.1 GB, cl ~380 MB uncompressed), continuing
+  # the migration begun for NCIT and NCBITaxon in issue #5160.
+  #
+  # This is cheap because term validation is cache-first: `cache/<prefix>/
+  # terms.csv` and the materialized `cache/enums/*.csv` answer almost every
+  # lookup, and OAK is consulted only for CURIEs not yet in those caches. The
+  # adapter string is not part of the enum-cache key, so switching it does not
+  # invalidate any committed cache.
+  #
+  # Verified before the switch: OLS returns the canonical label for HP/CL/PATO
+  # terms, and its `rdfs:subClassOf` ancestor closure reaches the enum source
+  # nodes these prefixes are validated against (HP:0000118, HP:0000005,
+  # CL:0000000), so per-value `reachable_from` checks behave as they did
+  # locally. That is not automatic — the same check fails for newer MONDO terms,
+  # whose OLS closure omits MONDO:0000001 (see the B-ALL/LBL history record) —
+  # so re-run it before moving any further prefix here.
+  #
+  # Trade-off: term validation for uncached CURIEs now depends on the network
+  # and on OLS latency. Known symptom is an intermittent lookup timeout on a
+  # brand-new term, which several history records document for MONDO/GO; the
+  # workaround is a one-off validate against the local sqlite adapter to seed
+  # the cache, restoring this file afterwards.
+  #
+  # NOT candidates for this treatment: CHEBI/HGNC/GENO/ECTO/XCO/ENVO/FOODON/OPL
+  # (kept local for offline determinism and bulk lookup volume) and the non-OBO
+  # ICD builds.
+  # ---------------------------------------------------------------------------
 
   # Skip validation for these common prefixes
   linkml: ""
