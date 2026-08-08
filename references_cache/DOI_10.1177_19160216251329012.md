@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/19160216251329012"
+reference_id: DOI:10.1177/19160216251329012
 title: "Etiology, Clinical Presentation, and Management of Retrograde Cricopharyngeus Dysfunction: A Systematic Review"
 authors:
 - Jérôme R. Lechien
@@ -10,6 +10,7 @@ journal: "Journal of Otolaryngology - Head &amp; Neck Surgery"
 year: '2025'
 doi: 10.1177/19160216251329012
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Etiology, Clinical Presentation, and Management of Retrograde Cricopharyngeus Dysfunction: A Systematic Review

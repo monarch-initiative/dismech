@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17193152"
+reference_id: DOI:10.3390/cancers17193152
 title: "Treatment-Related Adverse Events in Individuals with BRAF-Mutant Cutaneous Melanoma Treated with BRAF and MEK Inhibitors: A Systematic Review and Meta-Analysis"
 authors:
 - Silvia Belloni
@@ -13,6 +13,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17193152
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Treatment-Related Adverse Events in Individuals with BRAF-Mutant Cutaneous Melanoma Treated with BRAF and MEK Inhibitors: A Systematic Review and Meta-Analysis

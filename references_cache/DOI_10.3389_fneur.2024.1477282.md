@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3389/fneur.2024.1477282"
+reference_id: DOI:10.3389/fneur.2024.1477282
 title: "Is endolymphatic hydrops, as detected in MRI, a truly cochleocentric finding?"
 authors:
 - Marta Álvarez De Linera-Alperi
@@ -14,6 +14,7 @@ journal: Frontiers in Neurology
 year: '2024'
 doi: 10.3389/fneur.2024.1477282
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Is endolymphatic hydrops, as detected in MRI, a truly cochleocentric finding?

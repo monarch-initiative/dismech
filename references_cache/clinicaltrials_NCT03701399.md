@@ -2,6 +2,7 @@
 reference_id: "clinicaltrials:NCT03701399"
 title: "A Phase III, Long-Term, Randomized, Double-blind, Placebo-controlled Trial of Troriluzole in Adult Participants With Spinocerebellar Ataxia."
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase III, Long-Term, Randomized, Double-blind, Placebo-controlled Trial of Troriluzole in Adult Participants With Spinocerebellar Ataxia.

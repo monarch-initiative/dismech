@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcdd11120405"
+reference_id: DOI:10.3390/jcdd11120405
 title: Aortitis Increases the Risk of Surgical Complications and Re-Operations After Major Aortic Surgery
 authors:
 - Edward Staniforth
@@ -15,6 +15,7 @@ journal: Journal of Cardiovascular Development and Disease
 year: '2024'
 doi: 10.3390/jcdd11120405
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aortitis Increases the Risk of Surgical Complications and Re-Operations After Major Aortic Surgery

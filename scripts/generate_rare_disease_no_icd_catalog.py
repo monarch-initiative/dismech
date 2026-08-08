@@ -20,7 +20,6 @@ import sqlite3
 from collections import defaultdict
 from pathlib import Path
 
-
 ICD11_PREFIXES = ("icd11.foundation:", "icd11f:")
 ICD10CM_PREFIX = "icd10cm:"
 ANY_ICD_PREFIXES = ICD11_PREFIXES + ("icd10cm:", "icd10who:", "icd9:")
@@ -74,7 +73,7 @@ def normalize_text(text: str) -> str:
 
 
 def join_values(values: list[str]) -> str:
-    return "|".join(sorted(set(v for v in values if v)))
+    return "|".join(sorted({v for v in values if v}))
 
 
 def fetch_rare_term_ids(conn: sqlite3.Connection) -> list[str]:

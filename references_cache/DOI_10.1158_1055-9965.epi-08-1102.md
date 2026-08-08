@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1055-9965.epi-08-1102"
+reference_id: DOI:10.1158/1055-9965.epi-08-1102
 title: "<i>TP53 R249S</i> Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China"
 authors:
 - Katarzyna Szymañska
@@ -15,6 +15,7 @@ journal: "Cancer Epidemiology, Biomarkers &amp; Prevention"
 year: '2009'
 doi: 10.1158/1055-9965.epi-08-1102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # <i>TP53 R249S</i> Mutations, Exposure to Aflatoxin, and Occurrence of Hepatocellular Carcinoma in a Cohort of Chronic Hepatitis B Virus Carriers from Qidong, China

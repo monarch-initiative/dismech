@@ -1,13 +1,19 @@
 """Data validation tests for dismech KB."""
 
 import glob
+import sys
 import warnings
 from pathlib import Path
 
 import pytest
 import yaml
-
 from linkml.validator import Validator
+
+# scripts/ is not a package; make its modules importable for tests that reuse
+# validation logic shared with the CLI tools.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+
+from dismech.yaml_io import safe_load
 
 # Paths
 ROOT_DIR = Path(__file__).parent.parent
@@ -16,6 +22,14 @@ KB_DIR = ROOT_DIR / "kb" / "disorders"
 COMORBIDITY_DIR = ROOT_DIR / "kb" / "comorbidities"
 MODULES_DIR = ROOT_DIR / "kb" / "modules"
 GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
+SYNTHESIS_SCHEMA_PATH = (
+    ROOT_DIR / "src" / "dismech" / "schema" / "research_synthesis.yaml"
+)
+HYPOTHESIS_ASSESSMENT_SCHEMA_PATH = (
+    ROOT_DIR / "src" / "dismech" / "schema" / "hypothesis_assessment.yaml"
+)
+RESEARCH_DIR = ROOT_DIR / "research"
+HYPOTHESES_DIR = ROOT_DIR / "kb" / "hypotheses"
 
 # Get all disorder YAML files (exclude history snapshots)
 DISORDER_FILES = [
@@ -23,6 +37,58 @@ DISORDER_FILES = [
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
+HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
+    str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
+)
+
+# Reference prefixes an evidence `reference:` may carry: literature/registry
+# sources the reference validator fetches and snippet-checks, plus the structured
+# database sources pre-cached under references_cache/ (see CLAUDE.md), plus the
+# dataset-accession prefixes listed as `skip_prefixes` in
+# conf/reference_validator_config.yaml. Compared case-insensitively -- the
+# validator normalizes prefix case itself, and the KB uses both `GEO:` and `geo:`.
+ALLOWED_REFERENCE_PREFIXES = (
+    "PMID:",
+    "DOI:",
+    "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
+    "clinicaltrials:",
+    "file:",
+    "url:",
+    "GEO:",
+    "ORPHA:",
+    "CGGV:",
+    "CGDS:",
+    "CIVIC_ASSERTION:",
+    "CIVIC_EID:",
+    "ICEES:",  # ICEES KG comorbidity pairs
+    "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
+    "metabolights:",  # dataset accession; skip_prefixes in the validator config
+)
+
+
+def _has_allowed_reference_prefix(reference):
+    """True if `reference` starts with one of ALLOWED_REFERENCE_PREFIXES."""
+    text = str(reference).lower()
+    return any(text.startswith(p.lower()) for p in ALLOWED_REFERENCE_PREFIXES)
+
+
+def _iter_evidence_lists(node, path=""):
+    """Yield every ``(dotted_path, evidence_list)`` pair anywhere in a document.
+
+    Evidence blocks are attached at many depths (top-level sections, nested
+    `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the
+    only reliable way to check them all is to walk the whole tree.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = f"{path}.{key}" if path else key
+            if key == "evidence" and isinstance(value, list):
+                yield child, value
+            yield from _iter_evidence_lists(value, child)
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _iter_evidence_lists(item, f"{path}[{index}]")
 
 
 def _disease_names():
@@ -30,7 +96,7 @@ def _disease_names():
     names = set()
     for fp in DISORDER_FILES:
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             names.add(data["name"])
     return names
@@ -46,7 +112,7 @@ def _grouping_names():
     names = set()
     for fp in GROUPING_FILES:
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             names.add(data["name"])
     return names
@@ -93,7 +159,7 @@ def validator():
 def test_valid_disorder_files(filepath, validator):
     """Test that all disorder files validate against the schema."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = validator.validate(data, target_class="Disease")
 
@@ -109,7 +175,7 @@ def test_valid_disorder_files(filepath, validator):
 def test_valid_comorbidity_files(filepath, validator):
     """Test that all comorbidity files validate against the schema."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = validator.validate(data, target_class="ComorbidityAssociation")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -122,7 +188,7 @@ def test_valid_comorbidity_files(filepath, validator):
 def test_disorder_has_required_fields(filepath):
     """Test that all disorders have required fields."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     assert "name" in data, f"Missing 'name' in {filepath}"
     assert data["name"], f"Empty 'name' in {filepath}"
@@ -133,72 +199,35 @@ def test_disorder_has_required_fields(filepath):
 def test_evidence_items_have_references(filepath):
     """Test that evidence items use supported reference prefixes."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
-    allowed_reference_prefixes = (
-        "PMID:",
-        "DOI:",
-        "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
-        "clinicaltrials:",
-        "file:",
-        "url:",
-        "GEO:",
-        "ORPHA:",
-        "CGGV:",
-        "CGDS:",
-        "CIVIC_ASSERTION:",
-        "CIVIC_EID:",
-    )
-    allowed_prefix_message = ", ".join(allowed_reference_prefixes)
+    allowed_prefix_message = ", ".join(ALLOWED_REFERENCE_PREFIXES)
 
     def check_evidence(evidence_list, path):
-        """Recursively check evidence items for references."""
-        if not evidence_list:
-            return []
+        """Check one ``evidence:`` list for missing/unprefixed references."""
         errors = []
         for i, item in enumerate(evidence_list):
-            if not item.get("reference"):
+            if not isinstance(item, dict):
+                continue
+            reference = item.get("reference")
+            if not reference:
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not any(
-                item["reference"].startswith(prefix)
-                for prefix in allowed_reference_prefixes
-            ):
+            elif not _has_allowed_reference_prefix(reference):
                 errors.append(
-                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {item['reference']}"
+                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {reference}"
                 )
         return errors
 
     all_errors = []
 
-    # Check evidence in pathophysiology
-    for i, patho in enumerate(data.get("pathophysiology", [])):
-        all_errors.extend(
-            check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence")
-        )
-
-    # Check evidence in phenotypes
-    for i, pheno in enumerate(data.get("phenotypes", [])):
-        all_errors.extend(
-            check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence")
-        )
-
-    # Check evidence in subtypes
-    for i, subtype in enumerate(data.get("has_subtypes", [])):
-        all_errors.extend(
-            check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence")
-        )
-
-    # Check evidence in prevalence
-    for i, prev in enumerate(data.get("prevalence", [])):
-        all_errors.extend(
-            check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence")
-        )
-
-    # Check evidence in progression
-    for i, prog in enumerate(data.get("progression", [])):
-        all_errors.extend(
-            check_evidence(prog.get("evidence", []), f"progression[{i}].evidence")
-        )
+    # Walk the whole document rather than a hand-listed set of sections. The
+    # earlier version checked only pathophysiology/phenotypes/has_subtypes/
+    # prevalence/progression, so evidence under clinical_trials, treatments,
+    # datasets, diagnosis, biochemical, histopathology (and nested slots such as
+    # pathophysiology[].downstream[]) was never prefix-checked -- which is how the
+    # unprefixed `NCT06087757` reference in dismech#7288 reached main.
+    for path, evidence_list in _iter_evidence_lists(data):
+        all_errors.extend(check_evidence(evidence_list, path))
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
 
@@ -207,6 +236,57 @@ def test_schema_validity(validator):
     """Test that the schema itself is valid LinkML."""
     # If we got here without errors, schema is valid
     assert validator is not None
+
+
+def test_biological_scale_enum_and_pathophysiology_slot():
+    """BiologicalScaleEnum has exactly the 4 expected scale values, and the
+    biological_scale slot is wired into Pathophysiology.
+
+    Guards against silent enum drift — the value set is load-bearing for the
+    feasibility analysis in projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md and
+    should only change with a corresponding design update.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    sv = SchemaView(str(SCHEMA_PATH))
+
+    enum = sv.get_enum("BiologicalScaleEnum")
+    assert enum is not None, "BiologicalScaleEnum missing from schema"
+    assert set(enum.permissible_values.keys()) == {
+        "MOLECULAR",
+        "CELLULAR",
+        "TISSUE",
+        "ORGANISM",
+    }, (
+        "BiologicalScaleEnum values changed unexpectedly; if intentional, update "
+        "this test and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md"
+    )
+
+    slot = sv.get_slot("biological_scale")
+    assert slot is not None, "biological_scale slot missing from schema"
+    assert slot.range == "BiologicalScaleEnum", (
+        f"biological_scale slot range should be BiologicalScaleEnum, got {slot.range}"
+    )
+
+    assert "biological_scale" in sv.class_slots("Pathophysiology"), (
+        "biological_scale slot not wired into Pathophysiology class"
+    )
+
+
+def test_biological_scale_pathophysiology_accepts_enum_value(validator):
+    """A Pathophysiology entry with a biological_scale value should validate."""
+    data = {
+        "name": "Test Disease",
+        "pathophysiology": [
+            {
+                "name": "Test node",
+                "biological_scale": "MOLECULAR",
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
 
 
 def test_environmental_food_source_slot_validates(validator):
@@ -453,8 +533,8 @@ def test_treatment_dietary_modifications_validate(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -489,8 +569,8 @@ def test_treatment_dietary_modifications_accept_chebi_nutrient(validator):
                 "treatment_term": {
                     "preferred_term": "dietary intervention",
                     "term": {
-                        "id": "MAXO:0000088",
-                        "label": "dietary intervention",
+                        "id": "NCIT:C15447",
+                        "label": "Dietary Intervention",
                     },
                     "dietary_modifications": [
                         {
@@ -525,7 +605,7 @@ def test_treatment_action_category_validates(validator):
                 "action_category": "SCREENING",
                 "treatment_term": {
                     "preferred_term": "disease screening",
-                    "term": {"id": "MAXO:0000124", "label": "disease screening"},
+                    "term": {"id": "NCIT:C15419", "label": "Disease Screening"},
                 },
             }
         ],
@@ -598,7 +678,7 @@ def test_therapeutic_action_target_check_allows_mechanism_targets():
 def test_non_therapeutic_actions_do_not_use_treatment_targets(filepath):
     """Annotated non-therapeutic medical actions must not use treatment-style target links."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     errors = _non_therapeutic_action_target_errors(data)
 
@@ -612,7 +692,7 @@ def test_all_disorders_have_unique_names():
     names = []
     for filepath in DISORDER_FILES:
         with open(filepath) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         names.append(data.get("name"))
 
     duplicates = [name for name in names if names.count(name) > 1]
@@ -624,7 +704,7 @@ def test_all_disorders_have_unique_names():
 def test_subtype_foreign_keys(filepath):
     """Test that subtype references match has_subtypes names."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
     if not valid_subtypes:
@@ -667,6 +747,63 @@ def test_subtype_foreign_keys(filepath):
     assert not errors, (
         f"Subtype FK mismatches in {Path(filepath).name}. "
         f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_hypothesis_based_definition_attaches_to_foreign_keys(filepath):
+    """Hypothesis-based phenotype algorithms must anchor in the pathograph (#6245).
+
+    A `definitions[]` entry whose `derivation_basis` is MECHANISTIC_HYPOTHESIS
+    is predicated on a specific disease mechanism, so it must `attaches_to` at
+    least one node it operationalizes, and any *local* `pathophysiology#<name>`
+    or `phenotype#<name>` reference must resolve to a real node/phenotype in the
+    same entry (the same hash-anchor discipline `discussions.attaches_to` uses).
+    Cross-file references (`<file>:<kind>#<name>`) are not resolved here.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    definitions = data.get("definitions", []) or []
+    if not definitions:
+        return
+
+    patho_names = {n.get("name") for n in data.get("pathophysiology", []) or []}
+    pheno_names = {p.get("name") for p in data.get("phenotypes", []) or []}
+
+    errors = []
+    for i, defn in enumerate(definitions):
+        if defn.get("derivation_basis") != "MECHANISTIC_HYPOTHESIS":
+            continue
+        refs = defn.get("attaches_to", []) or []
+        if not refs:
+            errors.append(
+                f"definitions[{i}] ({defn.get('name')!r}) has "
+                f"derivation_basis: MECHANISTIC_HYPOTHESIS but no attaches_to"
+            )
+            continue
+        for ref in refs:
+            if "#" not in ref:
+                errors.append(f"definitions[{i}].attaches_to={ref!r} lacks '#'")
+                continue
+            left, name = ref.split("#", 1)
+            if ":" in left:
+                # Cross-file reference — not resolved here.
+                continue
+            kind = left
+            if kind == "pathophysiology" and name not in patho_names:
+                errors.append(
+                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
+                    f"pathophysiology node"
+                )
+            elif kind == "phenotype" and name not in pheno_names:
+                errors.append(
+                    f"definitions[{i}].attaches_to={ref!r} does not resolve to a "
+                    f"phenotype"
+                )
+
+    assert not errors, (
+        f"Hypothesis-based definition FK problems in {Path(filepath).name}: {errors}"
     )
 
 
@@ -726,7 +863,7 @@ def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
 def test_experimental_model_mechanism_targets(filepath):
     """Experimental model links should reference declared pathophysiology nodes."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     valid_targets = {
         item["name"]
@@ -756,7 +893,7 @@ def test_experimental_model_mechanism_targets(filepath):
 def test_computational_model_mechanism_targets(filepath):
     """Computational model links should reference declared pathophysiology nodes."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     valid_targets = {
         item["name"]
@@ -783,6 +920,41 @@ def test_computational_model_mechanism_targets(filepath):
 
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_environmental_mechanism_targets(filepath):
+    """Environmental factor links should reference declared pathograph nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Pathophysiology is the preferred target, but phenotype targets are
+    # allowed for exposures acting directly on a manifestation.
+    valid_targets = {
+        item["name"]
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, factor in enumerate(data.get("environmental", []) or []):
+        if not isinstance(factor, dict):
+            continue
+        for j, link in enumerate(factor.get("influences_mechanisms", []) or []):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"environmental[{i}].influences_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Environmental mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtypes_have_disease_term(filepath):
     """Test that has_subtypes items have a subtype_term with an ontology grounding.
 
@@ -790,7 +962,7 @@ def test_subtypes_have_disease_term(filepath):
     the subtype_term descriptor so that subtypes are machine-queryable.
     """
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     subtypes = data.get("has_subtypes", [])
     if not subtypes:
@@ -971,7 +1143,7 @@ def _module_stem(ref):
 def test_valid_grouping_files(filepath, validator):
     """All grouping files validate against the Grouping class."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     report = validator.validate(data, target_class="Grouping")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
@@ -979,12 +1151,107 @@ def test_valid_grouping_files(filepath, validator):
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
 
 
+@pytest.fixture(scope="module")
+def synthesis_validator():
+    """Validator bound to the standalone research-synthesis schema."""
+    return Validator(SYNTHESIS_SCHEMA_PATH)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_valid_research_synthesis_files(filepath, synthesis_validator):
+    """All research-synthesis files validate against the ResearchSynthesis class."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    report = synthesis_validator.validate(data, target_class="ResearchSynthesis")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_provider_references_resolve(filepath):
+    """Every provider_support.provider must be declared in the top-level providers list."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    declared = {p.get("name") for p in data.get("providers", []) or []}
+    errors = []
+    for i, finding in enumerate(data.get("harmonized_findings", []) or []):
+        for support in finding.get("provider_support", []) or []:
+            provider = support.get("provider")
+            if provider not in declared:
+                errors.append(
+                    f"harmonized_findings[{i}] references undeclared provider "
+                    f"{provider!r} (declared: {sorted(declared)})"
+                )
+
+    assert not errors, f"Provider foreign-key errors in {filepath}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", SYNTHESIS_FILES)
+def test_synthesis_best_matching_text_verbatim(filepath):
+    """Every best_matching_text must be a verbatim substring of its source_report."""
+    from dismech.research_synthesis import iter_quote_problems
+
+    problems = list(iter_quote_problems(filepath))
+    assert not problems, f"Quote-verification problems in {filepath}: {problems}"
+
+
+def test_synthesis_derive_consensus():
+    """derive_consensus computes the consensus label from provider stances."""
+    from dismech.research_synthesis import derive_consensus
+
+    def finding(*stances):
+        return {"provider_support": [{"stance": s} for s in stances]}
+
+    assert derive_consensus(finding("CONCORDANT", "CONTRADICTORY")) == "CONFLICT"
+    assert derive_consensus(finding("CONCORDANT", "SILENT")) == "SINGLE"
+    assert derive_consensus(finding("CONCORDANT", "CONCORDANT")) == "UNANIMOUS"
+    assert derive_consensus(finding("CONCORDANT", "PARTIAL")) == "MAJORITY"
+    assert derive_consensus(finding("SILENT", "SILENT")) == "SINGLE"
+
+
+@pytest.fixture(scope="module")
+def hypothesis_assessment_validator():
+    """Validator bound to the standalone hypothesis-assessment schema."""
+    return Validator(HYPOTHESIS_ASSESSMENT_SCHEMA_PATH)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES)
+def test_valid_hypothesis_assessment_files(filepath, hypothesis_assessment_validator):
+    """All assessment sidecars validate against the HypothesisAssessment class."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    report = hypothesis_assessment_validator.validate(
+        data, target_class="HypothesisAssessment"
+    )
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", HYPOTHESIS_ASSESSMENT_FILES)
+def test_hypothesis_assessment_links_and_quotes(filepath):
+    """Assessment sidecars have valid layout, artifacts, and verbatim report quotes."""
+    from dismech.hypothesis_assessment import iter_assessment_problems
+
+    problems = list(iter_assessment_problems(filepath))
+    assert not problems, f"Assessment validation problems in {filepath}: {problems}"
+
+
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", GROUPING_FILES)
 def test_grouping_member_foreign_keys(filepath):
     """Each grouping member must resolve to a real Disease, module, or grouping."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     disease_names = _disease_names()
     module_stems = _module_stems()
@@ -1003,9 +1270,8 @@ def test_grouping_member_foreign_keys(filepath):
         elif mtype == "MODULE":
             if _module_stem(ref) not in module_stems:
                 errors.append(f"members[{i}].member={ref!r} (type MODULE)")
-        elif mtype == "GROUPING":
-            if ref not in grouping_names:
-                errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
+        elif mtype == "GROUPING" and ref not in grouping_names:
+            errors.append(f"members[{i}].member={ref!r} (type GROUPING)")
 
     assert not errors, (
         f"Grouping member FK mismatches in {Path(filepath).name}. Bad refs: {errors}"
@@ -1017,7 +1283,7 @@ def test_grouping_member_foreign_keys(filepath):
 def test_grouping_module_references(filepath):
     """Every `module` reference in a grouping must resolve to a module file."""
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     module_stems = _module_stems()
     errors = []
@@ -1049,7 +1315,7 @@ def test_grouping_unique_names():
     seen = {}
     for fp in GROUPING_FILES:
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         name = data.get("name") if isinstance(data, dict) else None
         if name:
             seen.setdefault(name, []).append(Path(fp).name)
@@ -1068,7 +1334,7 @@ def test_grouping_criteria_well_formed(filepath):
     from dismech.groupings import lint_criterion
 
     with open(filepath) as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     errors = []
     for c, criteria in enumerate(data.get("membership_criteria", []) or []):
@@ -1249,8 +1515,61 @@ def test_grouping_evaluation_runs(filepath):
     )
 
     with open(filepath) as f:
-        grouping = yaml.safe_load(f)
+        grouping = safe_load(f)
 
     index = load_disease_index()
     for ev in evaluate_grouping(grouping, index):
         assert isinstance(ev.result, Satisfaction)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_dataset_accession_prefix_and_shape(filepath):
+    """Dataset accessions must use a known prefix whose shape they match.
+
+    This is the offline half of the dataset-accession guard: it catches a
+    typo'd or mis-prefixed accession (e.g. ``sra:PRJNA290729``, which is really
+    a BioProject ID) without touching the network. The online half --
+    confirming the record actually exists -- is
+    ``scripts/verify_dataset_accessions.py`` / ``just verify-datasets``.
+    """
+    from verify_dataset_accessions import SHAPE, UNSUPPORTED_PREFIXES, split_accession
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Dataset records also hang off proposed experiments, which the verifier
+    # walks; keep the offline guard's scope identical so nothing is checked by
+    # one and not the other.
+    records = list(data.get("datasets") or [])
+    for disc in data.get("discussions") or []:
+        for exp in (disc or {}).get("proposed_experiments") or []:
+            records.extend((exp or {}).get("datasets") or [])
+
+    errors = []
+    for ds in records:
+        if not isinstance(ds, dict):
+            continue
+        accession = ds.get("accession")
+        if not accession:
+            errors.append("dataset record with no accession")
+            continue
+        prefix, local_id = split_accession(str(accession))
+        if not prefix:
+            errors.append(f"{accession}: no repository prefix and shape not recognized")
+            continue
+        if prefix in UNSUPPORTED_PREFIXES:
+            # PMID/DOI/cellxgene-style entries are tolerated for now; they are
+            # reported as UNSUPPORTED by the verifier rather than failed.
+            continue
+        shape = SHAPE.get(prefix)
+        if shape is None:
+            errors.append(f"{accession}: unknown repository prefix '{prefix}'")
+        elif not shape.match(local_id):
+            actual = [p for p, pat in SHAPE.items() if pat.match(local_id)]
+            hint = f" (looks like a '{actual[0]}' accession)" if actual else ""
+            errors.append(f"{accession}: '{local_id}' does not match the {prefix} pattern{hint}")
+
+    assert not errors, f"{Path(filepath).name} has malformed dataset accessions:\n" + "\n".join(
+        f"  - {e}" for e in errors
+    )

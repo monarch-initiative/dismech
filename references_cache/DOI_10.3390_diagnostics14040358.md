@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics14040358"
+reference_id: DOI:10.3390/diagnostics14040358
 title: Clinico-Radiological Outcomes in WNT-Subgroup Medulloblastoma
 authors:
 - Shakthivel Mani
@@ -18,6 +18,7 @@ journal: Diagnostics
 year: '2024'
 doi: 10.3390/diagnostics14040358
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Clinico-Radiological Outcomes in WNT-Subgroup Medulloblastoma

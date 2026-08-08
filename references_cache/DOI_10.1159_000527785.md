@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000527785"
+reference_id: DOI:10.1159/000527785
 title: The New Youngest Case of Grange Syndrome with a Novel Biallelic Pathogenic Variant in YY1AP1
 authors:
 - Taner Karakaya
@@ -13,6 +13,7 @@ journal: Molecular Syndromology
 year: '2023'
 doi: 10.1159/000527785
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The New Youngest Case of Grange Syndrome with a Novel Biallelic Pathogenic Variant in YY1AP1

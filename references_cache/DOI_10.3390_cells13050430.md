@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13050430"
+reference_id: DOI:10.3390/cells13050430
 title: "Current Insights into Tissue Injury of Giant Cell Arteritis: From Acute Inflammatory Responses towards Inappropriate Tissue Remodeling"
 authors:
 - Dimitris Anastasios Palamidas
@@ -14,6 +14,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13050430
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Current Insights into Tissue Injury of Giant Cell Arteritis: From Acute Inflammatory Responses towards Inappropriate Tissue Remodeling

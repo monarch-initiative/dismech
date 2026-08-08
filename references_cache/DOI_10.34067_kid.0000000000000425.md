@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.34067/kid.0000000000000425"
+reference_id: DOI:10.34067/kid.0000000000000425
 title: "SGLT2 Inhibitors and Kidney Protection: Mechanisms Beyond Tubuloglomerular Feedback"
 authors:
 - Ashish Upadhyay
@@ -7,6 +7,7 @@ journal: Kidney360
 year: '2024'
 doi: 10.34067/kid.0000000000000425
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # SGLT2 Inhibitors and Kidney Protection: Mechanisms Beyond Tubuloglomerular Feedback

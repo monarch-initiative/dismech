@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000534443"
+reference_id: DOI:10.1159/000534443
 title: "Genetic/Epigenetic Alteration and Tumor Immune Microenvironment in Intrahepatic Cholangiocarcinoma: Transforming the Immune Microenvironment with Molecular-Targeted Agents"
 authors:
 - Naoshi Nishida
@@ -8,6 +8,7 @@ journal: Liver Cancer
 year: '2024'
 doi: 10.1159/000534443
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Genetic/Epigenetic Alteration and Tumor Immune Microenvironment in Intrahepatic Cholangiocarcinoma: Transforming the Immune Microenvironment with Molecular-Targeted Agents

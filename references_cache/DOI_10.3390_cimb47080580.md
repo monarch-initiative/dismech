@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cimb47080580"
+reference_id: DOI:10.3390/cimb47080580
 title: "From Amyloid to Synaptic Dysfunction: Biomarker-Driven Insights into Alzheimer’s Disease"
 authors:
 - Luisa Agnello
@@ -17,6 +17,7 @@ journal: Current Issues in Molecular Biology
 year: '2025'
 doi: 10.3390/cimb47080580
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # From Amyloid to Synaptic Dysfunction: Biomarker-Driven Insights into Alzheimer’s Disease

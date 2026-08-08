@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.21037/tlcr-23-98"
+reference_id: DOI:10.21037/tlcr-23-98
 title: "EGFR exon 20 insertion mutations and ERBB2 mutations in lung cancer: a narrative review on approved targeted therapies from oral kinase inhibitors to antibody-drug conjugates"
 authors:
 - Daniel Sentana-Lledo
@@ -13,6 +13,7 @@ journal: Translational Lung Cancer Research
 year: '2023'
 doi: 10.21037/tlcr-23-98
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # EGFR exon 20 insertion mutations and ERBB2 mutations in lung cancer: a narrative review on approved targeted therapies from oral kinase inhibitors to antibody-drug conjugates

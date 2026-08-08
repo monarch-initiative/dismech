@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.5694/mja2.52591"
+reference_id: DOI:10.5694/mja2.52591
 title: "Management of <i>Mycobacterium ulcerans</i> infection (Buruli ulcer) in Australia: consensus statement"
 authors:
 - Stephen Muhi
@@ -22,6 +22,7 @@ journal: Medical Journal of Australia
 year: '2025'
 doi: 10.5694/mja2.52591
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Management of <i>Mycobacterium ulcerans</i> infection (Buruli ulcer) in Australia: consensus statement

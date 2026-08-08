@@ -7,9 +7,10 @@
 #     just cron-profiles                # list profiles / show active
 #     uv run python scripts/apply_cron_profile.py <name> --dry-run
 #
-# The applier (scripts/apply_cron_profile.py) rewrites ONLY the cron entries in
-# each managed workflow's `on.schedule` block — everything else (inputs, jobs,
-# comments outside the schedule block) is left untouched.
+# The applier (scripts/apply_cron_profile.py) rewrites ONLY the `on.schedule`
+# block in each managed workflow — everything else (inputs, jobs, comments
+# outside the schedule block) is left untouched. An empty workflow list removes
+# that workflow's schedule block while keeping manual `workflow_dispatch`.
 #
 # Conventions:
 #   * Each profile MUST define every managed workflow (the applier enforces this
@@ -29,18 +30,17 @@
 # `fast`/`fast-weekend` only speed up the discussion scanner relative to it.
 #
 # The low-frequency weekly/daily jobs (literature-scan, knowledge-gap-scan,
-# weekly-compliance, stale-pr-reassign, post-review-agent) are intentionally
-# tier-invariant — they are not the cost driver. Edit them here if you want a
-# profile to move them too.
+# weekly-compliance, post-review-agent) are intentionally tier-invariant — they
+# are not the cost driver. Edit them here if you want a profile to move them too.
 #
-# `off` is the kill switch: every managed workflow is pointed at a sentinel cron
-# ("0 0 30 2 *" — the 30th of February, a date that never occurs) so no scheduled
-# run ever fires. Manual `workflow_dispatch` still works, so you can trigger an
-# agent by hand while the profile is `off`. The sentinel keeps the applier's
-# contract intact (each workflow still has a valid, non-empty cron list); GitHub
-# simply never matches it to a real date.
+# `off` is the kill switch: every managed workflow gets an empty schedule list,
+# which makes the applier remove that workflow's `on.schedule` block. Manual
+# `workflow_dispatch` still works, so you can trigger an agent by hand while the
+# profile is `off`. We intentionally do NOT use impossible dates such as Feb 30:
+# GitHub can ignore invalid cron updates and leave the previous valid schedule
+# registered.
 
-active: "off"
+active: "slow"
 
 profiles:
 
@@ -70,9 +70,6 @@ profiles:
       weekly-compliance:
         - cron: "0 8 * * 5"
           comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
-      stale-pr-reassign:
-        - cron: "0 9 * * *"
-          comment: "daily 09:00 UTC (02:00 PDT)"
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
@@ -103,9 +100,6 @@ profiles:
       weekly-compliance:
         - cron: "0 8 * * 5"
           comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
-      stale-pr-reassign:
-        - cron: "0 9 * * *"
-          comment: "daily 09:00 UTC (02:00 PDT)"
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
@@ -115,33 +109,14 @@ profiles:
   "off":
     description: Kill switch — no scheduled agent runs at any time (manual dispatch still works).
     workflows:
-      curation-scanner:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      pr-shepherd:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      discussion-scanner:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      literature-scan:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      knowledge-gap-scan:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      preprint-scan:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      weekly-compliance:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      stale-pr-reassign:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
-      post-review-agent:
-        - cron: "0 0 30 2 *"
-          comment: "disabled: Feb 30 never occurs — never fires"
+      curation-scanner: []
+      pr-shepherd: []
+      discussion-scanner: []
+      literature-scan: []
+      knowledge-gap-scan: []
+      preprint-scan: []
+      weekly-compliance: []
+      post-review-agent: []
 
   fast:
     description: Aggressive cadence — hourly is the ceiling (no sub-hourly crons).
@@ -169,9 +144,6 @@ profiles:
       weekly-compliance:
         - cron: "0 8 * * 5"
           comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
-      stale-pr-reassign:
-        - cron: "0 9 * * *"
-          comment: "daily 09:00 UTC (02:00 PDT)"
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"
@@ -204,9 +176,6 @@ profiles:
       weekly-compliance:
         - cron: "0 8 * * 5"
           comment: "weekly Friday 08:00 UTC (midnight PST / 03:00 EST)"
-      stale-pr-reassign:
-        - cron: "0 9 * * *"
-          comment: "daily 09:00 UTC (02:00 PDT)"
       post-review-agent:
         - cron: "0 8 * * 6"
           comment: "weekly Saturday 08:00 UTC"

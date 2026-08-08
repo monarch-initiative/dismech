@@ -32,9 +32,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, Iterable, Iterator, Optional
+from typing import ClassVar
 
 from dismech.structured_sources.base import (
     ReferenceCacheEntry,
@@ -205,7 +206,7 @@ class OntologyEdgeSource(StructuredSource):
         target_ids: set[str] = set()
 
         # Collect raw statements for the selected predicates.
-        raw: list[tuple[str, str, Optional[str], Optional[str]]] = []
+        raw: list[tuple[str, str, str | None, str | None]] = []
         with adapter.engine.connect() as conn:
             for chunk in _chunked(list(pred_map), _SQL_CHUNK):
                 placeholders = ",".join(f":p{i}" for i in range(len(chunk)))

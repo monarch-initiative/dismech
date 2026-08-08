@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms23147817"
+reference_id: DOI:10.3390/ijms23147817
 title: "Cranial Base Synchondrosis: Chondrocytes at the Hub"
 authors:
 - Shawn A. Hallett
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2022'
 doi: 10.3390/ijms23147817
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Cranial Base Synchondrosis: Chondrocytes at the Hub

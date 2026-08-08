@@ -93,10 +93,9 @@ def find_references_section(lines: list[str]) -> tuple[int, int]:
     for i, line in enumerate(lines):
         if re.match(r"^references\s*:", line):
             start = i
-        elif start != -1:
-            # A new top-level key ends the section (but not list items or blank lines)
-            if re.match(r"^[a-zA-Z_]", line):
-                return start, i
+        # A new top-level key ends the section (but not list items or blank lines)
+        elif start != -1 and re.match(r"^[a-zA-Z_]", line):
+            return start, i
     if start == -1:
         return -1, -1
     return start, len(lines)

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1503/jpn.230112"
+reference_id: DOI:10.1503/jpn.230112
 title: Advances in the understanding of the pathophysiology of schizophrenia and bipolar disorder through induced pluripotent stem cell models
 authors:
 - Andrea Perrottelli
@@ -16,6 +16,7 @@ journal: Journal of Psychiatry and Neuroscience
 year: '2024'
 doi: 10.1503/jpn.230112
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Advances in the understanding of the pathophysiology of schizophrenia and bipolar disorder through induced pluripotent stem cell models

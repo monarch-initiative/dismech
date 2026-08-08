@@ -44,7 +44,7 @@ the two giants — NCIT (~2.7 GB) and NCBITaxon (~13.5 GB) — plus MONDO, GO, a
 UBERON to EBI's Ontology Lookup Service (`ols:`) instead, which does cheap
 single-term lookups against EBI's servers and never touches our bucket (see
 issue #5160). What remains on `sqlite:obo:` and can still be pulled from the
-bucket: `chebi` (the big one), `cl`, `hp`, `hgnc`, `maxo`, `geno`, and the
+bucket: `chebi` (the big one), `cl`, `hp`, `hgnc`, `geno`, and the
 smaller `icd10cm`, `icd11f`, `ecto`, `envo`, `foodon`, `xco`, `opl`.
 
 ## What we are NOT doing

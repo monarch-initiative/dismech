@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/20503121241274192"
+reference_id: DOI:10.1177/20503121241274192
 title: "Systematic review of the orally administered microbiome therapeutic, fecal microbiota spores, live-brpk, to prevent recurrence of <i>Clostridioides difficile</i> infection in adults"
 authors:
 - Kerry LaPlante
@@ -9,6 +9,7 @@ journal: SAGE Open Medicine
 year: '2024'
 doi: 10.1177/20503121241274192
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Systematic review of the orally administered microbiome therapeutic, fecal microbiota spores, live-brpk, to prevent recurrence of <i>Clostridioides difficile</i> infection in adults

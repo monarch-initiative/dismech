@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers12102900"
+reference_id: DOI:10.3390/cancers12102900
 title: "Aggressive NK Cell Leukemia: Current State of the Art"
 authors:
 - Siba El Hussein
@@ -9,6 +9,7 @@ journal: Cancers
 year: '2020'
 doi: 10.3390/cancers12102900
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Aggressive NK Cell Leukemia: Current State of the Art

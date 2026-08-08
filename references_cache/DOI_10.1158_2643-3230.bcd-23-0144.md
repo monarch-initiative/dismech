@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/2643-3230.bcd-23-0144"
+reference_id: DOI:10.1158/2643-3230.bcd-23-0144
 title: "Criteria for Diagnosis and Molecular Monitoring of <i>NPM1</i>-Mutated AML"
 authors:
 - Brunangelo Falini
@@ -8,6 +8,7 @@ journal: Blood Cancer Discovery
 year: '2024'
 doi: 10.1158/2643-3230.bcd-23-0144
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Criteria for Diagnosis and Molecular Monitoring of <i>NPM1</i>-Mutated AML

@@ -6,6 +6,9 @@ description: >-
   pathophysiological progression, prioritizing single-gene/fusion drivers,
   pathway clarity, and therapeutic relevance.
 tags: [DISEASE_DOMAIN, ONCOLOGY, FLAGSHIP]
+nih_topics:
+  - NIH_HT_42_rare_cancers_across_cancer_control_continuum
+  - NIH_HT_68_childhood_adolescent_young_adult_aya_cancer
 diseases:
   - Lynch_Syndrome
   - Non-Small_Cell_Lung_Cancer

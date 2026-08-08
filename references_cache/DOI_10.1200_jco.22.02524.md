@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.22.02524"
+reference_id: DOI:10.1200/jco.22.02524
 title: "Long-Term Outcomes and Molecular Correlates of Sotorasib Efficacy in Patients With Pretreated <i>KRAS</i> G12C-Mutated Non–Small-Cell Lung Cancer: 2-Year Analysis of CodeBreaK 100"
 authors:
 - Grace K. Dy
@@ -30,6 +30,7 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.22.02524
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Long-Term Outcomes and Molecular Correlates of Sotorasib Efficacy in Patients With Pretreated <i>KRAS</i> G12C-Mutated Non–Small-Cell Lung Cancer: 2-Year Analysis of CodeBreaK 100

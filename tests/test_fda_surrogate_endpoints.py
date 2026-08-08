@@ -5,14 +5,13 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
-import yaml
-
+from dismech.yaml_io import safe_load_path
 
 FDA_ENDPOINTS_PATH = Path("kb/surrogate_endpoints/fda_surrogate_endpoints.yaml")
 
 
 def _collection() -> dict:
-    return yaml.safe_load(FDA_ENDPOINTS_PATH.read_text())
+    return safe_load_path(FDA_ENDPOINTS_PATH)
 
 
 def test_fda_surrogate_endpoint_table_counts() -> None:

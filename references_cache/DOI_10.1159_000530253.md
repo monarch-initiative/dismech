@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1159/000530253"
+reference_id: DOI:10.1159/000530253
 title: "&lt;i&gt;NPM1&lt;/i&gt;-Mutated Acute Myeloid Leukemia: Recent Developments and Open Questions"
 authors:
 - Sanjay S. Patel
@@ -7,6 +7,7 @@ journal: Pathobiology
 year: '2024'
 doi: 10.1159/000530253
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # &lt;i&gt;NPM1&lt;/i&gt;-Mutated Acute Myeloid Leukemia: Recent Developments and Open Questions

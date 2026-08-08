@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15041177"
+reference_id: DOI:10.3390/cancers15041177
 title: NPM 1 Mutations in AML—The Landscape in 2023
 authors:
 - Naman Sharma
@@ -8,6 +8,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15041177
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # NPM 1 Mutations in AML—The Landscape in 2023

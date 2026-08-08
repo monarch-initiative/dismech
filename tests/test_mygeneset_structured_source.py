@@ -14,7 +14,6 @@ import pytest
 from dismech.reference_cache_frontmatter import check_cache_file
 from dismech.structured_sources.mygeneset import MyGenesetSource
 
-
 INTERP_YAML = """\
 gene_set_id: MSIGDB:KEGG_ASTHMA
 gene_set_name: KEGG_ASTHMA

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm15031149"
+reference_id: DOI:10.3390/jcm15031149
 title: "Primary Sclerosing Cholangitis: Diagnosis, Management, and Clinical Challenges"
 authors:
 - Sofia Svensson Di Giorgio
@@ -11,6 +11,7 @@ journal: Journal of Clinical Medicine
 year: '2026'
 doi: 10.3390/jcm15031149
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Sclerosing Cholangitis: Diagnosis, Management, and Clinical Challenges

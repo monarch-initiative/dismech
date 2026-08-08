@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1212/wnl.0000000000002655"
+reference_id: DOI:10.1212/wnl.0000000000002655
 title: Evaluation of the 2015 diagnostic criteria for neuromyelitis optica spectrum disorder
 authors:
 - Jae-Won Hyun
@@ -11,6 +11,7 @@ journal: Neurology
 year: '2016'
 doi: 10.1212/wnl.0000000000002655
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Evaluation of the 2015 diagnostic criteria for neuromyelitis optica spectrum disorder

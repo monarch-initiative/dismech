@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/blood-2013-06-507962"
+reference_id: DOI:10.1182/blood-2013-06-507962
 title: Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients
 authors:
 - Asuka Hira
@@ -20,6 +20,7 @@ journal: Blood
 year: '2013'
 doi: 10.1182/blood-2013-06-507962
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Variant ALDH2 is associated with accelerated progression of bone marrow failure in Japanese Fanconi anemia patients

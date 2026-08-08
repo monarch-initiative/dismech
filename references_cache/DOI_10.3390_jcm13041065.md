@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13041065"
+reference_id: DOI:10.3390/jcm13041065
 title: New Perspectives of Therapies in Osteogenesis Imperfecta—A Literature Review
 authors:
 - Alexandru Dinulescu
@@ -14,6 +14,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13041065
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # New Perspectives of Therapies in Osteogenesis Imperfecta—A Literature Review

@@ -14,14 +14,26 @@ Usage: import this module before running linkml-reference-validator, e.g.:
 Or via the wrapper script in scripts/run_reference_validator.sh.
 """
 
+import io
 import logging
+import re
 import time
 from functools import wraps
+
+from ruamel.yaml import YAML
+
+from dismech.frontmatter import contains_frontmatter_delimiter, split_frontmatter
 
 logger = logging.getLogger("linkml_reference_validator.patch")
 
 MAX_RETRIES = 3
 BACKOFF_BASE = 2  # seconds
+
+# A ClinicalTrials.gov registry id written without its ``clinicaltrials:`` prefix.
+_BARE_NCT_RE = re.compile(r"^NCT\d+$", re.IGNORECASE)
+
+_YAML_SAFE = YAML(typ="safe")
+_YAML_SAFE.default_flow_style = False
 
 
 def _coerce_author(author):
@@ -134,11 +146,128 @@ def _wrap_fulltext_method(original):
     return wrapper
 
 
+def _dump_frontmatter(data) -> str:
+    """Serialize a frontmatter mapping back to YAML text."""
+    buffer = io.StringIO()
+    _YAML_SAFE.dump(data, buffer)
+    return buffer.getvalue()
+
+
+# Frontmatter keys upstream ``_load_markdown_format`` does not pass through
+# verbatim: it wraps a scalar into a list, or stringifies it. A held-back value
+# has to be normalized the same way, or restoring it would hand callers a bare
+# ``str`` where upstream guarantees ``list[str]``.
+_LIST_WRAPPED_KEYS = frozenset({"authors", "keywords"})
+_STRINGIFIED_KEYS = frozenset({"year"})
+
+
+def _normalize_deferred_value(key, value):
+    """Apply upstream's own field normalization to a held-back value."""
+    if key in _LIST_WRAPPED_KEYS:
+        if not value:
+            return None
+        return value if isinstance(value, list) else [value]
+    if key in _STRINGIFIED_KEYS:
+        return str(value) if value else None
+    return value
+
+
+def _wrap_load_markdown_format(original):
+    """Make the cache loader's frontmatter split delimiter-aware (issue #7697).
+
+    Upstream ``_load_markdown_format`` starts with ``content_text.split("---", 2)``,
+    which ends the frontmatter at the first ``---`` *substring* rather than at the
+    first ``---`` *line*. Titles legitimately contain ``---`` (MMWR's
+    ``Disease---Location, Year``; pre-1996 NLM ASCII arrows such as
+    ``A----G(8344)``), so those records either crash the run with an unterminated
+    quoted scalar or silently lose the title and every field after it.
+
+    Rather than reimplement the upstream method — it maps two dozen frontmatter
+    keys onto ``ReferenceContent`` and we do not want to track that — this wrapper
+    only fixes the split. It parses the frontmatter correctly, holds back the
+    entries whose values contain ``---``, hands upstream a reconstructed document
+    that the naive split *does* read correctly, and then restores the held-back
+    values onto the returned object. Files with no ``---`` inside their
+    frontmatter (33,308 of 33,309 in this repo today) take an early return and are
+    byte-for-byte unaffected.
+
+    This is a stopgap for the pinned ``linkml-reference-validator``; the real fix
+    belongs upstream, on both the read and the write side.
+    """
+
+    @wraps(original)
+    def wrapper(self, content_text, reference_id, *args, **kwargs):
+        split = split_frontmatter(content_text)
+        if split is None or "---" not in split.frontmatter:
+            return original(self, content_text, reference_id, *args, **kwargs)
+
+        try:
+            data = _YAML_SAFE.load(split.frontmatter)
+        except Exception as exc:
+            logger.warning(
+                "Delimiter-aware frontmatter parse failed for %s, "
+                "falling back to upstream behaviour: %s: %s",
+                reference_id,
+                type(exc).__name__,
+                exc,
+            )
+            return original(self, content_text, reference_id, *args, **kwargs)
+
+        if not isinstance(data, dict):
+            return original(self, content_text, reference_id, *args, **kwargs)
+
+        deferred = {
+            key: value
+            for key, value in data.items()
+            if contains_frontmatter_delimiter(key)
+            or contains_frontmatter_delimiter(value)
+        }
+        if not deferred:
+            return original(self, content_text, reference_id, *args, **kwargs)
+
+        safe = {key: value for key, value in data.items() if key not in deferred}
+        try:
+            sanitized = f"---\n{_dump_frontmatter(safe)}---\n{split.body}"
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Could not re-serialize frontmatter for %s, "
+                "falling back to upstream behaviour: %s: %s",
+                reference_id,
+                type(exc).__name__,
+                exc,
+            )
+            return original(self, content_text, reference_id, *args, **kwargs)
+
+        result = original(self, sanitized, reference_id, *args, **kwargs)
+        if result is None:
+            return result
+
+        restored = []
+        for key, value in deferred.items():
+            if not isinstance(key, str) or not hasattr(result, key):
+                continue
+            try:
+                setattr(result, key, _normalize_deferred_value(key, value))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug("Could not restore %r on %s: %s", key, reference_id, exc)
+                continue
+            restored.append(key)
+
+        logger.debug(
+            "Recovered frontmatter field(s) %s containing '---' for %s",
+            ", ".join(restored) or "(none applicable)",
+            reference_id,
+        )
+        return result
+
+    return wrapper
+
+
 def apply_patch():
     """Apply monkey-patches for network resilience and cache compatibility."""
     try:
-        from linkml_reference_validator.etl.sources.pmid import PMIDSource
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+        from linkml_reference_validator.etl.sources.pmid import PMIDSource
     except ImportError:
         logger.debug("linkml-reference-validator not installed, skipping patch")
         return
@@ -168,11 +297,22 @@ def apply_patch():
             if reference_id.upper().startswith("CLINICALTRIALS:"):
                 _, identifier = reference_id.split(":", 1)
                 reference_id = f"clinicaltrials:{identifier}"
+            elif _BARE_NCT_RE.match(reference_id.strip()):
+                # Upstream ``_parse_reference_id`` has no rule for a *bare* NCT id,
+                # so it falls through to ("UNKNOWN", id) and the lookup derives
+                # ``NCT….md``. The record is nevertheless *saved* under the
+                # ClinicalTrials source's canonical id (``clinicaltrials_NCT….md``),
+                # so read and write disagree and the reference is re-fetched from
+                # ClinicalTrials.gov on every run. Align the read with the write.
+                reference_id = f"clinicaltrials:{reference_id.strip().upper()}"
             return original_get_cache_path(self, reference_id)
 
         ReferenceFetcher.get_cache_path = get_cache_path_with_clinicaltrials_compat
         ReferenceFetcher._clinicaltrials_cache_patch_applied = True  # type: ignore[attr-defined]
-        logger.debug("Applied ClinicalTrials.gov cache path compatibility patch")
+        logger.debug(
+            "Applied ClinicalTrials.gov cache path compatibility patch "
+            "(prefixed case variants and bare NCT ids)"
+        )
 
     if not getattr(ReferenceFetcher, "_author_coercion_patch_applied", False):
         original_save_to_disk = ReferenceFetcher._save_to_disk
@@ -191,6 +331,16 @@ def apply_patch():
         ReferenceFetcher._save_to_disk = save_to_disk_with_author_coercion
         ReferenceFetcher._author_coercion_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied author-normalization patch to ReferenceFetcher._save_to_disk")
+
+    if not getattr(ReferenceFetcher, "_frontmatter_split_patch_applied", False):
+        ReferenceFetcher._load_markdown_format = _wrap_load_markdown_format(
+            ReferenceFetcher._load_markdown_format
+        )
+        ReferenceFetcher._frontmatter_split_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug(
+            "Applied delimiter-aware frontmatter split patch to "
+            "ReferenceFetcher._load_markdown_format"
+        )
 
 
 # Auto-apply on import

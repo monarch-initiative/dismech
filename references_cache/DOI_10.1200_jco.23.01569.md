@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1200/jco.23.01569"
+reference_id: DOI:10.1200/jco.23.01569
 title: "Lenvatinib Plus Pembrolizumab Versus Sunitinib in First-Line Treatment of Advanced Renal Cell Carcinoma: Final Prespecified Overall Survival Analysis of CLEAR, a Phase III Study"
 authors:
 - Robert J. Motzer
@@ -246,6 +246,7 @@ journal: Journal of Clinical Oncology
 year: '2024'
 doi: 10.1200/jco.23.01569
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Lenvatinib Plus Pembrolizumab Versus Sunitinib in First-Line Treatment of Advanced Renal Cell Carcinoma: Final Prespecified Overall Survival Analysis of CLEAR, a Phase III Study

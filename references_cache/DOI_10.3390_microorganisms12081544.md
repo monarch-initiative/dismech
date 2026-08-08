@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12081544"
+reference_id: DOI:10.3390/microorganisms12081544
 title: Insights into Pathogenesis of Trachoma
 authors:
 - Panagiotis Toumasis
@@ -11,6 +11,7 @@ journal: Microorganisms
 year: '2024'
 doi: 10.3390/microorganisms12081544
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Insights into Pathogenesis of Trachoma

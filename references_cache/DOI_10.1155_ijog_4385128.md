@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1155/ijog/4385128"
-title: "Clinical and Genetic Functional Validation of a Novel
-                    <i>AP1S1</i>
-                    Mutation Causing MEDNIK Syndrome"
+reference_id: DOI:10.1155/ijog/4385128
+title: "Clinical and Genetic Functional Validation of a Novel <i>AP1S1</i> Mutation Causing MEDNIK Syndrome"
 authors:
 - Lifen Duan
 - Ru Shen
@@ -18,11 +16,10 @@ journal: International Journal of Genomics
 year: '2025'
 doi: 10.1155/ijog/4385128
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Clinical and Genetic Functional Validation of a Novel
-                    <i>AP1S1</i>
-                    Mutation Causing MEDNIK Syndrome
+# Clinical and Genetic Functional Validation of a Novel <i>AP1S1</i> Mutation Causing MEDNIK Syndrome
 **Authors:** Lifen Duan, Ru Shen, Guoyan Yin, Ruixi Tao, Yi Zhang, Wei Yu, Lishimeng Bao, Weitao Ye, Runxiu Yin, Xin Tian
 **Journal:** International Journal of Genomics (2025)
 **DOI:** [10.1155/ijog/4385128](https://doi.org/10.1155/ijog/4385128)

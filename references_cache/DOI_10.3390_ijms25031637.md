@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25031637"
+reference_id: DOI:10.3390/ijms25031637
 title: "Unveiling Familial Hypercholesterolemia—Review, Cardiovascular Complications, Lipid-Lowering Treatment and Its Efficacy"
 authors:
 - Piotr Fularski
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25031637
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unveiling Familial Hypercholesterolemia—Review, Cardiovascular Complications, Lipid-Lowering Treatment and Its Efficacy

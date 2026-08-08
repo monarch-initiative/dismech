@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/0883073820975230"
+reference_id: DOI:10.1177/0883073820975230
 title: "Acute Flaccid Myelitis: A Multidisciplinary Protocol to Optimize Diagnosis and Evaluation"
 authors:
 - Marissa Vawter-Lee
@@ -15,6 +15,7 @@ journal: Journal of Child Neurology
 year: '2021'
 doi: 10.1177/0883073820975230
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Acute Flaccid Myelitis: A Multidisciplinary Protocol to Optimize Diagnosis and Evaluation

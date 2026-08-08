@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/w15122185"
+reference_id: DOI:10.3390/w15122185
 title: "Arsenic in Drinking Water and Urinary Tract Cancers: A Systematic Review Update"
 authors:
 - Alpamys Issanov
@@ -10,6 +10,7 @@ journal: Water
 year: '2023'
 doi: 10.3390/w15122185
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Arsenic in Drinking Water and Urinary Tract Cancers: A Systematic Review Update

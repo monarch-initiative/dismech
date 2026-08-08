@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26073438"
+reference_id: DOI:10.3390/ijms26073438
 title: Molecular Mechanisms and Therapeutic Strategies to Overcome Resistance to Endocrine Therapy and CDK4/6 Inhibitors in Advanced ER+/HER2− Breast Cancer
 authors:
 - Paola Ferrari
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26073438
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Molecular Mechanisms and Therapeutic Strategies to Overcome Resistance to Endocrine Therapy and CDK4/6 Inhibitors in Advanced ER+/HER2− Breast Cancer

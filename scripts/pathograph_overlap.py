@@ -18,7 +18,7 @@ import os
 import sys
 from collections import Counter, defaultdict
 
-import yaml
+from dismech.yaml_io import safe_load
 
 DISORDER_DIR = "kb/disorders"
 
@@ -51,7 +51,7 @@ def gene_symbols(doc):
 
 
 def extract(path):
-    doc = yaml.safe_load(open(path))
+    doc = safe_load(open(path))
     if not isinstance(doc, dict):
         return None
     raw = set()
@@ -209,7 +209,7 @@ def _oak_parents(prefix, terms, cache="/tmp/oak_parents.json"):
         out = subprocess.run(
             ["uv", "run", "runoak", "-i", f"sqlite:obo:{onto}",
              "relationships", "-p", "i"] + chunk,
-            capture_output=True, text=True, timeout=600).stdout
+            capture_output=True, text=True, timeout=600, check=False).stdout
         for t in chunk:
             store.setdefault(t, [])
         for line in out.splitlines()[1:]:

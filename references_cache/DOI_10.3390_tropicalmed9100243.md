@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/tropicalmed9100243"
+reference_id: DOI:10.3390/tropicalmed9100243
 title: "A Recent Advance in the Diagnosis, Treatment, and Vaccine Development for Human Schistosomiasis"
 authors:
 - Tanushri Chatterji
@@ -19,6 +19,7 @@ journal: Tropical Medicine and Infectious Disease
 year: '2024'
 doi: 10.3390/tropicalmed9100243
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A Recent Advance in the Diagnosis, Treatment, and Vaccine Development for Human Schistosomiasis

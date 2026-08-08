@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.v30.i19.2488"
+reference_id: DOI:10.3748/wjg.v30.i19.2488
 title: Hepatocellular carcinoma-the role of the underlying liver disease in clinical practice
 authors:
 - Angelo Zambam de Mattos
@@ -10,6 +10,7 @@ journal: World Journal of Gastroenterology
 year: '2024'
 doi: 10.3748/wjg.v30.i19.2488
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hepatocellular carcinoma-the role of the underlying liver disease in clinical practice

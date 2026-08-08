@@ -1,8 +1,6 @@
 ---
-reference_id: "DOI:10.1200/jco.2010.33.9275"
-title: "Phase II, Open-Label, Single-Arm Trial of Imatinib Mesylate in Patients With Metastatic Melanoma Harboring
-                    <i>c-Kit</i>
-                    Mutation or Amplification"
+reference_id: DOI:10.1200/jco.2010.33.9275
+title: "Phase II, Open-Label, Single-Arm Trial of Imatinib Mesylate in Patients With Metastatic Melanoma Harboring <i>c-Kit</i> Mutation or Amplification"
 authors:
 - Jun Guo
 - Lu Si
@@ -29,11 +27,10 @@ journal: Journal of Clinical Oncology
 year: '2011'
 doi: 10.1200/jco.2010.33.9275
 content_type: abstract_only
+full_text_attempted: true
 ---
 
-# Phase II, Open-Label, Single-Arm Trial of Imatinib Mesylate in Patients With Metastatic Melanoma Harboring
-                    <i>c-Kit</i>
-                    Mutation or Amplification
+# Phase II, Open-Label, Single-Arm Trial of Imatinib Mesylate in Patients With Metastatic Melanoma Harboring <i>c-Kit</i> Mutation or Amplification
 **Authors:** Jun Guo, Lu Si, Yan Kong, Keith T. Flaherty, Xiaowei Xu, Yanyan Zhu, Christopher L. Corless, Li Li, Haifu Li, Xinan Sheng, Chuanliang Cui, Zhihong Chi, Siming Li, Mei Han, Lili Mao, Xuede Lin, Nan Du, Xiaoshi Zhang, Junling Li, Baocheng Wang, Shukui Qin
 **Journal:** Journal of Clinical Oncology (2011)
 **DOI:** [10.1200/jco.2010.33.9275](https://doi.org/10.1200/jco.2010.33.9275)

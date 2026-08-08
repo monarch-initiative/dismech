@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1158/1078-0432.ccr-24-2310"
+reference_id: DOI:10.1158/1078-0432.ccr-24-2310
 title: Impact of Co-mutations and Transcriptional Signatures in Non–Small Cell Lung Cancer Patients Treated with Adagrasib in the KRYSTAL-1 Trial
 authors:
 - Marcelo V. Negrao
@@ -28,6 +28,7 @@ journal: Clinical Cancer Research
 year: '2025'
 doi: 10.1158/1078-0432.ccr-24-2310
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Impact of Co-mutations and Transcriptional Signatures in Non–Small Cell Lung Cancer Patients Treated with Adagrasib in the KRYSTAL-1 Trial

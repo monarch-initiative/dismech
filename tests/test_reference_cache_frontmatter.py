@@ -210,6 +210,31 @@ def test_pmid_cache_ncbi_bookshelf_record_is_accepted(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_pmid_cache_agency_guideline_monograph_is_accepted(tmp_path: Path):
+    """Agency/society clinical-guideline monographs (NICE, SIGN, WHO, …) are
+    real PubMed-indexed references that efetch renders as an agency monograph
+    citation, so they legitimately carry neither ``authors`` nor ``journal``.
+    The ``<Issuing body>: Guidelines.`` collection line exempts them from the
+    #1737 fingerprint (issue #6607; PMID:31909928 was the false positive)."""
+    good = tmp_path / "PMID_31909928.md"
+    good.write_text(
+        "---\n"
+        'reference_id: "PMID:31909928"\n'
+        "year: '2021'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "1. Cannabis-based medicinal products.\n\n"
+        "London: National Institute for Health and Care Excellence (NICE); "
+        "2021 Mar 22.\n"
+        "National Institute for Health and Care Excellence: Guidelines.\n\n"
+        "This guideline covers prescribing of cannabis-based medicinal products.\n\n"
+        "Copyright © NICE 2021.\n\n"
+        "PMID: 31909928\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_with_only_journal_is_accepted(tmp_path: Path):
     """Pre-abstract-era and brief PubMed records often carry ``journal`` and
     ``year`` but no ``authors``. They are legitimate and must pass."""

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.17863/cam.86865"
+reference_id: DOI:10.17863/cam.86865
 title: Dominant Stickler Syndrome.
 authors:
 - "Soh, Zack"
@@ -28,6 +28,7 @@ keywords:
 - Pedigree
 - Retinal Detachment
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Dominant Stickler Syndrome.

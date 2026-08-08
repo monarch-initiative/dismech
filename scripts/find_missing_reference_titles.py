@@ -14,7 +14,7 @@ each are missing their title (blank/absent counts as missing).
 import sys
 from pathlib import Path
 
-import yaml
+from dismech.yaml_io import safe_load_path
 
 DISORDERS = Path("kb/disorders")
 
@@ -33,14 +33,12 @@ def walk(node, missing_ev, missing_ref):
         for key, val in node.items():
             if key == "evidence" and isinstance(val, list):
                 for item in val:
-                    if isinstance(item, dict) and "reference" in item:
-                        if is_blank(item.get("reference_title")):
-                            missing_ev.append(item.get("reference"))
+                    if isinstance(item, dict) and "reference" in item and is_blank(item.get("reference_title")):
+                        missing_ev.append(item.get("reference"))
             elif key == "references" and isinstance(val, list):
                 for item in val:
-                    if isinstance(item, dict) and "reference" in item:
-                        if is_blank(item.get("title")):
-                            missing_ref.append(item.get("reference"))
+                    if isinstance(item, dict) and "reference" in item and is_blank(item.get("title")):
+                        missing_ref.append(item.get("reference"))
             # recurse into every value regardless (evidence/references nest deeply)
             walk(val, missing_ev, missing_ref)
     elif isinstance(node, list):
@@ -51,7 +49,7 @@ def walk(node, missing_ev, missing_ref):
 def main():
     rows = []
     for path in sorted(DISORDERS.glob("*.yaml")):
-        data = yaml.safe_load(path.read_text())
+        data = safe_load_path(path)
         if data is None:
             continue
         missing_ev, missing_ref = [], []

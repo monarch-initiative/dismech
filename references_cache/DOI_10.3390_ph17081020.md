@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph17081020"
+reference_id: DOI:10.3390/ph17081020
 title: "Is There an Interplay between Environmental Factors, Microbiota Imbalance, and Cancer Chemotherapy-Associated Intestinal Mucositis?"
 authors:
 - Camila Fernandes
@@ -16,6 +16,7 @@ journal: Pharmaceuticals
 year: '2024'
 doi: 10.3390/ph17081020
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Is There an Interplay between Environmental Factors, Microbiota Imbalance, and Cancer Chemotherapy-Associated Intestinal Mucositis?

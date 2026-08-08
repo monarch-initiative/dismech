@@ -3,10 +3,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import map_iembase_to_dismech as mid  # noqa: E402
+import map_iembase_to_dismech as mid
 
 
 def test_alias_variants_strip_gene_related_prefix() -> None:

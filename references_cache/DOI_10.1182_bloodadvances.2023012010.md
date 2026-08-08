@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1182/bloodadvances.2023012010"
+reference_id: DOI:10.1182/bloodadvances.2023012010
 title: "A human anti-matriptase-2 antibody limits iron overload, α-globin aggregates, and splenomegaly in β-thalassemic mice"
 authors:
 - Matthew Wake
@@ -33,6 +33,7 @@ journal: Blood Advances
 year: '2024'
 doi: 10.1182/bloodadvances.2023012010
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # A human anti-matriptase-2 antibody limits iron overload, α-globin aggregates, and splenomegaly in β-thalassemic mice

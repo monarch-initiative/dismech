@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.1177/000348941212100102"
+reference_id: DOI:10.1177/000348941212100102
 title: Histopathology of the Temporal Bone in a Case of Superior Canal Dehiscence Syndrome
 authors:
 - Michael Teixido
@@ -10,6 +10,7 @@ journal: "Annals of Otology, Rhinology &amp; Laryngology"
 year: '2012'
 doi: 10.1177/000348941212100102
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Histopathology of the Temporal Bone in a Case of Superior Canal Dehiscence Syndrome

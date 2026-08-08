@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.7717/peerj.16591"
+reference_id: DOI:10.7717/peerj.16591
 title: "The impact of the route of administration on the efficacy and safety of the drug therapy for patent ductus arteriosus in premature infants: a systematic review and meta-analysis"
 authors:
 - Hanwen Luo
@@ -11,6 +11,7 @@ journal: PeerJ
 year: '2024'
 doi: 10.7717/peerj.16591
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The impact of the route of administration on the efficacy and safety of the drug therapy for patent ductus arteriosus in premature infants: a systematic review and meta-analysis

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3174/ajnr.a8214"
+reference_id: DOI:10.3174/ajnr.a8214
 title: Radiologic Classification of Hippocampal Sclerosis in Epilepsy
 authors:
 - Erik H. Middlebrooks
@@ -19,6 +19,7 @@ journal: American Journal of Neuroradiology
 year: '2024'
 doi: 10.3174/ajnr.a8214
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Radiologic Classification of Hippocampal Sclerosis in Epilepsy

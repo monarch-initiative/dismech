@@ -23,7 +23,6 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_IEMBASE_DIR = Path("data/iembase")
 DEFAULT_KB_DIR = Path("kb/disorders")
 DEFAULT_TSV = DEFAULT_IEMBASE_DIR / "dismech_mapping.tsv"

@@ -7,19 +7,21 @@ import html
 import json
 import re
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from string import Template
 from typing import Any
 
-from dismech.compare.mondo_priority import _extract_family_stem
-from dismech.compare.mondo_priority import _grouping_term
-from dismech.compare.mondo_priority import _likely_over_specific_leaf
-from dismech.compare.mondo_priority import _normalize_text
-from dismech.compare.mondo_priority import build_coverage_index
-from dismech.compare.mondo_priority import load_candidates
-from dismech.compare.mondo_priority import load_config
-from dismech.compare.mondo_priority import score_candidates
+from dismech.compare.mondo_priority import (
+    _extract_family_stem,
+    _grouping_term,
+    _likely_over_specific_leaf,
+    _normalize_text,
+    build_coverage_index,
+    load_candidates,
+    load_config,
+    score_candidates,
+)
 from dismech.render import curie_to_url
 
 PRIORITY_BLOCK_START = "<!-- DISMECH-PRIORITY-START -->"
@@ -1976,7 +1978,7 @@ def generate_priority_dashboard_report(
     summary = _build_summary(rows)
     action_breakdown = _build_action_breakdown(rows)
     category_summary = _build_category_summary(rows)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     dashboard_dir.mkdir(parents=True, exist_ok=True)
     json_path = dashboard_dir / "priority.json"
