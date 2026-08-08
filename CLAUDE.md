@@ -328,6 +328,7 @@ The following modules capture the conserved **hallmarks of cancer** (Hanahan & W
 - `genome_instability_mutation` — Enabling characteristic (the mutational engine): genome-maintenance defect or replication stress (MMR/HRR-BRCA/NER loss, oncogene-induced replication stress) → failure of DNA-damage surveillance and repair (compounded by TP53/ATM/CDKN2A loss) → mutator phenotype and chromosomal instability → accelerated clonal evolution. The HRR-deficiency therapeutic vulnerability is detailed in `dna_repair_synthetic_lethality`. Worked conformer: Lynch_Syndrome (MMR loss/MSI). Key conformance target: `genome_instability_mutation#Mutator Phenotype and Chromosomal Instability`
 - `tumor_promoting_inflammation` — Enabling characteristic (the inflammatory engine): chronic inflammatory stimulus (H. pylori, viral hepatitis, IBD, irritants, obesity) → pro-tumorigenic inflammatory microenvironment (TAMs, neutrophils, mast cells secreting growth/pro-angiogenic factors, proteases, cytokines, mutagenic ROS) → hallmark-promoting inflammatory output (proliferation, survival via NF-kB/STAT3, angiogenesis, invasion, genomic instability). Complements `immune_checkpoint_blockade` (adaptive immune-evasion arm). Worked conformers: Classic_Hodgkin_Lymphoma (reactive inflammatory microenvironment), MALT_Lymphoma (H. pylori chronic-inflammation trigger). Key conformance target: `tumor_promoting_inflammation#Pro-Tumorigenic Inflammatory Microenvironment`
 - `viral_oncogenesis` — Enabling characteristic (the viral engine): virus-induced cancer, the conserved mechanism shared by the human tumor viruses (~10-15% of human cancers). Persistent oncogenic-virus infection → viral oncoprotein expression ± host-genome integration → inactivation of the host p53 and RB/p16 tumor-suppressor axes and proliferative/survival-signaling hijack → genomic instability and deregulated proliferation → malignant transformation years-to-decades later. Conforming disorder nodes substitute the virus-specific oncoprotein(s): high-risk HPV E6 (p53 degradation)/E7 (RB inactivation); EBV LMP1/EBNA; HBV HBx; HTLV-1 Tax/HBZ; Merkel cell polyomavirus large T; KSHV LANA/vCyclin/vFLIP. Deliberately complementary to — not a duplicate of — `tumor_promoting_inflammation` (the chronic-inflammation route to viral cancer, e.g. HBV/HCV→HCC), `immune_checkpoint_blockade` (adaptive immune-evasion arm), and the host-genetic hallmark modules (`evading_growth_suppressors`, `genome_instability_mutation`, `enabling_replicative_immortality`), which viral cancers often ALSO conform to; this module isolates the DIRECT viral-oncoprotein arm. Worked conformers: Human_Papillomavirus_Infection (High-Risk Persistence and Transformation; HPV E6/E7), Cervical_Cancer (E6→p53, E7→pRB, HPV genome integration, and genomic-instability nodes — the flagship multi-node conformer), Penile_Cancer (HPV E6/E7-driven transformation), Classic_Hodgkin_Lymphoma (EBV LMP1 NF-kB signaling-hijack arm), Hepatitis_B (HBV DNA integration node), Merkel_Cell_Carcinoma (MCPyV large T antigen — viral-oncoprotein and RB-inactivation nodes), and Adult_T_Cell_Leukemia_Lymphoma (HTLV-1 Tax — viral-oncoprotein, NF-kB signaling-hijack, and genomic-instability nodes). Key conformance target: `viral_oncogenesis#Host Tumor Suppressor Inactivation and Signaling Hijack`
+- `viral_protease_inhibition` — Conserved direct-acting antiviral mechanism: viral polyprotein precursor synthesis → virus-encoded protease-dependent processing, followed by distinct productive branches. SARS-CoV-2 Mpro and HCV NS3/4A release replicase proteins required for replication-complex function and viral RNA replication; HIV protease cleavage of Gag/Gag-Pol instead drives structural virion maturation, whose inhibition yields immature non-infectious particles. Viral target substitutions form a resistance branch; host CYP3A pharmacokinetic boosting is separate regimen context, not viral resistance. Protease-inhibitor treatments use `target_mechanisms` on the virus-specific processing conformer. Worked conformers: COVID-19 (nirmatrelvir component) and Acute_Hepatitis_C_Virus_Infection (glecaprevir component), both on the replicase branch. Key conformance / treatment target: `viral_protease_inhibition#Virus-Encoded Protease-Dependent Polyprotein Processing`.
 - `bacterial_cell_wall_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for cell-wall-active antibiotics: peptidoglycan precursor/lipid II synthesis (fosfomycin, cycloserine, bacitracin, glycopeptide targets) → PBP transpeptidase cross-linking (the beta-lactam target) → cell-envelope integrity failure and bactericidal autolysis, with two resistance branches that gate drug choice: acquired resistance/drug inactivation (beta-lactamase, PBP2a, D-Ala-D-Lac remodeling) and intrinsic resistance in cell-wall-deficient organisms (Mycoplasma/Mollicutes have no target). Drug mechanism design pattern: cell-wall-active treatments use `target_mechanisms` to link back to the inhibited node. Key conformance / treatment target: `bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins`. See `projects/ANTIMICROBIAL.md` for the broader drug–bug strategy.
 - `bacterial_protein_synthesis_inhibition` — Conserved antibacterial drug-mechanism pattern for ribosome-targeting antibiotics: bacterial mRNA translation by the 70S ribosome (the shared target of 30S-acting tetracyclines/aminoglycosides and 50S-acting macrolides, lincosamides, chloramphenicol, oxazolidinones) → suppression of toxin and exoprotein synthesis (the anti-toxin rationale for adjunctive clindamycin/linezolid in toxin-mediated streptococcal/staphylococcal disease, beyond bacterial killing) → ribosomal target resistance (erm rRNA methylation/MLSb, ribosomal mutation, drug-modifying enzymes, efflux). Key conformance / treatment targets: `bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome` and `#Suppression of Toxin and Exoprotein Synthesis`.
 - `intracellular_pathogen_persistence` — Conserved antibacterial lifestyle-gating pattern for obligate/facultative intracellular bacteria (Rickettsia, Bartonella, Brucella, Coxiella, Legionella, Chlamydia, intracellular Mycobacterium): intracellular niche and beta-lactam exclusion (poorly cell-penetrant drugs cannot reach the organism) → requirement for cell-penetrant antimicrobials (doxycycline, macrolides, fluoroquinolones, rifamycins). This is a pharmacokinetic gating module, not an enzyme target; a conforming disease usually ALSO conforms to a target-based module (ribosome/cell wall) for the drug's molecular mechanism. Key conformance / treatment target: `intracellular_pathogen_persistence#Requirement for Cell-Penetrant Antimicrobials`. Worked multi-module examples: Murine_Typhus and Oroya_Fever conform to both this and `bacterial_protein_synthesis_inhibition`.
@@ -444,6 +445,7 @@ mirroring OWL subclass/equivalence axioms.
 just check-groupings                                 # lint + audit all groupings
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings --strict                        # gate on errors/violations
+just check-groupings --no-closure                    # exact-ID matching (offline)
 ```
 Two tiers: a **structural linter** (`lint_criterion`) classifies every node BRANCH vs LEAF
 and enforces well-formedness (gating, enforced in `tests/test_data.py`); and an **advisory
@@ -451,6 +453,27 @@ membership evaluator** (`evaluate_grouping`) that three-valuedly checks each mem
 entry against `NECESSARY`/`N&S` criteria (`SATISFIED`/`NOT_SATISFIED`/`UNKNOWN`) and, for
 `SUFFICIENT`/`N&S` criteria, flags candidate non-members. The evaluator is advisory because
 criteria are often aspirational (a member may not yet declare a required `conforms_to` edge).
+
+**Criteria are evaluated over the ontology closure.** A leaf asserting "has P" is
+satisfied by a member annotated with any `is_a`/`part_of` **descendant** of P — a
+member curating `HP:0007354` (amyotrophic lateral sclerosis) satisfies a criterion
+citing its parent `HP:0007373` (motor neuron atrophy). Closure applies to the
+`HP` and `GO` predicates (`CLOSURE_PREFIXES` in `groupings.py`); `HAS_GENE` stays
+an exact match because HGNC's hierarchy is gene-group membership, not subsumption.
+Closure is computed over the criteria terms (a bounded set) and cached; if the
+ontology is unreachable it degrades to exact matching, which **under**-reports
+satisfaction rather than failing. Do not write a criterion at descendant-level
+granularity to work around a missing annotation — cite the term you mean.
+
+**A NOT_SATISFIED listed member is reported as a contradiction, not diagnosed.**
+Asserting `D ∈ G` while `G` declares a NECESSARY criterion `D` fails is a
+contradiction between two curated assertions — in OWL it would be an
+inconsistency. The tooling surfaces it and stops there; the resolution may be
+that the entry needs annotating, that the criteria are too strict, or that the
+membership is wrong, and choosing between those is a curator's judgement, not
+the renderer's. There is deliberately **no "acknowledged exception" slot**: an
+exception to a necessary condition is not a thing you can declare, only a
+contradiction you can resolve.
 
 **Per-member differentiating mechanisms:**
 
@@ -466,6 +489,13 @@ distinguishes that member from its siblings.
 - Every `module` reference (in criteria leaves and differentiating mechanisms) must
   resolve to a file in `kb/modules/`.
 - Grouping `name` values must be unique.
+- Separately, `test_conforms_to_module_node_references` checks the **other** side of
+  the module link: every `conforms_to` on a pathophysiology node (in `kb/disorders/`,
+  `kb/modules/`, `kb/comorbidities/`) must resolve both to a module file *and*, when a
+  `#Node Name` anchor is given, to a real pathophysiology node in that module. This is
+  what `CONFORMS_TO_MODULE` criteria are evaluated against, so a stale stem or a
+  drifted node name silently drops an entry out of satisfying a criterion it is
+  asserted to satisfy.
 
 **Validation:**
 ```bash
@@ -482,7 +512,12 @@ Renders `pages/groupings/*.html` (derived — not committed). The detail page sh
 the `grouping_basis`/MONDO mapping, the rationale, the membership-criteria boolean
 tree, and per-member differentiating mechanisms with an advisory audit badge
 (SATISFIED/NOT_SATISFIED/UNKNOWN from `evaluate_grouping`) plus any candidate
-members from SUFFICIENT/N&S criteria.
+members from SUFFICIENT/N&S criteria. The coverage table carries one column per
+criteria *leaf* plus a **Conditions satisfied** column holding the combined
+verdict over the whole boolean expression — a listed member failing it is
+badged `contradiction`, and the count appears in the coverage summary. Without
+that column a member failing an `OR` of three leaves showed three red cells and
+nothing naming the problem.
 
 **Worked examples:** `Mucopolysaccharidoses` (NECESSARY, aspirational members),
 `Inherited_Arrhythmia_Syndromes` (NECESSARY_AND_SUFFICIENT with a NOT leaf +

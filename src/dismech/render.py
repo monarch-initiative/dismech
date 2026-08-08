@@ -3364,13 +3364,71 @@ def _exact_mondo_descendant_terms(
     return descendant_terms, exact_scope_ids, shadowed_ids, None
 
 
+AUDIT_ORDER = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+
+
+def _coverage_conditions_cell(
+    names: list[str],
+    audit: dict[str, list[dict]],
+    *,
+    is_listed: bool,
+) -> dict:
+    """Aggregate a row's membership-criteria verdict into a single cell.
+
+    ``evaluate_grouping`` only evaluates NECESSARY / NECESSARY_AND_SUFFICIENT
+    blocks, so a NOT_SATISFIED verdict for an entry this grouping *lists* as a
+    member is a contradiction between two curated assertions: "D is a member of
+    G" and "every member of G satisfies C". The cell reports that contradiction
+    without interpreting it — the resolution may be to annotate the entry, to
+    loosen the criteria, or to drop the member, and that is a curator's call.
+    """
+    entries = [
+        (name, block) for name in names for block in audit.get(name, []) if block
+    ]
+    if not entries:
+        return {
+            "result": "",
+            "label": "not evaluated",
+            "contradiction": False,
+            "title": "No membership criteria were evaluated for this row.",
+        }
+
+    worst = min(entries, key=lambda item: AUDIT_ORDER.get(item[1].get("result"), 1))[1]
+    result = worst.get("result") or "UNKNOWN"
+    contradiction = is_listed and result == "NOT_SATISFIED"
+
+    details = []
+    for name, block in entries:
+        verdict = (block.get("result") or "UNKNOWN").replace("_", " ").lower()
+        semantics = (block.get("semantics") or "").replace("_", " ").lower()
+        line = f"{name}: {verdict}"
+        if semantics:
+            line += f" ({semantics})"
+        unmet = block.get("unmet") or []
+        if unmet:
+            line += " — unmet: " + "; ".join(unmet)
+        details.append(line)
+    if contradiction:
+        details.append(
+            "Contradiction: listed as a member but a necessary criterion is "
+            "not satisfied."
+        )
+
+    return {
+        "result": result,
+        "label": "contradiction" if contradiction else result.replace("_", " ").lower(),
+        "contradiction": contradiction,
+        "title": " | ".join(details),
+    }
+
+
 def _coverage_criteria_cells(
     names: list[str],
     criteria_columns: list[dict],
     audit: dict[str, list[dict]],
 ) -> list[dict]:
     """Build criteria cells for one coverage row across one or more entries."""
-    order = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+    order = AUDIT_ORDER
     by_key: dict[str, list[dict]] = defaultdict(list)
     for name in names:
         for audit_entry in audit.get(name, []):
@@ -3516,6 +3574,7 @@ def _build_grouping_coverage_rows(
                 "mondo": None,
                 "dismech_entries": [],
                 "criteria_cells": [],
+                "conditions_cell": {},
                 "status": "",
                 "status_label": "",
                 "is_leaf_gap": False,
@@ -3598,6 +3657,13 @@ def _build_grouping_coverage_rows(
     for row in rows.values():
         names = [entry["name"] for entry in row["dismech_entries"]]
         row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["conditions_cell"] = _coverage_conditions_cell(
+            names,
+            audit,
+            is_listed=any(
+                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+            ),
+        )
         row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
         status, status_label = _coverage_status(row, exact_scope_ids)
         row["status"] = status
@@ -3648,6 +3714,9 @@ def _build_grouping_coverage_rows(
         },
         "counts": {
             "rows": len(sorted_rows),
+            "contradictions": sum(
+                1 for r in sorted_rows if r["conditions_cell"].get("contradiction")
+            ),
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
             "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
             "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
