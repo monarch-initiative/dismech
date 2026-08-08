@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hashimoto%27s%20Thyroiditis"
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3503,7 +3734,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">25</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3516,6 +3747,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3663,7 +3895,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">1 support</span>
+                    <span class="evidence-support support-PARTIAL">1 partial</span>
 
                 </div>
 
@@ -3703,23 +3935,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38731922" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:38731922" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38731922" target="_blank">PMID:38731922</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Hashimoto&#39;s thyroiditis (HT) is generally characterized by the presence"</div>
+                <div class="evidence-snippet">"Hashimoto&#39;s thyroiditis (HT) is generally characterized by the presence of thyroid peroxidase and thyroglobulin antibodies, with a concomitant infiltration of lymphocytes in the thyroid."</div>
 
 
-                <div class="evidence-explanation">Canonical mechanism reference used as the seed for the hypothesis-search deep-research run.
+                <div class="evidence-explanation">Canonical mechanism reference used as the seed for the hypothesis-search deep-research run. It supports the autoantibody plus lymphocytic-infiltration core of the model, but not the full CD4 Th1/Th17, CD8, tertiary-lymphoid-structure, or genetic-susceptibility claims in the hypothesis description.
 </div>
 
 
@@ -4836,7 +5068,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-TPO Antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Autoimmune Thyroid Destruction\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-TPO positivity reports the ongoing autoimmune attack on thyroid peroxidase and is the principal serologic marker of the destructive process.\\n\"}]}}, {\"id\": \"Anti-Thyroglobulin Antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Autoimmune Thyroid Destruction\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-thyroglobulin positivity reflects humoral autoimmunity against thyroglobulin accompanying follicular destruction.\\n\"}]}}, {\"id\": \"Autoimmune Thyroid Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T cell-mediated and antibody-mediated destruction of thyroid follicular cells leads to progressive loss of thyroid function. Anti-thyroid peroxidase (anti-TPO) and anti-thyroglobulin antibodies are characteristic.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Thyroid Epithelial Cell\", \"T Helper Cell\"], \"biological_processes\": [\"Autoimmune Response\"]}}, {\"id\": \"CTLA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTLA4\"], \"gene_terms\": [{\"label\": \"CTLA4\", \"id\": \"hgnc:2505\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Cold Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000855\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Dry Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000958\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Free T4\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Thyroid Hormone Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low free T4 directly measures the reduced thyroid hormone output; lower values track with more severe hormone deficiency.\\n\"}]}}, {\"id\": \"Goiter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000853\"}}, {\"id\": \"Hashitoxicosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A transient hyperthyroid phase (Hashitoxicosis) can occur at presentation of Hashimoto thyroiditis before evolution to hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000836\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autoimmune destruction of the thyroid gland in Hashimoto thyroiditis produces primary hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000821\"}}, {\"id\": \"LAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAG3\"], \"gene_terms\": [{\"label\": \"LAG3\", \"id\": \"hgnc:6476\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Levothyroxine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thyroid hormone replacement therapy, the mainstay of treatment. It corrects the hormone deficiency by bypassing the destroyed gland but does not address the upstream autoimmunity or inflammation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Susceptibility variants in T-cell regulatory and immune-checkpoint genes (HLA class II, CTLA4, PTPN22, LAG3) act together with environmental triggers (iodine excess, selenium/vitamin D status, viral infection) to break self-tolerance to thyroid peroxidase and thyroglobulin, the initiating lesion that licenses autoreactive T- and B-cell responses against the thyroid. A rare LAG3 start-codon variant that lowers the inhibitory checkpoint LAG-3 exemplifies how impaired T-cell down-regulation predisposes to autoimmune thyroid disease.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTLA4\", \"PTPN22\", \"LAG3\"], \"gene_terms\": [{\"label\": \"CTLA4\", \"id\": \"hgnc:2505\"}, {\"label\": \"PTPN22\", \"id\": \"hgnc:9652\"}, {\"label\": \"LAG3\", \"id\": \"hgnc:6476\"}], \"role\": \"trigger\"}}, {\"id\": \"Lymphocytic Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dense lymphocytic infiltration of the thyroid gland with germinal center formation. CD4+ T cells, CD8+ T cells, and B cells accumulate in the thyroid parenchyma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive helper T cell\", \"CD8-positive, alpha-beta T cell\", \"B Cell\"], \"biological_processes\": [\"Inflammatory response\", \"Adaptive immune response\"]}}, {\"id\": \"NF-\\u03baB-IL-6 Signaling Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic regulation of NF-\\u03baB and IL-6 signaling modulates the autoimmune response in Hashimoto\u0027s thyroiditis. CCDC77 and SLC45A3 are novel genetic modifiers that regulate NF-\\u03baB pathway activation and IL-6 production. CCDC77 acts as a protective regulator (knockdown exacerbates thyroid damage), while SLC45A3 acts as a disease-promoting factor (knockdown alleviates thyroiditis). The NF-\\u03baB-IL-6 axis modulates immune cell activation and thyroid-targeted autoimmunity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"NF-\\u03baB signaling pathway\", \"Inflammatory response\"]}}, {\"id\": \"PTPN22\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTPN22\"], \"gene_terms\": [{\"label\": \"PTPN22\", \"id\": \"hgnc:9652\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Selenium Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive selenium can lower thyroid autoantibody titers, but a 2024 multicenter double-blind RCT found no quality-of-life benefit over placebo in LT4-treated autoimmune thyroiditis, illustrating a biomarker-outcome dissociation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TSH\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Thyroid Hormone Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Compensatory TSH elevation is the biochemical hallmark that reports the thyroid hormone synthesis deficit in primary hypothyroidism.\\n\"}]}}, {\"id\": \"Thyrocyte Antigen Presentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under interferon-gamma and TNF-alpha exposure, thyroid follicular cells aberrantly upregulate MHC class II together with the invariant chain CD74 and its ligand MIF, becoming non-professional antigen-presenting cells. This amplifies local antigen presentation and ligand-receptor cross-talk with infiltrating immune cells, sustaining and propagating the intrathyroidal autoimmune response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Thyroid Follicular Cell\"], \"biological_processes\": [\"Antigen presentation via MHC class II\"], \"role\": \"amplifier\"}}, {\"id\": \"Thyroid Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive destruction of thyroid tissue leads to decreased production of T3 and T4, resulting in hypothyroidism with elevated TSH through negative feedback.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Thyroid Hormone Synthesis\"]}}, {\"id\": \"Vitamin D Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cholecalciferol supplementation in vitamin D-deficient HT patients can lower thyroid autoantibody titers; evidence is preliminary and further randomized trials are needed.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight Gain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004324\"}}], \"edges\": [{\"source\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"target\": \"Thyrocyte Antigen Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breakdown of tolerance permits autoreactive T cells and an interferon-rich milieu that drives thyroid follicular cells to present antigen.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autoreactive T helper cell priming against TPO/Tg\"]}, {\"source\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"target\": \"Lymphocytic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tolerance licenses autoreactive T and B lymphocytes that traffic into and accumulate within the thyroid gland.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autoreactive lymphocyte activation and thyroid homing\"]}, {\"source\": \"Thyrocyte Antigen Presentation\", \"target\": \"Lymphocytic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thyrocyte antigen presentation and chemokine expression recruit and activate infiltrating lymphocytes within the gland.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cytotoxic and antibody-mediated loss of hormone-producing follicular cells depletes the gland\u0027s capacity to synthesize T3 and T4, producing thyroid hormone deficiency.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Hashitoxicosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early inflammatory destruction of follicles can release preformed stored hormone, producing a transient thyrotoxic (hashitoxicosis) phase before glandular reserve is exhausted and hypothyroidism supervenes.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release of preformed thyroid hormone from destroyed follicles\"]}, {\"source\": \"Lymphocytic Infiltration\", \"target\": \"Autoimmune Thyroid Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltrating cytotoxic T cells, autoantibody-producing B/plasma cells, and inflammatory macrophages execute follicular-cell killing.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocytic Infiltration\", \"target\": \"Goiter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense inflammatory infiltration and lymphoid-follicle formation enlarge the gland, producing the characteristic diffuse goiter.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NF-\\u03baB-IL-6 Signaling Pathway Activation\", \"target\": \"Lymphocytic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic modulation of the NF-\\u03baB-IL-6 axis tunes immune-cell activation and recruitment, amplifying the intrathyroidal lymphocytic infiltrate.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"IL-6-driven Th17 differentiation and immune-cell activation\"]}, {\"source\": \"Thyroid Hormone Deficiency\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient T3/T4 output with compensatory TSH elevation manifests clinically as primary hypothyroidism.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypothyroidism\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Weight Gain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Cold Intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Dry Skin\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Constipation\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Levothyroxine\", \"target\": \"Thyroid Hormone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Selenium Supplementation\", \"target\": \"Autoimmune Thyroid Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin D Supplementation\", \"target\": \"Autoimmune Thyroid Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thyroid Hormone Deficiency\", \"target\": \"TSH\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Compensatory TSH elevation is the biochemical hallmark that reports the thyroid hormone synthesis deficit in primary hypothyroidism.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Thyroid Hormone Deficiency\", \"target\": \"Free T4\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low free T4 directly measures the reduced thyroid hormone output; lower values track with more severe hormone deficiency.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Anti-TPO Antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-TPO positivity reports the ongoing autoimmune attack on thyroid peroxidase and is the principal serologic marker of the destructive process.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Anti-Thyroglobulin Antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-thyroglobulin positivity reflects humoral autoimmunity against thyroglobulin accompanying follicular destruction.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CTLA4\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTPN22\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAG3\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-TPO Antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Autoimmune Thyroid Destruction\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-TPO positivity reports the ongoing autoimmune attack on thyroid peroxidase and is the principal serologic marker of the destructive process.\\n\"}]}}, {\"id\": \"Anti-Thyroglobulin Antibodies\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Autoimmune Thyroid Destruction\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Anti-thyroglobulin positivity reflects humoral autoimmunity against thyroglobulin accompanying follicular destruction.\\n\"}]}}, {\"id\": \"Autoimmune Thyroid Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"T cell-mediated and antibody-mediated destruction of thyroid follicular cells leads to progressive loss of thyroid function. Anti-thyroid peroxidase (anti-TPO) and anti-thyroglobulin antibodies are characteristic.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Thyroid Epithelial Cell\", \"T Helper Cell\"], \"biological_processes\": [\"Autoimmune Response\"]}}, {\"id\": \"CTLA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTLA4\"], \"gene_terms\": [{\"label\": \"CTLA4\", \"id\": \"hgnc:2505\"}], \"association\": \"Risk Factor\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Cold Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:6000855\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000716\"}}, {\"id\": \"Dry Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000958\"}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Free T4\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Decreased\", \"readouts\": [{\"target\": \"Thyroid Hormone Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Low free T4 directly measures the reduced thyroid hormone output; lower values track with more severe hormone deficiency.\\n\"}]}}, {\"id\": \"Goiter\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000853\"}}, {\"id\": \"Hashitoxicosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A transient hyperthyroid phase (Hashitoxicosis) can occur at presentation of Hashimoto thyroiditis before evolution to hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000836\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Autoimmune destruction of the thyroid gland in Hashimoto thyroiditis produces primary hypothyroidism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000821\"}}, {\"id\": \"Iodine Excess\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"LAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAG3\"], \"gene_terms\": [{\"label\": \"LAG3\", \"id\": \"hgnc:6476\"}], \"association\": \"Risk Factor\"}}, {\"id\": \"Levothyroxine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Thyroid hormone replacement therapy, the mainstay of treatment. It corrects the hormone deficiency by bypassing the destroyed gland but does not address the upstream autoimmunity or inflammation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Susceptibility variants in T-cell regulatory and immune-checkpoint genes (HLA class II, CTLA4, PTPN22, LAG3) act together with environmental triggers (iodine excess, selenium/vitamin D status, viral infection) to break self-tolerance to thyroid peroxidase and thyroglobulin, the initiating lesion that licenses autoreactive T- and B-cell responses against the thyroid. A rare LAG3 start-codon variant that lowers the inhibitory checkpoint LAG-3 exemplifies how impaired T-cell down-regulation predisposes to autoimmune thyroid disease.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTLA4\", \"PTPN22\", \"LAG3\"], \"gene_terms\": [{\"label\": \"CTLA4\", \"id\": \"hgnc:2505\"}, {\"label\": \"PTPN22\", \"id\": \"hgnc:9652\"}, {\"label\": \"LAG3\", \"id\": \"hgnc:6476\"}], \"role\": \"trigger\"}}, {\"id\": \"Lymphocytic Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dense lymphocytic infiltration of the thyroid gland with germinal center formation. CD4+ T cells, CD8+ T cells, and B cells accumulate in the thyroid parenchyma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD4-positive helper T cell\", \"CD8-positive, alpha-beta T cell\", \"B Cell\"], \"biological_processes\": [\"Inflammatory response\", \"Adaptive immune response\"]}}, {\"id\": \"NF-\\u03baB-IL-6 Signaling Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetic regulation of NF-\\u03baB and IL-6 signaling modulates the autoimmune response in Hashimoto\u0027s thyroiditis. CCDC77 and SLC45A3 are novel genetic modifiers that regulate NF-\\u03baB pathway activation and IL-6 production. CCDC77 acts as a protective regulator (knockdown exacerbates thyroid damage), while SLC45A3 acts as a disease-promoting factor (knockdown alleviates thyroiditis). The NF-\\u03baB-IL-6 axis modulates immune cell activation and thyroid-targeted autoimmunity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"NF-\\u03baB signaling pathway\", \"Inflammatory response\"]}}, {\"id\": \"PTPN22\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTPN22\"], \"gene_terms\": [{\"label\": \"PTPN22\", \"id\": \"hgnc:9652\"}], \"association\": \"Risk Factor\", \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Selenium Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Selenium Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Adjunctive selenium can lower thyroid autoantibody titers, but a 2024 multicenter double-blind RCT found no quality-of-life benefit over placebo in LT4-treated autoimmune thyroiditis, illustrating a biomarker-outcome dissociation.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TSH\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated\", \"readouts\": [{\"target\": \"Thyroid Hormone Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Compensatory TSH elevation is the biochemical hallmark that reports the thyroid hormone synthesis deficit in primary hypothyroidism.\\n\"}]}}, {\"id\": \"Thyrocyte Antigen Presentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under interferon-gamma and TNF-alpha exposure, thyroid follicular cells aberrantly upregulate MHC class II together with the invariant chain CD74 and its ligand MIF, becoming non-professional antigen-presenting cells. This amplifies local antigen presentation and ligand-receptor cross-talk with infiltrating immune cells, sustaining and propagating the intrathyroidal autoimmune response.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Thyroid Follicular Cell\"], \"biological_processes\": [\"Antigen presentation via MHC class II\"], \"role\": \"amplifier\"}}, {\"id\": \"Thyroid Hormone Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive destruction of thyroid tissue leads to decreased production of T3 and T4, resulting in hypothyroidism with elevated TSH through negative feedback.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Thyroid Hormone Synthesis\"]}}, {\"id\": \"Viral Infections\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vitamin D Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vitamin D Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cholecalciferol supplementation in vitamin D-deficient HT patients can lower thyroid autoantibody titers; evidence is preliminary and further randomized trials are needed.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Weight Gain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004324\"}}], \"edges\": [{\"source\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"target\": \"Thyrocyte Antigen Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Breakdown of tolerance permits autoreactive T cells and an interferon-rich milieu that drives thyroid follicular cells to present antigen.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autoreactive T helper cell priming against TPO/Tg\"]}, {\"source\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"target\": \"Lymphocytic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tolerance licenses autoreactive T and B lymphocytes that traffic into and accumulate within the thyroid gland.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Autoreactive lymphocyte activation and thyroid homing\"]}, {\"source\": \"Thyrocyte Antigen Presentation\", \"target\": \"Lymphocytic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thyrocyte antigen presentation and chemokine expression recruit and activate infiltrating lymphocytes within the gland.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Thyroid Hormone Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive cytotoxic and antibody-mediated loss of hormone-producing follicular cells depletes the gland\u0027s capacity to synthesize T3 and T4, producing thyroid hormone deficiency.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Hashitoxicosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early inflammatory destruction of follicles can release preformed stored hormone, producing a transient thyrotoxic (hashitoxicosis) phase before glandular reserve is exhausted and hypothyroidism supervenes.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Release of preformed thyroid hormone from destroyed follicles\"]}, {\"source\": \"Lymphocytic Infiltration\", \"target\": \"Autoimmune Thyroid Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltrating cytotoxic T cells, autoantibody-producing B/plasma cells, and inflammatory macrophages execute follicular-cell killing.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lymphocytic Infiltration\", \"target\": \"Goiter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense inflammatory infiltration and lymphoid-follicle formation enlarge the gland, producing the characteristic diffuse goiter.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NF-\\u03baB-IL-6 Signaling Pathway Activation\", \"target\": \"Lymphocytic Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetic modulation of the NF-\\u03baB-IL-6 axis tunes immune-cell activation and recruitment, amplifying the intrathyroidal lymphocytic infiltrate.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"IL-6-driven Th17 differentiation and immune-cell activation\"]}, {\"source\": \"Thyroid Hormone Deficiency\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insufficient T3/T4 output with compensatory TSH elevation manifests clinically as primary hypothyroidism.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypothyroidism\", \"target\": \"Fatigue\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Weight Gain\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Cold Intolerance\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Dry Skin\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Constipation\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Hypothyroidism\", \"target\": \"Depression\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Iodine Excess\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The one exposure here with a named intermediate: excess iodine raises the iodination of thyroglobulin, and the more heavily iodinated protein is the more immunogenic one. That is why iodine supplementation programmes are followed by a rise in autoimmune thyroiditis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Selenium Deficiency\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Selenoproteins protect thyrocytes from the peroxide generated during hormone synthesis, so deficiency plausibly leaves the gland more exposed. The cited evidence reports seroconversion rates rather than demonstrating that route.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Viral Infections\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Molecular mimicry and bystander activation are the usual proposals, but the cited evidence is an association with chronic hepatitis C rather than a demonstration of either, and interferon treatment of that infection is itself thyrotoxic, which confounds the association.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Vitamin D Deficiency\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The weakest of the four and the most exposed to reverse causation: the cited finding is that levels are lower in people who already have the disease, which cross-sectional data cannot separate from chronic illness lowering vitamin D.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Levothyroxine\", \"target\": \"Thyroid Hormone Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Selenium Supplementation\", \"target\": \"Autoimmune Thyroid Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin D Supplementation\", \"target\": \"Autoimmune Thyroid Destruction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Thyroid Hormone Deficiency\", \"target\": \"TSH\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Compensatory TSH elevation is the biochemical hallmark that reports the thyroid hormone synthesis deficit in primary hypothyroidism.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Thyroid Hormone Deficiency\", \"target\": \"Free T4\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Low free T4 directly measures the reduced thyroid hormone output; lower values track with more severe hormone deficiency.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Anti-TPO Antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-TPO positivity reports the ongoing autoimmune attack on thyroid peroxidase and is the principal serologic marker of the destructive process.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Autoimmune Thyroid Destruction\", \"target\": \"Anti-Thyroglobulin Antibodies\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Anti-thyroglobulin positivity reflects humoral autoimmunity against thyroglobulin accompanying follicular destruction.\\n\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CTLA4\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PTPN22\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAG3\", \"target\": \"Loss of Immune Tolerance to Thyroid Antigens\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4880,7 +5112,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-constipation" data-dismech-node="Constipation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Constipation
 
@@ -4950,7 +5182,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-goiter" data-dismech-node="Goiter" data-dismech-type="phenotype">
                     <div class="item-name">
                         Goiter
 
@@ -5011,7 +5243,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypothyroidism" data-dismech-node="Hypothyroidism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypothyroidism
 
@@ -5087,7 +5319,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hashitoxicosis" data-dismech-node="Hashitoxicosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hashitoxicosis
 
@@ -5155,7 +5387,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dry-skin" data-dismech-node="Dry Skin" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dry Skin
 
@@ -5225,7 +5457,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cold-intolerance" data-dismech-node="Cold Intolerance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cold Intolerance
 
@@ -5295,11 +5527,9 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depression" data-dismech-node="Depression" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depression
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -5314,6 +5544,8 @@
 
                     </div>
 
+
+                    <div class="item-desc">Frequency band deliberately omitted: the only cited source lists depression among the &#34;most common presenting symptoms&#34;, which conflicts with the previously curated OCCASIONAL (5-29%) band and provides no quantitative estimate. Per the frequency-evidence guidelines, no band is asserted.</div>
 
 
 
@@ -5365,7 +5597,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -5435,7 +5667,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-gain" data-dismech-node="Weight Gain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Gain
 
@@ -5535,7 +5767,7 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dr3" data-dismech-node="HLA-DR3" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DR3
 
@@ -5579,9 +5811,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dr4" data-dismech-node="HLA-DR4" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DR4
 
@@ -5625,9 +5858,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ctla4" data-dismech-node="CTLA4" data-dismech-type="genetic">
                 <div class="item-name">
                     CTLA4
 
@@ -5648,6 +5882,8 @@
 
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SUSCEPTIBILITY</span>
 
 
                 </div>
@@ -5688,9 +5924,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
                 <div class="item-name">
                     PTPN22
 
@@ -5711,6 +5948,8 @@
 
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: SUSCEPTIBILITY</span>
 
 
                 </div>
@@ -5751,9 +5990,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lag3" data-dismech-node="LAG3" data-dismech-type="genetic">
                 <div class="item-name">
                     LAG3
 
@@ -5814,9 +6054,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ccdc77" data-dismech-node="CCDC77" data-dismech-type="genetic">
                 <div class="item-name">
                     CCDC77
 
@@ -5882,9 +6123,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-slc45a3" data-dismech-node="SLC45A3" data-dismech-type="genetic">
                 <div class="item-name">
                     SLC45A3
 
@@ -5950,9 +6192,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5964,7 +6210,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-levothyroxine" data-dismech-node="Levothyroxine" data-dismech-type="treatment">
                 <div class="item-name">
                     Levothyroxine
                 </div>
@@ -6067,7 +6313,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-selenium-supplementation" data-dismech-node="Selenium Supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Selenium Supplementation
                 </div>
@@ -6192,7 +6438,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vitamin-d-supplementation" data-dismech-node="Vitamin D Supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Vitamin D Supplementation
                 </div>
@@ -6295,7 +6541,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-monitoring" data-dismech-node="Monitoring" data-dismech-type="treatment">
                 <div class="item-name">
                     Monitoring
                 </div>
@@ -6358,7 +6604,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-iodine-excess" data-dismech-node="Iodine Excess" data-dismech-type="environmental">
                 <div class="item-name">Iodine Excess</div>
 
 
@@ -6400,9 +6646,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Loss of Immune Tolerance to Thyroid Antigens</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The one exposure here with a named intermediate: excess iodine raises the iodination of thyroglobulin, and the more heavily iodinated protein is the more immunogenic one. That is why iodine supplementation programmes are followed by a rise in autoimmune thyroiditis.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28290237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28290237" target="_blank">PMID:28290237</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic exposure to excess iodine intake induces autoimmune thyroiditis, partly because highly iodinated thyroglobulin (Tg) is more immunogenic."</div>
+
+
+                <div class="evidence-explanation">States that chronic excess iodine intake induces autoimmune thyroiditis, partly because highly iodinated thyroglobulin is more immunogenic, naming the intervening step.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-selenium-deficiency" data-dismech-node="Selenium Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Selenium Deficiency</div>
 
 
@@ -6444,9 +6743,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Loss of Immune Tolerance to Thyroid Antigens</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Selenoproteins protect thyrocytes from the peroxide generated during hormone synthesis, so deficiency plausibly leaves the gland more exposed. The cited evidence reports seroconversion rates rather than demonstrating that route.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35789269" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35789269" target="_blank">PMID:35789269</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The data indicate an increased incidence of TPO-Ab seroconversion with low Se supply and support the hypothesis that Se deficiency contributes to HT as a modifiable risk factor."</div>
+
+
+                <div class="evidence-explanation">Reports increased incidence of thyroid peroxidase antibody seroconversion with low selenium supply, an association with the onset of autoimmunity.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-viral-infections" data-dismech-node="Viral Infections" data-dismech-type="environmental">
                 <div class="item-name">Viral Infections</div>
 
 
@@ -6488,9 +6840,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Loss of Immune Tolerance to Thyroid Antigens</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Molecular mimicry and bystander activation are the usual proposals, but the cited evidence is an association with chronic hepatitis C rather than a demonstration of either, and interferon treatment of that infection is itself thyrotoxic, which confounds the association.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32107168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32107168" target="_blank">PMID:32107168</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Many studies showed that HCV is associated with thyroid autoimmunity and hypothyroidism, in patients with chronic HCV hepatitis (CHC); a significant link has been shown also between HCV-related mixed cryoglobulinemia and risk for GD."</div>
+
+
+                <div class="evidence-explanation">Reports that hepatitis C virus is associated with thyroid autoimmunity and hypothyroidism in patients with chronic infection, an association rather than a mechanism.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-vitamin-d-deficiency" data-dismech-node="Vitamin D Deficiency" data-dismech-type="environmental">
                 <div class="item-name">Vitamin D Deficiency</div>
 
 
@@ -6533,6 +6938,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Loss of Immune Tolerance to Thyroid Antigens</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The weakest of the four and the most exposed to reverse causation: the cited finding is that levels are lower in people who already have the disease, which cross-sectional data cannot separate from chronic illness lowering vitamin D.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38542128" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38542128" target="_blank">PMID:38542128</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There is extensive literature confirming that vitamin D levels are significantly lower in HT patients compared to healthy people."</div>
+
+
+                <div class="evidence-explanation">Reports vitamin D levels significantly lower in patients with the disease than in healthy controls, a cross-sectional comparison that does not establish direction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -6547,7 +7005,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-tsh" data-dismech-node="TSH" data-dismech-type="biochemical">
                 <div class="item-name">
                     TSH
 
@@ -6627,7 +7085,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-free-t4" data-dismech-node="Free T4" data-dismech-type="biochemical">
                 <div class="item-name">
                     Free T4
 
@@ -6707,7 +7165,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-tpo-antibodies" data-dismech-node="Anti-TPO Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-TPO Antibodies
 
@@ -6787,7 +7245,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-thyroglobulin-antibodies" data-dismech-node="Anti-Thyroglobulin Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Thyroglobulin Antibodies
 
@@ -7066,12 +7524,15 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:38731922
     reference_title: &#34;Autoimmunity, New Potential Biomarkers and the Thyroid Gland-The Perspective of Hashimoto&#39;s Thyroiditis and Its Treatment.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Hashimoto&#39;s thyroiditis (HT) is generally characterized by the presence&#34;
+    snippet: &#34;Hashimoto&#39;s thyroiditis (HT) is generally characterized by the presence of thyroid peroxidase and thyroglobulin antibodies, with a concomitant infiltration of lymphocytes in the thyroid.&#34;
     explanation: &gt;
-      Canonical mechanism reference used as the seed for the
-      hypothesis-search deep-research run.
+      Canonical mechanism reference used as the seed for the hypothesis-search
+      deep-research run. It supports the autoantibody plus lymphocytic-infiltration
+      core of the model, but not the full CD4 Th1/Th17, CD8,
+      tertiary-lymphoid-structure, or genetic-susceptibility claims in the
+      hypothesis description.
 pathophysiology:
 - name: Loss of Immune Tolerance to Thyroid Antigens
   description: &gt;
@@ -7449,7 +7910,11 @@ phenotypes:
     explanation: Goiter develops due to lymphocytic infiltration and inflammatory enlargement of the thyroid gland.
 - name: Depression
   category: Psychiatric
-  frequency: OCCASIONAL
+  notes: &gt;-
+    Frequency band deliberately omitted: the only cited source lists depression
+    among the &#34;most common presenting symptoms&#34;, which conflicts with the
+    previously curated OCCASIONAL (5-29%) band and provides no quantitative
+    estimate. Per the frequency-evidence guidelines, no band is asserted.
   phenotype_term:
     preferred_term: Depression
     term:
@@ -7593,6 +8058,7 @@ genetic:
     explanation: HLA-DRB1*04 contributes to susceptibility in combination with CTLA4 risk genotype in HT cohorts.
 - name: CTLA4
   association: Risk Factor
+  relationship_type: SUSCEPTIBILITY
   gene_term:
     preferred_term: CTLA4
     term:
@@ -7607,6 +8073,7 @@ genetic:
     explanation: CTLA4 polymorphisms are associated with increased autoimmune thyroid disease risk.
 - name: PTPN22
   association: Risk Factor
+  relationship_type: SUSCEPTIBILITY
   gene_term:
     preferred_term: PTPN22
     term:
@@ -7665,6 +8132,25 @@ genetic:
     explanation: NOD mouse knockdown shows that SLC45A3 reduction ameliorates thyroid autoimmunity, confirming SLC45A3 as a risk factor via NF-κB-IL-6 axis.
 environmental:
 - name: Iodine Excess
+  influences_mechanisms:
+  - target: Loss of Immune Tolerance to Thyroid Antigens
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      The one exposure here with a named intermediate: excess iodine raises
+      the iodination of thyroglobulin, and the more heavily iodinated protein
+      is the more immunogenic one. That is why iodine supplementation
+      programmes are followed by a rise in autoimmune thyroiditis.
+    evidence:
+    - reference: PMID:28290237
+      reference_title: &#34;Multiple Nutritional Factors and the Risk of Hashimoto&#39;s Thyroiditis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Chronic exposure to excess iodine intake induces autoimmune thyroiditis, partly because highly iodinated thyroglobulin (Tg) is more immunogenic.&#34;
+      explanation: &gt;-
+        States that chronic excess iodine intake induces autoimmune
+        thyroiditis, partly because highly iodinated thyroglobulin is more
+        immunogenic, naming the intervening step.
   notes: Can trigger or worsen disease
   evidence:
   - reference: PMID:28290237
@@ -7674,6 +8160,25 @@ environmental:
     snippet: &#34;Chronic exposure to excess iodine intake induces autoimmune thyroiditis, partly because highly iodinated thyroglobulin (Tg) is more immunogenic.&#34;
     explanation: Excess iodine exposure is associated with autoimmune thyroiditis in HT-focused nutritional risk literature.
 - name: Selenium Deficiency
+  influences_mechanisms:
+  - target: Loss of Immune Tolerance to Thyroid Antigens
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Selenoproteins protect thyrocytes from the peroxide generated during
+      hormone synthesis, so deficiency plausibly leaves the gland more
+      exposed. The cited evidence reports seroconversion rates rather than
+      demonstrating that route.
+    evidence:
+    - reference: PMID:35789269
+      reference_title: &#34;Increased Incidence of Hashimoto Thyroiditis in Selenium Deficiency: A Prospective 6-Year Cohort Study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The data indicate an increased incidence of TPO-Ab seroconversion with low Se supply and support the hypothesis that Se deficiency contributes to HT as a modifiable risk factor.&#34;
+      explanation: &gt;-
+        Reports increased incidence of thyroid peroxidase antibody
+        seroconversion with low selenium supply, an association with the onset
+        of autoimmunity.
   notes: May increase risk
   evidence:
   - reference: PMID:35789269
@@ -7683,6 +8188,25 @@ environmental:
     snippet: &#34;The data indicate an increased incidence of TPO-Ab seroconversion with low Se supply and support the hypothesis that Se deficiency contributes to HT as a modifiable risk factor.&#34;
     explanation: Prospective cohort data support selenium deficiency as a modifiable risk factor for Hashimoto&#39;s thyroiditis.
 - name: Viral Infections
+  influences_mechanisms:
+  - target: Loss of Immune Tolerance to Thyroid Antigens
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Molecular mimicry and bystander activation are the usual proposals, but
+      the cited evidence is an association with chronic hepatitis C rather
+      than a demonstration of either, and interferon treatment of that
+      infection is itself thyrotoxic, which confounds the association.
+    evidence:
+    - reference: PMID:32107168
+      reference_title: &#34;Graves&#39; disease: Epidemiology, genetic and environmental risk factors and viruses.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Many studies showed that HCV is associated with thyroid autoimmunity and hypothyroidism, in patients with chronic HCV hepatitis (CHC); a significant link has been shown also between HCV-related mixed cryoglobulinemia and risk for GD.&#34;
+      explanation: &gt;-
+        Reports that hepatitis C virus is associated with thyroid autoimmunity
+        and hypothyroidism in patients with chronic infection, an association
+        rather than a mechanism.
   notes: Potential trigger
   evidence:
   - reference: PMID:32107168
@@ -7692,6 +8216,25 @@ environmental:
     snippet: &#34;Many studies showed that HCV is associated with thyroid autoimmunity and hypothyroidism, in patients with chronic HCV hepatitis (CHC); a significant link has been shown also between HCV-related mixed cryoglobulinemia and risk for GD.&#34;
     explanation: Viral infection (notably HCV) is associated with thyroid autoimmunity and hypothyroidism.
 - name: Vitamin D Deficiency
+  influences_mechanisms:
+  - target: Loss of Immune Tolerance to Thyroid Antigens
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      The weakest of the four and the most exposed to reverse causation: the
+      cited finding is that levels are lower in people who already have the
+      disease, which cross-sectional data cannot separate from chronic illness
+      lowering vitamin D.
+    evidence:
+    - reference: PMID:38542128
+      reference_title: &#34;Autoimmune Thyroiditis and Vitamin D.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;There is extensive literature confirming that vitamin D levels are significantly lower in HT patients compared to healthy people.&#34;
+      explanation: &gt;-
+        Reports vitamin D levels significantly lower in patients with the
+        disease than in healthy controls, a cross-sectional comparison that
+        does not establish direction.
   notes: &gt;
     Low vitamin D status is consistently associated with HT; vitamin D has an
     immunomodulatory role promoting immune tolerance, and its deficiency is a
@@ -9014,7 +9557,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hashimoto\u0027s Thyroiditis", "mondoId": "MONDO:0007699", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hashimoto\u0027s_Thyroiditis", "yamlRevision": "a274b82c33bd"};
+        const OS_CONFIG = {"diseaseName": "Hashimoto\u0027s Thyroiditis", "mondoId": "MONDO:0007699", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hashimoto\u0027s_Thyroiditis", "yamlRevision": "a65ef8cdcd01"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

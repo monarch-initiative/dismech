@@ -148,6 +148,24 @@ class Decision:
     code: str = ""
 
 
+def non_negative_int(value: str) -> int:
+    """Parse an age threshold, rejecting negatives.
+
+    A negative threshold would make every PR satisfy the age check — silently
+    turning "merge nothing younger than N days" into "merge regardless of
+    age". Since this value is settable from a workflow input, a stray `-3`
+    must fail loudly rather than widen what gets merged. ``int()`` raising on
+    non-numeric input is handled by argparse itself.
+    """
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError(
+            f"must be zero or positive, got {parsed}; a negative threshold "
+            f"would merge PRs of any age"
+        )
+    return parsed
+
+
 def _parse_ts(value: str) -> datetime:
     """Parse a GitHub ISO-8601 timestamp into an aware datetime.
 
@@ -440,9 +458,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", required=True, help="owner/name of the repository")
     parser.add_argument(
         "--min-age-days",
-        type=int,
+        type=non_negative_int,
         default=3,
-        help="only merge PRs created more than this many days ago (default: 3)",
+        help=(
+            "only merge PRs created more than this many days ago "
+            "(default: 3; 0 disables the age requirement)"
+        ),
     )
     parser.add_argument(
         "--base-branch",

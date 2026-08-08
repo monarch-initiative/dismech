@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Advanced%20Sleep%20Phase%20Syndrome"
@@ -3371,7 +3600,7 @@
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
                 Advanced sleep phase syndrome (ASPS), known in current sleep-medicine nomenclature as advanced sleep-wake phase disorder (ASWPD), is an intrinsic circadian rhythm sleep-wake disorder in which the endogenous circadian pacemaker is stably phase-advanced relative to the conventional light-dark and social cycle. Affected individuals fall asleep involuntarily in the early evening (typically 18:00-21:00) and wake spontaneously in the early morning (typically 02:00-05:00). The diagnostic key is that sleep itself is normal: when individuals are allowed to follow their own early schedule, sleep architecture, quality, and total duration are preserved. The complaint is therefore one of sleep timing, not sleep quality or quantity, and the clinical morbidity arises from the mismatch between biological and social time - evening sleepiness that truncates social and occupational activity, and early-morning awakening experienced as terminal insomnia when the person attempts to keep conventional hours.
-The familial form (familial advanced sleep phase syndrome, FASPS/FASP) is a landmark of human circadian genetics: it was the first well-characterized Mendelian circadian rhythm variant in humans and remains the clearest example of a single-gene lesion that changes a complex human behavior by changing the intrinsic period of the circadian clock. It segregates as an autosomal dominant trait with high penetrance and is caused by variants in components of the core transcription-translation feedback loop (TTFL) - PER2, CSNK1D, CRY2, PER3, and TIMELESS. A sporadic and age-related form also exists, in which advanced sleep timing emerges with aging and with neurodegenerative change in the suprachiasmatic nucleus.
+The familial form (familial advanced sleep phase syndrome, FASPS/FASP) is a landmark of human circadian genetics: it was the first well-characterized Mendelian circadian rhythm variant in humans and remains the clearest example of a single-gene lesion that changes a complex human behavior by changing the intrinsic period of the circadian clock. The original kindreds segregated as autosomal dominant traits, some with high penetrance; reported causal or candidate genes encode components of the core transcription-translation feedback loop (TTFL) or circadian entrainment - PER2, CSNK1D, CRY2, PER3, TIMELESS, and CACNA1D. A sporadic and age-related form also exists, in which advanced sleep timing emerges with aging and with neurodegenerative change in the suprachiasmatic nucleus.
 ASPS is substantially under-recognized relative to delayed sleep-wake phase disorder, in part because early rising is socially tolerated - even valorized - so affected individuals rarely present for care unless another sleep disorder brings them to attention.
             </p>
 
@@ -3468,6 +3697,8 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3492,7 +3723,7 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3521,7 +3752,7 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">27</div>
+                <div class="stat-value">29</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3530,10 +3761,11 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3578,7 +3810,7 @@ ASPS is substantially under-recognized relative to delayed sleep-wake phase diso
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4012,7 +4244,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
                 </div>
 
-                <div class="item-desc">Familial ASPS segregates as an autosomal dominant trait with high penetrance. Penetrance across genes and families beyond the original kindreds is not well quantified and may be modified by age and light environment.</div>
+                <div class="item-desc">Familial ASPS segregates as an autosomal dominant trait. High penetrance was reported in the original kindreds, but penetrance across genes and later families is not well quantified and may be modified by age and light environment.</div>
 
 
 
@@ -4035,7 +4267,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4056,6 +4288,28 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                 <div class="evidence-explanation">Directly establishes autosomal dominant inheritance with high penetrance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11448298" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11448298" target="_blank">PMID:11448298</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The ASPS trait segregates with an autosomal dominant mode of inheritance."</div>
+
+
+                <div class="evidence-explanation">Independently supports autosomal dominant segregation in a clinically phenotyped 32-member family without extending the claim to penetrance.</div>
 
 
 
@@ -4118,7 +4372,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
                     </div>
 
-                    <div class="item-desc">The inherited form, segregating as an autosomal dominant trait with high penetrance. Typically emerges before age 30 and is present in a first-degree relative. Caused by variants in core circadian clock genes (PER2, CSNK1D, CRY2, PER3, TIMELESS) that shorten the intrinsic circadian period or alter photic entrainment. This is the form to which the MONDO concept and its familial advanced sleep-phase syndrome synonyms most directly correspond, and it is the mechanistic centrepiece of this entry.</div>
+                    <div class="item-desc">The inherited form, segregating as an autosomal dominant trait; high penetrance is documented in the original PER2 kindred but is not quantified for every reported gene. Typically emerges before age 30 and is present in a first-degree relative. Caused by variants in circadian-regulatory genes (PER2, CSNK1D, CRY2, PER3, TIMELESS, CACNA1D) that shorten the intrinsic circadian period or alter photic entrainment. This is the form to which the MONDO concept and its familial advanced sleep-phase syndrome synonyms most directly correspond, and it is the mechanistic centrepiece of this entry.</div>
 
 
 
@@ -4311,7 +4565,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">The PER3 association rests on a single kindred carrying a two-variant haplotype, and the reported human phenotype bundles familial advanced sleep phase with elevated Beck Depression Inventory and seasonality scores rather than isolated phase advance. The functional data (destabilized PER3, failure to stabilize PER1/PER2) are real but do not by themselves establish that phase advance, rather than the mood/seasonality trait, is the PER3-attributable phenotype. This entry therefore types PER3 as DISPUTED rather than CAUSATIVE. No ClinGen gene-disease validity classification exists for any ASPS gene.</div>
+                <div class="item-desc" style="margin-top: 10px;">The original PER3 association used one kindred carrying a two-variant haplotype and bundled familial advanced sleep phase with elevated Beck Depression Inventory and seasonality scores. A 2024 Slovenian cohort found the same haplotype in one extreme-morning proband and the proband&#39;s father, providing limited replication but not broad segregation or objective DLMO confirmation. The functional data (destabilized PER3, failure to stabilize PER1/PER2) are real but do not by themselves establish which clinical trait is attributable to PER3. The entry therefore retains DISPUTED rather than CAUSATIVE status. No ClinGen gene-disease validity classification exists for any ASPS gene.</div>
 
 
                 <div class="experiment-section">
@@ -4322,7 +4576,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
     <div class="experiment-card">
         <div class="experiment-header">
             <div>
-                <div class="experiment-title">Independent kindred replication for PER3</div>
+                <div class="experiment-title">Larger independent segregation series for PER3</div>
 
             </div>
 
@@ -4330,7 +4584,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
         </div>
 
-        <div class="item-desc" style="margin-top: 8px;">Identify additional unrelated kindreds segregating PER3 variants with advanced sleep phase, ideally separating the two variants of the P415A/H417R haplotype to determine which (if either) drives the circadian phenotype.</div>
+        <div class="item-desc" style="margin-top: 8px;">Identify additional unrelated kindreds with objective circadian-phase phenotyping and segregation of PER3 variants, ideally separating the two variants of the P415A/H417R haplotype to determine which (if either) drives the circadian phenotype.</div>
 
 
 
@@ -4396,7 +4650,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4417,6 +4671,28 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
 
 
                 <div class="evidence-explanation">Documents the confounded phenotype - advanced sleep phase reported together with a mood/seasonality trait - that motivates this gap.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38695651" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38695651" target="_blank">PMID:38695651</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The variants were significantly linked to Advanced sleep phase disorder and were also found in proband&#39;s father with extreme morningness."</div>
+
+
+                <div class="evidence-explanation">Shows that the 2024 replication is limited to a proband-parent pair and questionnaire-defined extreme morningness, so the validity gap narrows but remains open.</div>
 
 
 
@@ -4571,7 +4847,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">The cached TIMELESS abstract establishes that a human TIMELESS mutation causes FASP and characterizes its molecular consequences, but names no specific variant, so this entry deliberately declines to assert one rather than importing an unverifiable variant name from the deep-research report. More broadly, penetrance is quantified for none of the five ASPS genes beyond the original PER2 kindreds being described as highly penetrant, and penetrance may be age- and light-environment-dependent. This limits both variant interpretation and genetic counselling.</div>
+                <div class="item-desc" style="margin-top: 10px;">The cached TIMELESS abstract establishes that a human TIMELESS mutation causes FASP and characterizes its molecular consequences, but names no specific variant, so this entry deliberately declines to assert one rather than importing an unverifiable variant name from the deep-research report. More broadly, penetrance is quantified for none of the six ASPS genes beyond the original PER2 kindreds being described as highly penetrant, and penetrance may be age- and light-environment-dependent. This limits both variant interpretation and genetic counselling.</div>
 
 
                 <div class="experiment-section">
@@ -4698,7 +4974,7 @@ PROVENANCE: every numeric threshold in this criteria set is now sourced to a ver
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">13</span>
+                <span class="card-count">14</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-related-suprachiasmatic-nucleus-decline" data-dismech-node="Age-Related Suprachiasmatic Nucleus Decline" data-dismech-type="pathophysiology">
@@ -5054,10 +5330,10 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autosomal-dominant-core-clock-gene-variant" data-dismech-node="Autosomal Dominant Core Clock Gene Variant" data-dismech-type="pathophysiology">
-                <div class="item-name">Autosomal Dominant Core Clock Gene Variant</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-autosomal-dominant-circadian-regulatory-gene-variant" data-dismech-node="Autosomal Dominant Circadian-Regulatory Gene Variant" data-dismech-type="pathophysiology">
+                <div class="item-name">Autosomal Dominant Circadian-Regulatory Gene Variant</div>
 
-                <div class="item-desc">A germline, autosomal dominant variant in a component of the core circadian transcription-translation feedback loop (TTFL) or its regulatory kinase. In the canonical loop, CLOCK-BMAL1 activates transcription of PER and CRY; PER/CRY protein complexes accumulate, are phosphorylated, enter the nucleus, and repress CLOCK-BMAL1. The rate constants of this loop - phosphorylation, degradation, and nuclear entry - set the intrinsic period (tau). FASPS variants perturb exactly these rate constants. Reported genes are PER2, CSNK1D, CRY2, PER3, and TIMELESS.</div>
+                <div class="item-desc">A germline, autosomal dominant variant in a component of the core circadian transcription-translation feedback loop (TTFL), its regulatory kinase, or a channel that shapes light entrainment. In the canonical loop, CLOCK-BMAL1 activates transcription of PER and CRY; PER/CRY protein complexes accumulate, are phosphorylated, enter the nucleus, and repress CLOCK-BMAL1. The rate constants of this loop - phosphorylation, degradation, and nuclear entry - set the intrinsic period (tau). Most FASPS variants perturb these rate constants; CACNA1D variants instead alter Cav1.3 channel dynamics and photic entrainment. Reported genes are PER2, CSNK1D, CRY2, PER3, TIMELESS, and CACNA1D.</div>
 
 
 
@@ -5254,6 +5530,38 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 
 
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CACNA1D
+
+
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1391">hgnc:1391</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 </div>
 
 
@@ -5342,7 +5650,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">PER2 CK1-Site Hypophosphorylation</span>
+	                            <span class="crosslink-meta">PER2 S662-Site Hypophosphorylation</span>
 
 	                            <span class="crosslink-desc">PER2 S662G removes the CK1delta/epsilon phosphoacceptor serine.</span>
 
@@ -5381,6 +5689,14 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">CACNA1D Channel-Dynamics Alteration</span>
+
+	                            <span class="crosslink-desc">FASP-associated CACNA1D variants alter Cav1.3 channel dynamics.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -5388,7 +5704,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5408,7 +5724,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
                 <div class="evidence-snippet">"Autosomal dominant mutations in circadian clock genes like PER2, CK1, PER3, CRY2, TIMELESS, and DEC2 have been linked to FASP, some with pleiotropic effects influencing other health aspects like migraine and depression."</div>
 
 
-                <div class="evidence-explanation">Review enumerates the autosomal dominant core clock genes implicated in familial advanced sleep phase.</div>
+                <div class="evidence-explanation">Review enumerates the historical circadian-gene candidates for familial advanced sleep phase. DEC2 is not modeled here because its established human phenotype is natural short sleep rather than normal-duration sleep at an advanced phase.</div>
 
 
 
@@ -5436,6 +5752,28 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:40460120" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40460120" target="_blank">PMID:40460120</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have identified five variants in five different families in the human voltage-gated calcium channel subunit alpha1 D (CACNA1D) that cosegregate with FASP."</div>
+
+
+                <div class="evidence-explanation">Extends the autosomal-dominant genetic trigger beyond canonical TTFL proteins to CACNA1D, with cosegregation in five independent families.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5443,10 +5781,10 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-per2-ck1-site-hypophosphorylation" data-dismech-node="PER2 CK1-Site Hypophosphorylation" data-dismech-type="pathophysiology">
-                <div class="item-name">PER2 CK1-Site Hypophosphorylation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-per2-s662-site-hypophosphorylation" data-dismech-node="PER2 S662-Site Hypophosphorylation" data-dismech-type="pathophysiology">
+                <div class="item-name">PER2 S662-Site Hypophosphorylation</div>
 
-                <div class="item-desc">The original FASPS lesion, PER2 p.Ser662Gly (S662G), substitutes glycine for a serine that lies within the casein kinase I epsilon/delta binding region of hPER2 and is itself a CK1 phosphoacceptor. Loss of this phosphoacceptor causes PER2 to be hypophosphorylated by CK1 in vitro. Because CK1-dependent phosphorylation of PER2 governs both PER2 transcriptional feedback and PER2 protein turnover, the substitution retunes the feedback loop and alters the circadian period. This is the substrate side of the PER2/CK1delta lesion pair.</div>
+                <div class="item-desc">The original FASPS lesion, PER2 p.Ser662Gly (S662G), substitutes glycine for a serine within the casein kinase I epsilon/delta binding region of hPER2. The substitution causes hypophosphorylation by CK1epsilon in vitro. Newer evidence separates in-vitro kinase capacity from physiological control: MARK2 binds PER2, phosphorylates S662, and stabilizes PER2, while deletion of CK1delta/epsilon or five other candidate kinases did not reproduce phase advancement. Loss of S662-site phosphorylation retunes PER2 stability and the feedback loop, altering circadian period.</div>
 
 
 
@@ -5465,6 +5803,38 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 
     <a href="https://bioregistry.io/hgnc:8846" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8846">hgnc:8846</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        MARK2
+
+
+    <a href="https://bioregistry.io/hgnc:3332" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3332">hgnc:3332</a>
 
 
 
@@ -5576,7 +5946,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -5647,6 +6017,8 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             </div>
 
 
+            <div class="evidence-more">+ 3 more references</div>
+
         </div>
     </details>
 
@@ -5656,7 +6028,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ck1delta-reduced-kinase-activity" data-dismech-node="CK1delta Reduced Kinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">CK1delta Reduced Kinase Activity</div>
 
-                <div class="item-desc">CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate: casein kinase I delta acts on the same PER2 phosphorylation axis that is disrupted by PER2 S662G. (The published evidence for the linkage is dosage epistasis - altering CKIdelta dosage modulates the S662 phenotype - rather than a direct demonstration that CK1delta phosphorylates residue 662 itself.) The T44A mutant kinase has decreased enzymatic activity in vitro. This is the enzyme side of the same molecular lesion, and it phenocopies PER2 S662G - a strikingly clean piece of mechanistic evidence, because the substrate lesion and the kinase lesion converge on a single biochemical event (CK1-dependent PER2 phosphorylation) and produce the same human phenotype. Transgenic mice bearing CKIdelta-T44A have a shortened circadian period mimicking human FASPS, and CKIdelta gene dosage modulates the PER2 S662G phenotype in vivo, formally demonstrating that the two lesions act on the same axis.</div>
+                <div class="item-desc">CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate: the mutant kinase has decreased enzymatic activity in vitro and causes FASPS in humans. Transgenic mice bearing CK1delta-T44A have a shortened circadian period, and CK1delta dosage modulates the PER2 S662G phenotype in vivo, showing genetic interaction with PER2. This does not establish that CK1delta is the physiologically decisive kinase at S662; 2026 knockout and biochemical evidence instead identifies MARK2 in that role. The CSNK1D lesion therefore remains a distinct clock-kinase route into altered TTFL feedback rather than the enzyme side of a single S662 biochemical lesion.</div>
 
 
 
@@ -5747,9 +6119,9 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">PER2 CK1-Site Hypophosphorylation</span>
+	                            <span class="crosslink-meta">Altered PER/CRY Negative Feedback on CLOCK-BMAL1</span>
 
-	                            <span class="crosslink-desc">Reduced CK1delta enzymatic activity produces the same end state as loss of the PER2 phosphoacceptor serine - hypophosphorylated PER2. This is the kinase-side-to-substrate-side convergence that makes the PER2/CSNK1D pair unusually strong mechanistic evidence.</span>
+	                            <span class="crosslink-desc">Reduced CK1delta activity changes PER-family phosphorylation and clock feedback kinetics; genetic dosage interaction places PER2 on this route without asserting direct physiological phosphorylation of S662.</span>
 
 
 	                        </div>
@@ -6256,6 +6628,169 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cacna1d-channel-dynamics-alteration" data-dismech-node="CACNA1D Channel-Dynamics Alteration" data-dismech-type="pathophysiology">
+                <div class="item-name">CACNA1D Channel-Dynamics Alteration</div>
+
+                <div class="item-desc">Five CACNA1D variants identified across five independent FASP families alter the dynamics of the Cav1.3 L-type voltage-gated calcium channel in vitro. Unlike TTFL variants that primarily shorten free-running period, the mouse model of the CACNA1D p.Glu427Lys (E427K) variant leaves period normal in constant darkness but changes phase shifts to light during subjective night. CACNA1D therefore defines a calcium-channel route to FASP through altered photic entrainment.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CACNA1D
+
+
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1391">hgnc:1391</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        voltage-gated calcium channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005245" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005245">GO:0005245</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Altered Photic Entrainment of the Circadian Pacemaker</span>
+
+	                            <span class="crosslink-desc">Altered Cav1.3 channel dynamics change light-induced phase resetting without requiring a shortened free-running period.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40460120" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40460120" target="_blank">PMID:40460120</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have identified five variants in five different families in the human voltage-gated calcium channel subunit alpha1 D (CACNA1D) that cosegregate with FASP."</div>
+
+
+                <div class="evidence-explanation">Human segregation evidence establishes the variant-to-FASP association across five independent families.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40460120" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40460120" target="_blank">PMID:40460120</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The variants in CACNA1D lead to altered channel dynamics in vitro."</div>
+
+
+                <div class="evidence-explanation">Direct functional evidence supports the molecular channel-dynamics claim.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-per3-destabilization" data-dismech-node="PER3 Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">PER3 Destabilization</div>
 
@@ -6422,7 +6957,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-per-cry-negative-feedback-on-clock-bmal1" data-dismech-node="Altered PER/CRY Negative Feedback on CLOCK-BMAL1" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered PER/CRY Negative Feedback on CLOCK-BMAL1</div>
 
-                <div class="item-desc">All of the established FASPS lesions converge here. The TTFL keeps time because PER/CRY repressor complexes accumulate, are post-translationally delayed, enter the nucleus, repress CLOCK-BMAL1, and are then degraded, permitting the next cycle. Reducing the delay - by hypophosphorylating PER2 (PER2 S662G, CSNK1D T44A), by accelerating CRY2 degradation (CRY2 A260T), or by destabilizing the PER/CRY complex (TIMELESS, PER3) - makes each iteration of the loop complete faster. This is the shared molecular convergence point of the disorder.</div>
+                <div class="item-desc">The protein-stability and phosphorylation routes to FASPS converge here. The TTFL keeps time because PER/CRY repressor complexes accumulate, are post-translationally delayed, enter the nucleus, repress CLOCK-BMAL1, and are then degraded, permitting the next cycle. Reducing the delay - through PER2 S662-site hypophosphorylation, reduced CSNK1D activity, accelerated CRY2 degradation, or PER3 destabilization - can make each iteration of the loop complete faster. CACNA1D bypasses this node and acts through altered entrainment; TIMELESS also has a distinct entrainment phenotype.</div>
 
 
 
@@ -6548,7 +7083,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-photic-entrainment-of-the-circadian-pacemaker" data-dismech-node="Altered Photic Entrainment of the Circadian Pacemaker" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Photic Entrainment of the Circadian Pacemaker</div>
 
-                <div class="item-desc">Light reaching intrinsically photosensitive retinal ganglion cells is conveyed by the retinohypothalamic tract to the suprachiasmatic nucleus and is the dominant zeitgeber that entrains the clock to the 24-hour day. The direction of the resulting shift depends on when in the circadian cycle the light falls (the phase-response curve): light in the late night/early morning advances the clock, light in the evening delays it. A clock lesion can therefore advance phase either by shortening period or by biasing this entrainment response, and the TIMELESS variant acts predominantly through the latter. This node is also the substrate on which treatment acts, and the reason mistimed light worsens the disorder.</div>
+                <div class="item-desc">Light reaching intrinsically photosensitive retinal ganglion cells is conveyed by the retinohypothalamic tract to the suprachiasmatic nucleus and is the dominant zeitgeber that entrains the clock to the 24-hour day. The direction of the resulting shift depends on when in the circadian cycle the light falls (the phase-response curve): light in the late night/early morning advances the clock, light in the evening delays it. A clock lesion can therefore advance phase either by shortening period or by biasing this entrainment response; TIMELESS and CACNA1D variants act predominantly through the latter. This node is also the substrate on which treatment acts, and the reason mistimed light worsens the disorder.</div>
 
 
 
@@ -6752,7 +7287,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-intrinsic-circadian-period" data-dismech-node="Shortened Intrinsic Circadian Period" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Intrinsic Circadian Period</div>
 
-                <div class="item-desc">The hallmark physiological abnormality of Mendelian FASPS - a free-running circadian period (tau) measurably shorter than the normal ~24.2 hours. A clock that runs fast must be reset backwards each day by the zeitgeber; the steady-state consequence of entraining a short-period oscillator to a 24-hour day is that it settles at an abnormally early phase angle. This is the direct mechanistic explanation for why a period abnormality produces a phase abnormality, and it is the reason FASPS individuals are phase-advanced rather than simply free-running.</div>
+                <div class="item-desc">A major physiological route in Mendelian FASPS - a free-running circadian period (tau) measurably shorter than the normal ~24.2 hours. A clock that runs fast must be reset backwards each day by the zeitgeber; the steady-state consequence of entraining a short-period oscillator to a 24-hour day is that it settles at an abnormally early phase angle. This is the direct mechanistic explanation for why a period abnormality produces a phase abnormality, and it is the reason FASPS individuals are phase-advanced rather than simply free-running. It is not universal: TIMELESS and CACNA1D model organisms show altered photic entrainment with a normal organismal period and reach the advanced phase by the parallel entrainment route.</div>
 
 
 
@@ -7082,7 +7617,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -7103,6 +7638,28 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
 
                 <div class="evidence-explanation">Quantifies the coordinated multi-marker phase advance that defines this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11448298" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11448298" target="_blank">PMID:11448298</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, the phase of the circadian rhythm of melatonin onset for the affected family members was on average 3-1/2 hours earlier than for the unaffected members."</div>
+
+
+                <div class="evidence-explanation">Directly quantifies the familial melatonin-phase advance against unaffected relatives in a 32-member phenotyping study.</div>
 
 
 
@@ -7232,7 +7789,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The integrated organism-level output - the entire circadian ensemble, pineal melatonin secretion, core body temperature nadir, and the circadian drive for sleep, is displaced several hours earlier than normal. In the original FASPS kindreds this amounted to roughly a 4-hour advance of the sleep, temperature, and melatonin rhythms. Crucially, the oscillation itself is intact and of normal amplitude; only its phase is shifted. This is why sleep architecture and duration remain normal, and why the disorder is one of timing rather than of sleep quality.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Circadian sleep/wake cycle\", \"Circadian behavior\"], \"role\": \"effector\", \"locations\": [\"Pineal body\"]}}, {\"id\": \"Advanced Melatonin Secretion Phase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The objective biomarker of the disorder - the nocturnal rise in pineal melatonin secretion, and hence dim light melatonin onset (DLMO), occurs several hours earlier than normal. In the original FASPS kindreds the melatonin rhythm was advanced by approximately 4 hours in parallel with the sleep and temperature rhythms. The abnormality is one of timing, not of melatonin amount.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012689\"}}, {\"id\": \"Age-Related Suprachiasmatic Nucleus Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger of the SPORADIC / AGE-RELATED arm, mechanistically distinct from the Mendelian arm. With advancing age - and compounded by neurodegenerative disease - the suprachiasmatic nucleus itself is affected, reducing the robustness and amplitude of central pacemaker output. This is a degenerative/structural route to an unstable, easily-advanced clock rather than a change in the kinetics of the molecular oscillator, and it explains why advanced sleep timing becomes progressively more common with age. It is the arm that accounts for the substantially higher population-level prevalence figures (approximately 1% of middle-aged adults, and early morning awakening in about 4% of older individuals) relative to the rare Mendelian kindreds.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Suprachiasmatic nucleus pacemaker neuron\"], \"biological_processes\": [\"Regulation of circadian rhythm\"], \"subtypes\": [\"Sporadic/Age-Related ASPS\"], \"role\": \"trigger\", \"locations\": [\"Suprachiasmatic nucleus\"]}}, {\"id\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"All of the established FASPS lesions converge here. The TTFL keeps time because PER/CRY repressor complexes accumulate, are post-translationally delayed, enter the nucleus, repress CLOCK-BMAL1, and are then degraded, permitting the next cycle. Reducing the delay - by hypophosphorylating PER2 (PER2 S662G, CSNK1D T44A), by accelerating CRY2 degradation (CRY2 A260T), or by destabilizing the PER/CRY complex (TIMELESS, PER3) - makes each iteration of the loop complete faster. This is the shared molecular convergence point of the disorder.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Circadian regulation of gene expression\", \"PER/CRY transcriptional repression of CLOCK-BMAL1\"], \"role\": \"central_effector\"}}, {\"id\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Light reaching intrinsically photosensitive retinal ganglion cells is conveyed by the retinohypothalamic tract to the suprachiasmatic nucleus and is the dominant zeitgeber that entrains the clock to the 24-hour day. The direction of the resulting shift depends on when in the circadian cycle the light falls (the phase-response curve): light in the late night/early morning advances the clock, light in the evening delays it. A clock lesion can therefore advance phase either by shortening period or by biasing this entrainment response, and the TIMELESS variant acts predominantly through the latter. This node is also the substrate on which treatment acts, and the reason mistimed light worsens the disorder.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Intrinsically photosensitive retinal ganglion cell\"], \"biological_processes\": [\"Entrainment of circadian clock by photoperiod\"], \"role\": \"mediator\", \"locations\": [\"Retina\", \"Suprachiasmatic nucleus\"]}}, {\"id\": \"Autosomal Dominant Core Clock Gene Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline, autosomal dominant variant in a component of the core circadian transcription-translation feedback loop (TTFL) or its regulatory kinase. In the canonical loop, CLOCK-BMAL1 activates transcription of PER and CRY; PER/CRY protein complexes accumulate, are phosphorylated, enter the nucleus, and repress CLOCK-BMAL1. The rate constants of this loop - phosphorylation, degradation, and nuclear entry - set the intrinsic period (tau). FASPS variants perturb exactly these rate constants. Reported genes are PER2, CSNK1D, CRY2, PER3, and TIMELESS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Suprachiasmatic nucleus pacemaker neuron\"], \"biological_processes\": [\"Circadian rhythm\", \"Circadian regulation of gene expression\"], \"genes\": [\"PER2\", \"CSNK1D\", \"CRY2\", \"PER3\", \"TIMELESS\"], \"gene_terms\": [{\"label\": \"PER2\", \"id\": \"hgnc:8846\"}, {\"label\": \"CSNK1D\", \"id\": \"hgnc:2452\"}, {\"label\": \"CRY2\", \"id\": \"hgnc:2385\"}, {\"label\": \"PER3\", \"id\": \"hgnc:8847\"}, {\"label\": \"TIMELESS\", \"id\": \"hgnc:11813\"}], \"subtypes\": [\"FASPS\"], \"role\": \"trigger\", \"locations\": [\"Suprachiasmatic nucleus\"]}}, {\"id\": \"CK1delta Reduced Kinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate: casein kinase I delta acts on the same PER2 phosphorylation axis that is disrupted by PER2 S662G. (The published evidence for the linkage is dosage epistasis - altering CKIdelta dosage modulates the S662 phenotype - rather than a direct demonstration that CK1delta phosphorylates residue 662 itself.) The T44A mutant kinase has decreased enzymatic activity in vitro. This is the enzyme side of the same molecular lesion, and it phenocopies PER2 S662G - a strikingly clean piece of mechanistic evidence, because the substrate lesion and the kinase lesion converge on a single biochemical event (CK1-dependent PER2 phosphorylation) and produce the same human phenotype. Transgenic mice bearing CKIdelta-T44A have a shortened circadian period mimicking human FASPS, and CKIdelta gene dosage modulates the PER2 S662G phenotype in vivo, formally demonstrating that the two lesions act on the same axis.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein phosphorylation\"], \"genes\": [\"CSNK1D\"], \"gene_terms\": [{\"label\": \"CSNK1D\", \"id\": \"hgnc:2452\"}], \"role\": \"central_effector\"}}, {\"id\": \"CRY2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CRY2\"], \"gene_terms\": [{\"label\": \"CRY2\", \"id\": \"hgnc:2385\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CRY2 Destabilization by FBXL3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRY2 p.Ala260Thr (A260T) lies in the phosphate loop of the FAD-binding domain of CRY2. The substitution changes CRY2 conformation so as to increase its accessibility and affinity for FBXL3, an E3 ubiquitin ligase, thereby promoting CRY2 ubiquitination and degradation. Accelerated turnover of this negative-limb repressor shortens the circadian period.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein ubiquitination\", \"Protein destabilization\"], \"genes\": [\"CRY2\"], \"gene_terms\": [{\"label\": \"CRY2\", \"id\": \"hgnc:2385\"}], \"role\": \"central_effector\"}}, {\"id\": \"CSNK1D\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSNK1D\"], \"gene_terms\": [{\"label\": \"CSNK1D\", \"id\": \"hgnc:2452\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Circadian Misalignment with Conventional Social Schedule\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically disabling step. An advanced clock is not intrinsically harmful; morbidity arises when biological night conflicts with the socially required schedule. Attempting to stay awake for evening obligations produces overwhelming evening sleepiness; attempting to remain asleep to a conventional wake time produces early-morning awakening experienced as terminal insomnia; and resisting the advanced schedule at both ends causes chronic sleep restriction. Distress or functional impairment arising from this misalignment - not the early timing per se - is what converts an advanced chronotype into advanced sleep-wake phase disorder.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Early Chronotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A stable, lifelong tendency to rise very early and to go to bed early - the morning lark extreme of the chronotype distribution. In FASPS this is profound rather than a mild preference, and is present in multiple generations of a kindred.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031873\"}}, {\"id\": \"Early Evening Sleep Onset\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary sleep onset in the early evening, typically between 18:00 and 21:00, several hours earlier than the socially conventional bedtime. Sleep onset latency is short and sleep initiation is not impaired - this is not sleep-onset insomnia but a clock set early.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031873\"}}, {\"id\": \"Early Morning Awakening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous final awakening in the early morning hours, typically between 02:00 and 05:00, with inability to return to sleep. When the individual is attempting to keep a conventional schedule this is experienced and often misreported as terminal (late) insomnia, which is a major reason ASPS is misdiagnosed as an insomnia disorder or as depression.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031356\"}}, {\"id\": \"Evening Sleepiness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overwhelming sleepiness in the late afternoon and evening, worsening when the individual attempts to remain awake for social, family, or occupational obligations. Unlike the excessive daytime somnolence of a primary hypersomnia, it is confined to the biological evening and resolves if sleep is permitted at the advanced time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002329\"}}, {\"id\": \"PER2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PER2\"], \"gene_terms\": [{\"label\": \"PER2\", \"id\": \"hgnc:8846\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PER2 CK1-Site Hypophosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The original FASPS lesion, PER2 p.Ser662Gly (S662G), substitutes glycine for a serine that lies within the casein kinase I epsilon/delta binding region of hPER2 and is itself a CK1 phosphoacceptor. Loss of this phosphoacceptor causes PER2 to be hypophosphorylated by CK1 in vitro. Because CK1-dependent phosphorylation of PER2 governs both PER2 transcriptional feedback and PER2 protein turnover, the substitution retunes the feedback loop and alters the circadian period. This is the substrate side of the PER2/CK1delta lesion pair.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein phosphorylation\", \"Regulation of circadian rhythm\"], \"genes\": [\"PER2\"], \"gene_terms\": [{\"label\": \"PER2\", \"id\": \"hgnc:8846\"}], \"role\": \"central_effector\"}}, {\"id\": \"PER3 Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two rare PER3 variants (p.Pro415Ala and p.His417Arg, PER3-P415A/H417R) were identified in individuals with familial advanced sleep phase who also had higher Beck Depression Inventory and seasonality scores. The variants destabilize PER3 and fail to stabilize PER1/PER2 proteins. The evidence base here is weaker than for PER2 or CSNK1D - a single kindred with a two-variant haplotype, and the human phenotype is co-reported with a mood trait rather than isolated phase advance - so this node is curated as a contributory rather than an established mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein destabilization\"], \"genes\": [\"PER3\"], \"gene_terms\": [{\"label\": \"PER3\", \"id\": \"hgnc:8847\"}], \"role\": \"modifier\"}}, {\"id\": \"Preserved Sleep Quality and Duration on a Self-Selected Schedule\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The single most useful discriminating feature. When affected individuals are permitted to sleep at their own early hours, sleep is consolidated and of normal architecture, quality, and total duration. This distinguishes ASPS from insomnia disorder (where sleep is poor regardless of timing), from depression with early-morning waking (where sleep is typically nonrestorative), and from familial natural short sleep (where duration itself is reduced). Sleep loss in ASPS is secondary to schedule conflict, not intrinsic.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Reduced Photic Sensitivity and Light Responsiveness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mediating step of the sporadic/age-related arm. Ageing reduces both the sensitivity of the circadian system to light and its responsiveness to it - through the SCN and its input pathway - so the daily zeitgeber signal that normally holds the clock at the correct phase is weakened. A weakened entraining signal is less able to oppose a drift toward earlier timing, and it also blunts the response to the evening light used therapeutically, which is part of why light therapy is harder to deliver effectively in exactly the older population in which this arm predominates.\\nA behavioral positive-feedback loop compounds this: early awakening leads to premature morning light exposure, which falls on the phase-advance limb of the phase-response curve and advances the clock further.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Intrinsically photosensitive retinal ganglion cell\"], \"biological_processes\": [\"Entrainment of circadian clock by photoperiod\"], \"subtypes\": [\"Sporadic/Age-Related ASPS\"], \"role\": \"mediator\", \"locations\": [\"Retina\"]}}, {\"id\": \"Schedule Accommodation and Sleep Scheduling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where occupational and social circumstances permit, the simplest and often the most effective management is to accommodate the early schedule rather than fight it, since sleep is normal when taken at the biologically preferred time. Where a delay is required, a prescribed and consistently maintained later sleep-wake schedule may be attempted, typically alongside evening light. The AASM guideline made no recommendation on prescribed sleep scheduling or timed exercise for ASWPD because the evidence was insufficient.\\nHealth education and behavioral guidance for ASWPD explicitly includes AVOIDANCE OF BRIGHT LIGHT IN THE MORNING - the direction-critical negative instruction, since morning light sits on the phase-advance limb of the PRC and would worsen the disorder - alongside a midday nap, postponing bedtime, physical activity, and walking outdoors in the evening under bright light. Chronotherapy for ASWPD delays sleep onset progressively (by 3 hours every 2 days) until the desired later bedtime is reached; a single case maintained a 23:00 bedtime at 5-month follow-up.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Shortened Intrinsic Circadian Period\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hallmark physiological abnormality of Mendelian FASPS - a free-running circadian period (tau) measurably shorter than the normal ~24.2 hours. A clock that runs fast must be reset backwards each day by the zeitgeber; the steady-state consequence of entraining a short-period oscillator to a 24-hour day is that it settles at an abnormally early phase angle. This is the direct mechanistic explanation for why a period abnormality produces a phase abnormality, and it is the reason FASPS individuals are phase-advanced rather than simply free-running.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Circadian rhythm\", \"Regulation of circadian rhythm\"], \"role\": \"central_effector\", \"locations\": [\"Suprachiasmatic nucleus\"]}}, {\"id\": \"Sleep Restriction and Functional Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"When the individual resists the advanced schedule at both ends - staying up for evening obligations while still waking spontaneously in the early morning - the result is chronic curtailment of sleep, with consequent daytime dysfunction and social, occupational, and educational impairment. This, rather than the phase advance itself, is the source of clinical morbidity and the basis for diagnosing a disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Strategically Timed Melatonin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Exogenous melatonin shifts circadian phase according to a phase-response curve that is approximately the inverse of the light PRC - melatonin taken in the morning delays the clock, whereas melatonin taken in the evening advances it. For ASPS the theoretically correct direction is therefore MORNING melatonin to produce a phase delay, the exact opposite of the evening dosing used in delayed sleep-wake phase disorder. Evening melatonin would advance the clock further and is expected to worsen ASPS.\\nThis treatment is included because review-level literature reports timed melatonin as useful across circadian rhythm sleep disorders including advanced sleep phase, but it must be flagged that the AASM 2015 guideline did NOT endorse melatonin for ASWPD - its melatonin endorsement was restricted to DSWPD, blind adults with N24SWD, and children/adolescents with ISWRD. Morning dosing also risks residual daytime sleepiness. Melatonin for ASPS should therefore be regarded as mechanistically rational but not guideline-supported.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"melatonin\"]}}, {\"id\": \"TIMELESS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TIMELESS\"], \"gene_terms\": [{\"label\": \"TIMELESS\", \"id\": \"hgnc:11813\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"TIMELESS Nuclear Exclusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mutation in human TIMELESS (hTIM) prevents TIM from accumulating in the nucleus and alters its affinity for CRY2, destabilizing the PER/CRY complex and weakening repression of CLOCK-BMAL1. Notably, this variant produces advanced sleep phase primarily by altering photic entrainment rather than by shortening the organismal period: CRISPR mutant mice show advanced sleep phase with altered photic entrainment but a normal circadian period, even though period shortening is seen in mutant fibroblasts. What distinguishes TIMELESS from the other FASPS lesions is specifically the NORMAL organismal period - entrainment involvement as such is not unique to it, since the CRY2 A260T variant also shows a reduced phase-shift to early-night light while additionally shortening period.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein import into nucleus\", \"Entrainment of circadian clock by photoperiod\"], \"genes\": [\"TIMELESS\"], \"gene_terms\": [{\"label\": \"TIMELESS\", \"id\": \"hgnc:11813\"}], \"role\": \"mediator\"}}, {\"id\": \"Timed Evening Bright Light Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal evidence-based treatment. Bright light delivered in the evening falls on the phase-delay portion of the human phase-response curve and pushes the advanced clock later. Phototherapy for ASWPD is usually given between 19:00 and 21:00, and the recommended dose to achieve a phase delay is at least 5,000 lux for 2 hours at night. The AASM 2015 guideline gives light therapy positive endorsement, at a second-tier degree of confidence, for adults with ASWPD, and the AASM guideline is summarized in the review literature as recommending night bright light therapy for ASWPD specifically.\\nTolerability is the main practical limitation: multiple studies report that elderly patients exposed to bright light at night could not tolerate it, resulting in poor compliance, and one comparison found better compliance (and symptom improvement) with dim rather than enhanced-intensity evening light. Side effects are otherwise minimal (eye fatigue, nausea, restlessness, headache) and usually self-limiting.\\nDIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright light falls on the phase-advance portion of the curve and would further advance an already-advanced clock, worsening the disorder. Correct timing therefore depends on knowing circadian phase (DLMO or core body temperature minimum), not merely clock time. Tolerance of prolonged evening light can be poor in older adults, the group in whom ASPS is most common.\", \"meta\": {\"evidence_count\": 6}}], \"edges\": [{\"source\": \"Age-Related Suprachiasmatic Nucleus Decline\", \"target\": \"Reduced Photic Sensitivity and Light Responsiveness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SCN decline is accompanied by reduced sensitivity and responsiveness to the entraining light signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Age-Related Suprachiasmatic Nucleus Decline\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pacemaker amplitude and robustness permit a drift to an earlier phase, independently of any change in intrinsic period.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced amplitude and robustness of SCN pacemaker output\"]}, {\"source\": \"Reduced Photic Sensitivity and Light Responsiveness\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakened photic input degrades entrainment, converging on the same node through which the Mendelian TIMELESS and CRY2 lesions act.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Core Clock Gene Variant\", \"target\": \"PER2 CK1-Site Hypophosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PER2 S662G removes the CK1delta/epsilon phosphoacceptor serine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Core Clock Gene Variant\", \"target\": \"CK1delta Reduced Kinase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CSNK1D T44A reduces the enzymatic activity of the kinase itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Core Clock Gene Variant\", \"target\": \"CRY2 Destabilization by FBXL3\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CRY2 A260T increases FBXL3 affinity and CRY2 turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Core Clock Gene Variant\", \"target\": \"TIMELESS Nuclear Exclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A TIMELESS mutation prevents nuclear accumulation of TIM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Core Clock Gene Variant\", \"target\": \"PER3 Destabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PER3 P415A/H417R destabilizes PER3 protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PER2 CK1-Site Hypophosphorylation\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypophosphorylated PER2 alters the timing and strength of PER/CRY repression of CLOCK-BMAL1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CK1delta Reduced Kinase Activity\", \"target\": \"PER2 CK1-Site Hypophosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CK1delta enzymatic activity produces the same end state as loss of the PER2 phosphoacceptor serine - hypophosphorylated PER2. This is the kinase-side-to-substrate-side convergence that makes the PER2/CSNK1D pair unusually strong mechanistic evidence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CRY2 Destabilization by FBXL3\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated CRY2 degradation weakens and shortens repression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CRY2 Destabilization by FBXL3\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CRY2 variant additionally reduces the phase-shifting response to an early-night light pulse, so it acts on the entrainment arm as well as on period - the two routes are not mutually exclusive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TIMELESS Nuclear Exclusion\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic TIM destabilizes the PER/CRY repressor complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TIMELESS Nuclear Exclusion\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant route for this variant - altered phase responsiveness to light rather than a shortened intrinsic period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PER3 Destabilization\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PER3 destabilization removes stabilizing support for PER1/PER2, the direct repressor-limb components.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PER1/PER2 protein destabilization\"]}, {\"source\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"target\": \"Shortened Intrinsic Circadian Period\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A faster feedback loop yields a shorter free-running period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biased entrainment settles the clock at an abnormally early phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Intrinsic Circadian Period\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A short-period oscillator entrained to a 24-hour day stabilizes at an advanced phase angle of entrainment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Early Chronotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Advanced Melatonin Secretion Phase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pineal melatonin rhythm is one component of the displaced circadian ensemble, and the one used clinically as the phase marker (DLMO).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Early Evening Sleep Onset\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Early Morning Awakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Evening Sleepiness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Preserved Sleep Quality and Duration on a Self-Selected Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because only phase, not oscillator integrity, is disturbed, sleep is normal when permitted to occur at the advanced biological time.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Circadian Misalignment with Conventional Social Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circadian Misalignment with Conventional Social Schedule\", \"target\": \"Sleep Restriction and Functional Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Timed Evening Bright Light Therapy\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Strategically Timed Melatonin\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Schedule Accommodation and Sleep Scheduling\", \"target\": \"Circadian Misalignment with Conventional Social Schedule\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PER2\", \"target\": \"Autosomal Dominant Core Clock Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PER2\", \"target\": \"PER2 CK1-Site Hypophosphorylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSNK1D\", \"target\": \"Autosomal Dominant Core Clock Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSNK1D\", \"target\": \"CK1delta Reduced Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CRY2\", \"target\": \"Autosomal Dominant Core Clock Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CRY2\", \"target\": \"CRY2 Destabilization by FBXL3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TIMELESS\", \"target\": \"Autosomal Dominant Core Clock Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TIMELESS\", \"target\": \"TIMELESS Nuclear Exclusion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The integrated organism-level output - the entire circadian ensemble, pineal melatonin secretion, core body temperature nadir, and the circadian drive for sleep, is displaced several hours earlier than normal. In the original FASPS kindreds this amounted to roughly a 4-hour advance of the sleep, temperature, and melatonin rhythms. Crucially, the oscillation itself is intact and of normal amplitude; only its phase is shifted. This is why sleep architecture and duration remain normal, and why the disorder is one of timing rather than of sleep quality.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Circadian sleep/wake cycle\", \"Circadian behavior\"], \"role\": \"effector\", \"locations\": [\"Pineal body\"]}}, {\"id\": \"Advanced Melatonin Secretion Phase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The objective biomarker of the disorder - the nocturnal rise in pineal melatonin secretion, and hence dim light melatonin onset (DLMO), occurs several hours earlier than normal. In the original FASPS kindreds the melatonin rhythm was advanced by approximately 4 hours in parallel with the sleep and temperature rhythms. The abnormality is one of timing, not of melatonin amount.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012689\"}}, {\"id\": \"Age-Related Suprachiasmatic Nucleus Decline\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger of the SPORADIC / AGE-RELATED arm, mechanistically distinct from the Mendelian arm. With advancing age - and compounded by neurodegenerative disease - the suprachiasmatic nucleus itself is affected, reducing the robustness and amplitude of central pacemaker output. This is a degenerative/structural route to an unstable, easily-advanced clock rather than a change in the kinetics of the molecular oscillator, and it explains why advanced sleep timing becomes progressively more common with age. It is the arm that accounts for the substantially higher population-level prevalence figures (approximately 1% of middle-aged adults, and early morning awakening in about 4% of older individuals) relative to the rare Mendelian kindreds.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Suprachiasmatic nucleus pacemaker neuron\"], \"biological_processes\": [\"Regulation of circadian rhythm\"], \"subtypes\": [\"Sporadic/Age-Related ASPS\"], \"role\": \"trigger\", \"locations\": [\"Suprachiasmatic nucleus\"]}}, {\"id\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The protein-stability and phosphorylation routes to FASPS converge here. The TTFL keeps time because PER/CRY repressor complexes accumulate, are post-translationally delayed, enter the nucleus, repress CLOCK-BMAL1, and are then degraded, permitting the next cycle. Reducing the delay - through PER2 S662-site hypophosphorylation, reduced CSNK1D activity, accelerated CRY2 degradation, or PER3 destabilization - can make each iteration of the loop complete faster. CACNA1D bypasses this node and acts through altered entrainment; TIMELESS also has a distinct entrainment phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Circadian regulation of gene expression\", \"PER/CRY transcriptional repression of CLOCK-BMAL1\"], \"role\": \"central_effector\"}}, {\"id\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Light reaching intrinsically photosensitive retinal ganglion cells is conveyed by the retinohypothalamic tract to the suprachiasmatic nucleus and is the dominant zeitgeber that entrains the clock to the 24-hour day. The direction of the resulting shift depends on when in the circadian cycle the light falls (the phase-response curve): light in the late night/early morning advances the clock, light in the evening delays it. A clock lesion can therefore advance phase either by shortening period or by biasing this entrainment response; TIMELESS and CACNA1D variants act predominantly through the latter. This node is also the substrate on which treatment acts, and the reason mistimed light worsens the disorder.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Intrinsically photosensitive retinal ganglion cell\"], \"biological_processes\": [\"Entrainment of circadian clock by photoperiod\"], \"role\": \"mediator\", \"locations\": [\"Retina\", \"Suprachiasmatic nucleus\"]}}, {\"id\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline, autosomal dominant variant in a component of the core circadian transcription-translation feedback loop (TTFL), its regulatory kinase, or a channel that shapes light entrainment. In the canonical loop, CLOCK-BMAL1 activates transcription of PER and CRY; PER/CRY protein complexes accumulate, are phosphorylated, enter the nucleus, and repress CLOCK-BMAL1. The rate constants of this loop - phosphorylation, degradation, and nuclear entry - set the intrinsic period (tau). Most FASPS variants perturb these rate constants; CACNA1D variants instead alter Cav1.3 channel dynamics and photic entrainment. Reported genes are PER2, CSNK1D, CRY2, PER3, TIMELESS, and CACNA1D.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Suprachiasmatic nucleus pacemaker neuron\"], \"biological_processes\": [\"Circadian rhythm\", \"Circadian regulation of gene expression\"], \"genes\": [\"PER2\", \"CSNK1D\", \"CRY2\", \"PER3\", \"TIMELESS\", \"CACNA1D\"], \"gene_terms\": [{\"label\": \"PER2\", \"id\": \"hgnc:8846\"}, {\"label\": \"CSNK1D\", \"id\": \"hgnc:2452\"}, {\"label\": \"CRY2\", \"id\": \"hgnc:2385\"}, {\"label\": \"PER3\", \"id\": \"hgnc:8847\"}, {\"label\": \"TIMELESS\", \"id\": \"hgnc:11813\"}, {\"label\": \"CACNA1D\", \"id\": \"hgnc:1391\"}], \"subtypes\": [\"FASPS\"], \"role\": \"trigger\", \"locations\": [\"Suprachiasmatic nucleus\"]}}, {\"id\": \"CACNA1D\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CACNA1D\"], \"gene_terms\": [{\"label\": \"CACNA1D\", \"id\": \"hgnc:1391\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CACNA1D Channel-Dynamics Alteration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Five CACNA1D variants identified across five independent FASP families alter the dynamics of the Cav1.3 L-type voltage-gated calcium channel in vitro. Unlike TTFL variants that primarily shorten free-running period, the mouse model of the CACNA1D p.Glu427Lys (E427K) variant leaves period normal in constant darkness but changes phase shifts to light during subjective night. CACNA1D therefore defines a calcium-channel route to FASP through altered photic entrainment.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"voltage-gated calcium channel activity\"], \"genes\": [\"CACNA1D\"], \"gene_terms\": [{\"label\": \"CACNA1D\", \"id\": \"hgnc:1391\"}], \"role\": \"central_effector\"}}, {\"id\": \"CK1delta Reduced Kinase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate: the mutant kinase has decreased enzymatic activity in vitro and causes FASPS in humans. Transgenic mice bearing CK1delta-T44A have a shortened circadian period, and CK1delta dosage modulates the PER2 S662G phenotype in vivo, showing genetic interaction with PER2. This does not establish that CK1delta is the physiologically decisive kinase at S662; 2026 knockout and biochemical evidence instead identifies MARK2 in that role. The CSNK1D lesion therefore remains a distinct clock-kinase route into altered TTFL feedback rather than the enzyme side of a single S662 biochemical lesion.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein phosphorylation\"], \"genes\": [\"CSNK1D\"], \"gene_terms\": [{\"label\": \"CSNK1D\", \"id\": \"hgnc:2452\"}], \"role\": \"central_effector\"}}, {\"id\": \"CRY2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CRY2\"], \"gene_terms\": [{\"label\": \"CRY2\", \"id\": \"hgnc:2385\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CRY2 Destabilization by FBXL3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CRY2 p.Ala260Thr (A260T) lies in the phosphate loop of the FAD-binding domain of CRY2. The substitution changes CRY2 conformation so as to increase its accessibility and affinity for FBXL3, an E3 ubiquitin ligase, thereby promoting CRY2 ubiquitination and degradation. Accelerated turnover of this negative-limb repressor shortens the circadian period.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein ubiquitination\", \"Protein destabilization\"], \"genes\": [\"CRY2\"], \"gene_terms\": [{\"label\": \"CRY2\", \"id\": \"hgnc:2385\"}], \"role\": \"central_effector\"}}, {\"id\": \"CSNK1D\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CSNK1D\"], \"gene_terms\": [{\"label\": \"CSNK1D\", \"id\": \"hgnc:2452\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Circadian Misalignment with Conventional Social Schedule\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically disabling step. An advanced clock is not intrinsically harmful; morbidity arises when biological night conflicts with the socially required schedule. Attempting to stay awake for evening obligations produces overwhelming evening sleepiness; attempting to remain asleep to a conventional wake time produces early-morning awakening experienced as terminal insomnia; and resisting the advanced schedule at both ends causes chronic sleep restriction. Distress or functional impairment arising from this misalignment - not the early timing per se - is what converts an advanced chronotype into advanced sleep-wake phase disorder.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Early Chronotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A stable, lifelong tendency to rise very early and to go to bed early - the morning lark extreme of the chronotype distribution. In FASPS this is profound rather than a mild preference, and is present in multiple generations of a kindred.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031873\"}}, {\"id\": \"Early Evening Sleep Onset\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary sleep onset in the early evening, typically between 18:00 and 21:00, several hours earlier than the socially conventional bedtime. Sleep onset latency is short and sleep initiation is not impaired - this is not sleep-onset insomnia but a clock set early.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031873\"}}, {\"id\": \"Early Morning Awakening\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spontaneous final awakening in the early morning hours, typically between 02:00 and 05:00, with inability to return to sleep. When the individual is attempting to keep a conventional schedule this is experienced and often misreported as terminal (late) insomnia, which is a major reason ASPS is misdiagnosed as an insomnia disorder or as depression.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031356\"}}, {\"id\": \"Evening Sleepiness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overwhelming sleepiness in the late afternoon and evening, worsening when the individual attempts to remain awake for social, family, or occupational obligations. Unlike the excessive daytime somnolence of a primary hypersomnia, it is confined to the biological evening and resolves if sleep is permitted at the advanced time.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002329\"}}, {\"id\": \"PER2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PER2\"], \"gene_terms\": [{\"label\": \"PER2\", \"id\": \"hgnc:8846\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PER2 S662-Site Hypophosphorylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The original FASPS lesion, PER2 p.Ser662Gly (S662G), substitutes glycine for a serine within the casein kinase I epsilon/delta binding region of hPER2. The substitution causes hypophosphorylation by CK1epsilon in vitro. Newer evidence separates in-vitro kinase capacity from physiological control: MARK2 binds PER2, phosphorylates S662, and stabilizes PER2, while deletion of CK1delta/epsilon or five other candidate kinases did not reproduce phase advancement. Loss of S662-site phosphorylation retunes PER2 stability and the feedback loop, altering circadian period.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"Protein phosphorylation\", \"Regulation of circadian rhythm\"], \"genes\": [\"PER2\", \"MARK2\"], \"gene_terms\": [{\"label\": \"PER2\", \"id\": \"hgnc:8846\"}, {\"label\": \"MARK2\", \"id\": \"hgnc:3332\"}], \"role\": \"central_effector\"}}, {\"id\": \"PER3 Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two rare PER3 variants (p.Pro415Ala and p.His417Arg, PER3-P415A/H417R) were identified in individuals with familial advanced sleep phase who also had higher Beck Depression Inventory and seasonality scores. The variants destabilize PER3 and fail to stabilize PER1/PER2 proteins. The evidence base here is weaker than for PER2 or CSNK1D - a single kindred with a two-variant haplotype, and the human phenotype is co-reported with a mood trait rather than isolated phase advance - so this node is curated as a contributory rather than an established mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein destabilization\"], \"genes\": [\"PER3\"], \"gene_terms\": [{\"label\": \"PER3\", \"id\": \"hgnc:8847\"}], \"role\": \"modifier\"}}, {\"id\": \"Preserved Sleep Quality and Duration on a Self-Selected Schedule\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The single most useful discriminating feature. When affected individuals are permitted to sleep at their own early hours, sleep is consolidated and of normal architecture, quality, and total duration. This distinguishes ASPS from insomnia disorder (where sleep is poor regardless of timing), from depression with early-morning waking (where sleep is typically nonrestorative), and from familial natural short sleep (where duration itself is reduced). Sleep loss in ASPS is secondary to schedule conflict, not intrinsic.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Reduced Photic Sensitivity and Light Responsiveness\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mediating step of the sporadic/age-related arm. Ageing reduces both the sensitivity of the circadian system to light and its responsiveness to it - through the SCN and its input pathway - so the daily zeitgeber signal that normally holds the clock at the correct phase is weakened. A weakened entraining signal is less able to oppose a drift toward earlier timing, and it also blunts the response to the evening light used therapeutically, which is part of why light therapy is harder to deliver effectively in exactly the older population in which this arm predominates.\\nA behavioral positive-feedback loop compounds this: early awakening leads to premature morning light exposure, which falls on the phase-advance limb of the phase-response curve and advances the clock further.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Intrinsically photosensitive retinal ganglion cell\"], \"biological_processes\": [\"Entrainment of circadian clock by photoperiod\"], \"subtypes\": [\"Sporadic/Age-Related ASPS\"], \"role\": \"mediator\", \"locations\": [\"Retina\"]}}, {\"id\": \"Schedule Accommodation and Sleep Scheduling\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where occupational and social circumstances permit, the simplest and often the most effective management is to accommodate the early schedule rather than fight it, since sleep is normal when taken at the biologically preferred time. Where a delay is required, a prescribed and consistently maintained later sleep-wake schedule may be attempted, typically alongside evening light. The AASM guideline made no recommendation on prescribed sleep scheduling or timed exercise for ASWPD because the evidence was insufficient.\\nHealth education and behavioral guidance for ASWPD explicitly includes AVOIDANCE OF BRIGHT LIGHT IN THE MORNING - the direction-critical negative instruction, since morning light sits on the phase-advance limb of the PRC and would worsen the disorder - alongside a midday nap, postponing bedtime, physical activity, and walking outdoors in the evening under bright light. Chronotherapy for ASWPD delays sleep onset progressively (by 3 hours every 2 days) until the desired later bedtime is reached; a single case maintained a 23:00 bedtime at 5-month follow-up.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Shortened Intrinsic Circadian Period\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A major physiological route in Mendelian FASPS - a free-running circadian period (tau) measurably shorter than the normal ~24.2 hours. A clock that runs fast must be reset backwards each day by the zeitgeber; the steady-state consequence of entraining a short-period oscillator to a 24-hour day is that it settles at an abnormally early phase angle. This is the direct mechanistic explanation for why a period abnormality produces a phase abnormality, and it is the reason FASPS individuals are phase-advanced rather than simply free-running. It is not universal: TIMELESS and CACNA1D model organisms show altered photic entrainment with a normal organismal period and reach the advanced phase by the parallel entrainment route.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Circadian rhythm\", \"Regulation of circadian rhythm\"], \"role\": \"central_effector\", \"locations\": [\"Suprachiasmatic nucleus\"]}}, {\"id\": \"Sleep Restriction and Functional Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"When the individual resists the advanced schedule at both ends - staying up for evening obligations while still waking spontaneously in the early morning - the result is chronic curtailment of sleep, with consequent daytime dysfunction and social, occupational, and educational impairment. This, rather than the phase advance itself, is the source of clinical morbidity and the basis for diagnosing a disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}, {\"id\": \"Strategically Timed Melatonin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Exogenous melatonin shifts circadian phase according to a phase-response curve that is approximately the inverse of the light PRC - melatonin taken in the morning delays the clock, whereas melatonin taken in the evening advances it. For ASPS the theoretically correct direction is therefore MORNING melatonin to produce a phase delay, the exact opposite of the evening dosing used in delayed sleep-wake phase disorder. Evening melatonin would advance the clock further and is expected to worsen ASPS.\\nThis treatment is included because review-level literature reports timed melatonin as useful across circadian rhythm sleep disorders including advanced sleep phase, but it must be flagged that the AASM 2015 guideline did NOT endorse melatonin for ASWPD - its melatonin endorsement was restricted to DSWPD, blind adults with N24SWD, and children/adolescents with ISWRD. Morning dosing also risks residual daytime sleepiness. Melatonin for ASPS should therefore be regarded as mechanistically rational but not guideline-supported.\", \"meta\": {\"evidence_count\": 5, \"therapeutic_agents\": [\"melatonin\"]}}, {\"id\": \"TIMELESS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TIMELESS\"], \"gene_terms\": [{\"label\": \"TIMELESS\", \"id\": \"hgnc:11813\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"TIMELESS Nuclear Exclusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mutation in human TIMELESS (hTIM) prevents TIM from accumulating in the nucleus and alters its affinity for CRY2, destabilizing the PER/CRY complex and weakening repression of CLOCK-BMAL1. Notably, this variant produces advanced sleep phase primarily by altering photic entrainment rather than by shortening the organismal period: CRISPR mutant mice show advanced sleep phase with altered photic entrainment but a normal circadian period, even though period shortening is seen in mutant fibroblasts. What distinguishes TIMELESS from the other FASPS lesions is specifically the NORMAL organismal period - entrainment involvement as such is not unique to it, since the CRY2 A260T variant also shows a reduced phase-shift to early-night light while additionally shortening period.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Protein import into nucleus\", \"Entrainment of circadian clock by photoperiod\"], \"genes\": [\"TIMELESS\"], \"gene_terms\": [{\"label\": \"TIMELESS\", \"id\": \"hgnc:11813\"}], \"role\": \"mediator\"}}, {\"id\": \"Timed Evening Bright Light Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The principal evidence-based treatment. Bright light delivered in the evening falls on the phase-delay portion of the human phase-response curve and pushes the advanced clock later. Phototherapy for ASWPD is usually given between 19:00 and 21:00, and the recommended dose to achieve a phase delay is at least 5,000 lux for 2 hours at night. The AASM 2015 guideline gives light therapy positive endorsement, at a second-tier degree of confidence, for adults with ASWPD, and the AASM guideline is summarized in the review literature as recommending night bright light therapy for ASWPD specifically.\\nTolerability is the main practical limitation: multiple studies report that elderly patients exposed to bright light at night could not tolerate it, resulting in poor compliance, and one comparison found better compliance (and symptom improvement) with dim rather than enhanced-intensity evening light. Side effects are otherwise minimal (eye fatigue, nausea, restlessness, headache) and usually self-limiting.\\nDIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright light falls on the phase-advance portion of the curve and would further advance an already-advanced clock, worsening the disorder. Correct timing therefore depends on knowing circadian phase (DLMO or core body temperature minimum), not merely clock time. Tolerance of prolonged evening light can be poor in older adults, the group in whom ASPS is most common.\", \"meta\": {\"evidence_count\": 6}}], \"edges\": [{\"source\": \"Age-Related Suprachiasmatic Nucleus Decline\", \"target\": \"Reduced Photic Sensitivity and Light Responsiveness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SCN decline is accompanied by reduced sensitivity and responsiveness to the entraining light signal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Age-Related Suprachiasmatic Nucleus Decline\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced pacemaker amplitude and robustness permit a drift to an earlier phase, independently of any change in intrinsic period.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Reduced amplitude and robustness of SCN pacemaker output\"]}, {\"source\": \"Reduced Photic Sensitivity and Light Responsiveness\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A weakened photic input degrades entrainment, converging on the same node through which the Mendelian TIMELESS and CRY2 lesions act.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"target\": \"PER2 S662-Site Hypophosphorylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PER2 S662G removes the CK1delta/epsilon phosphoacceptor serine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"target\": \"CK1delta Reduced Kinase Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CSNK1D T44A reduces the enzymatic activity of the kinase itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"target\": \"CRY2 Destabilization by FBXL3\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CRY2 A260T increases FBXL3 affinity and CRY2 turnover.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"target\": \"TIMELESS Nuclear Exclusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A TIMELESS mutation prevents nuclear accumulation of TIM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"target\": \"PER3 Destabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PER3 P415A/H417R destabilizes PER3 protein.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"target\": \"CACNA1D Channel-Dynamics Alteration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"FASP-associated CACNA1D variants alter Cav1.3 channel dynamics.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PER2 S662-Site Hypophosphorylation\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypophosphorylated PER2 alters the timing and strength of PER/CRY repression of CLOCK-BMAL1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CK1delta Reduced Kinase Activity\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CK1delta activity changes PER-family phosphorylation and clock feedback kinetics; genetic dosage interaction places PER2 on this route without asserting direct physiological phosphorylation of S662.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Altered PER-family phosphorylation and turnover\"]}, {\"source\": \"CRY2 Destabilization by FBXL3\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accelerated CRY2 degradation weakens and shortens repression.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CRY2 Destabilization by FBXL3\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The CRY2 variant additionally reduces the phase-shifting response to an early-night light pulse, so it acts on the entrainment arm as well as on period - the two routes are not mutually exclusive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TIMELESS Nuclear Exclusion\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytoplasmic TIM destabilizes the PER/CRY repressor complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TIMELESS Nuclear Exclusion\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The dominant route for this variant - altered phase responsiveness to light rather than a shortened intrinsic period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CACNA1D Channel-Dynamics Alteration\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered Cav1.3 channel dynamics change light-induced phase resetting without requiring a shortened free-running period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PER3 Destabilization\", \"target\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PER3 destabilization removes stabilizing support for PER1/PER2, the direct repressor-limb components.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"PER1/PER2 protein destabilization\"]}, {\"source\": \"Altered PER/CRY Negative Feedback on CLOCK-BMAL1\", \"target\": \"Shortened Intrinsic Circadian Period\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A faster feedback loop yields a shorter free-running period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biased entrainment settles the clock at an abnormally early phase.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Shortened Intrinsic Circadian Period\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A short-period oscillator entrained to a 24-hour day stabilizes at an advanced phase angle of entrainment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Early Chronotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Advanced Melatonin Secretion Phase\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The pineal melatonin rhythm is one component of the displaced circadian ensemble, and the one used clinically as the phase marker (DLMO).\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Early Evening Sleep Onset\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Early Morning Awakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Evening Sleepiness\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Preserved Sleep Quality and Duration on a Self-Selected Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because only phase, not oscillator integrity, is disturbed, sleep is normal when permitted to occur at the advanced biological time.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"target\": \"Circadian Misalignment with Conventional Social Schedule\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Circadian Misalignment with Conventional Social Schedule\", \"target\": \"Sleep Restriction and Functional Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Timed Evening Bright Light Therapy\", \"target\": \"Altered Photic Entrainment of the Circadian Pacemaker\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Strategically Timed Melatonin\", \"target\": \"Advanced Circadian Phase of Melatonin, Temperature and Sleep Propensity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Schedule Accommodation and Sleep Scheduling\", \"target\": \"Circadian Misalignment with Conventional Social Schedule\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PER2\", \"target\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PER2\", \"target\": \"PER2 S662-Site Hypophosphorylation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSNK1D\", \"target\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CSNK1D\", \"target\": \"CK1delta Reduced Kinase Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CRY2\", \"target\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CRY2\", \"target\": \"CRY2 Destabilization by FBXL3\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TIMELESS\", \"target\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TIMELESS\", \"target\": \"TIMELESS Nuclear Exclusion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CACNA1D\", \"target\": \"Autosomal Dominant Circadian-Regulatory Gene Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CACNA1D\", \"target\": \"CACNA1D Channel-Dynamics Alteration\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7268,7 +7825,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-advanced-melatonin-secretion-phase" data-dismech-node="Advanced Melatonin Secretion Phase" data-dismech-type="phenotype">
                     <div class="item-name">
                         Advanced Melatonin Secretion Phase
 
@@ -7360,7 +7917,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-evening-sleepiness" data-dismech-node="Evening Sleepiness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Evening Sleepiness
 
@@ -7439,7 +7996,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-restriction-and-functional-impairment" data-dismech-node="Sleep Restriction and Functional Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sleep Restriction and Functional Impairment
 
@@ -7525,7 +8082,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-chronotype" data-dismech-node="Early Chronotype" data-dismech-type="phenotype">
                     <div class="item-name">
                         Early Chronotype
 
@@ -7626,7 +8183,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-evening-sleep-onset" data-dismech-node="Early Evening Sleep Onset" data-dismech-type="phenotype">
                     <div class="item-name">
                         Early Evening Sleep Onset
 
@@ -7729,7 +8286,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-morning-awakening" data-dismech-node="Early Morning Awakening" data-dismech-type="phenotype">
                     <div class="item-name">
                         Early Morning Awakening
 
@@ -7830,7 +8387,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-preserved-sleep-quality-and-duration-on-a-self-selected-schedule" data-dismech-node="Preserved Sleep Quality and Duration on a Self-Selected Schedule" data-dismech-type="phenotype">
                     <div class="item-name">
                         Preserved Sleep Quality and Duration on a Self-Selected Schedule
 
@@ -7963,10 +8520,10 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-per2" data-dismech-node="PER2" data-dismech-type="genetic">
                 <div class="item-name">
                     PER2
 
@@ -8027,9 +8584,10 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-csnk1d" data-dismech-node="CSNK1D" data-dismech-type="genetic">
                 <div class="item-name">
                     CSNK1D
 
@@ -8090,9 +8648,10 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cry2" data-dismech-node="CRY2" data-dismech-type="genetic">
                 <div class="item-name">
                     CRY2
 
@@ -8153,9 +8712,10 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-timeless" data-dismech-node="TIMELESS" data-dismech-type="genetic">
                 <div class="item-name">
                     TIMELESS
 
@@ -8216,9 +8776,74 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cacna1d" data-dismech-node="CACNA1D" data-dismech-type="genetic">
+                <div class="item-name">
+                    CACNA1D
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CACNA1D
+
+
+    <a href="https://bioregistry.io/hgnc:1391" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1391">hgnc:1391</a>
+
+
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40460120" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40460120" target="_blank">PMID:40460120</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have identified five variants in five different families in the human voltage-gated calcium channel subunit alpha1 D (CACNA1D) that cosegregate with FASP."</div>
+
+
+                <div class="evidence-explanation">Independent-family cosegregation establishes CACNA1D as an FASP gene.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-per3" data-dismech-node="PER3" data-dismech-type="genetic">
                 <div class="item-name">
                     PER3
 
@@ -8248,7 +8873,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -8268,7 +8893,29 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
                 <div class="evidence-snippet">"We identified two rare variants in the circadian clock gene PERIOD3 (PER3-P415A/H417R) in humans with familial advanced sleep phase accompanied by higher Beck Depression Inventory and seasonality scores."</div>
 
 
-                <div class="evidence-explanation">Supports a PER3 contribution but only partially, because the reported phenotype bundles advanced sleep phase with a mood/seasonality trait and derives from a single kindred.</div>
+                <div class="evidence-explanation">Supports a PER3 contribution but only partially, because the reported phenotype bundles advanced sleep phase with a mood/seasonality trait and derives from one small kindred.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38695651" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38695651" target="_blank">PMID:38695651</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a family with autosomal dominant inheritance of two PER3 heterozygous variants that can be linked to Advanced sleep phase disorder."</div>
+
+
+                <div class="evidence-explanation">Provides limited independent familial replication, but the family-level evidence is still too small to establish definitive gene validity.</div>
 
 
 
@@ -8279,9 +8926,13 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8293,7 +8944,7 @@ A behavioral positive-feedback loop compounds this: early awakening leads to pre
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-timed-evening-bright-light-therapy" data-dismech-node="Timed Evening Bright Light Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Timed Evening Bright Light Therapy
                 </div>
@@ -8437,7 +9088,7 @@ DIRECTION IS CRITICAL. The same intervention mistimed does harm - morning bright
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-strategically-timed-melatonin" data-dismech-node="Strategically Timed Melatonin" data-dismech-type="treatment">
                 <div class="item-name">
                     Strategically Timed Melatonin
                 </div>
@@ -8596,7 +9247,7 @@ This treatment is included because review-level literature reports timed melaton
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-schedule-accommodation-and-sleep-scheduling" data-dismech-node="Schedule Accommodation and Sleep Scheduling" data-dismech-type="treatment">
                 <div class="item-name">
                     Schedule Accommodation and Sleep Scheduling
                 </div>
@@ -8751,7 +9402,7 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-morning-and-early-day-light-exposure" data-dismech-node="Morning and Early-Day Light Exposure" data-dismech-type="environmental">
                 <div class="item-name">Morning and Early-Day Light Exposure</div>
 
 
@@ -8793,9 +9444,10 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-insufficient-evening-light-exposure" data-dismech-node="Insufficient Evening Light Exposure" data-dismech-type="environmental">
                 <div class="item-name">Insufficient Evening Light Exposure</div>
 
 
@@ -8859,9 +9511,10 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-rigid-conventional-social-and-occupational-schedule" data-dismech-node="Rigid Conventional Social and Occupational Schedule" data-dismech-type="environmental">
                 <div class="item-name">Rigid Conventional Social and Occupational Schedule</div>
 
 
@@ -8901,6 +9554,7 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
 
         </div>
     </details>
+
 
 
             </div>
@@ -9499,6 +10153,8 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
                 <div class="evidence-snippet">"The purpose of this study is to determine the properties of circadian rhythms and sleep propensity in familial advanced and delayed sleep phase syndrome (DSPS)."</div>
@@ -9545,6 +10201,8 @@ Health education and behavioral guidance for ASWPD explicitly includes AVOIDANCE
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -9619,12 +10277,13 @@ description: &gt;-
   landmark of human circadian genetics: it was the first well-characterized
   Mendelian circadian rhythm variant in humans and remains the clearest example
   of a single-gene lesion that changes a complex human behavior by changing the
-  intrinsic period of the circadian clock. It segregates as an autosomal
-  dominant trait with high penetrance and is caused by variants in components
-  of the core transcription-translation feedback loop (TTFL) - PER2, CSNK1D,
-  CRY2, PER3, and TIMELESS. A sporadic and age-related form also exists, in
-  which advanced sleep timing emerges with aging and with neurodegenerative
-  change in the suprachiasmatic nucleus.
+  intrinsic period of the circadian clock. The original kindreds segregated as
+  autosomal dominant traits, some with high penetrance; reported causal or
+  candidate genes encode components of the core transcription-translation
+  feedback loop (TTFL) or circadian entrainment - PER2, CSNK1D, CRY2, PER3,
+  TIMELESS, and CACNA1D. A sporadic and age-related form also exists, in which
+  advanced sleep timing emerges with aging and with neurodegenerative change
+  in the suprachiasmatic nucleus.
 
   ASPS is substantially under-recognized relative to delayed sleep-wake phase
   disorder, in part because early rising is socially tolerated - even
@@ -9634,11 +10293,12 @@ has_subtypes:
 - name: FASPS
   display_name: Familial Advanced Sleep Phase Syndrome (FASPS/FASP)
   description: &gt;-
-    The inherited form, segregating as an autosomal dominant trait with high
-    penetrance. Typically emerges before age 30 and is present in a
-    first-degree relative. Caused by variants in core circadian clock genes
-    (PER2, CSNK1D, CRY2, PER3, TIMELESS) that shorten the intrinsic circadian
-    period or alter photic entrainment. This is the form to which the MONDO
+    The inherited form, segregating as an autosomal dominant trait; high
+    penetrance is documented in the original PER2 kindred but is not quantified
+    for every reported gene. Typically emerges before age 30 and is present in
+    a first-degree relative. Caused by variants in circadian-regulatory genes
+    (PER2, CSNK1D, CRY2, PER3, TIMELESS, CACNA1D) that shorten the intrinsic
+    circadian period or alter photic entrainment. This is the form to which the MONDO
     concept and its familial advanced sleep-phase syndrome synonyms most
     directly correspond, and it is the mechanistic centrepiece of this entry.
   classification: etiologic
@@ -9854,16 +10514,18 @@ pathophysiology:
     explanation: &gt;-
       Evidences the behavioral positive-feedback loop - early awakening brings
       forward light exposure, which advances the clock further.
-- name: Autosomal Dominant Core Clock Gene Variant
+- name: Autosomal Dominant Circadian-Regulatory Gene Variant
   description: &gt;-
     A germline, autosomal dominant variant in a component of the core circadian
-    transcription-translation feedback loop (TTFL) or its regulatory kinase.
+    transcription-translation feedback loop (TTFL), its regulatory kinase, or
+    a channel that shapes light entrainment.
     In the canonical loop, CLOCK-BMAL1 activates transcription of PER and CRY;
     PER/CRY protein complexes accumulate, are phosphorylated, enter the
     nucleus, and repress CLOCK-BMAL1. The rate constants of this loop -
     phosphorylation, degradation, and nuclear entry - set the intrinsic period
-    (tau). FASPS variants perturb exactly these rate constants. Reported genes
-    are PER2, CSNK1D, CRY2, PER3, and TIMELESS.
+    (tau). Most FASPS variants perturb these rate constants; CACNA1D variants
+    instead alter Cav1.3 channel dynamics and photic entrainment. Reported
+    genes are PER2, CSNK1D, CRY2, PER3, TIMELESS, and CACNA1D.
   biological_scale: MOLECULAR
   role: trigger
   subtypes:
@@ -9903,13 +10565,17 @@ pathophysiology:
     term:
       id: hgnc:11813
       label: TIMELESS
+  - preferred_term: CACNA1D
+    term:
+      id: hgnc:1391
+      label: CACNA1D
   locations:
   - preferred_term: Suprachiasmatic nucleus
     term:
       id: UBERON:0002034
       label: suprachiasmatic nucleus
   downstream:
-  - target: PER2 CK1-Site Hypophosphorylation
+  - target: PER2 S662-Site Hypophosphorylation
     causal_link_type: DIRECT
     description: PER2 S662G removes the CK1delta/epsilon phosphoacceptor serine.
   - target: CK1delta Reduced Kinase Activity
@@ -9924,6 +10590,9 @@ pathophysiology:
   - target: PER3 Destabilization
     causal_link_type: DIRECT
     description: PER3 P415A/H417R destabilizes PER3 protein.
+  - target: CACNA1D Channel-Dynamics Alteration
+    causal_link_type: DIRECT
+    description: FASP-associated CACNA1D variants alter Cav1.3 channel dynamics.
   evidence:
   - reference: PMID:39864932
     reference_title: &#34;Advanced sleep phase syndrome: Role of genetics and aging.&#34;
@@ -9935,8 +10604,10 @@ pathophysiology:
       pleiotropic effects influencing other health aspects like migraine and
       depression.
     explanation: &gt;-
-      Review enumerates the autosomal dominant core clock genes implicated in
-      familial advanced sleep phase.
+      Review enumerates the historical circadian-gene candidates for familial
+      advanced sleep phase. DEC2 is not modeled here because its established
+      human phenotype is natural short sleep rather than normal-duration sleep
+      at an advanced phase.
   - reference: PMID:31400754
     reference_title: &#34;Genetics of the human circadian clock and sleep homeostat.&#34;
     supports: SUPPORT
@@ -9948,16 +10619,27 @@ pathophysiology:
     explanation: &gt;-
       Establishes that single-gene clock mutations are sufficient to produce
       extreme early chronotype, the genetic premise of this node.
-- name: PER2 CK1-Site Hypophosphorylation
+  - reference: PMID:40460120
+    reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We have identified five variants in five different families in the human
+      voltage-gated calcium channel subunit alpha1 D (CACNA1D) that cosegregate
+      with FASP.
+    explanation: &gt;-
+      Extends the autosomal-dominant genetic trigger beyond canonical TTFL
+      proteins to CACNA1D, with cosegregation in five independent families.
+- name: PER2 S662-Site Hypophosphorylation
   description: &gt;-
     The original FASPS lesion, PER2 p.Ser662Gly (S662G), substitutes glycine
-    for a serine that lies within the casein kinase I epsilon/delta binding
-    region of hPER2 and is itself a CK1 phosphoacceptor. Loss of this
-    phosphoacceptor causes PER2 to be hypophosphorylated by CK1 in vitro.
-    Because CK1-dependent phosphorylation of PER2 governs both PER2
-    transcriptional feedback and PER2 protein turnover, the substitution
-    retunes the feedback loop and alters the circadian period. This is the
-    substrate side of the PER2/CK1delta lesion pair.
+    for a serine within the casein kinase I epsilon/delta binding region of
+    hPER2. The substitution causes hypophosphorylation by CK1epsilon in vitro.
+    Newer evidence separates in-vitro kinase capacity from physiological
+    control: MARK2 binds PER2, phosphorylates S662, and stabilizes PER2, while
+    deletion of CK1delta/epsilon or five other candidate kinases did not
+    reproduce phase advancement. Loss of S662-site phosphorylation retunes
+    PER2 stability and the feedback loop, altering circadian period.
   biological_scale: MOLECULAR
   role: central_effector
   biological_processes:
@@ -9975,6 +10657,10 @@ pathophysiology:
     term:
       id: hgnc:8846
       label: PER2
+  - preferred_term: MARK2
+    term:
+      id: hgnc:3332
+      label: MARK2
   downstream:
   - target: Altered PER/CRY Negative Feedback on CLOCK-BMAL1
     causal_link_type: DIRECT
@@ -10014,22 +10700,48 @@ pathophysiology:
     explanation: &gt;-
       Mouse modelling of S662G recapitulates the human phenotype and shows the
       phosphosite controls PER2 transcription and, at other sites, degradation.
+  - reference: PMID:41812650
+    reference_title: &#34;Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Our biochemical purification revealed microtubule affinity regulating
+      kinase 2 (MARK2) in phosphorylating S662, binding to and stabilizing PER2.
+    explanation: &gt;-
+      Identifies MARK2 as the S662-site kinase and connects phosphorylation at
+      the FASP site to PER2 stabilization.
+  - reference: PMID:41812650
+    reference_title: &#34;Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Neuronal specific Mark2 knockout mice showed phase advancement and period shortening.
+    explanation: &gt;-
+      In-vivo loss of neuronal MARK2 reproduces the phase advancement and
+      period shortening associated with the PER2 S662G lesion.
+  - reference: PMID:41812650
+    reference_title: &#34;Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.&#34;
+    supports: REFUTE
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      We found S662 phosphorylation by casein kinase 1 (CK1) δ and ε,
+      testis-specific serine kinase (TSSK) 1 and 2, and salt inducible kinase
+      (SIK) 1-3, but no phase advancement phenotype after genetic deletion of
+      any of these seven genes.
+    explanation: &gt;-
+      Refutes the stronger historical inference that in-vitro phosphorylation
+      capacity makes CK1delta/epsilon the physiologically decisive S662 kinase.
 - name: CK1delta Reduced Kinase Activity
   description: &gt;-
-    CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate:
-    casein kinase I delta acts on the same PER2 phosphorylation axis that is
-    disrupted by PER2 S662G. (The published evidence for the linkage is
-    dosage epistasis - altering CKIdelta dosage modulates the S662 phenotype -
-    rather than a direct demonstration that CK1delta phosphorylates residue
-    662 itself.) The T44A mutant kinase has decreased enzymatic
-    activity in vitro. This is the enzyme side of the same molecular lesion,
-    and it phenocopies PER2 S662G - a strikingly clean piece of mechanistic
-    evidence, because the substrate lesion and the kinase lesion converge on a
-    single biochemical event (CK1-dependent PER2 phosphorylation) and produce
-    the same human phenotype. Transgenic mice bearing CKIdelta-T44A have a
-    shortened circadian period mimicking human FASPS, and CKIdelta gene dosage
-    modulates the PER2 S662G phenotype in vivo, formally demonstrating that the
-    two lesions act on the same axis.
+    CSNK1D p.Thr44Ala (T44A) mutates the kinase rather than the substrate: the
+    mutant kinase has decreased enzymatic activity in vitro and causes FASPS
+    in humans. Transgenic mice bearing CK1delta-T44A have a shortened
+    circadian period, and CK1delta dosage modulates the PER2 S662G phenotype in
+    vivo, showing genetic interaction with PER2. This does not establish that
+    CK1delta is the physiologically decisive kinase at S662; 2026 knockout and
+    biochemical evidence instead identifies MARK2 in that role. The CSNK1D
+    lesion therefore remains a distinct clock-kinase route into altered TTFL
+    feedback rather than the enzyme side of a single S662 biochemical lesion.
   biological_scale: MOLECULAR
   role: central_effector
   biological_processes:
@@ -10044,13 +10756,14 @@ pathophysiology:
       id: hgnc:2452
       label: CSNK1D
   downstream:
-  - target: PER2 CK1-Site Hypophosphorylation
-    causal_link_type: DIRECT
+  - target: Altered PER/CRY Negative Feedback on CLOCK-BMAL1
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     description: &gt;-
-      Reduced CK1delta enzymatic activity produces the same end state as loss
-      of the PER2 phosphoacceptor serine - hypophosphorylated PER2. This is the
-      kinase-side-to-substrate-side convergence that makes the PER2/CSNK1D
-      pair unusually strong mechanistic evidence.
+      Reduced CK1delta activity changes PER-family phosphorylation and clock
+      feedback kinetics; genetic dosage interaction places PER2 on this route
+      without asserting direct physiological phosphorylation of S662.
+    intermediate_mechanisms:
+    - Altered PER-family phosphorylation and turnover
     evidence:
     - reference: PMID:17218255
       reference_title: &#34;Modeling of a human circadian mutation yields insights into clock regulation by PER2.&#34;
@@ -10060,8 +10773,9 @@ pathophysiology:
         Altering CKIdelta dosage modulates the S662 phenotype demonstrating
         that CKIdelta can regulate period through PER2 in vivo.
       explanation: &gt;-
-        Genetic-dosage evidence that CK1delta acts on circadian period through
-        PER2 specifically, directly supporting the kinase to substrate edge.
+        Genetic-dosage evidence that CK1delta regulates period through PER2,
+        supporting the indirect convergence while leaving the specific
+        phosphosite assignment open.
   evidence:
   - reference: PMID:15800623
     reference_title: &#34;Functional consequences of a CKIdelta mutation causing familial advanced sleep phase syndrome.&#34;
@@ -10236,6 +10950,66 @@ pathophysiology:
       Qualifies the mechanism - for TIMELESS the organismal phenotype arises via
       altered photic entrainment, not via a shortened organismal period. This
       is why the entry models a separate entrainment branch.
+- name: CACNA1D Channel-Dynamics Alteration
+  description: &gt;-
+    Five CACNA1D variants identified across five independent FASP families
+    alter the dynamics of the Cav1.3 L-type voltage-gated calcium channel in
+    vitro. Unlike TTFL variants that primarily shorten free-running period,
+    the mouse model of the CACNA1D p.Glu427Lys (E427K) variant leaves period
+    normal in constant darkness but changes phase shifts to light during
+    subjective night. CACNA1D therefore defines a calcium-channel route to FASP
+    through altered photic entrainment.
+  biological_scale: MOLECULAR
+  role: central_effector
+  molecular_functions:
+  - preferred_term: voltage-gated calcium channel activity
+    term:
+      id: GO:0005245
+      label: voltage-gated calcium channel activity
+    modifier: ABNORMAL
+  genes:
+  - preferred_term: CACNA1D
+    term:
+      id: hgnc:1391
+      label: CACNA1D
+  downstream:
+  - target: Altered Photic Entrainment of the Circadian Pacemaker
+    causal_link_type: DIRECT
+    description: &gt;-
+      Altered Cav1.3 channel dynamics change light-induced phase resetting
+      without requiring a shortened free-running period.
+    evidence:
+    - reference: PMID:40460120
+      reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        A mouse model of the E427K variant has a normal circadian period under
+        constant darkness but displays altered phase shifts in response to
+        light in the subjective night at circadian time (CT) 16 and CT22.
+      explanation: &gt;-
+        Directly demonstrates an entrainment defect with preserved intrinsic
+        period, supporting the channel-to-photic-entrainment edge.
+  evidence:
+  - reference: PMID:40460120
+    reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We have identified five variants in five different families in the human
+      voltage-gated calcium channel subunit alpha1 D (CACNA1D) that cosegregate
+      with FASP.
+    explanation: &gt;-
+      Human segregation evidence establishes the variant-to-FASP association
+      across five independent families.
+  - reference: PMID:40460120
+    reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The variants in CACNA1D lead to altered channel dynamics in vitro.
+    explanation: &gt;-
+      Direct functional evidence supports the molecular channel-dynamics claim.
 - name: PER3 Destabilization
   description: &gt;-
     Two rare PER3 variants (p.Pro415Ala and p.His417Arg, PER3-P415A/H417R) were
@@ -10292,14 +11066,14 @@ pathophysiology:
       intermediate in the causal edge.
 - name: Altered PER/CRY Negative Feedback on CLOCK-BMAL1
   description: &gt;-
-    All of the established FASPS lesions converge here. The TTFL keeps time
-    because PER/CRY repressor complexes accumulate, are post-translationally
-    delayed, enter the nucleus, repress CLOCK-BMAL1, and are then degraded,
-    permitting the next cycle. Reducing the delay - by hypophosphorylating PER2
-    (PER2 S662G, CSNK1D T44A), by accelerating CRY2 degradation (CRY2 A260T),
-    or by destabilizing the PER/CRY complex (TIMELESS, PER3) - makes each
-    iteration of the loop complete faster. This is the shared molecular
-    convergence point of the disorder.
+    The protein-stability and phosphorylation routes to FASPS converge here.
+    The TTFL keeps time because PER/CRY repressor complexes accumulate, are
+    post-translationally delayed, enter the nucleus, repress CLOCK-BMAL1, and
+    are then degraded, permitting the next cycle. Reducing the delay - through
+    PER2 S662-site hypophosphorylation, reduced CSNK1D activity, accelerated
+    CRY2 degradation, or PER3 destabilization - can make each iteration of the
+    loop complete faster. CACNA1D bypasses this node and acts through altered
+    entrainment; TIMELESS also has a distinct entrainment phenotype.
   biological_scale: MOLECULAR
   role: central_effector
   biological_processes:
@@ -10335,9 +11109,9 @@ pathophysiology:
     light falls (the phase-response curve): light in the late night/early
     morning advances the clock, light in the evening delays it. A clock lesion
     can therefore advance phase either by shortening period or by biasing this
-    entrainment response, and the TIMELESS variant acts predominantly through
-    the latter. This node is also the substrate on which treatment acts, and
-    the reason mistimed light worsens the disorder.
+    entrainment response; TIMELESS and CACNA1D variants act predominantly
+    through the latter. This node is also the substrate on which treatment
+    acts, and the reason mistimed light worsens the disorder.
   biological_scale: CELLULAR
   role: mediator
   cell_types:
@@ -10413,14 +11187,17 @@ pathophysiology:
       governing the magnitude and direction of light-induced phase shifts.
 - name: Shortened Intrinsic Circadian Period
   description: &gt;-
-    The hallmark physiological abnormality of Mendelian FASPS - a free-running
-    circadian period (tau) measurably shorter than the normal ~24.2 hours. A
+    A major physiological route in Mendelian FASPS - a free-running circadian
+    period (tau) measurably shorter than the normal ~24.2 hours. A
     clock that runs fast must be reset backwards each day by the zeitgeber; the
     steady-state consequence of entraining a short-period oscillator to a
     24-hour day is that it settles at an abnormally early phase angle. This is
     the direct mechanistic explanation for why a period abnormality produces a
     phase abnormality, and it is the reason FASPS individuals are
-    phase-advanced rather than simply free-running.
+    phase-advanced rather than simply free-running. It is not universal:
+    TIMELESS and CACNA1D model organisms show altered photic entrainment with
+    a normal organismal period and reach the advanced phase by the parallel
+    entrainment route.
   biological_scale: CELLULAR
   role: central_effector
   biological_processes:
@@ -10537,6 +11314,17 @@ pathophysiology:
     explanation: &gt;-
       Quantifies the coordinated multi-marker phase advance that defines this
       node.
+  - reference: PMID:11448298
+    reference_title: &#34;Familial advanced sleep phase syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In addition, the phase of the circadian rhythm of melatonin onset for the
+      affected family members was on average 3-1/2 hours earlier than for the
+      unaffected members.
+    explanation: &gt;-
+      Directly quantifies the familial melatonin-phase advance against
+      unaffected relatives in a 32-member phenotyping study.
 - name: Circadian Misalignment with Conventional Social Schedule
   description: &gt;-
     The clinically disabling step. An advanced clock is not intrinsically
@@ -10960,7 +11748,9 @@ clinical_trials:
     advanced melatonin onset.
   evidence:
   - reference: clinicaltrials:NCT00246454
+    reference_title: &#34;Circadian Rhythms and Sleep in Familial Delayed Sleep Phase Syndrome (DSPS) and Advanced Sleep Phase Syndrome (ASPS)&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The purpose of this study is to determine the properties of circadian
       rhythms and sleep propensity in familial advanced and delayed sleep phase
@@ -10979,7 +11769,9 @@ clinical_trials:
     DLMO sampling.
   evidence:
   - reference: clinicaltrials:NCT04690504
+    reference_title: &#34;Proteomic and Transcriptomic Biomarkers of Circadian Timing - Validation of Circadian Biomarkers in Patients With Sleep Disorders&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The investigators aim to develop a method that can estimate individual
       circadian time with a single blood sample taken at any time of the day or
@@ -11015,9 +11807,11 @@ genetic:
       Establishes PER2 as the FASPS gene by positional mapping to 2qter.
 - name: CSNK1D
   notes: &gt;-
-    Encodes casein kinase I delta, the kinase that phosphorylates PER2. The
+    Encodes casein kinase I delta, a PER-family regulatory kinase. The
     p.Thr44Ala (T44A) missense variant reduces kinase activity and causes
-    FASPS, phenocopying the PER2 substrate mutation.
+    FASPS. CK1delta dosage modifies the PER2 S662G phenotype, but newer
+    knockout evidence does not support CK1delta as the physiologically
+    decisive S662 kinase; MARK2 now has that mechanistic assignment.
   gene_term:
     preferred_term: CSNK1D
     term:
@@ -11076,14 +11870,40 @@ genetic:
       Here, we report a mutation in the human TIMELESS (hTIM) gene that causes
       familial advanced sleep phase (FASP).
     explanation: Establishes TIMELESS as a FASP gene.
+- name: CACNA1D
+  notes: &gt;-
+    Encodes the Cav1.3 L-type voltage-gated calcium channel alpha1D subunit.
+    Five variants in five independent families cosegregated with FASP and
+    altered channel dynamics in vitro. A mouse model of p.Glu427Lys (E427K)
+    showed altered light-induced phase shifts despite a normal free-running
+    period, establishing a photic-entrainment mechanism distinct from simple
+    TTFL period shortening.
+  gene_term:
+    preferred_term: CACNA1D
+    term:
+      id: hgnc:1391
+      label: CACNA1D
+  relationship_type: CAUSATIVE
+  evidence:
+  - reference: PMID:40460120
+    reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We have identified five variants in five different families in the human
+      voltage-gated calcium channel subunit alpha1 D (CACNA1D) that cosegregate
+      with FASP.
+    explanation: &gt;-
+      Independent-family cosegregation establishes CACNA1D as an FASP gene.
 - name: PER3
   notes: &gt;-
     Encodes period circadian regulator 3. The P415A/H417R variant haplotype was
     reported in familial advanced sleep phase co-occurring with a seasonal mood
     trait; the variants destabilize PER3 and fail to stabilize PER1/PER2. The
-    evidence is weaker than for PER2/CSNK1D - a single kindred with a
-    two-variant haplotype and a compound phenotype - so PER3 is curated here as
-    a contributory rather than definitively established ASPS gene.
+    evidence remains weaker than for PER2/CSNK1D: the original kindred had a
+    compound phase/mood phenotype, and a 2024 Slovenian family provides only a
+    proband-parent segregation of the same two-variant haplotype. PER3 is
+    therefore curated as contributory rather than definitively established.
   gene_term:
     preferred_term: PER3
     term:
@@ -11102,13 +11922,23 @@ genetic:
     explanation: &gt;-
       Supports a PER3 contribution but only partially, because the reported
       phenotype bundles advanced sleep phase with a mood/seasonality trait and
-      derives from a single kindred.
+      derives from one small kindred.
+  - reference: PMID:38695651
+    reference_title: &#34;Variants in the circadian clock genes PER2 and PER3 associate with familial sleep phase disorders.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      We identified a family with autosomal dominant inheritance of two PER3
+      heterozygous variants that can be linked to Advanced sleep phase disorder.
+    explanation: &gt;-
+      Provides limited independent familial replication, but the family-level
+      evidence is still too small to establish definitive gene validity.
 inheritance:
 - name: Autosomal dominant inheritance
   description: &gt;-
-    Familial ASPS segregates as an autosomal dominant trait with high
-    penetrance. Penetrance across genes and families beyond the original
-    kindreds is not well quantified and may be modified by age and light
+    Familial ASPS segregates as an autosomal dominant trait. High penetrance
+    was reported in the original kindreds, but penetrance across genes and
+    later families is not well quantified and may be modified by age and light
     environment.
   inheritance_term:
     preferred_term: Autosomal dominant inheritance
@@ -11124,6 +11954,15 @@ inheritance:
       The trait segregates as an autosomal dominant with high penetrance.
     explanation: &gt;-
       Directly establishes autosomal dominant inheritance with high penetrance.
+  - reference: PMID:11448298
+    reference_title: &#34;Familial advanced sleep phase syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The ASPS trait segregates with an autosomal dominant mode of inheritance.
+    explanation: &gt;-
+      Independently supports autosomal dominant segregation in a clinically
+      phenotyped 32-member family without extending the claim to penetrance.
 definitions:
 - name: Advanced Sleep-Wake Phase Disorder Diagnostic Criteria (ICSD-3-aligned)
   definition_type: DIAGNOSTIC_CRITERIA
@@ -11278,6 +12117,7 @@ definitions:
     diagnostic test; this entry records the measurement definition.
   evidence:
   - reference: clinicaltrials:NCT04690504
+    reference_title: &#34;Proteomic and Transcriptomic Biomarkers of Circadian Timing - Validation of Circadian Biomarkers in Patients With Sleep Disorders&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -11289,6 +12129,7 @@ definitions:
       circadian phase marker - the reason no separate validation status is
       asserted for DLMO itself.
   - reference: clinicaltrials:NCT04690504
+    reference_title: &#34;Proteomic and Transcriptomic Biomarkers of Circadian Timing - Validation of Circadian Biomarkers in Patients With Sleep Disorders&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -11353,18 +12194,21 @@ diagnosis:
       workup.
 - name: Circadian clock gene panel or exome/genome sequencing
   description: &gt;-
-    Molecular testing is appropriate for a strongly familial, extreme,
-    early-onset phenotype, and should cover the five reported ASPS genes -
-    PER2, CSNK1D, CRY2, PER3, and TIMELESS. Sequence analysis (panel or
-    exome/genome) is the relevant modality; karyotype, chromosomal microarray,
-    mitochondrial sequencing, and repeat-expansion testing have no routine
-    indication. Interpretation must be cautious: segregation, population
-    frequency, functional data, and ACMG/AMP classification are all required,
-    because several of these gene-disease relationships rest on single
-    kindreds. Cascade testing is reasonable only once a pathogenic or likely
-    pathogenic familial variant is established, and predictive testing of
-    asymptomatic minors warrants counselling because an early chronotype may
-    never cause disorder-level impairment.
+    Molecular testing may be considered for a strongly familial, extreme,
+    early-onset phenotype, although it is not required for the clinical
+    diagnosis of ASWPD and its diagnostic yield is not established. Sequence
+    analysis by a circadian-gene panel or exome/genome can interrogate the six
+    reported causal or candidate genes - PER2, CSNK1D, CRY2, PER3, TIMELESS,
+    and CACNA1D. Interpretation requires caution because evidence strength
+    varies substantially: PER3 remains disputed, several relationships derive
+    from small numbers of kindreds, and no ASPS gene has a ClinGen validity
+    classification. Karyotype, chromosomal microarray, mitochondrial sequencing,
+    and repeat-expansion testing have no routine indication unless another
+    phenotype suggests a separate diagnosis. Sequence variants should be
+    classified under ACMG/AMP criteria; cascade testing is appropriate only
+    after establishing a pathogenic or likely pathogenic familial variant, and
+    predictive testing of asymptomatic minors warrants counselling because an
+    early chronotype may never cause disorder-level impairment.
   diagnosis_term:
     preferred_term: genetic testing
     term:
@@ -11373,14 +12217,27 @@ diagnosis:
   evidence:
   - reference: PMID:39864932
     reference_title: &#34;Advanced sleep phase syndrome: Role of genetics and aging.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: OTHER
     snippet: &gt;-
       Autosomal dominant mutations in circadian clock genes like PER2, CK1,
       PER3, CRY2, TIMELESS, and DEC2 have been linked to FASP
     explanation: &gt;-
-      Establishes the gene set that a circadian-clock panel should cover in
-      suspected familial advanced sleep phase.
+      Identifies historical FASP-associated genes that could be interrogated,
+      but does not establish clinical utility or diagnostic yield. DEC2 is
+      excluded because its established phenotype is natural short sleep rather
+      than isolated phase advance.
+  - reference: PMID:40460120
+    reference_title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Overall, these experiments establish CACNA1D as an FASP gene with altered
+      entrainment, highlighting the ability of human genetics to uncover novel
+      aspects of human circadian regulation.
+    explanation: &gt;-
+      Adds CACNA1D to the potential testing targets after the 2025 review, but
+      does not itself evaluate clinical testing utility.
 - name: Polysomnography to exclude comorbid sleep disorders
   description: &gt;-
     Polysomnography is not required to diagnose ASPS and does not itself
@@ -12026,23 +12883,24 @@ discussions:
   attaches_to:
   - pathophysiology#PER3 Destabilization
   rationale: &gt;-
-    The PER3 association rests on a single kindred carrying a two-variant
-    haplotype, and the reported human phenotype bundles familial advanced sleep
-    phase with elevated Beck Depression Inventory and seasonality scores rather
-    than isolated phase advance. The functional data (destabilized PER3,
-    failure to stabilize PER1/PER2) are real but do not by themselves establish
-    that phase advance, rather than the mood/seasonality trait, is the
-    PER3-attributable phenotype. This entry therefore types PER3 as DISPUTED
-    rather than CAUSATIVE. No ClinGen gene-disease validity classification
-    exists for any ASPS gene.
+    The original PER3 association used one kindred carrying a two-variant
+    haplotype and bundled familial advanced sleep phase with elevated Beck
+    Depression Inventory and seasonality scores. A 2024 Slovenian cohort found
+    the same haplotype in one extreme-morning proband and the proband&#39;s father,
+    providing limited replication but not broad segregation or objective DLMO
+    confirmation. The functional data (destabilized PER3, failure to stabilize
+    PER1/PER2) are real but do not by themselves establish which clinical trait
+    is attributable to PER3. The entry therefore retains DISPUTED rather than
+    CAUSATIVE status. No ClinGen gene-disease validity classification exists
+    for any ASPS gene.
   proposed_experiments:
   - experiment_id: asps_exp_per3_replication
-    name: Independent kindred replication for PER3
+    name: Larger independent segregation series for PER3
     description: &gt;-
-      Identify additional unrelated kindreds segregating PER3 variants with
-      advanced sleep phase, ideally separating the two variants of the
-      P415A/H417R haplotype to determine which (if either) drives the
-      circadian phenotype.
+      Identify additional unrelated kindreds with objective circadian-phase
+      phenotyping and segregation of PER3 variants, ideally separating the two
+      variants of the P415A/H417R haplotype to determine which (if either)
+      drives the circadian phenotype.
   - experiment_id: asps_exp_per3_phase_vs_mood
     name: Phase-versus-mood phenotype separation in PER3 carriers
     description: &gt;-
@@ -12061,6 +12919,17 @@ discussions:
     explanation: &gt;-
       Documents the confounded phenotype - advanced sleep phase reported
       together with a mood/seasonality trait - that motivates this gap.
+  - reference: PMID:38695651
+    reference_title: &#34;Variants in the circadian clock genes PER2 and PER3 associate with familial sleep phase disorders.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The variants were significantly linked to Advanced sleep phase disorder
+      and were also found in proband&#39;s father with extreme morningness.
+    explanation: &gt;-
+      Shows that the 2024 replication is limited to a proband-parent pair and
+      questionnaire-defined extreme morningness, so the validity gap narrows
+      but remains open.
 - discussion_id: asps_melatonin_evidence_gap
   kind: KNOWLEDGE_GAP
   status: OPEN
@@ -12111,7 +12980,7 @@ discussions:
     causes FASP and characterizes its molecular consequences, but names no
     specific variant, so this entry deliberately declines to assert one rather
     than importing an unverifiable variant name from the deep-research report.
-    More broadly, penetrance is quantified for none of the five ASPS genes
+    More broadly, penetrance is quantified for none of the six ASPS genes
     beyond the original PER2 kindreds being described as highly penetrant, and
     penetrance may be age- and light-environment-dependent. This limits both
     variant interpretation and genetic counselling.
@@ -12162,6 +13031,8 @@ references:
   title: &#34;Familial advanced sleep-phase syndrome: A short-period circadian rhythm variant in humans.&#34;
 - reference: PMID:11232563
   title: &#34;An hPer2 phosphorylation site mutation in familial advanced sleep phase syndrome.&#34;
+- reference: PMID:11448298
+  title: &#34;Familial advanced sleep phase syndrome.&#34;
 - reference: PMID:15800623
   title: &#34;Functional consequences of a CKIdelta mutation causing familial advanced sleep phase syndrome.&#34;
 - reference: PMID:17218255
@@ -12184,6 +13055,12 @@ references:
   title: &#34;Therapeutics for Circadian Rhythm Sleep Disorders.&#34;
 - reference: PMID:31400754
   title: &#34;Genetics of the human circadian clock and sleep homeostat.&#34;
+- reference: PMID:38695651
+  title: &#34;Variants in the circadian clock genes PER2 and PER3 associate with familial sleep phase disorders.&#34;
+- reference: PMID:40460120
+  title: &#34;CACNA1D is a circadian gene and causes familial advanced sleep phase.&#34;
+- reference: PMID:41812650
+  title: &#34;Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.&#34;
 </pre>
             </div>
         </div>
@@ -12199,7 +13076,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">13</span>
+                    <span class="card-count">17</span>
                 </div>
 
                 <div class="reference-entry">
@@ -12227,6 +13104,23 @@ references:
                             </div>
 
                             <div class="reference-title">An hPer2 phosphorylation site mutation in familial advanced sleep phase syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/11448298" target="_blank">PMID:11448298</a>
+                            </div>
+
+                            <div class="reference-title">Familial advanced sleep phase syndrome.</div>
 
                         </div>
 
@@ -12414,6 +13308,57 @@ references:
                             </div>
 
                             <div class="reference-title">Genetics of the human circadian clock and sleep homeostat.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38695651" target="_blank">PMID:38695651</a>
+                            </div>
+
+                            <div class="reference-title">Variants in the circadian clock genes PER2 and PER3 associate with familial sleep phase disorders.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40460120" target="_blank">PMID:40460120</a>
+                            </div>
+
+                            <div class="reference-title">CACNA1D is a circadian gene and causes familial advanced sleep phase.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41812650" target="_blank">PMID:41812650</a>
+                            </div>
+
+                            <div class="reference-title">Discovery of MARK2 as a physiological kinase for PER2 in the mammalian clock.</div>
 
                         </div>
 
@@ -12868,7 +13813,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Advanced Sleep Phase Syndrome", "mondoId": "MONDO:0015609", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Advanced_Sleep_Phase_Syndrome", "yamlRevision": "9c75fe8c5490"};
+        const OS_CONFIG = {"diseaseName": "Advanced Sleep Phase Syndrome", "mondoId": "MONDO:0015609", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Advanced_Sleep_Phase_Syndrome", "yamlRevision": "1d5dac79136c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

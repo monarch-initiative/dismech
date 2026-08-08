@@ -23,6 +23,13 @@ on:
         required: false
         default: false
         type: boolean
+      min_age_days:
+        description: >-
+          Minimum age in days a PR must reach before the deterministic sweep
+          will merge it (blank = 3). 0 merges as soon as it is otherwise ready.
+        required: false
+        default: "3"
+        type: string
       model:
         description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
@@ -146,6 +153,16 @@ jobs:
                   branches that may be authored by any user who triggered the session).
             - A PR matching either (a) or (b) is a candidate. Do not act on PRs that match
               neither criterion.
+            - EXCLUDE automated page-build regen PRs: any PR whose head branch starts with
+              `auto/generate-` and whose author is `app/github-actions` / `github-actions[bot]`.
+              These are NOT candidates. Their lifecycle is fully managed by their own regen
+              workflows (deterministic ai4c-reviewer approval of each pushed commit, armed
+              auto-merge, stale-PR cleanup), and they deliberately receive no agentic review —
+              claude-code-review.yml declines to review them, so dispatching it for one of
+              these PRs only wastes a run. Do not dispatch reviews for them, merge them,
+              update their branches, or comment on them. If one looks stuck in
+              REVIEW_REQUIRED, leave it: the next run of its regen workflow refreshes and
+              re-approves it.
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
@@ -277,9 +294,14 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.ai4c-token-merge.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || false }}
+          # Scheduled runs supply no inputs, so `inputs.min_age_days` is empty
+          # and the fallback applies. The script rejects a negative or
+          # non-integer value, so a typo fails loudly instead of quietly
+          # widening what gets merged.
+          MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
         run: |
           set -euo pipefail
-          args=(--repo "$GITHUB_REPOSITORY" --min-age-days 3)
+          args=(--repo "$GITHUB_REPOSITORY" --min-age-days "$MIN_AGE_DAYS")
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)
           fi
