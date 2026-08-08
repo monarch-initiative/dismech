@@ -107,6 +107,74 @@ def test_render_animal_model_without_name_uses_genotype_species_label(
     assert 'href="#pathophysiology-motor-neuron-degeneration"' in html
 
 
+def test_model_edge_styling_matches_cx2_for_every_predicate(tmp_path: Path) -> None:
+    """Every model predicate must be styled, and non-causal ones must not
+    end in a causal arrowhead.
+
+    The HTML pathograph and cx2 style the same edge, so an unstyled predicate
+    in one renderer means the two disagree about what a link claims. Pins the
+    markers a falsified model, a pure readout, and a rescue depend on.
+    """
+    from dismech.export.cx2_export import EDGE_STYLE_BY_PREDICATE
+    from dismech.graph import MODEL_RELATIONSHIP_PREDICATES
+
+    disorder_path = _write(
+        tmp_path,
+        [
+            {
+                "name": f"Model {relationship}",
+                "species": "Mus musculus",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Motor Neuron Degeneration",
+                        "relationship": relationship,
+                        **(
+                            {
+                                "limitations": "No motor phenotype.",
+                                "evidence": [
+                                    {
+                                        "reference": "PMID:1",
+                                        "supports": "REFUTE",
+                                        "snippet": "s",
+                                        "explanation": "e",
+                                    }
+                                ],
+                            }
+                            if relationship == "FAILS_TO_RECAPITULATE"
+                            else {}
+                        ),
+                    }
+                ],
+            }
+            for relationship in MODEL_RELATIONSHIP_PREDICATES
+        ],
+    )
+
+    output_path = tmp_path / "pages" / "disorders" / "Example_Disease.html"
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+
+    # Every predicate cx2 styles is also styled in the HTML table.
+    for predicate in MODEL_RELATIONSHIP_PREDICATES.values():
+        assert predicate in EDGE_STYLE_BY_PREDICATE, f"cx2 missing {predicate}"
+        assert f"{predicate}:" in html or f'"{predicate}"' in html, (
+            f"HTML MODEL_EDGE_STYLES missing {predicate}"
+        )
+
+    # The non-causal heads must exist as markers, not just be named.
+    for marker in (
+        "pg-arrow-failed-model",
+        "pg-arrow-model-tee",
+        "pg-arrow-model-readout",
+    ):
+        assert f'"{marker}"' in html, f"marker {marker} not defined"
+
+    # cx2 agrees that these three are non-causal.
+    assert EDGE_STYLE_BY_PREDICATE["fails_to_model"].target_arrow_shape == "tee"
+    assert EDGE_STYLE_BY_PREDICATE["rescues"].target_arrow_shape == "tee"
+    assert EDGE_STYLE_BY_PREDICATE["measures"].target_arrow_shape == "circle"
+
+
 def test_animal_model_label_prefers_name_and_degrades_gracefully() -> None:
     assert animal_model_label({"name": "SOD1-G93A mouse"}) == "SOD1-G93A mouse"
     assert (
