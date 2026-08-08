@@ -207,6 +207,50 @@ def test_graph_to_json_includes_animal_model_links() -> None:
         },
     ]
 
+    # The models must also be real graph nodes joined by `models` edges, not
+    # only node metadata -- otherwise downstream consumers keyed on edges (the
+    # cx2 exporter's edge-detail lookup) have nothing to attach to.
+    animal_nodes = {n["id"] for n in data["nodes"] if n["node_type"] == "animal_model"}
+    assert animal_nodes == {"SOD1-G93A transgenic mouse", "sod1-null Danio rerio"}
+
+    model_edges = {
+        (e["source"], e["target"])
+        for e in data["edges"]
+        if e.get("predicate") == "models"
+    }
+    assert model_edges == {
+        ("SOD1-G93A transgenic mouse", "Motor Neuron Degeneration"),
+        ("sod1-null Danio rerio", "Motor Neuron Degeneration"),
+    }
+
+
+def test_animal_models_without_mechanism_links_stay_out_of_the_graph() -> None:
+    """An animal model with no `modeled_mechanisms` produces no node or edge.
+
+    This is what keeps the ~400 legacy animal-model entries from flooding every
+    pathograph: they opt in by declaring mechanism links, exactly as the
+    experimental and computational model sections do.
+    """
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Motor Neuron Degeneration",
+                "downstream": [{"target": "Muscle weakness"}],
+            }
+        ],
+        "phenotypes": [{"name": "Muscle weakness"}],
+        "animal_models": [
+            {"species": "Mus musculus", "genotype": "Msx1-null"},
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+
+    assert not [n for n in data["nodes"] if n["node_type"] == "animal_model"]
+    assert not [e for e in data["edges"] if e.get("predicate") == "models"]
+
 
 def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> None:
     """Linked non-causal content should now participate in the pathograph."""

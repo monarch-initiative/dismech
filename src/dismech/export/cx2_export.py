@@ -1299,13 +1299,20 @@ def _node_attributes(
     if isinstance(meta.get("term_id"), str):
         attributes["term_url"] = curie_to_url(meta["term_id"])
 
-    linked_models = meta.get("experimental_models")
-    if isinstance(linked_models, list) and linked_models:
-        attributes["linked_experimental_models"] = [
-            str(item.get("name"))
-            for item in linked_models
-            if isinstance(item, dict) and item.get("name")
-        ]
+    for meta_key, attribute_key in (
+        ("experimental_models", "linked_experimental_models"),
+        ("animal_models", "linked_animal_models"),
+        ("computational_models", "linked_computational_models"),
+    ):
+        linked_models = meta.get(meta_key)
+        if isinstance(linked_models, list) and linked_models:
+            names = [
+                str(item.get("name"))
+                for item in linked_models
+                if isinstance(item, dict) and item.get("name")
+            ]
+            if names:
+                attributes[attribute_key] = names
 
     pdb_structures = meta.get("pdb_structures")
     if isinstance(pdb_structures, list) and pdb_structures:

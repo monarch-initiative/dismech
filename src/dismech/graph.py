@@ -63,6 +63,7 @@ NODE_COLORS = {
     "treatment": "#fce7f3",  # pink-100
     "biochemical": "#e0e7ff",  # indigo-100
     "experimental_model": "#ccfbf1",  # teal-100
+    "animal_model": "#ede9fe",  # violet-100
     "computational_model": "#ecfccb",  # lime-100
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
@@ -309,6 +310,24 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     description=item.get("description"),
                 )
 
+    # Animal models cannot ride the loop above: `name` is optional on
+    # AnimalModel, so their node identity comes from animal_model_label(), which
+    # falls back to genotype/species. As with the other model sections, a model
+    # only becomes a node if some edge uses it -- i.e. if it declares
+    # `modeled_mechanisms` -- so entries without mechanism links stay out of the
+    # graph entirely.
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        label = animal_model_label(item)
+        if not label:
+            continue
+        graph.nodes[label] = NodeInfo(
+            name=label,
+            node_type="animal_model",
+            description=item.get("description"),
+        )
+
     for _parent_name, variant in iter_variant_items(disorder):
         name = variant.get("name")
         if not name:
@@ -476,6 +495,25 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         target=link["target"],
                         predicate="models",
                         source_type="experimental_model",
+                    )
+                )
+
+    # Collect edges from animal model links
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = animal_model_label(item)
+        if not source:
+            continue
+
+        for link in item.get("modeled_mechanisms", []) or []:
+            if isinstance(link, dict) and "target" in link:
+                graph.edges.append(
+                    Edge(
+                        source=source,
+                        target=link["target"],
+                        predicate="models",
+                        source_type="animal_model",
                     )
                 )
 
@@ -1044,13 +1082,15 @@ def animal_model_label(model: dict[str, Any]) -> str | None:
     is not stable across edits and can collide within one file, which is why
     `name` is recommended once a model carries `modeled_mechanisms`.
     """
-    name = (model.get("name") or "").strip()
+    # str() before strip(): a genotype like `2` parses as an int from YAML, and
+    # calling .strip() on it directly would raise rather than degrade.
+    name = str(model.get("name") or "").strip()
     if name:
         return name
     parts = [
-        str(model[key]).strip()
+        str(model.get(key)).strip()
         for key in ("genotype", "species")
-        if (model.get(key) or "").strip()
+        if str(model.get(key) or "").strip()
     ]
     return " ".join(parts) or None
 
