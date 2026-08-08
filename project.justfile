@@ -1680,7 +1680,7 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
             *)
-                uv run linkml-reference-validator cache reference "$identifier"
+                scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
         esac
     done
