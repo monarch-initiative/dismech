@@ -115,3 +115,7 @@ def test_animal_model_label_prefers_name_and_degrades_gracefully() -> None:
     )
     assert animal_model_label({"species": "Danio rerio"}) == "Danio rerio"
     assert animal_model_label({"description": "unnamed"}) is None
+    # A genotype YAML parses as a scalar must degrade, not raise.
+    assert animal_model_label({"genotype": 2, "species": "Mus musculus"}) == (
+        "2 Mus musculus"
+    )

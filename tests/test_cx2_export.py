@@ -173,6 +173,41 @@ def test_disorder_to_cx2_exports_crohn_model_edges() -> None:
     assert "PMID:39701210" in model_edge["v"]["Evidence"]
 
 
+def test_disorder_to_cx2_exports_animal_model_edges() -> None:
+    """Animal models must reach cx2 as real nodes carrying their link detail.
+
+    Regression guard for review feedback on #8217: the cx2 `add_detail` block
+    for animal models was unreachable while `animal_models` produced no graph
+    nodes or `models` edges, so edge detail had nothing to attach to.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    disorder_path = repo_root / "kb" / "disorders" / "Amyotrophic_Lateral_Sclerosis.yaml"
+
+    cx2 = disorder_to_cx2(
+        load_disorder(disorder_path),
+        source_path=disorder_path,
+    )
+    aspects = _aspect_map(cx2)
+    node_map, _ = _nodes_by_name(aspects)
+    edges = _edges_by_endpoints(aspects)
+
+    canine = "Canine degenerative myelopathy (SOD1 E40K homozygous dog)"
+    assert canine in node_map
+
+    model_edge = edges[(canine, "Motor Neuron Degeneration")]
+    assert model_edge["v"]["predicate"] == "models"
+    assert "PMID:19188595" in model_edge["v"]["Evidence"]
+
+    # The equine model links two different nodes, which is the case that makes
+    # per-link (rather than per-model) detail necessary.
+    equine = "Equine motor neuron disease (vitamin E-deficient horse)"
+    assert edges[(equine, "Motor Neuron Degeneration")]["v"]["predicate"] == "models"
+    assert edges[(equine, "Oxidative Stress")]["v"]["predicate"] == "models"
+
+    # Nodes the models point at advertise them back.
+    assert canine in node_map["Motor Neuron Degeneration"]["v"]["linked_animal_models"]
+
+
 def test_disorder_to_cx2_exports_event_location_links() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     disorder_path = repo_root / "kb" / "disorders" / "APL_PML_RARA.yaml"
