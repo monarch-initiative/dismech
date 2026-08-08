@@ -23,7 +23,7 @@ class _FakeAdapter:
     def __init__(self, hierarchy: dict[str, list[str]]):
         self.hierarchy = hierarchy
 
-    def descendants(self, seeds, predicates=None):  # noqa: ARG002
+    def descendants(self, seeds, predicates=None):
         out: set[str] = set()
         for seed in seeds:
             out.add(seed)
