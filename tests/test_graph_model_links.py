@@ -142,6 +142,72 @@ def test_graph_to_json_includes_experimental_and_computational_model_links() -> 
     ]
 
 
+def test_graph_to_json_includes_animal_model_links() -> None:
+    """Animal model links should surface on the node, labelled and typed."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Motor Neuron Degeneration",
+                "downstream": [{"target": "Muscle weakness"}],
+            }
+        ],
+        "phenotypes": [{"name": "Muscle weakness"}],
+        "animal_models": [
+            {
+                "name": "SOD1-G93A transgenic mouse",
+                "species": "Mus musculus",
+                "genotype": "SOD1-G93A",
+                "category": "Transgenic mouse",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Motor Neuron Degeneration",
+                        "relationship": "RECAPITULATES",
+                        "fidelity": "MODERATE",
+                        "description": "Progressive spinal motor neuron loss.",
+                    }
+                ],
+            },
+            {
+                # No `name`: falls back to a genotype/species label rather than
+                # being dropped, as the 400 pre-existing entries have none.
+                "species": "Danio rerio",
+                "genotype": "sod1-null",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Motor Neuron Degeneration",
+                        "relationship": "FAILS_TO_RECAPITULATE",
+                    }
+                ],
+            },
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    node = next(
+        node for node in data["nodes"] if node["id"] == "Motor Neuron Degeneration"
+    )
+
+    assert node["meta"]["animal_models"] == [
+        {
+            "name": "SOD1-G93A transgenic mouse",
+            "species": "Mus musculus",
+            "genotype": "SOD1-G93A",
+            "category": "Transgenic mouse",
+            "relationship": "RECAPITULATES",
+            "fidelity": "MODERATE",
+            "description": "Progressive spinal motor neuron loss.",
+        },
+        {
+            "name": "sod1-null Danio rerio",
+            "species": "Danio rerio",
+            "genotype": "sod1-null",
+            "relationship": "FAILS_TO_RECAPITULATE",
+        },
+    ]
+
+
 def test_build_causal_graph_includes_linked_models_treatments_and_genetics() -> None:
     """Linked non-causal content should now participate in the pathograph."""
     disorder = {
