@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHH Holoprosencephaly Spectrum · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>SHH Holoprosencephaly Spectrum</span>
+            </div>
+
+            <header class="report-header">
+                <h1>SHH Holoprosencephaly Spectrum</h1>
+                
+                <p class="report-subtitle">SHH Holoprosencephaly Spectrum — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0007733" target="_blank" rel="noopener noreferrer">MONDO:0007733</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">27 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>SHH Holoprosencephaly Spectrum — Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> SHH Holoprosencephaly Spectrum (HPE3)
+<strong>Category:</strong> Genetic (autosomal dominant, developmental)
+<strong>Key identifiers:</strong> OMIM #142945 (HPE3); <em>SHH</em> gene OMIM *600725; <a href="http://purl.obolibrary.org/obo/MONDO_0016296" target="_blank" rel="noopener noreferrer">MONDO:0016296</a>; <a href="https://bioregistry.io/ORPHA:2162" target="_blank" rel="noopener noreferrer">ORPHA:2162</a>; ICD-10 Q04.2; ICD-11 LA05.0; MeSH D016142; <a href="https://bioregistry.io/HGNC:10848" target="_blank" rel="noopener noreferrer">HGNC:10848</a> (SHH); UniProt Q15465; Ensembl ENSG00000164690</p>
+<p><em>Evidence source labels: [H] human clinical/registry, [M] model organism, [V] in vitro, [C] computational/structural. PMIDs cited inline.</em></p>
+<hr />
+<h2>Summary</h2>
+<p><strong>SHH holoprosencephaly (HPE3) is the most common single-gene, non-chromosomal cause of holoprosencephaly (HPE) — the failure of the embryonic forebrain (prosencephalon) to cleave into two cerebral hemispheres between the 18th and 28th day of gestation.</strong> It is an autosomal-dominant disorder caused by heterozygous loss-of-function of <em>Sonic Hedgehog (SHH)</em>, which lowers SHH morphogen signaling in the rostroventral forebrain during a narrow developmental window. The consequence is a graded midline brain–face malformation continuum, spanning cyclopia and alobar HPE at the severe end through semilobar, lobar, and the middle interhemispheric variant, down to isolated "microforms" (solitary median maxillary central incisor [SMMCI], ocular hypotelorism) at the mild end. <em>SHH</em> is the first-identified and most frequently mutated of at least seven implicated HPE genes (<em>SHH, ZIC2, SIX3, TGIF, PTCH1, GLI2, TDGF1</em>) and underlies ~17% of familial HPE.</p>
+<p>A defining feature is <strong>extreme variability</strong>: markedly incomplete penetrance and highly variable expressivity mean a single variant can produce lethal brain malformation in one relative and only a subtle facial sign — or nothing detectable — in another. Critically, in the largest genotype–phenotype cohort (396 individuals), <em>SHH</em> variants biased toward the <em>milder</em> end, more often causing non-HPE (64%) than frank HPE (36%), and mutation-positive microform carriers may have normal or even above-average intellect. This variability reflects a "multiple-hit" genetic architecture (co-occurring variants in modifiers such as <em>GAS1</em>, and pathways including NODAL, NOTCH, WNT/PCP, FGF, RAS/ERK, cilia, and cohesin) combined with gene–environment interaction, most prominently maternal pregestational diabetes, with additional signals from alcohol, female sex, and twinning.</p>
+<p><strong>Clinically, HPE carries among the lowest survival of all rare structural congenital anomalies (~36% at 10 years; alobar HPE is usually lethal neonatally).</strong> No curative or disease-modifying therapy exists; care is supportive and centers on prenatal imaging diagnosis, genetic counseling with molecular cascade testing, and management of the characteristic complications — seizures, autonomic instability, and hypothalamic–pituitary endocrinopathy, of which central diabetes insipidus (~47% of HPE patients) is the hallmark. Causation is definitively established by the landmark <em>Shh</em>-null mouse (cyclopia, loss of the ventral neural tube), and human <em>SHH</em> variants have been functionally validated in zebrafish rescue assays.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — SHH is the leading single-gene cause of HPE, acting via haploinsufficiency of Sonic Hedgehog signaling</h3>
+<p>Holoprosencephaly results from incomplete cleavage of the prosencephalon between the 18th and 28th days of gestation. At least seven genes are positively implicated, of which <em>SHH</em> was the first identified and is the most frequently mutated (<a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">PMID: 17274816</a>: <em>"To date, seven genes have been positively implicated in HPE: Sonic hedgehog (SHH), ZIC2, SIX3, TGIF, PTCH, GLI2 and TDGF1."</em>). The convergent mechanism across these diverse genes is disruption of Hedgehog signaling — <em>"disruption of Sonic hedgehog expression and/or signaling in the rostroventral region of the embryo is a major common effect of these mutations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19186244/">PMID: 19186244</a>). Inheritance is autosomal dominant with markedly incomplete penetrance and variable expressivity: <em>"even HPE in pedigrees is characterized by incomplete penetrance and variable expressivity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19186244/">PMID: 19186244</a>). The molecular basis is haploinsufficiency — loss of one functional <em>SHH</em> allele lowers morphogen output below the threshold required for normal midline forebrain patterning. [H/M]</p>
+<h3>Finding 2 — HPE forms a graded clinical spectrum with correlated brain–face severity</h3>
+<p>HPE is classically divided into three ranges of increasing severity — <strong>lobar, semilobar, and alobar</strong> — plus the milder <strong>middle interhemispheric variant (MIHV/syntelencephaly)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">PMID: 17274816</a>: <em>"Three ranges of increasing severity are described: lobar, semi-lobar and alobar HPE."</em>). Facial anomalies parallel brain severity along the "face predicts the brain" principle: severe forms show <em>"cyclopia, proboscis, median or bilateral cleft lip/palate,"</em> while minor forms show <em>"ocular hypotelorism or solitary median maxillary central incisor"</em>, and microforms can occur with a structurally normal brain (<a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">PMID: 17274816</a>). A nationwide Japanese survey (n=49 anatomically typed) found: <strong>40.8% alobar, 40.8% semilobar, 10.4% lobar</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31886593/">PMID: 31886593</a>: <em>"20 were alobar (40.8%), 20 were semilobar (40.8%), five were lobar (10.4%)"</em>). [H]</p>
+<h3>Finding 3 — HPE has the lowest survival among rare structural congenital anomalies</h3>
+<p>Birth prevalence is ~1/16,000 live births but ~1/250 conceptuses, indicating that the great majority of affected pregnancies are lost in utero (<a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">PMID: 17274816</a>: <em>"It is estimated to occur in 1/16,000 live births and 1/250 conceptuses."</em>); Japan's birth-prevalence rate was 1.54/10,000 live births (<a href="https://pubmed.ncbi.nlm.nih.gov/31886593/">PMID: 31886593</a>). Two independent registries confirm HPE has the worst survival of the conditions studied:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Registry / Study</th>
+<th>Survival metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EUROCAT multi-registry (rare CAs)</td>
+<td>1 week</td>
+<td>58.1% (95% CI 44.3–76.2)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35351164/">PMID: 35351164</a></td>
+</tr>
+<tr>
+<td>EUROCAT</td>
+<td>1 year</td>
+<td>47.4% (95% CI 36.4–61.6)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35351164/">PMID: 35351164</a></td>
+</tr>
+<tr>
+<td>EUROCAT</td>
+<td>10 years</td>
+<td>35.6% (95% CI 22.2–56.9)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35351164/">PMID: 35351164</a></td>
+</tr>
+<tr>
+<td>Texas registry (1999–2018)</td>
+<td>10 years</td>
+<td>36.9% (lowest of 30 conditions)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37868647/">PMID: 37868647</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>"Arhinencephaly/holoprosencephaly had the lowest survival at all ages"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35351164/">PMID: 35351164</a>); <em>"Ten-year survival varied by condition, ranging from 36.9% for holoprosencephaly to 99.3% for pyloric stenosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37868647/">PMID: 37868647</a>). Prognosis is strongly severity-dependent; alobar HPE is uniformly unfavorable neonatally. [H]</p>
+<h3>Finding 4 — Penetrance/expressivity are shaped by "multiple-hit" genetics and gene–environment interaction</h3>
+<p>Clinical expression is <em>"extremely variable"</em> and is attributed to the number and type of HPE gene variants, with environmental agents contributing and evidence for a "multiple hits" requirement — e.g., patients carrying combined <em>GAS1</em> + <em>SHH</em> variants (<a href="https://pubmed.ncbi.nlm.nih.gov/20583177/">PMID: 20583177</a>: <em>"Environmental agents may also contribute to the severity as well as the requirement of multiple hits."</em>). Recent reviews implicate modifiers across the <strong>NODAL, NOTCH, WNT/PCP, FGF, and RAS/ERK1/2 pathways</strong> plus ciliary and cohesin components (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>: <em>"These include modulators of the NODAL, NOTCH, WNT/PCP, FGF, and RAS/ERK1/2 pathways as well as components of ciliary structures and cohesin complexes."</em>), and emphasize that <em>"incomplete penetrance, broad phenotypic heterogeneity, and gene-environment interactions complicate diagnostic and counselling efforts"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>). Mechanistically, SHH signaling requires <strong>cholesterol modification</strong> of the ligand and a coreceptor handoff via GAS1/SCUBE2 to PTCH1 (<a href="https://pubmed.ncbi.nlm.nih.gov/35231446/">PMID: 35231446</a>: <em>"how GAS1 recognizes the SHH palmitate and cholesterol modifications in modular fashion and how it facilitates lipid-dependent SHH handoff to PTCH1"</em>), providing a molecular bridge between sterol-disrupting exposures and HPE risk. [H/V/C]</p>
+<h3>Finding 5 — SHH accounts for ~17% of familial HPE; ligand lipidation is required; human variants are functionally validated</h3>
+<p><em>"Mutations in SHH underlie most familial (17%) cases of HPE"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23055936/">PMID: 23055936</a>). The same study established that Hedgehog acyltransferase (Hhat), required for N-terminal palmitoylation of SHH, is essential: <em>"Hhat is required for post-translational palmitoylation of Hedgehog (Hh) proteins; and, in the absence of Hhat, Hh secretion from producing cells is diminished"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23055936/">PMID: 23055936</a>). Loss of Hhat in mouse produces severe acrania-holoprosencephaly-agnathia by diminishing SHH secretion and perturbing long-range signaling, with downstream disruption of FGF, BMP, and ERK and extensive apoptosis in craniofacial primordia. Because <em>"only a minor fraction of known SHH variants have been experimentally proven to lead to abnormal function"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">PMID: 32939873</a>), human missense variants have been functionally validated by phenotypic rescue in a <em>shha</em> CRISPR/Cas9 zebrafish assay — an important tool given the abundance of variants of uncertain significance (VUS). [M/V]</p>
+<h3>Finding 6 — Hypothalamic–pituitary dysfunction (central diabetes insipidus ~47%) and extracephalic involvement are key managed features</h3>
+<p>Endocrine dysfunction is a central management issue. In a cohort screened for <em>SHH</em>/<em>GLI2</em>, <em>"Diabetes insipidus was common in patients with HPE (47%) but infrequent in patients with congenital hypopituitarism or SOD (7% and 8%, respectively)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25056824/">PMID: 25056824</a>); anterior pituitary deficiency occurred in 53% of HPE patients, and a heterozygous nonsense <em>SHH</em> variant (p.Tyr175Ter) was found in an alobar HPE patient with hypopituitarism. In human (typically heterozygous) HPE, <em>"the pituitary gland, no matter how hypoplastic, is present in most cases of human holoprosencephaly, unlike animals in which it is always said to be absent"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/20013843/">PMID: 20013843</a>) — a dosage difference between heterozygous human and homozygous animal models. Beyond brain and face, nonchromosomal nonsyndromic HPE shows <em>"a wide spectrum of extracephalic manifestations"</em> across organ systems (<a href="https://pubmed.ncbi.nlm.nih.gov/29761634/">PMID: 29761634</a>). [H]</p>
+<h3>Finding 7 — Mutation-positive microform HPE can present with normal or above-average intellect</h3>
+<p>A finding that reframes genetic counseling: Solomon et al. presented 5 patients with clear microform HPE signs, <em>all</em> with above-average intellect, molecular cause identified in 4/5 (<em>SHH, SIX3, GLI2, FGF8</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/23112757/">PMID: 23112757</a>: <em>"Here we present 5 patients with clear phenotypic signs of microform holoprosencephaly, all of whom have evidence of above-average intellectual function."</em>). This contradicts the assumption that intellectual disability marks the mildly affected carrier parent and captures the full expressivity range <em>"ranging from brain malformations incompatible with life to individuals with normal brain findings and subtle midline facial differences"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23112757/">PMID: 23112757</a>). Cognitive status therefore cannot be used to identify carriers — molecular testing of at-risk relatives is required. [H]</p>
+<h3>Finding 8 — SHH variants skew toward the mild end; truncating variants are more severe than non-truncating</h3>
+<p>In the largest <em>SHH</em> cohort (396 individuals, 157 kindreds), <em>"SHH mutations more commonly resulted in non-HPE (64%) than frank HPE (36%), and non-HPE was significantly more common in patients with SHH than in those with mutations in the other common HPE related genes (p&lt;0.0001 compared to ZIC2 or SIX3)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22791840/">PMID: 22791840</a>). Within <em>SHH</em>, a genotype–severity gradient exists: <em>"Individuals with truncating mutations were significantly more likely to have frank HPE than those with non-truncating mutations (49% vs 35%, respectively; p=0.012)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22791840/">PMID: 22791840</a>), with N-terminal clustering. A European series of 645 probands (4-gene yield 25%) confirmed positional biology: <em>"the most severe HPE types were associated with SIX3 and ZIC2 mutations, whereas microforms were associated with SHH mutations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21940735/">PMID: 21940735</a>); a brain–face correlation held for <em>SHH/SIX3/TGIF</em> but not <em>ZIC2</em>. Inheritance differs by gene: <em>"The SHH, SIX3, and TGIF mutations were inherited in more than 70% of these cases, whereas 70% of the mutations in ZIC2 occurred de novo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21940735/">PMID: 21940735</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Spectrum position</th>
+<th>Inheritance</th>
+<th>Brain–face correlation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SHH</strong></td>
+<td>Milder end; microforms; non-HPE 64%</td>
+<td>&gt;70% inherited</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>SIX3</td>
+<td>Severe end</td>
+<td>&gt;70% inherited</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>ZIC2</td>
+<td>Severe end</td>
+<td>~70% de novo</td>
+<td>No</td>
+</tr>
+<tr>
+<td>TGIF</td>
+<td>Variable</td>
+<td>&gt;70% inherited</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>[H]</p>
+<h3>Finding 9 — Nongenetic risk factors: maternal pregestational diabetes, female predominance, twinning, alcohol</h3>
+<p>A systematic review identified <em>"maternal diabetes, twinning, and a predominance of females"</em> as consistently replicated nongenetic risk factors (<a href="https://pubmed.ncbi.nlm.nih.gov/29761639/">PMID: 29761639</a>). A case-control study found maternal pregestational diabetes in <strong>9.2% of cases vs 0% of controls (p=.02)</strong>, plus elevated odds for alcohol (aOR 1.73) and aerosol/hair-spray exposure (aOR 2.46), and significant gene–environment interactions (<a href="https://pubmed.ncbi.nlm.nih.gov/33111505/">PMID: 33111505</a>: <em>"maternal pregestational diabetes (9.2% of cases and 0 controls, p = .02)"</em>). A meta-analysis of &gt;80 million births ranked HPE among the highest anomaly-specific risks with pregestational diabetes (RR ~18.18, 95% CI 4.03–82.06) (<a href="https://pubmed.ncbi.nlm.nih.gov/35104296/">PMID: 35104296</a>); the National Birth Defects Prevention Study reported aOR 13.1 (95% CI 7.0–24.5) (<a href="https://pubmed.ncbi.nlm.nih.gov/31454511/">PMID: 31454511</a>). In an adult HPE cohort, <em>"Factors associated with long-term survival included HPE subtype not alobar, female gender, and nontypical facial features"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28640243/">PMID: 28640243</a>). [H]</p>
+<h3>Finding 10 — Definitive genetic proof from mouse; specific alleles produce isolated microforms</h3>
+<p>The landmark targeted <em>Shh</em> knockout established causation: <em>Shh</em> <em>"plays a critical role in patterning of vertebrate embryonic tissues,"</em> with early defects <em>"in the establishment or maintenance of midline structures, such as the notochord and the floorplate"</em> and later defects including <em>"absence of distal limb structures, cyclopia, absence of ventral cell types within the neural tube"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/8837770/">PMID: 8837770</a>) — directly recapitulating human HPE. At the mild extreme, the <em>SHH</em> missense allele <strong>I111F</strong> segregated with <strong>solitary median maxillary central incisor (SMMCI)</strong> without HPE, and <em>"this mutation may be specific for the SMMCI phenotype since it has not been found in the HPE population or in normal controls"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11471164/">PMID: 11471164</a>). SMMCI can associate with pituitary insufficiency, short stature, microcephaly, and congenital nasal pyriform aperture stenosis. [M/H]</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>SHH-HPE is best understood as a <strong>threshold disorder of morphogen dosage</strong>. SHH is a graded morphogen that patterns the ventral midline of the developing forebrain via the prechordal plate. A single loss-of-function allele lowers total signaling; whether the phenotype crosses into frank HPE, a microform, or clinical normality depends on whether SHH output at gestational days 18–28 falls above or below the patterning threshold. That threshold is not fixed — it is modulated by variant severity, genetic background/additional hits, and environmental inputs.</p>
+<pre><code>GENETIC              +           ENVIRONMENT
+  (SHH LOF + modifiers)              (diabetes, alcohol, sterol disruption)
+     \                              /
+      \                            /
+       ▼                          ▼
+      ── Net SHH signaling at GD 18–28 (rostroventral forebrain) ──
+          │
+above threshold ──┼── below threshold
+ (normal /        │        (microform → lobar → semilobar → alobar)
+  carrier)        │
+          ▼
+      Correlated brain + face midline phenotype
+</code></pre>
+<p><strong>Causal chain (upstream → downstream):</strong></p>
+<pre><code>Heterozygous SHH LOF variant
+   → reduced SHH ligand production / secretion / lipidation (cholesterol + palmitate)
+      → subthreshold Hedgehog signaling in rostroventral forebrain (GD 18–28)
+ → failed induction/maintenance of ventral midline (floorplate, notochord)
+    → incomplete cleavage of prosencephalon + apoptosis in craniofacial primordia
+       → graded midline brain (alobar↔lobar↔microform) &amp; face defects
+  → clinical: seizures, developmental delay, dysautonomia,
+    hypothalamic-pituitary dysfunction (central DI ~47%)
+</code></pre>
+<p>This model explains the disease's paradoxes: why <em>SHH</em> variants skew mild (ligand haploinsufficiency often leaves signaling nearer threshold than transcription-factor genes <em>SIX3/ZIC2</em>); why mutation-positive relatives can be asymptomatic or high-functioning; and why maternal diabetes so dramatically elevates risk (metabolic disruption pushing signaling below threshold in a genetically susceptible embryo). <strong>Pathway:</strong> Sonic Hedgehog signaling (KEGG hsa04340; Reactome R-HSA-5358351). SHH is autocatalytically cleaved and dual-lipidated, dispatched by DISP1, carried by SCUBE2, handed via GAS1/CDON/BOC to PTCH1, relieving inhibition of SMO and activating GLI2/GLI3. Suggested <strong>GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" rel="noopener noreferrer">GO:0007224</a> (smoothened signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0021871" target="_blank" rel="noopener noreferrer">GO:0021871</a> (forebrain regionalization), <a href="http://purl.obolibrary.org/obo/GO_0021775" target="_blank" rel="noopener noreferrer">GO:0021775</a> (smoothened signaling in ventral spinal cord patterning), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/GO_0016540" target="_blank" rel="noopener noreferrer">GO:0016540</a> (protein autoprocessing). Suggested <strong>CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000681" target="_blank" rel="noopener noreferrer">CL:0000681</a> (radial glial cell), <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a> (neural progenitor), <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a> (cranial neural crest cell), floor-plate cells. Suggested <strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a> (cholesterol), <a href="http://purl.obolibrary.org/obo/CHEBI_15756" target="_blank" rel="noopener noreferrer">CHEBI:15756</a> (palmitic acid). Suggested <strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" rel="noopener noreferrer">UBERON:0001890</a> (forebrain), <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" rel="noopener noreferrer">UBERON:0001898</a> (hypothalamus), <a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" rel="noopener noreferrer">UBERON:0000007</a> (pituitary), <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> (eye).</p>
+<hr />
+<h2>Section-by-Section Characterization (Full Template Coverage)</h2>
+<h3>1. Disease Information</h3>
+<p>SHH-HPE denotes the subset of holoprosencephaly caused by heterozygous <em>SHH</em> variants (HPE type 3), plus its graded continuum from cyclopia/alobar HPE to isolated microforms. <strong>Identifiers:</strong> OMIM #142945 (HPE3), <em>SHH</em> *600725; <a href="http://purl.obolibrary.org/obo/MONDO_0016296" target="_blank" rel="noopener noreferrer">MONDO:0016296</a>; <a href="https://bioregistry.io/ORPHA:2162" target="_blank" rel="noopener noreferrer">ORPHA:2162</a>; ICD-10 Q04.2; ICD-11 LA05.0; MeSH D016142; <a href="https://bioregistry.io/HGNC:10848" target="_blank" rel="noopener noreferrer">HGNC:10848</a>; UniProt Q15465; Ensembl ENSG00000164690. <strong>Synonyms:</strong> Holoprosencephaly type 3; SHH-related HPE; arhinencephaly (older/registry term); microform HPE; cyclopia–cebocephaly–ethmocephaly (severe facial forms). <strong>Source type:</strong> aggregated disease-level resources (OMIM, Orphanet, HPO) and primary literature/registries (EUROCAT, Texas, Japan) — not individual EHR (<a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">PMID: 17274816</a>).</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause:</strong> heterozygous LOF of <em>SHH</em> → haploinsufficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/19186244/">PMID: 19186244</a>). <strong>Genetic modifiers:</strong> <em>GLI2, PTCH1, GAS1, CDON, BOC, DISP1, FGF8, TGIF1, ZIC2, SIX3, TDGF1</em>; combined <em>GAS1</em>+<em>SHH</em> illustrates multiple hits (<a href="https://pubmed.ncbi.nlm.nih.gov/20583177/">PMID: 20583177</a>); NODAL/NOTCH/WNT-PCP/FGF/RAS-ERK/cilia/cohesin (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>). <strong>Environmental risk:</strong> maternal pregestational diabetes, twinning, female predominance (<a href="https://pubmed.ncbi.nlm.nih.gov/29761639/">PMID: 29761639</a>); alcohol and aerosol exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/33111505/">PMID: 33111505</a>). <strong>Protective:</strong> preconception glycemic control, adequate maternal cholesterol/nutrition, teratogen avoidance; no validated protective allele. <strong>GxE:</strong> threshold trait with documented statistical interactions and a cholesterol-dependent mechanistic basis (<a href="https://pubmed.ncbi.nlm.nih.gov/33111505/">PMID: 33111505</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35231446/">PMID: 35231446</a>).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Onset</th>
+<th>Severity</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Holoprosencephaly (forebrain non-cleavage)</td>
+<td>Structural CNS</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" rel="noopener noreferrer">HP:0001360</a></td>
+<td>Congenital</td>
+<td>Severe–variable</td>
+<td>Defining</td>
+</tr>
+<tr>
+<td>Microcephaly</td>
+<td>Structural</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+<td>Congenital</td>
+<td>Mod–severe</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Cyclopia/synophthalmia</td>
+<td>Craniofacial</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009914" target="_blank" rel="noopener noreferrer">HP:0009914</a></td>
+<td>Congenital</td>
+<td>Severe (alobar)</td>
+<td>Rare, severe end</td>
+</tr>
+<tr>
+<td>Proboscis</td>
+<td>Craniofacial</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010306" target="_blank" rel="noopener noreferrer">HP:0010306</a></td>
+<td>Congenital</td>
+<td>Severe</td>
+<td>Severe end</td>
+</tr>
+<tr>
+<td>Hypotelorism</td>
+<td>Craniofacial</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" rel="noopener noreferrer">HP:0000601</a></td>
+<td>Congenital</td>
+<td>Mild–mod</td>
+<td>Very common</td>
+</tr>
+<tr>
+<td>Median/bilateral cleft lip-palate</td>
+<td>Craniofacial</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" rel="noopener noreferrer">HP:0410030</a> / <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a></td>
+<td>Congenital</td>
+<td>Mod–severe</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Solitary median maxillary central incisor</td>
+<td>Dental/microform</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006315" target="_blank" rel="noopener noreferrer">HP:0006315</a></td>
+<td>Childhood</td>
+<td>Mild</td>
+<td>Microform marker</td>
+</tr>
+<tr>
+<td>Developmental delay / intellectual disability</td>
+<td>Neurodevelopmental</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> / <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Infancy</td>
+<td>Variable–severe</td>
+<td>Common in survivors</td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>Neurological</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Neonatal–infancy</td>
+<td>Mod–severe</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Central diabetes insipidus</td>
+<td>Endocrine</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000873" target="_blank" rel="noopener noreferrer">HP:0000873</a></td>
+<td>Neonatal–infancy</td>
+<td>Variable</td>
+<td>~47%</td>
+</tr>
+<tr>
+<td>Dysautonomia (temperature/HR/respiratory)</td>
+<td>Autonomic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" rel="noopener noreferrer">HP:0012332</a></td>
+<td>Neonatal</td>
+<td>Severe</td>
+<td>Frequent (severe forms)</td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td>Functional</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+<td>Neonatal</td>
+<td>Mod–severe</td>
+<td>Common</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Onset is congenital/prenatal; course is static-structural with progressive (epilepsy) or fluctuating (DI, dysautonomia) complications. QoL impact ranges from profound (alobar) to negligible (microform carriers with normal intellect, <a href="https://pubmed.ncbi.nlm.nih.gov/23112757/">PMID: 23112757</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene:</strong> <em>SHH</em> (7q36.3). <strong>Variant types:</strong> missense (most common, N-terminal clustering), nonsense/truncating (e.g., p.Tyr175Ter, <a href="https://pubmed.ncbi.nlm.nih.gov/25056824/">PMID: 25056824</a>), frameshift, splice, whole-gene/7q36 deletions, and enhancer variants. Truncating → more frank HPE (49% vs 35%, <a href="https://pubmed.ncbi.nlm.nih.gov/22791840/">PMID: 22791840</a>). <strong>Classification:</strong> ACMG/AMP; large VUS burden motivating functional assays (<a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">PMID: 32939873</a>). <strong>Allele frequency:</strong> pathogenic alleles ultra-rare in gnomAD; <em>SHH</em> LOF-constrained. <strong>Origin:</strong> germline; &gt;70% inherited (<a href="https://pubmed.ncbi.nlm.nih.gov/21940735/">PMID: 21940735</a>); germline mosaicism relevant to recurrence. <strong>Consequence:</strong> loss of function/haploinsufficiency; allele-specific microforms (I111F, <a href="https://pubmed.ncbi.nlm.nih.gov/11471164/">PMID: 11471164</a>). <strong>Chromosomal:</strong> trisomy 13/18, 7q36/13q/2p deletions (<a href="https://pubmed.ncbi.nlm.nih.gov/31886593/">PMID: 31886593</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24764759/">PMID: 24764759</a>). <strong>Epigenetic:</strong> long-range <em>SHH</em> enhancers regulate spatial dosage; HPE-specific methylation data limited (gap).</p>
+<h3>5. Environmental Information</h3>
+<p>Maternal pregestational diabetes (hyperglycemic teratogenesis), alcohol, aerosol/hair-spray occupational exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/33111505/">PMID: 33111505</a>); retinoic acid, cholesterol-biosynthesis inhibitors, and the classic SHH-antagonist cyclopamine (Veratrum californicum, causing ovine cyclopia). Sterol disruption impairs SHH cholesterol modification (<a href="https://pubmed.ncbi.nlm.nih.gov/35231446/">PMID: 35231446</a>). <strong>Infectious agents: not a cause</strong> — HPE is developmental, not infectious.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See the Mechanistic Model section above. Cellular processes: impaired ventral neural progenitor specification, altered proliferation/differentiation balance, apoptosis in craniofacial primordia, and cilium-dependent transduction. Protein dysfunction: reduced secreted/processed SHH ligand; lipidation is obligatory (HHAT loss → severe phenotype, <a href="https://pubmed.ncbi.nlm.nih.gov/23055936/">PMID: 23055936</a>). Metabolic: cholesterol pivotal for SHH autoprocessing and SMO regulation. <strong>No immune involvement</strong>; <strong>not degenerative</strong> — a developmental patterning failure. Human tissue omics are limited (gap).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary:</strong> forebrain/telencephalon and diencephalon (<a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" rel="noopener noreferrer">UBERON:0001890</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" rel="noopener noreferrer">UBERON:0001898</a>), pituitary (<a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" rel="noopener noreferrer">UBERON:0000007</a>). <strong>Secondary:</strong> eyes/orbits (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>), midface/nose, palate, endocrine axis, craniofacial skeleton. <strong>Tissue/cell:</strong> neuroepithelium, ventral neural progenitors, floor plate, prechordal plate, frontonasal neural crest. <strong>Subcellular:</strong> primary cilium (<a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a>), plasma membrane (SMO/PTCH1), ER/Golgi (SHH processing), nucleus (GLI). <strong>Laterality:</strong> characteristically <strong>midline, bilateral/symmetric</strong>.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> congenital, 4th gestational week (days 18–28); detectable by first-trimester ultrasound in severe forms (<a href="https://pubmed.ncbi.nlm.nih.gov/35821640/">PMID: 35821640</a>). <strong>Course:</strong> malformation is non-progressive; alobar frequently lethal in utero/neonatally, milder forms chronic lifelong. <strong>Critical period:</strong> periconceptional–early first trimester is the sole window for primary prevention; no postnatal correction of the malformation is possible.</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong> ~1/16,000 live births; ~1/250 conceptuses; Japan BPR 1.54/10,000 (<a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">PMID: 17274816</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31886593/">PMID: 31886593</a>). <strong>Inheritance:</strong> autosomal dominant, incomplete (developmental, non–age-dependent) penetrance, highly variable expressivity (<a href="https://pubmed.ncbi.nlm.nih.gov/19186244/">PMID: 19186244</a>). <strong>Recurrence:</strong> &gt;70% of <em>SHH</em> variants inherited → substantial recurrence risk and need for cascade testing (<a href="https://pubmed.ncbi.nlm.nih.gov/21940735/">PMID: 21940735</a>); germline mosaicism reported. <strong>No anticipation</strong> (not a repeat disorder); no established founder effect. <strong>Demographics:</strong> consistent female predominance and over-representation of twinning (<a href="https://pubmed.ncbi.nlm.nih.gov/29761639/">PMID: 29761639</a>); severe facial forms reported preferentially in females (<a href="https://pubmed.ncbi.nlm.nih.gov/24764759/">PMID: 24764759</a>).</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Imaging (cornerstone):</strong> first-trimester ultrasound (monoventricle, fused thalami, absent falx) and fetal/postnatal MRI for subtyping (<a href="https://pubmed.ncbi.nlm.nih.gov/42006104/">PMID: 42006104</a>). <strong>Genetic algorithm:</strong> (1) chromosomal microarray + karyotype first; (2) sequencing + dosage of core genes <em>SHH, ZIC2, SIX3, TGIF1</em> ± expanded HPE panels; (3) WES/WGS for unresolved cases, capturing enhancer/deep-intronic variants (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>); functional zebrafish assays reclassify VUS (<a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">PMID: 32939873</a>). <strong>Endocrine workup:</strong> screen for central DI and anterior pituitary deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/25056824/">PMID: 25056824</a>). <strong>Differential:</strong> septo-optic dysplasia, agenesis of corpus callosum, hydranencephaly, severe hydrocephalus; syndromic contexts (trisomy 13, SLOS). <strong>Screening:</strong> prenatal ultrasound; cascade family testing including for microforms (SMMCI, hypotelorism).</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Severity-dependent; ~36% 10-year survival, lowest among rare CAs (<a href="https://pubmed.ncbi.nlm.nih.gov/35351164/">PMID: 35351164</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37868647/">PMID: 37868647</a>). Alobar: days–weeks; semilobar: months–years; lobar/MIHV/microform: can reach adulthood. Favorable survival predictors: non-alobar subtype, female sex, atypical (milder) facial features (<a href="https://pubmed.ncbi.nlm.nih.gov/28640243/">PMID: 28640243</a>). Survivor morbidity: severe neurodevelopmental disability, epilepsy, endocrinopathy (DI, panhypopituitarism), dysautonomia, feeding failure, spasticity.</p>
+<h3>12. Treatment</h3>
+<p><strong>No cure or disease-modifying therapy; supportive, multidisciplinary care (MAXO terms suggested).</strong> Antiepileptic drugs for seizures; <strong>desmopressin</strong> for central DI plus hydrocortisone/levothyroxine/GH/sex-steroid replacement for pituitary deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/25056824/">PMID: 25056824</a>); management of dysautonomia. <strong>Surgical:</strong> gastrostomy for feeding failure, cleft lip/palate repair, craniofacial reconstruction, CSF shunting if hydrocephalus. <strong>Rehabilitative:</strong> PT/OT/speech, developmental services. <strong>Palliative care and counseling</strong> central in severe forms. No approved gene/RNA/cell therapy; HH-pathway agonists remain preclinical (note that HH <em>antagonists</em> vismodegib/sonidegib are approved for HH-driven cancers — the opposite pathway direction).</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary:</strong> periconceptional glycemic control in diabetic mothers; avoidance of alcohol, retinoids, and sterol-disrupting exposures; adequate maternal nutrition/cholesterol (<a href="https://pubmed.ncbi.nlm.nih.gov/31454511/">PMID: 31454511</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35104296/">PMID: 35104296</a>). <strong>Secondary:</strong> first-trimester ultrasound screening; prenatal molecular testing. <strong>Tertiary:</strong> proactive treatment of DI, hypopituitarism, seizures, aspiration. <strong>Counseling:</strong> essential given AD inheritance with low penetrance/variable expressivity; cascade testing, prenatal diagnosis, and PGT-M options — with the caveat that cognitive status cannot identify carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/23112757/">PMID: 23112757</a>). <strong>Not applicable:</strong> immunization (non-infectious).</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Taxonomy:</strong> mouse (NCBI:txid10090), zebrafish (txid7955), sheep (txid9940), human (txid9606). <strong>Orthologs (NCBI Gene):</strong> human <em>SHH</em> 6469; mouse <em>Shh</em> 20423; zebrafish <em>shha</em> 30269. <strong>Natural disease (OMIA):</strong> classic ovine cyclopia ("monkey-faced lamb") from <em>Veratrum californicum</em> grazing (cyclopamine, an SMO antagonist) — the discovery that revealed HH-pathway/cholesterol biology; sporadic HPE in dogs, cats, cattle. <strong>Comparative biology:</strong> deeply conserved midline patterning; zebrafish/mouse mutants recapitulate cyclopia. <strong>Transmission:</strong> none — non-infectious, non-zoonotic.</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Mouse (MGI):</strong> <em>Shh</em> knockout — cyclopia, absent ventral neural tube, notochord/floorplate defects (<a href="https://pubmed.ncbi.nlm.nih.gov/8837770/">PMID: 8837770</a>); <em>Hhat</em> mutants — acrania-holoprosencephaly-agnathia (<a href="https://pubmed.ncbi.nlm.nih.gov/23055936/">PMID: 23055936</a>); <em>Fgf8</em> hypomorphs — HPE with hypothalamic-pituitary defects (<a href="https://pubmed.ncbi.nlm.nih.gov/21832120/">PMID: 21832120</a>). Conditional/knock-in and pathway-gene models available (IMPC/KOMP/MMRRC). <strong>Zebrafish (ZFIN):</strong> <em>shha</em> CRISPR/Cas9 rescue assay for variant validation (<a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">PMID: 32939873</a>). <strong>In vitro:</strong> HH-reporter lines, iPSC-derived ventral forebrain organoids. <strong>Recapitulation:</strong> strong for severe (homozygous/null) phenotype; key limitation is that human heterozygous HPE retains a hypoplastic pituitary whereas homozygous animal models lack it entirely (<a href="https://pubmed.ncbi.nlm.nih.gov/20013843/">PMID: 20013843</a>); mice usually need homozygous/compound hits, bridged by sensitized backgrounds and gene-environment paradigms. <strong>Resources:</strong> MGI, IMPC/KOMP, MMRRC, ZFIN, Alliance of Genome Resources, OMIA.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17274816/">17274816</a></td>
+<td><em>Holoprosencephaly</em> (review)</td>
+<td>Seven HPE genes; severity spectrum; prevalence; GD18–28 timing</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19186244/">19186244</a></td>
+<td><em>Murine models of holoprosencephaly</em></td>
+<td>Convergent SHH-signaling mechanism; incomplete penetrance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22791840/">22791840</a></td>
+<td><em>396 individuals with SHH mutations</em></td>
+<td>SHH skews mild (non-HPE 64%); truncating &gt; non-truncating</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21940735/">21940735</a></td>
+<td><em>645 European HPE cases</em></td>
+<td>Gene-specific spectrum position; inheritance vs de novo</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23055936/">23055936</a></td>
+<td><em>Hhat mutations perturb Hedgehog</em></td>
+<td>17% familial figure; palmitoylation required</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">32939873</a></td>
+<td><em>SHH variants in zebrafish</em></td>
+<td>Functional validation; VUS problem</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35231446/">35231446</a></td>
+<td><em>SHH–Patched1 complex structure</em></td>
+<td>Cholesterol/palmitate &amp; GAS1 handoff to PTCH1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25056824/">25056824</a></td>
+<td><em>SHH &amp; congenital hypopituitarism</em></td>
+<td>Central DI 47%; anterior pituitary 53%; p.Tyr175Ter</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20013843/">20013843</a></td>
+<td><em>Hedgehog &amp; endocrine gland development</em></td>
+<td>Heterozygous human vs homozygous animal pituitary</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29761634/">29761634</a></td>
+<td><em>Extracephalic manifestations of NCNS-HPE</em></td>
+<td>Multi-organ involvement</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23112757/">23112757</a></td>
+<td><em>High intellect in microform HPE</em></td>
+<td>Normal/above-average intellect in carriers</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35351164/">35351164</a></td>
+<td><em>Survival of rare CAs (EUROCAT)</em></td>
+<td>Lowest survival across ages</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37868647/">37868647</a></td>
+<td><em>Survival, Texas 1999–2018</em></td>
+<td>10-yr survival 36.9%, lowest of 30</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31886593/">31886593</a></td>
+<td><em>Nationwide survey, Japan</em></td>
+<td>BPR 1.54/10,000; subtype frequencies</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29761639/">29761639</a></td>
+<td><em>Nongenetic risk factors (review)</em></td>
+<td>Diabetes, twinning, female predominance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33111505/">33111505</a></td>
+<td><em>Environmental risk &amp; GxE</em></td>
+<td>Pregestational diabetes 9.2% vs 0%; alcohol; GxE</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35104296/">35104296</a></td>
+<td><em>Diabetes &amp; anomalies meta-analysis</em></td>
+<td>HPE RR ~18 with pregestational diabetes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31454511/">31454511</a></td>
+<td><em>Diabetes &amp; specific birth defects (NBDPS)</em></td>
+<td>HPE aOR 13.1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28640243/">28640243</a></td>
+<td><em>Adults/adolescents with HPE</em></td>
+<td>Survival predictors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8837770/">8837770</a></td>
+<td><em>Shh-null mice (Chiang 1996)</em></td>
+<td>Definitive causal model; midline mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11471164/">11471164</a></td>
+<td><em>SHH &amp; SMMCI</em></td>
+<td>I111F allele → isolated microform</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20583177/">20583177</a></td>
+<td><em>GAS1 sequence changes</em></td>
+<td>Multiple-hit model; environmental contribution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">41102431</a></td>
+<td><em>Recent advances (2024 review)</em></td>
+<td>Modifier pathways; GxE; counseling complexity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24764759/">24764759</a></td>
+<td><em>HPE in South America</em></td>
+<td>Chromosomal (~27%) &amp; mutation-yield context</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21832120/">21832120</a></td>
+<td><em>FGF8 mutations &amp; HPE</em></td>
+<td>Recessive HPE + hypothalamo-pituitary model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42006104/">42006104</a></td>
+<td><em>Brain-face connection in HPE</em></td>
+<td>Prenatal imaging; alobar outcomes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35821640/">35821640</a></td>
+<td><em>First-trimester detectable anomalies</em></td>
+<td>Timing of prenatal diagnosis</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>VUS burden:</strong> Only a minor fraction of <em>SHH</em> variants are functionally proven pathogenic (<a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">PMID: 32939873</a>); most classification relies on segregation and in silico prediction.</li>
+<li><strong>Penetrance quantification:</strong> Incomplete penetrance is well-documented qualitatively but poorly quantified numerically per variant class — a major counseling gap (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>).</li>
+<li><strong>Modifier attribution:</strong> The specific contribution of individual modifier genes/pathways (NODAL, NOTCH, WNT/PCP, cilia, cohesin) to any given patient's phenotype is rarely resolvable (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>).</li>
+<li><strong>Model dosage mismatch:</strong> Null animal models overstate severity relative to typically heterozygous human disease, especially for pituitary presence/absence (<a href="https://pubmed.ncbi.nlm.nih.gov/20013843/">PMID: 20013843</a>).</li>
+<li><strong>Ascertainment/survivor bias:</strong> With ~1/250 conceptus loss vs 1/16,000 live births, live-birth cohorts underrepresent the most severe biology.</li>
+<li><strong>Epidemiologic confounding:</strong> Nongenetic risk associations (diabetes, alcohol) are observational; residual confounding and reverse causation remain possible despite consistent replication.</li>
+<li><strong>Omics gaps:</strong> No human HPE-tissue transcriptomic/epigenomic/methylation profiles specific to <em>SHH</em>-HPE were identified; no validated HPE-specific QoL instrument exists.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Variant functional atlas:</strong> Systematically classify reported <em>SHH</em> missense/truncating variants using the established zebrafish <em>shha</em> rescue assay (<a href="https://pubmed.ncbi.nlm.nih.gov/32939873/">PMID: 32939873</a>) plus a mammalian GLI-reporter signaling assay, converting VUS into actionable calls and mapping genotype→signaling→phenotype.</li>
+<li><strong>Quantitative penetrance modeling:</strong> Combine multi-cohort pedigree data (Solomon 2012, Mercier 2011) to estimate variant-class-specific penetrance and expressivity distributions for counseling (<a href="https://pubmed.ncbi.nlm.nih.gov/22791840/">PMID: 22791840</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21940735/">PMID: 21940735</a>).</li>
+<li><strong>GxE mechanistic test:</strong> In <em>Shh</em>-heterozygous mice, test whether maternal hyperglycemia and sterol-synthesis inhibitors shift phenotype severity, directly probing the threshold model and cholesterol-dependent lipidation (<a href="https://pubmed.ncbi.nlm.nih.gov/35231446/">PMID: 35231446</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33111505/">PMID: 33111505</a>).</li>
+<li><strong>Modifier screen:</strong> CRISPR screen of NODAL/NOTCH/WNT-PCP/FGF/RAS-ERK/cilia/cohesin candidates in a sensitized <em>Shh</em>-heterozygous background to quantify epistatic contributions to threshold crossing (<a href="https://pubmed.ncbi.nlm.nih.gov/41102431/">PMID: 41102431</a>).</li>
+<li><strong>Prospective endocrine surveillance protocol:</strong> Standardize screening for central DI and anterior pituitary deficiency in all molecularly confirmed HPE-spectrum patients, given ~47%/53% frequencies (<a href="https://pubmed.ncbi.nlm.nih.gov/25056824/">PMID: 25056824</a>).</li>
+<li><strong>Preconception prevention trial:</strong> Evaluate intensified periconceptional glycemic-control programs for HPE risk reduction in diabetic mothers, leveraging the large diabetes effect sizes (<a href="https://pubmed.ncbi.nlm.nih.gov/31454511/">PMID: 31454511</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35104296/">PMID: 35104296</a>).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 10 confirmed findings and 52 reviewed papers across 5 investigation iterations. Evidence source types are noted throughout: human clinical cohorts/registries [H], mouse and zebrafish model organisms [M], in vitro/structural biology [V], and computational/epidemiological meta-analyses [C].</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/SHH_Holoprosencephaly_Spectrum-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/SHH_Holoprosencephaly_Spectrum-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="SHH_Holoprosencephaly_Spectrum-falcon.html">← SHH Holoprosencephaly Spectrum (Falcon)</a>
+                
+                
+                <a href="Shigellosis-cyberian-codex.html">Shigellosis (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/SHH_Holoprosencephaly_Spectrum.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/SHH_Holoprosencephaly_Spectrum-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="SHH_Holoprosencephaly_Spectrum-claude_code.html"><span class="provider-pill provider-claude-code">Claude Code</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="SHH_Holoprosencephaly_Spectrum-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
