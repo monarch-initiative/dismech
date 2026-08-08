@@ -14,6 +14,8 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from dismech.yaml_io import safe_load_path
 
 DEFAULT_CACHE_DIR = Path("references_cache")
@@ -22,15 +24,30 @@ _FRONTMATTER_RE = re.compile(
     re.DOTALL,
 )
 _SCALAR_RE = re.compile(r"^(\s*)([a-z_]+):\s+(.+)$", re.IGNORECASE)
-_SPECIAL_SCALAR_CHARS = (":", "[", "{", "*", "&", "!", "@", "#")
+_PLAIN_SCALAR_INDICATORS = (
+    "[",
+    "{",
+    "*",
+    "&",
+    "!",
+    "@",
+    "#",
+    ">",
+    "|",
+    "%",
+    "`",
+    "?",
+    "-",
+)
 
 
 def iter_reference_ids(value: Any) -> Iterator[str]:
-    """Yield non-empty values from recursively nested ``reference`` slots."""
+    """Yield values from slots implementing ``linkml:authoritative_reference``."""
     if isinstance(value, dict):
-        reference = value.get("reference")
-        if isinstance(reference, str) and reference.strip():
-            yield reference.strip()
+        for slot_name in ("reference", "accession"):
+            reference = value.get(slot_name)
+            if isinstance(reference, str) and reference.strip():
+                yield reference.strip()
         for child in value.values():
             yield from iter_reference_ids(child)
     elif isinstance(value, list):
@@ -64,7 +81,13 @@ def resolve_cache_paths(cache_dir: Path, data_files: Iterable[Path]) -> list[Pat
     by_stem, by_bare_id = _cache_index(cache_dir)
     resolved: set[Path] = set()
     for data_file in data_files:
-        data = safe_load_path(data_file)
+        try:
+            data = safe_load_path(data_file)
+        except (OSError, yaml.YAMLError):
+            # This is a best-effort normalization pre-pass. The schema/data
+            # validator that follows owns diagnostics for missing or malformed
+            # inputs and should not be preempted by a traceback here.
+            continue
         for reference_id in iter_reference_ids(data):
             key = _safe_cache_stem(reference_id).casefold()
             path = by_stem.get(key)
@@ -99,7 +122,11 @@ def normalize_cache_file(path: Path) -> bool:
 
         indent, key, value = scalar.groups()
         is_quoted = value.startswith(('"', "'"))
-        needs_quoting = any(char in value for char in _SPECIAL_SCALAR_CHARS)
+        needs_quoting = (
+            ": " in value
+            or value.endswith(":")
+            or value.startswith(_PLAIN_SCALAR_INDICATORS)
+        )
         if needs_quoting and not is_quoted:
             lines.append(f"{indent}{key}: {_quote_scalar(value)}")
             modified = True
