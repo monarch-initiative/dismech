@@ -1,12 +1,18 @@
 """Data validation tests for dismech KB."""
 
 import glob
+import sys
 import warnings
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
 import yaml
 from linkml.validator import Validator
+
+# scripts/ is not a package; make its modules importable for tests that reuse
+# validation logic shared with the CLI tools.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from dismech.yaml_io import safe_load
 
@@ -32,10 +38,63 @@ DISORDER_FILES = [
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+MODULE_FILES = glob.glob(str(MODULES_DIR / "*.yaml"))
+# Every KB entry kind whose pathophysiology nodes may carry `conforms_to`.
+# Groupings are excluded: they reference modules through criteria `module:`
+# slots (checked by test_grouping_module_references), not `conforms_to`.
+CONFORMS_TO_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
 )
+
+# Reference prefixes an evidence `reference:` may carry: literature/registry
+# sources the reference validator fetches and snippet-checks, plus the structured
+# database sources pre-cached under references_cache/ (see CLAUDE.md), plus the
+# dataset-accession prefixes listed as `skip_prefixes` in
+# conf/reference_validator_config.yaml. Compared case-insensitively -- the
+# validator normalizes prefix case itself, and the KB uses both `GEO:` and `geo:`.
+ALLOWED_REFERENCE_PREFIXES = (
+    "PMID:",
+    "DOI:",
+    "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
+    "clinicaltrials:",
+    "file:",
+    "url:",
+    "GEO:",
+    "ORPHA:",
+    "CGGV:",
+    "CGDS:",
+    "CIVIC_ASSERTION:",
+    "CIVIC_EID:",
+    "ICEES:",  # ICEES KG comorbidity pairs
+    "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
+    "metabolights:",  # dataset accession; skip_prefixes in the validator config
+)
+
+
+def _has_allowed_reference_prefix(reference):
+    """True if `reference` starts with one of ALLOWED_REFERENCE_PREFIXES."""
+    text = str(reference).lower()
+    return any(text.startswith(p.lower()) for p in ALLOWED_REFERENCE_PREFIXES)
+
+
+def _iter_evidence_lists(node, path=""):
+    """Yield every ``(dotted_path, evidence_list)`` pair anywhere in a document.
+
+    Evidence blocks are attached at many depths (top-level sections, nested
+    `downstream` causal edges, `readouts`, `findings`, `members`, ...), so the
+    only reliable way to check them all is to walk the whole tree.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = f"{path}.{key}" if path else key
+            if key == "evidence" and isinstance(value, list):
+                yield child, value
+            yield from _iter_evidence_lists(value, child)
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _iter_evidence_lists(item, f"{path}[{index}]")
 
 
 def _disease_names():
@@ -52,6 +111,44 @@ def _disease_names():
 def _module_stems():
     """Set of mechanism module filename stems (without .yaml) in kb/modules/."""
     return {Path(f).stem for f in glob.glob(str(MODULES_DIR / "*.yaml"))}
+
+
+@lru_cache(maxsize=1)
+def _module_node_names():
+    """Map each module stem to the set of its pathophysiology node names.
+
+    Used to resolve the `#Node Name` anchor of a `conforms_to` reference, which
+    `_module_stems()` alone cannot check.
+    """
+    nodes = {}
+    for fp in glob.glob(str(MODULES_DIR / "*.yaml")):
+        with open(fp) as f:
+            data = safe_load(f)
+        if not isinstance(data, dict):
+            continue
+        nodes[Path(fp).stem] = {
+            node.get("name")
+            for node in data.get("pathophysiology") or []
+            if isinstance(node, dict) and node.get("name")
+        }
+    return nodes
+
+
+def _iter_conforms_to(node, path=""):
+    """Yield every ``(dotted_path, conforms_to_value)`` pair in a document.
+
+    `conforms_to` hangs off pathophysiology nodes, which appear at more than one
+    depth across entry kinds, so the whole tree is walked rather than one slot.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = f"{path}.{key}" if path else key
+            if key == "conforms_to" and isinstance(value, str) and value.strip():
+                yield child, value
+            yield from _iter_conforms_to(value, child)
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _iter_conforms_to(item, f"{path}[{index}]")
 
 
 def _grouping_names():
@@ -148,70 +245,33 @@ def test_evidence_items_have_references(filepath):
     with open(filepath) as f:
         data = safe_load(f)
 
-    allowed_reference_prefixes = (
-        "PMID:",
-        "DOI:",
-        "PPR:",  # Europe PMC preprint IDs (supported by the reference validator)
-        "clinicaltrials:",
-        "file:",
-        "url:",
-        "GEO:",
-        "ORPHA:",
-        "CGGV:",
-        "CGDS:",
-        "CIVIC_ASSERTION:",
-        "CIVIC_EID:",
-    )
-    allowed_prefix_message = ", ".join(allowed_reference_prefixes)
+    allowed_prefix_message = ", ".join(ALLOWED_REFERENCE_PREFIXES)
 
     def check_evidence(evidence_list, path):
-        """Recursively check evidence items for references."""
-        if not evidence_list:
-            return []
+        """Check one ``evidence:`` list for missing/unprefixed references."""
         errors = []
         for i, item in enumerate(evidence_list):
-            if not item.get("reference"):
+            if not isinstance(item, dict):
+                continue
+            reference = item.get("reference")
+            if not reference:
                 errors.append(f"{path}[{i}]: missing reference")
-            elif not any(
-                item["reference"].startswith(prefix)
-                for prefix in allowed_reference_prefixes
-            ):
+            elif not _has_allowed_reference_prefix(reference):
                 errors.append(
-                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {item['reference']}"
+                    f"{path}[{i}]: reference should start with {allowed_prefix_message}: got {reference}"
                 )
         return errors
 
     all_errors = []
 
-    # Check evidence in pathophysiology
-    for i, patho in enumerate(data.get("pathophysiology", [])):
-        all_errors.extend(
-            check_evidence(patho.get("evidence", []), f"pathophysiology[{i}].evidence")
-        )
-
-    # Check evidence in phenotypes
-    for i, pheno in enumerate(data.get("phenotypes", [])):
-        all_errors.extend(
-            check_evidence(pheno.get("evidence", []), f"phenotypes[{i}].evidence")
-        )
-
-    # Check evidence in subtypes
-    for i, subtype in enumerate(data.get("has_subtypes", [])):
-        all_errors.extend(
-            check_evidence(subtype.get("evidence", []), f"has_subtypes[{i}].evidence")
-        )
-
-    # Check evidence in prevalence
-    for i, prev in enumerate(data.get("prevalence", [])):
-        all_errors.extend(
-            check_evidence(prev.get("evidence", []), f"prevalence[{i}].evidence")
-        )
-
-    # Check evidence in progression
-    for i, prog in enumerate(data.get("progression", [])):
-        all_errors.extend(
-            check_evidence(prog.get("evidence", []), f"progression[{i}].evidence")
-        )
+    # Walk the whole document rather than a hand-listed set of sections. The
+    # earlier version checked only pathophysiology/phenotypes/has_subtypes/
+    # prevalence/progression, so evidence under clinical_trials, treatments,
+    # datasets, diagnosis, biochemical, histopathology (and nested slots such as
+    # pathophysiology[].downstream[]) was never prefix-checked -- which is how the
+    # unprefixed `NCT06087757` reference in dismech#7288 reached main.
+    for path, evidence_list in _iter_evidence_lists(data):
+        all_errors.extend(check_evidence(evidence_list, path))
 
     assert not all_errors, f"Evidence errors in {Path(filepath).name}: {all_errors}"
 
@@ -904,6 +964,41 @@ def test_computational_model_mechanism_targets(filepath):
 
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_environmental_mechanism_targets(filepath):
+    """Environmental factor links should reference declared pathograph nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Pathophysiology is the preferred target, but phenotype targets are
+    # allowed for exposures acting directly on a manifestation.
+    valid_targets = {
+        item["name"]
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, factor in enumerate(data.get("environmental", []) or []):
+        if not isinstance(factor, dict):
+            continue
+        for j, link in enumerate(factor.get("influences_mechanisms", []) or []):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"environmental[{i}].influences_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Environmental mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtypes_have_disease_term(filepath):
     """Test that has_subtypes items have a subtype_term with an ontology grounding.
 
@@ -1259,6 +1354,43 @@ def test_grouping_module_references(filepath):
     )
 
 
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", CONFORMS_TO_FILES)
+def test_conforms_to_module_node_references(filepath):
+    """Every `conforms_to` must resolve to a real module AND a real node in it.
+
+    `test_grouping_module_references` checks the `module:` slots inside grouping
+    membership criteria; nothing checked the `conforms_to` edges on entry
+    pathophysiology nodes, which are what grouping CONFORMS_TO_MODULE criteria
+    are actually evaluated against. A stale stem or a drifted node name makes an
+    entry silently stop satisfying a criterion it is asserted to satisfy — the
+    same class of contradiction the grouping audit reports, but caused by a
+    dangling reference rather than a curation gap.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    module_nodes = _module_node_names()
+    errors = []
+
+    for path, ref in _iter_conforms_to(data):
+        stem, _, node = ref.partition("#")
+        stem, node = stem.strip(), node.strip()
+        if stem not in module_nodes:
+            errors.append(f"{path}={ref!r}: no kb/modules/{stem}.yaml")
+        elif node and node not in module_nodes[stem]:
+            errors.append(
+                f"{path}={ref!r}: module {stem!r} has no pathophysiology node "
+                f"named {node!r}"
+            )
+
+    assert not errors, (
+        f"Unresolved conforms_to references in {Path(filepath).name}: {errors}"
+    )
+
+
 def test_grouping_unique_names():
     """Grouping `name` values must be unique across kb/groupings/."""
     seen = {}
@@ -1469,3 +1601,56 @@ def test_grouping_evaluation_runs(filepath):
     index = load_disease_index()
     for ev in evaluate_grouping(grouping, index):
         assert isinstance(ev.result, Satisfaction)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_dataset_accession_prefix_and_shape(filepath):
+    """Dataset accessions must use a known prefix whose shape they match.
+
+    This is the offline half of the dataset-accession guard: it catches a
+    typo'd or mis-prefixed accession (e.g. ``sra:PRJNA290729``, which is really
+    a BioProject ID) without touching the network. The online half --
+    confirming the record actually exists -- is
+    ``scripts/verify_dataset_accessions.py`` / ``just verify-datasets``.
+    """
+    from verify_dataset_accessions import SHAPE, UNSUPPORTED_PREFIXES, split_accession
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Dataset records also hang off proposed experiments, which the verifier
+    # walks; keep the offline guard's scope identical so nothing is checked by
+    # one and not the other.
+    records = list(data.get("datasets") or [])
+    for disc in data.get("discussions") or []:
+        for exp in (disc or {}).get("proposed_experiments") or []:
+            records.extend((exp or {}).get("datasets") or [])
+
+    errors = []
+    for ds in records:
+        if not isinstance(ds, dict):
+            continue
+        accession = ds.get("accession")
+        if not accession:
+            errors.append("dataset record with no accession")
+            continue
+        prefix, local_id = split_accession(str(accession))
+        if not prefix:
+            errors.append(f"{accession}: no repository prefix and shape not recognized")
+            continue
+        if prefix in UNSUPPORTED_PREFIXES:
+            # PMID/DOI/cellxgene-style entries are tolerated for now; they are
+            # reported as UNSUPPORTED by the verifier rather than failed.
+            continue
+        shape = SHAPE.get(prefix)
+        if shape is None:
+            errors.append(f"{accession}: unknown repository prefix '{prefix}'")
+        elif not shape.match(local_id):
+            actual = [p for p, pat in SHAPE.items() if pat.match(local_id)]
+            hint = f" (looks like a '{actual[0]}' accession)" if actual else ""
+            errors.append(f"{accession}: '{local_id}' does not match the {prefix} pattern{hint}")
+
+    assert not errors, f"{Path(filepath).name} has malformed dataset accessions:\n" + "\n".join(
+        f"  - {e}" for e in errors
+    )
