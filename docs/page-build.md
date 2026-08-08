@@ -211,18 +211,36 @@ than replacing. Two consequences are easy to get wrong:
 
 ### Review and approval
 
-Regen PRs get **no agentic review**. The `claude-code-review` workflow skips its
-review agent for any PR whose head branch starts with `auto/generate-` (this
-covers `auto/generate-pages`, `auto/generate-grouping-pages`, and
-`auto/generate-project-pages`) *and* whose author is `github-actions[bot]` — an
-LLM review of thousands of regenerated HTML files is cost without signal.
+Regen PRs get **no agentic review** — an LLM review of thousands of regenerated
+HTML files is cost without signal. Two mechanisms enforce that, because these
+PRs reach the review workflow by two different routes:
+
+- The `claude-code-review` workflow's `pull_request` trigger skips its review
+  job for any PR whose head branch starts with `auto/generate-` (covering
+  `auto/generate-pages`, `auto/generate-grouping-pages`, and
+  `auto/generate-project-pages`) *and* whose author is `github-actions[bot]`.
+  In practice these `pull_request` runs were mostly gated at `action_required`
+  with no jobs executed anyway — GITHUB_TOKEN pushes don't get auto-run —
+  which is why the second route existed.
+- The reviews that *actually* ran historically came from `pr-shepherd`
+  dispatching the review workflow for PRs stuck in `REVIEW_REQUIRED`. The
+  shepherd is now instructed to leave regen PRs alone, and as a deterministic
+  backstop the review workflow's `dispatch-guard` job resolves any dispatched
+  PR's head branch and author and declines page-build PRs there too.
+
 Because branch protection still requires one approving review before the armed
-auto-merge can fire, the same workflow's deterministic `approve-page-build` job
-approves these PRs mechanically (via the ai4c-reviewer app), re-approving after
-each force-push since pushes dismiss stale approvals. Human-authored PRs are
-unaffected — the skip requires the bot author — and a full agentic review of a
-regen PR can still be forced by commenting `/review` on it or dispatching the
-review workflow with its PR number.
+auto-merge can fire, **each regen workflow approves its own PR** as its final
+step, using the ai4c-reviewer app token (GITHUB_TOKEN is the PR author and
+cannot approve its own PR). The approval names the exact commit the run just
+pushed and is skipped if the branch tip has moved since, so nothing is vouched
+for sight-unseen; it re-arms after every force-push, since pushes dismiss stale
+approvals. Placing it in the regen workflows — which always execute — rather
+than a `pull_request`-triggered job is deliberate, per the gating above.
+
+Human-authored PRs are unaffected — every skip requires the bot author — and a
+full agentic review of a regen PR can still be forced by commenting `/review`
+on it (the one escape hatch left open: it requires a collaborator author, so it
+is always an explicit human request).
 
 See issue [#5507](https://github.com/monarch-initiative/dismech/issues/5507) for
 the design rationale and [#5198](https://github.com/monarch-initiative/dismech/issues/5198)

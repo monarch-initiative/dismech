@@ -211,3 +211,64 @@ jobs:
 
           echo "Created project regen PR #$CREATED_PR_NUMBER; enabling auto-merge."
           enable_auto_merge "$CREATED_PR_NUMBER"
+
+      # Branch protection requires one approving review before the auto-merge
+      # armed above can fire. Regen PRs deliberately get NO agentic review —
+      # claude-code-review.yml declines them — so the approval is supplied
+      # deterministically here, where it is guaranteed to run (pull_request
+      # runs on this GITHUB_TOKEN-pushed branch are gated at action_required
+      # with no jobs executed). Re-runs after every force-push, which dismisses
+      # the previous approval. See generate-pages.yaml for the full rationale.
+      - name: Generate ai4c-reviewer token
+        if: steps.check-changes.outputs.has_changes == 'true'
+        id: reviewer-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}
+
+      - name: Approve regen PR (deterministic)
+        if: steps.check-changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.reviewer-token.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH_NAME="auto/generate-project-pages"
+          head_sha="$(git rev-parse HEAD)"
+
+          pr_json="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --author "app/github-actions" \
+            --json number,headRefOid \
+            --limit 1)"
+          pr_number="$(jq -r '.[0].number // empty' <<<"$pr_json")"
+          pr_head="$(jq -r '.[0].headRefOid // empty' <<<"$pr_json")"
+
+          if [ -z "$pr_number" ]; then
+            echo "No open bot-authored regen PR for $BRANCH_NAME; nothing to approve."
+            exit 0
+          fi
+
+          # Only approve the exact commit this run built and pushed; if the
+          # branch has moved since, the run that produced the newer tip
+          # approves its own push.
+          if [ "$pr_head" != "$head_sha" ]; then
+            echo "PR #$pr_number head ($pr_head) is not the commit this run pushed ($head_sha); not approving."
+            exit 0
+          fi
+
+          gh pr review "$pr_number" \
+            --repo "$GITHUB_REPOSITORY" \
+            --approve \
+            --body "$(cat <<EOF
+          ✅ **Automated approval — page-build regeneration PR**
+
+          Deterministic approval of \`$head_sha\`, the commit this regen workflow run
+          just built from \`main\` and force-pushed (derived static assets only).
+          Agentic review is intentionally skipped for these PRs; to force a full
+          review anyway, comment \`/review\` on this PR.
+          EOF
+          )"
