@@ -59,9 +59,24 @@ validate-all:
 
 # Full validation of a single disorder file (schema + terms + references)
 # Note: default validation runs only the offline enum-cache structural check.
-# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
-# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
-# explicitly only when refreshing/auditing enum cache membership.
+# The full OAK-backed `check-enum-cache` audit re-derives membership for EVERY
+# cached CURIE one at a time (see scan_enum_cache_dir -> is_value_in_enum), so
+# run it explicitly only when refreshing/auditing enum cache membership.
+#
+# Cost, now that the ontologies are on `ols:`: that is 13,870 CURIEs across
+# cache/enums/*.csv, each costing at least one OLS ancestors round trip at
+# roughly 1.5-2 s, i.e. the better part of a day serialized. Note this audit was
+# ALREADY mostly remote before the HP/CL/CHEBI/ENVO/FOODON migration — 8,138 of
+# those CURIEs (59%) belong to enums backed by MONDO/GO/UBERON/NCIT/NCBITaxon,
+# which moved to OLS in #5160. The migration took it from 59% to 99.3% remote
+# (only 99 CURIEs, ECTO/XCO/OPL/ICD, still resolve locally); it made an already
+# impractical full audit somewhat slower rather than newly expensive.
+#
+# If you genuinely need a fast full re-derivation, point the relevant prefixes
+# at `sqlite:obo:*` in conf/oak_config.yaml for the duration and restore the
+# file afterwards — the same escape hatch the note at the bottom of that file
+# documents for OLS timeouts. Membership results are adapter-independent
+# (verified before each migration), so the audit is equally valid either way.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -580,7 +595,7 @@ check-cache-order:
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
 #   just fetch-ontology-dbs
-#   just fetch-ontology-dbs ncbitaxon hp
+#   just fetch-ontology-dbs hgnc geno
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
@@ -816,40 +831,24 @@ validate-references-all:
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
-# Fix YAML quoting issues in references cache (workaround for upstream bug)
+# Fix YAML quoting issues in references cache (workaround for upstream bug).
+#
+# This is a whole-cache sweep (tens of thousands of files) run before most
+# reference-validation recipes, so it MUST be a no-op on a well-formed cache --
+# otherwise every validation run re-writes thousands of unrelated files and the
+# working tree fills with quoting-only churn a curator then has to avoid staging.
+# The logic lives in `dismech.reference_cache_quote` so it is unit-testable and
+# guarded by a no-op regression test (tests/test_reference_cache_quote.py);
+# `needs_quoting` there records WHY the naive "any colon -> quote" rule was wrong.
+#
+# The committed cache is intentionally left MIXED -- values quoted by past sweeps
+# stay quoted, the fetcher's native unquoted `reference_id:`/`doi:` form stays
+# unquoted, and both parse identically. Do NOT "normalize" that split in either
+# direction: it would be a 10k-26k-file diff and would reintroduce exactly the
+# churn this recipe exists to avoid.
 [group('QC')]
 fix-references-cache:
-    #!/usr/bin/env python3
-    import re
-    from pathlib import Path
-    cache_dir = Path("references_cache")
-    if not cache_dir.exists():
-        exit(0)
-    for md_file in cache_dir.glob("*.md"):
-        content = md_file.read_text(encoding="utf-8")
-        if not content.startswith("---"):
-            continue
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            continue
-        frontmatter, body = parts[1], parts[2]
-        lines, new_lines, modified = frontmatter.split("\n"), [], False
-        for line in lines:
-            if not line.strip() or line.strip().startswith("-"):
-                new_lines.append(line)
-                continue
-            match = re.match(r'^(\s*)([a-z_]+):\s+(.+)$', line, re.IGNORECASE)
-            if match:
-                indent, key, value = match.groups()
-                needs_quoting = any(c in value or value.startswith(c) for c in [':', '[', '{', '*', '&', '!', '@', '#'])
-                is_quoted = value.startswith('"') or value.startswith("'")
-                if needs_quoting and not is_quoted:
-                    new_lines.append(f'{indent}{key}: "{value.replace(chr(34), chr(92)+chr(34))}"')
-                    modified = True
-                    continue
-            new_lines.append(line)
-        if modified:
-            md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+    uv run python -m dismech.reference_cache_quote references_cache
 
 # Warm the reference cache's full-text-attempt state (stops repeated PDF
 # re-downloads during `just validate`). Idempotent + resumable: only touches
