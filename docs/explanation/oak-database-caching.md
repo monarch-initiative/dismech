@@ -38,14 +38,17 @@ own institution helps host. Every uncached download is **egress we are
 effectively paying for**. A single fresh runner re-pulling, say, `chebi.db`
 (~3.7 GB uncompressed) on every curation PR added up quickly across the many CI
 runs this repo does each week — which is why CHEBI, and the other large
-ontologies, are no longer fetched for term validation (see below; `hp.db` is
-still fetched by a separate path that bypasses the config).
+ontologies, are no longer fetched for term validation (see below; `ncit.db`,
+`hp.db`, and `mondo.db` are still fetched by page generation, which bypasses the
+config).
 
-The heavy ones are now all handled: `conf/oak_config.yaml` routes the giants —
-NCBITaxon (~13.5 GB), CHEBI (~3.7 GB), NCIT (~2.7 GB), HP (~1.1 GB) — plus
-MONDO, GO, UBERON, CL, PATO, ENVO, and FOODON to EBI's Ontology Lookup Service
-(`ols:`) instead, which does cheap single-term lookups against EBI's servers and
-never touches our bucket (see issue #5160).
+For term validation the heavy ones are now all handled: `conf/oak_config.yaml`
+routes the giants — NCBITaxon (~13.5 GB), CHEBI (~3.7 GB), NCIT (~2.7 GB), HP
+(~1.1 GB) — plus MONDO, GO, UBERON, CL, PATO, ENVO, and FOODON to EBI's Ontology
+Lookup Service (`ols:`) instead, which does cheap single-term lookups against
+EBI's servers and does not touch our bucket (see issue #5160). Note this is a
+statement about *that path only*: NCIT, HP, and MONDO are still pulled locally
+during page generation, which does not read this config — see below.
 
 Concretely, `just validate-terms-schema` from a clean OAK cache used to download
 `chebi.db` (~3.5 GB unpacked); it now pulls only `geno.db` (~5 MB).
@@ -57,17 +60,33 @@ still fetched is small (`hgnc`, `geno`, `icd10cm`, `icd11f`, `ecto`, `xco`,
 `opl`).
 
 Several modules bypass the config entirely and construct an adapter directly.
-The one that matters for egress is `HPOCategoryResolver`
-(`src/dismech/export/browser_export.py`), which hardcodes `sqlite:obo:hp` and is
-called per HP id. It is reached by `just gen-browser-data` in
-`.github/workflows/generate-pages.yaml` — a workflow with **no** OAK cache step,
-running on every push to `main` that touches `kb/` — so `hp.db` (~1.1 GB) is
-still pulled cold on each run, and after the OLS migration that is plausibly the
-largest remaining bbop-sqlite egress from this repo. This is not a regression
-(it predates the migration) but it is the obvious next thing to fix, and is
+**Page generation is where this costs real egress**, because
+`.github/workflows/generate-pages.yaml` has **no** OAK cache step (its only
+`cache` line is `setup-uv`'s Python-dependency cache) and runs on every push to
+`main` touching `kb/disorders/*.yaml` or `kb/comorbidities/*.yaml`. Two paths in
+that workflow pull cold builds:
+
+| Path | Build | Trigger |
+|---|---|---|
+| `render.py` `STRICT_HIERARCHIES` → `_augment_mapping_hierarchies`, called per disorder from `render_disorder` | `sqlite:obo:ncit` (~2.7 GB), `sqlite:obo:icd10cm` | `just gen-pages`; fires for the 54 entries carrying `ncit_mappings`/`icd10cm_mappings` |
+| `HPOCategoryResolver` (`src/dismech/export/browser_export.py`), called per HP id | `sqlite:obo:hp` (~1.1 GB) | `just gen-browser-data` |
+
+`render.py` also builds `sqlite:obo:mondo` in `_cached_mondo_descendants` /
+`_cached_mondo_label`. Every one of these is lazy — the adapter is constructed
+only when an entry actually has a matching mapping or term — so none of it fires
+on an empty corpus. The corpus is not empty.
+
+None of this is a regression; it all predates the OLS migration and became
+visible only because the config-driven downloads were removed around it. It is
 tracked in issue #8173. `scripts/validate_terms.py`,
 `src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py` bypass the config
 the same way, at much lower frequency.
+
+Note the rendering path is **not** a candidate for a straight `ols:` swap: both
+`_build_hierarchy_path` and `_cached_mondo_descendants` do bulk hierarchy
+traversal, which is exactly the access pattern OLS is worst at. Fixing this
+likely means caching the build in the workflow, or precomputing the derived
+paths — not changing the adapter string.
 
 Moving a prefix to `ols:` is only safe when OLS agrees with the local build on
 both the canonical label *and* whether its `rdfs:subClassOf` ancestor closure
