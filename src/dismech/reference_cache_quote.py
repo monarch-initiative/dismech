@@ -39,17 +39,21 @@ import sys
 from pathlib import Path
 
 __all__ = [
-    "needs_quoting",
-    "requote_frontmatter",
     "files_needing_requote",
-    "normalize_reference_cache",
     "main",
+    "needs_quoting",
+    "normalize_reference_cache",
+    "requote_frontmatter",
 ]
 
-# YAML indicator characters that start a special construct and so force quoting
-# when they are the first character of a plain scalar (``c-indicator`` minus the
-# ``-``/``?``/``:`` forms, which only indicate when followed by whitespace and are
-# handled separately below).
+# YAML indicator characters that force quoting when they are the first character
+# of a plain scalar. Only ``-`` gets the "indicates only before whitespace"
+# special-case below (``-5`` is a legal plain scalar, ``- x`` is a block-sequence
+# item). ``?`` and ``:`` are kept in this set and so are quoted unconditionally
+# when leading: in YAML 1.2 a leading ``?``/``:`` not followed by whitespace is
+# actually legal plain-scalar content, so quoting it is never *wrong*, merely
+# unnecessary -- a deliberately conservative choice, since no cache value begins
+# with one and the churn-relevant fields (reference_id/doi) never do.
 _LEADING_INDICATORS = frozenset("!&*[]{}#,>|%@`\"'?:")
 
 _FRONTMATTER_KEY_RE = re.compile(r"^(\s*)([a-z_]+):\s+(.+)$", re.IGNORECASE)
@@ -88,9 +92,7 @@ def needs_quoting(value: str) -> bool:
         return True  # "- " block-sequence indicator
     if ": " in value or value.endswith(":"):
         return True  # colon that YAML reads as a mapping
-    if " #" in value:
-        return True  # start of an inline comment
-    return False
+    return " #" in value  # start of an inline comment
 
 
 def requote_frontmatter(frontmatter: str) -> tuple[str, bool]:
@@ -104,7 +106,7 @@ def requote_frontmatter(frontmatter: str) -> tuple[str, bool]:
         match = _FRONTMATTER_KEY_RE.match(line)
         if match:
             indent, key, value = match.groups()
-            is_quoted = value.startswith('"') or value.startswith("'")
+            is_quoted = value.startswith(('"', "'"))
             if needs_quoting(value) and not is_quoted:
                 escaped = value.replace('"', '\\"')
                 new_lines.append(f'{indent}{key}: "{escaped}"')
