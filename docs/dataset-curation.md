@@ -75,12 +75,38 @@ just discover-dbgap-immport Sjogrens_Syndrome
 Two things follow from the coding, and both are reflected in the tool's output.
 
 **Coded is not the same as *about*.** A broad cohort is legitimately indexed for
-every condition it measures, so eMERGE and the Bogalusa Heart Study are coded
-for asthma. Hits are therefore tiered: `TITLE_MATCH` (the disease is named in
-the study's own title — auto-approved), `SUBJECT_ONLY` (coded but not named:
-the incidental-mega-cohort class, proposed only under
-`--include-subject-only` and never auto-approved), and `CONFLICT` (a sibling
-disease, vetoed).
+every condition it measures, so GTEx is coded for asthma. Hits are therefore
+tiered: `TITLE_MATCH` (the disease is named in the study's own title),
+`VARIABLE_MATCH` (the title does not name it, but the study's data dictionary
+records it as an outcome — see below), `SUBJECT_ONLY` (neither; proposed only
+under `--include-subject-only` and never auto-approved), and `CONFLICT` (a
+sibling disease, vetoed).
+
+**The data dictionary settles the ambiguous cases.** Titles are a weak
+instrument — real asthma trials are called BADGER, CREW, and GALA II. dbGaP
+publishes each study's phenotype data dictionary openly, even when the data are
+controlled access, and the *role* of the variable decides:
+
+```
+phs001604  Affection_Status: Childhood asthma case or control  -> outcome
+phs000424  MHASTHMA: Asthma (General Medical History)          -> incidental (GTEx)
+```
+
+Both mention asthma; only the first is an asthma study. On the asthma entry this
+cut the hits needing manual triage from 9 to 1. `--no-data-dict` skips the check
+when speed matters more than precision.
+
+> **Never read `*.var_report.xml`.** Its per-variable summary statistics are
+> *disease-cohort* distributions, not clinical reference intervals. Curating one
+> into `reference_ranges` — which dismech defines as normal intervals — would
+> record a plausible-looking number that means something else. (They are also
+> ~300× larger than the data dictionaries.) A test enforces this.
+
+**Variables are a triage signal, not KB content.** dbGaP holds on the order of
+10⁵–10⁶ variables across its studies; dismech curates tens of phenotypes per
+disease. Do not ingest data dictionaries into `Dataset` records. If a small
+curated subset is ever wanted, the affection-status variables belong in the
+existing free-text `Dataset.conditions`.
 
 **Rare disease is capped by MeSH, not by the tool.** dbGaP indexes with MeSH
 *descriptors* only. An entry whose MONDO maps solely to a Supplementary Concept

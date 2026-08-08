@@ -9,10 +9,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from disease_title_match import compile_phrases, fold_diacritics, match_title
+from disease_title_match import (
+    compile_phrases,
+    entry_phrases,
+    fold_diacritics,
+    inflected_variants,
+    match_title,
+)
 
 from discover_dbgap_immport import (  # isort: skip
     ASSAY_TO_ENUM,
+    BLOCKED_STUDIES,
+    BLOCKED_TITLE_RE,
+    DATA_DICT_RE,
+    affection_signal,
     decode_body,
     infer_data_type,
     tier,
@@ -197,3 +207,111 @@ def test_dbgap_resolver_does_not_use_the_withdrawn_eutils_gap_db():
 def test_immport_prefix_is_declared_in_the_schema():
     schema = Path(__file__).resolve().parents[1] / "src" / "dismech" / "schema" / "dismech.yaml"
     assert "immport: https://www.immport.org/shared/study/" in schema.read_text()
+
+
+# --------------------------------------------------------------------------- #
+# CamelCase compound boundary
+#
+# dbGaP names a trial network "AsthmaNet". Only an uppercase next character
+# relaxes the trailing boundary, so this cannot also admit "Lymphomatoid".
+# --------------------------------------------------------------------------- #
+
+
+def test_camelcase_compound_counts_as_naming_the_disease():
+    patterns = compile_phrases(["Asthma"])
+    matched, _ = match_title("AsthmaNet -APRIL and Oral Corticosteroids", patterns, [])
+    assert matched == "Asthma"
+
+
+def test_lowercase_suffix_is_still_not_a_match():
+    """The compound rule must not become a blanket prefix match."""
+    patterns = compile_phrases(["Lymphoma"])
+    assert match_title("Lymphomatoid papulosis cohort", patterns, [])[0] == ""
+    patterns = compile_phrases(["Adenoma"])
+    assert match_title("Familial adenomatous polyposis", patterns, [])[0] == ""
+
+
+# --------------------------------------------------------------------------- #
+# Inflected forms
+# --------------------------------------------------------------------------- #
+
+
+def test_inflected_variant_is_derived_for_a_known_head_noun():
+    assert inflected_variants("Asthma") == ["Asthmatic", "Asthmatics"]
+    assert inflected_variants("Severe Asthma") == ["Severe Asthmatic", "Severe Asthmatics"]
+
+
+def test_inflected_variants_are_not_invented_for_unlisted_heads():
+    """The table is hand-verified, not productive -- an unknown head yields none."""
+    assert inflected_variants("Lymphoma") == []
+    assert inflected_variants("Bronchiectasis") == []
+
+
+def test_entry_phrases_include_the_inflected_form():
+    phrases, _ = entry_phrases({"name": "Asthma"}, "Asthma")
+    assert "Asthmatic" in phrases
+    patterns = compile_phrases(phrases)
+    assert match_title("Sputum RNA-Seq from Asthmatic Patients", patterns, [])[0]
+
+
+# --------------------------------------------------------------------------- #
+# Data-dictionary affection signal
+#
+# The variable's role decides, not its presence. Both examples below mention
+# asthma; only the first is an asthma study.
+# --------------------------------------------------------------------------- #
+
+_ASTHMA = compile_phrases(["Asthma"])
+
+
+def test_affection_status_variable_marks_the_study_as_an_outcome_study():
+    signal, quoted = affection_signal(
+        [("Affection_Status", "Childhood asthma case or control")], _ASTHMA
+    )
+    assert signal == "OUTCOME"
+    assert "Affection_Status" in quoted
+
+
+def test_medical_history_variable_is_incidental_not_an_outcome():
+    """GTEx is MeSH-coded for asthma and is not an asthma study."""
+    signal, quoted = affection_signal(
+        [("MHASTHMA", "Asthma (General Medical History)")], _ASTHMA
+    )
+    assert signal == "INCIDENTAL"
+    assert "MHASTHMA" in quoted
+
+
+def test_variable_not_mentioning_the_disease_gives_no_signal():
+    assert affection_signal([("BMI", "Body mass index")], _ASTHMA) == ("", "")
+
+
+def test_outcome_beats_incidental_when_a_study_has_both():
+    signal, _ = affection_signal(
+        [
+            ("MHASTHMA", "Asthma (General Medical History)"),
+            ("Affection_Status", "Case or Control for asthma"),
+        ],
+        _ASTHMA,
+    )
+    assert signal == "OUTCOME"
+
+
+def test_var_report_files_are_never_read():
+    """var_report holds cohort distributions, not clinical reference intervals;
+    curating one into reference_ranges would record a misleading number."""
+    source = Path(__file__).resolve().parents[1] / "scripts" / "discover_dbgap_immport.py"
+    body = source.read_text()
+    assert "var_report" not in DATA_DICT_RE.pattern
+    assert "var_report.xml" not in body.replace("*.var_report.xml", "")
+
+
+# --------------------------------------------------------------------------- #
+# Test-fixture studies
+# --------------------------------------------------------------------------- #
+
+
+def test_fhir_test_study_is_blocked():
+    """NCBI's FHIR service carries fixtures coded like real studies."""
+    assert "phs002409" in BLOCKED_STUDIES
+    assert BLOCKED_TITLE_RE.search("FHIR Test Study's ALPHA")
+    assert not BLOCKED_TITLE_RE.search("Genome Wide Association Study of Asthma")

@@ -37,15 +37,34 @@ The relevance tiers
 Every hit is coded to the disease by the repository, so "is it real?" is not the
 question -- "is it *about* this disease?" is. Hits are tiered:
 
-``TITLE_MATCH``   the disease is named in the study's own title. Auto-approved.
-``SUBJECT_ONLY``  coded to the disease, but the title does not name it. This is
-                  the incidental-mega-cohort class: eMERGE and the Bogalusa
-                  Heart Study are legitimately MeSH-indexed for asthma because
-                  they measure it, among hundreds of other things. Proposed
-                  but **not** auto-approved -- a curator decides.
-``CONFLICT``      the title applies a competing qualifier to the disease's core
-                  term (*hereditary* vs *acquired*), i.e. a sibling disease.
-                  Vetoed.
+``TITLE_MATCH``    the disease is named in the study's own title. Auto-approved.
+``VARIABLE_MATCH`` the title does not name the disease, but the study's own
+                   phenotype data dictionary records it as an *outcome*
+                   (an affection-status or case/control variable). Auto-approved
+                   -- see below.
+``SUBJECT_ONLY``   coded to the disease with neither of the above. Proposed only
+                   under ``--include-subject-only`` and never auto-approved.
+``CONFLICT``       the title applies a competing qualifier to the disease's core
+                   term (*hereditary* vs *acquired*), i.e. a sibling disease.
+                   Vetoed.
+
+Why the data dictionary decides it
+----------------------------------
+A title is a weak instrument: real asthma trials are called BADGER, CREW, and
+GALA II, while GTEx is coded for asthma and is not an asthma study. dbGaP
+publishes each study's phenotype data dictionary openly -- even when the data
+themselves are controlled -- and the *role* of the variable settles it::
+
+    phs001604  Affection_Status: Childhood asthma case or control  -> outcome
+    phs000424  MHASTHMA: Asthma (General Medical History)           -> incidental
+
+Both mention asthma; only the first is an asthma study. ``--no-data-dict``
+skips the check (fewer requests, less precise).
+
+Only ``*.data_dict.xml`` is read, never ``*.var_report.xml``. The var reports
+are ~300x larger and hold per-variable summary statistics that are *cohort*
+distributions, not clinical reference intervals -- curating one into
+``reference_ranges`` would record a plausible number meaning something else.
 
 Rare disease
 ------------
@@ -59,6 +78,7 @@ Usage
     uv run python scripts/discover_dbgap_immport.py Sjogrens_Syndrome
     uv run python scripts/discover_dbgap_immport.py --slugs-file batch.txt --out proposals.json
     uv run python scripts/discover_dbgap_immport.py Asthma --include-subject-only
+    uv run python scripts/discover_dbgap_immport.py Asthma --no-data-dict
 """
 
 from __future__ import annotations
@@ -74,13 +94,19 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from disease_title_match import compile_phrases, entry_phrases, match_title
+from disease_title_match import (
+    compile_phrases,
+    entry_phrases,
+    fold_diacritics,
+    match_title,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = REPO_ROOT / "kb" / "disorders"
@@ -91,6 +117,36 @@ USER_AGENT = "dismech-dataset-discovery (https://github.com/monarch-initiative/d
 
 PAGE = 50
 REQUEST_GAP = 0.34  # be a polite guest on both public endpoints
+
+# dbGaP publishes each study's phenotype data dictionary openly, even when the
+# data themselves are controlled access. That is what makes the triage check
+# below possible without any authorization.
+DBGAP_FTP = "https://ftp.ncbi.nlm.nih.gov/dbgap/studies"
+# Older studies date the filename: `...data_dict_2009_09_03.xml`.
+DATA_DICT_RE = re.compile(r'href="([^"]+\.data_dict(?:_\d{4}_\d{2}_\d{2})?\.xml)"')
+# A study with more tables than this is a mega-cohort; fetching every table
+# costs a request each. The cap is reported when it bites (never silent).
+MAX_DICT_TABLES = 40
+
+# NCBI's FHIR service carries its own fixtures, which are coded like real
+# studies and otherwise indistinguishable.
+BLOCKED_STUDIES = {"phs002409"}
+BLOCKED_TITLE_RE = re.compile(r"\bFHIR Test Study\b", re.IGNORECASE)
+
+# A variable naming the disease says the study *recorded* it. Whether the study
+# is *about* it is carried by the variable's role, which these cues read:
+#   Affection_Status / "Childhood asthma case or control"  -> the study outcome
+#   MHASTHMA         / "Asthma (General Medical History)"  -> a history checkbox
+# The second is GTEx, which is coded for asthma and is not an asthma study.
+OUTCOME_CUES = re.compile(
+    r"affection[\s_-]*status|case[\s_-]*(?:or|/|vs\.?|and)[\s_-]*control"
+    r"|case[\s_-]*control|\bcases and controls\b|\bdiagnosis of\b|\bproband\b",
+    re.IGNORECASE,
+)
+INCIDENTAL_CUES = re.compile(
+    r"medical history|\bhistory of\b|comorbid|self[\s-]*report|past medical",
+    re.IGNORECASE,
+)
 
 # ImmPort `assay_method` -> DatasetTypeEnum, only where the mapping is
 # unambiguous. Anything vague ("Other", "ELISA") is left unset rather than
@@ -147,6 +203,18 @@ def http_json(url: str, retries: int = 3):
             time.sleep(1.5 * (attempt + 1))
     print(f"WARN  request failed: {url} ({last})", file=sys.stderr)
     return None
+
+
+def http_text(url: str, retries: int = 2) -> str:
+    for attempt in range(retries):
+        time.sleep(REQUEST_GAP)
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                return decode_body(resp.read())
+        except Exception:  # noqa: BLE001 - a miss is just "no data dictionary"
+            time.sleep(1.0 * (attempt + 1))
+    return ""
 
 
 # --------------------------------------------------------------------------- #
@@ -283,8 +351,76 @@ ORGANISM_TERMS = {
 }
 
 
+
+# --------------------------------------------------------------------------- #
+# dbGaP phenotype data dictionary
+#
+# Deliberately reads `*.data_dict.xml` only, never `*.var_report.xml`. The var
+# reports are ~300x larger and carry per-variable summary statistics, which are
+# *disease-cohort* distributions -- not clinical reference intervals. Feeding
+# them into `reference_ranges`, which dismech defines as normal intervals,
+# would produce a plausible number that means something else entirely.
+# --------------------------------------------------------------------------- #
+
+_DICT_CACHE: dict[str, list[tuple[str, str]]] = {}
+
+
+def study_variables(phs_versioned: str) -> list[tuple[str, str]]:
+    """Return [(variable name, description)] for a dbGaP study, or []."""
+    if phs_versioned in _DICT_CACHE:
+        return _DICT_CACHE[phs_versioned]
+
+    phs = phs_versioned.split(".")[0]
+    base = f"{DBGAP_FTP}/{phs}/{phs_versioned}/pheno_variable_summaries"
+    tables = sorted(set(DATA_DICT_RE.findall(http_text(f"{base}/"))))
+    if len(tables) > MAX_DICT_TABLES:
+        print(
+            f"  NOTE  {phs_versioned}: reading {MAX_DICT_TABLES} of {len(tables)} "
+            f"data-dictionary tables",
+            file=sys.stderr,
+        )
+        tables = tables[:MAX_DICT_TABLES]
+
+    variables: list[tuple[str, str]] = []
+    for table in tables:
+        body = http_text(f"{base}/{table}")
+        if not body:
+            continue
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError:
+            continue
+        for var in root.iter("variable"):
+            variables.append(
+                ((var.findtext("name") or "").strip(), (var.findtext("description") or "").strip())
+            )
+    _DICT_CACHE[phs_versioned] = variables
+    return variables
+
+
+def affection_signal(variables, patterns) -> tuple[str, str]:
+    """Classify how a study's own variables treat the disease.
+
+    Returns ``("OUTCOME"|"INCIDENTAL"|"", quoted variable)``. OUTCOME means a
+    variable naming the disease also reads as an affection status or
+    case/control assignment, i.e. the study is *about* the disease even though
+    its title does not say so.
+    """
+    incidental = ""
+    for name, description in variables:
+        blob = f"{name} {description}"
+        if not any(rx.search(fold_diacritics(blob)) for _, rx in patterns):
+            continue
+        quoted = f"{name}: {description}"[:160]
+        if OUTCOME_CUES.search(blob):
+            return "OUTCOME", quoted
+        if INCIDENTAL_CUES.search(blob) and not incidental:
+            incidental = quoted
+    return ("INCIDENTAL", incidental) if incidental else ("", "")
+
+
 def tier(hit: dict, patterns, cores) -> tuple[str, str, str]:
-    """Return (tier, matched_phrase, conflict_reason)."""
+    """Return (tier, matched_phrase, conflict_reason) from the title alone."""
     matched, conflict = match_title(hit["title"], patterns, cores)
     if conflict:
         return "CONFLICT", matched, conflict
@@ -327,6 +463,12 @@ def to_record(hit: dict, tier_name: str, matched: str, retrieved: str) -> dict:
 
     if tier_name == "TITLE_MATCH":
         why = f'the disease is named in the study\'s own title ("{matched}")'
+    elif tier_name == "VARIABLE_MATCH":
+        why = (
+            f"the study's own phenotype data dictionary records the disease as an "
+            f"outcome variable ({hit.get('variable', '')!r}), even though the study "
+            f"title does not name it"
+        )
     else:
         coded = ", ".join(hit.get("conditions") or []) or "the disease"
         why = (
@@ -349,7 +491,7 @@ def to_record(hit: dict, tier_name: str, matched: str, retrieved: str) -> dict:
 # --------------------------------------------------------------------------- #
 
 
-def discover(slug: str) -> tuple[list[dict], str]:
+def discover(slug: str, use_data_dict: bool = True) -> tuple[list[dict], str]:
     """Return (tiered hits, note explaining an empty result)."""
     path = KB_DIR / f"{slug}.yaml"
     if not path.exists():
@@ -368,9 +510,29 @@ def discover(slug: str) -> tuple[list[dict], str]:
 
     tiered = []
     for hit in hits.values():
+        local = hit["accession"].split(":", 1)[1]
+        if local.split(".")[0] in BLOCKED_STUDIES or BLOCKED_TITLE_RE.search(hit["title"]):
+            continue
+
         tier_name, matched, conflict = tier(hit, patterns, cores)
-        tiered.append({**hit, "tier": tier_name, "matched_phrase": matched, "conflict": conflict})
-    order = {"TITLE_MATCH": 0, "SUBJECT_ONLY": 1, "CONFLICT": 2}
+        variable = ""
+        # Only the ambiguous hits are worth the data-dictionary requests: a
+        # title match is already decisive, and a qualifier conflict is already
+        # vetoed.
+        if tier_name == "SUBJECT_ONLY" and use_data_dict and hit["repository"] == "dbGaP":
+            signal, variable = affection_signal(study_variables(local), patterns)
+            if signal == "OUTCOME":
+                tier_name = "VARIABLE_MATCH"
+        tiered.append(
+            {
+                **hit,
+                "tier": tier_name,
+                "matched_phrase": matched,
+                "conflict": conflict,
+                "variable": variable,
+            }
+        )
+    order = {"TITLE_MATCH": 0, "VARIABLE_MATCH": 1, "SUBJECT_ONLY": 2, "CONFLICT": 3}
     tiered.sort(key=lambda h: (order[h["tier"]], h["accession"]))
 
     note = ""
@@ -391,6 +553,12 @@ def main() -> int:
     ap.add_argument("--slugs-file", type=Path)
     ap.add_argument("--out", type=Path, help="write a triage-ready proposals JSON")
     ap.add_argument("--max-per-entry", type=int, default=3)
+    ap.add_argument(
+        "--no-data-dict",
+        action="store_true",
+        help="skip the dbGaP data-dictionary check that promotes studies whose "
+        "variables record the disease as an outcome (faster, less precise)",
+    )
     ap.add_argument(
         "--include-subject-only",
         action="store_true",
@@ -413,16 +581,18 @@ def main() -> int:
 
     retrieved = dt.datetime.now(dt.UTC).date().isoformat()
     proposals: list[dict] = []
-    counts = {"TITLE_MATCH": 0, "SUBJECT_ONLY": 0, "CONFLICT": 0}
+    counts = {"TITLE_MATCH": 0, "VARIABLE_MATCH": 0, "SUBJECT_ONLY": 0, "CONFLICT": 0}
 
     for i, slug in enumerate(slugs, 1):
-        hits, note = discover(slug)
+        hits, note = discover(slug, use_data_dict=not args.no_data_dict)
         for hit in hits:
             counts[hit["tier"]] += 1
         if note:
             print(f"  [SKIP] {note}", file=sys.stderr)
 
-        approved = [h for h in hits if h["tier"] == "TITLE_MATCH"][: args.max_per_entry]
+        approved = [
+            h for h in hits if h["tier"] in ("TITLE_MATCH", "VARIABLE_MATCH")
+        ][: args.max_per_entry]
         proposed = list(approved)
         if args.include_subject_only:
             proposed += [h for h in hits if h["tier"] == "SUBJECT_ONLY"][: args.max_per_entry]
@@ -441,7 +611,7 @@ def main() -> int:
                     "n_candidates": len(hits),
                     "records": [
                         {
-                            "approved": h["tier"] == "TITLE_MATCH",
+                            "approved": h["tier"] in ("TITLE_MATCH", "VARIABLE_MATCH"),
                             "tier": h["tier"],
                             "matched_phrase": h["matched_phrase"],
                             "record": to_record(h, h["tier"], h["matched_phrase"], retrieved),
@@ -461,6 +631,7 @@ def main() -> int:
 
     print(
         f"\nTITLE_MATCH: {counts['TITLE_MATCH']}   "
+        f"VARIABLE_MATCH: {counts['VARIABLE_MATCH']}   "
         f"SUBJECT_ONLY (needs triage): {counts['SUBJECT_ONLY']}   "
         f"CONFLICT (vetoed): {counts['CONFLICT']}",
         file=sys.stderr,
