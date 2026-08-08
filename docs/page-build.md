@@ -242,6 +242,15 @@ full agentic review of a regen PR can still be forced by commenting `/review`
 on it (the one escape hatch left open: it requires a collaborator author, so it
 is always an explicit human request).
 
+> **Root cause worth chasing separately.** The reason `pull_request` runs on
+> these branches conclude `action_required` with no jobs is a repository/org
+> Actions setting that requires approval for workflow runs on `github-actions[bot]`
+> pushes — not anything in these workflow files. The design above routes around
+> it (and stays correct even if it is lifted, since the `pull_request` skip
+> clause then takes over), but fixing that setting would let regen PRs run their
+> checks on the `pull_request` trigger normally and would likely simplify other
+> bot-push workflows too. Tracked as a maintainer follow-up.
+
 See issue [#5507](https://github.com/monarch-initiative/dismech/issues/5507) for
 the design rationale and [#5198](https://github.com/monarch-initiative/dismech/issues/5198)
 for the broader build-speed work.
