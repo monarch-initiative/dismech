@@ -24,6 +24,12 @@ Four guards, each traceable to a real failure:
     the bare label retrieved generic prostate cancer.
 word-boundary matching
     "H Syndrome" matched "Denys-Drash Syndrome" and "MRKH syndrome".
+diacritic folding
+    dbGaP titles spell it "Sjögren's Syndrome" while the KB entry is
+    ``Sjogrens_Syndrome``, so two on-target studies were scored as though the
+    disease were absent from the title. Medical eponyms carry diacritics often
+    enough (Sjögren, Behçet, Ménière, Guillain-Barré, Creutzfeldt-Jakob) that
+    this had to be fixed in the matcher rather than per caller.
 
 plus the sibling-disease qualifier veto from :mod:`discover_datasets`
 (*hereditary* vs *acquired* angioedema).
@@ -33,6 +39,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -100,10 +107,31 @@ def entry_phrases(entry: dict, slug: str) -> tuple[list[str], list[tuple[str, st
     return phrases, cores
 
 
+def fold_diacritics(text: str) -> str:
+    """Strip combining marks so "Sjögren" and "Sjogren" compare equal.
+
+    Applied to both sides of every comparison. It only ever *adds* matches that
+    a diacritic previously blocked -- treating "o" and "ö" as the same letter in
+    a disease name is the intended reading, not a loosening of the rules.
+    """
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch)
+    )
+
+
 def compile_phrases(phrases: list[str]) -> list[tuple[str, re.Pattern]]:
-    """Hyphen-aware boundaries, so Pick disease cannot match Niemann-Pick disease."""
+    """Hyphen-aware boundaries, so Pick disease cannot match Niemann-Pick disease.
+
+    The returned phrase is the original (it is shown to curators and recorded in
+    provenance notes); only the pattern is diacritic-folded.
+    """
     return [
-        (p, re.compile(rf"(?<![\w-]){re.escape(p)}(?![\w-])", re.IGNORECASE))
+        (
+            p,
+            re.compile(
+                rf"(?<![\w-]){re.escape(fold_diacritics(p))}(?![\w-])", re.IGNORECASE
+            ),
+        )
         for p in phrases
     ]
 
@@ -115,7 +143,7 @@ def match_title(title: str, patterns, cores) -> tuple[str, str]:
     ``conflict_reason`` is non-empty when the title applies a competing
     qualifier to the disease's core term, i.e. it is about a sibling disease.
     """
-    low = title.lower()
+    low = fold_diacritics(title).lower()
     matched = next((p for p, rx in patterns if rx.search(low)), "")
     if not matched:
         return "", ""
