@@ -488,6 +488,13 @@ distinguishes that member from its siblings.
 - Every `module` reference (in criteria leaves and differentiating mechanisms) must
   resolve to a file in `kb/modules/`.
 - Grouping `name` values must be unique.
+- Separately, `test_conforms_to_module_node_references` checks the **other** side of
+  the module link: every `conforms_to` on a pathophysiology node (in `kb/disorders/`,
+  `kb/modules/`, `kb/comorbidities/`) must resolve both to a module file *and*, when a
+  `#Node Name` anchor is given, to a real pathophysiology node in that module. This is
+  what `CONFORMS_TO_MODULE` criteria are evaluated against, so a stale stem or a
+  drifted node name silently drops an entry out of satisfying a criterion it is
+  asserted to satisfy.
 
 **Validation:**
 ```bash
