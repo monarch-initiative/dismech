@@ -79,7 +79,7 @@ URI: [dismech:class/ReferenceRangeBand](https://w3id.org/monarch-initiative/dism
 | [upper_bound](../slots/upper_bound.md) | 0..1 <br/> [Float](../types/Float.md) | Exclusive upper bound of this band's value interval, so adjacent bands sharin... | direct |
 | [unit](../slots/unit.md) | 0..1 <br/> [String](../types/String.md) | UCUM unit for this band's bounds | direct |
 | [abnormal_flag](../slots/abnormal_flag.md) | 0..1 <br/> [AbnormalFlagEnum](../enums/AbnormalFlagEnum.md) | Normal/low/high/critical classification of results in this band, following HL... | direct |
-| [severity](../slots/severity.md) | 0..1 <br/> [Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md)&nbsp;or&nbsp;<br />[SeverityQualifierEnum](../enums/SeverityQualifierEnum.md) | Optional ordinal severity for this band when the category aligns with MILD/MO... | direct |
+| [severity](../slots/severity.md) | 0..1 <br/> [SeverityQualifierEnum](../enums/SeverityQualifierEnum.md)&nbsp;or&nbsp;<br />[Any](../classes/Any.md)&nbsp;or&nbsp;<br />[String](../types/String.md) | Optional ordinal severity for this band when the category aligns with MILD/MO... | direct |
 | [phenotype_term](../slots/phenotype_term.md) | 0..1 <br/> [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | Optional HP phenotype that an abnormal result in this band maps to (LOINC2HPO... | direct |
 | [interpretation](../slots/interpretation.md) | 0..1 <br/> [String](../types/String.md) | Free-text clinical interpretation of results that fall in this band | direct |
 
@@ -300,6 +300,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -404,6 +405,7 @@ attributes:
     - ExperimentalReadout
     - ReferenceRangeBand
     - Phenotype
+    - ImagingFinding
     - LogicalCriterion
     - DifferentiatingMechanism
     range: PhenotypeDescriptor
@@ -418,6 +420,7 @@ attributes:
     domain_of:
     - ExperimentalReadout
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRangeBand
     range: string
 

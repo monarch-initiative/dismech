@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MERRF Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MERRF Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MERRF Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-08-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010790" target="_blank" rel="noopener noreferrer">MONDO:0010790</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>MERRF is a maternally inherited, multisystem mitochondrial encephalomyopathy. Its classical definition is a tetrad: <strong>myoclonus, generalized epilepsy, cerebellar ataxia, and ragged-red fibers (RRF) on muscle biopsy</strong>. The proximal defect is a point variant in a mitochondrial transfer RNA gene — most often <em>MT-TK</em>, encoding tRNA-lysine — that cripples the mitochondrion's ability to translate its own 13 respiratory-chain subunits. Because mitochondrial genomes exist in hundreds of copies per cell and the variant is present as a mixture with normal genomes (heteroplasmy), the disease surfaces only where the mutant fraction crosses a steep threshold. That is the single most important structural fact about MERRF: it is a dosage disease with a patchy, tissue-by-tissue distribution, not a uniform loss of function.</p>
+<blockquote>
+<p>"MERRF (myoclonic epilepsy with ragged red fibers) is a multisystem disorder characterized by myoclonus (often the first symptom) followed by generalized epilepsy, ataxia, weakness, exercise intolerance, and dementia." — GeneReviews, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V, already in KB]</p>
+</blockquote>
+<p><strong>A critical nosological caveat that should frame the whole entry:</strong> large modern cohorts show the full tetrad is the <em>minority</em> outcome of the causal genotype. See §3 and §9.</p>
+<h3>Identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0010790" target="_blank" rel="noopener noreferrer">MONDO:0010790</a></strong> (MERRF syndrome)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td><strong>545000</strong> (MERRF); <em>MT-TK</em> locus <strong>590060</strong></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:551" target="_blank" rel="noopener noreferrer">ORPHA:551</a></strong> (Orphanet page was CAPTCHA-blocked this session — ⚠ confirm number before citing)</td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td><strong>E88.42</strong> — "MERRF syndrome" (billable, dedicated code)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>Mitochondrial-disease chapter; a MERRF-specific stem code was not confirmed this session — ⚠ verify in the ICD-11 browser</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td><strong>D017243</strong> — "MERRF Syndrome"</td>
+</tr>
+<tr>
+<td>ClinVar (variant)</td>
+<td>VCV000009579; dbSNP <strong>rs118192098</strong></td>
+</tr>
+<tr>
+<td>HGNC (gene)</td>
+<td><strong>hgnc:7489</strong> (<em>MT-TK</em>); NCBI Gene <strong>4566</strong></td>
+</tr>
+<tr>
+<td>MITOMAP</td>
+<td>m.8344A&gt;G, confirmed pathogenic mt-tRNA variant</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Synonyms</h3>
+<p>MERRF; myoclonic epilepsy with ragged red fibers; myoclonus epilepsy associated with ragged-red fibers; myoclonic epilepsy associated with ragged-red fibers; <strong>Fukuhara disease</strong> (eponym, from the 1980 Japanese description); "myoclonic ataxia" (proposed renaming — see §3).</p>
+<h3>Data provenance type</h3>
+<p><strong>Aggregated disease-level</strong>, with two useful registry-derived exceptions that behave more like individual-patient datasets: the German <strong>mitoNET/mitoREGISTER</strong> cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a>) and the <strong>Nation-wide Italian Collaborative Network of Mitochondrial Diseases</strong> database (<a href="https://pubmed.ncbi.nlm.nih.gov/23635963/" target="_blank" rel="noopener noreferrer">PMID:23635963</a>). No EHR-derived MERRF phenotype algorithm is published; the ICD-10-CM code E88.42 is specific enough that an OMOP-style case-finding definition is feasible and would be a reasonable <code>definitions[]</code> addition (currently absent from the KB entry).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary causal factor</h3>
+<p>A heteroplasmic point variant in a mitochondrially encoded tRNA gene → failure of intramitochondrial translation. The dominant lesion:</p>
+<p><strong>m.8344A&gt;G in <em>MT-TK</em></strong> (NC_012920.1:m.8344A&gt;G), an A→G transition in the T-ψ-C loop of mt-tRNA^Lys.</p>
+<blockquote>
+<p>"An A to G transition mutation at nucleotide pair 8344 in human mitochondrial DNA (mtDNA) has been identified as the cause of MERRF." — Shoffner et al., <em>Cell</em> 1990, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/2112427/" target="_blank" rel="noopener noreferrer">PMID:2112427</a></strong> [V]</p>
+<p>"The m.8344A&gt;G pathogenic variant in the mitochondrial gene MT-TK is present in more than 80% of affected individuals with typical findings." — GeneReviews, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]</p>
+</blockquote>
+<p>Independent estimate: "point mutations in the tRNALys gene of the DNAmt, mainly A8344G, are responsible for almost 90% of MERRF cases" — Lorenzoni et al., <strong><a href="https://pubmed.ncbi.nlm.nih.gov/25337734/" target="_blank" rel="noopener noreferrer">PMID:25337734</a></strong> [V].</p>
+<h3>Genetic risk factors</h3>
+<ul>
+<li><strong>Causal variants (germline, mitochondrial):</strong> m.8344A&gt;G (dominant); other <em>MT-TK</em> alleles m.8356T&gt;C, m.8363G&gt;A, m.8361G&gt;A, m.8340G&gt;A (⚠ these specific positions were not individually confirmed against MITOMAP this session — verify before curating); a <strong>novel m.8315A&gt;C</strong> <em>MT-TK</em> variant reported as a MERRF cause (PMC9319148 — ⚠ PMID not resolved, CAPTCHA-blocked).</li>
+<li><strong>Non-<em>MT-TK</em> causes:</strong> "Pathogenic variants in MT-TF, MT-TH, MT-TI, MT-TL1, MT-TP, MT-TS1, and MT-TS2 have also been described in a subset of individuals with MERRF." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]. A worked <em>MT-TF</em> case (typical clinical, histological and biochemical MERRF from a phenylalanine-tRNA variant) is documented in <strong><a href="https://pubmed.ncbi.nlm.nih.gov/16414077/" target="_blank" rel="noopener noreferrer">PMID:16414077</a></strong> [V]. That several different tRNAs produce the same syndrome argues the operative lesion is <em>generic translation failure</em>, not anything lysine-specific.</li>
+<li><strong>Heteroplasmy level</strong> is the proximate quantitative risk factor — but a badly behaved one (see §9 and the controversy in the KB <code>discussions</code> block).</li>
+<li><strong>Nuclear background as a modifier:</strong> the strongest human evidence is the Zhou/Attardi autopsy study (§6), which concluded that "<strong>nuclear-controlled neuronal differences among various regions of the CNS</strong>" contribute to which neurons die — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/9315896/" target="_blank" rel="noopener noreferrer">PMID:9315896</a></strong> [V].</li>
+</ul>
+<h3>Environmental risk factors</h3>
+<p>There is <strong>no established environmental cause</strong>. What exists is a set of <strong>decompensation triggers and mitochondrial toxins</strong> that convert a compensated carrier state into clinical disease or accelerate it:</p>
+<ul>
+<li><strong>Valproic acid</strong> — interferes with mitochondrial respiration and β-oxidation; can precipitate hepatic failure. Specifically contraindicated despite being the conventional first choice for progressive myoclonic epilepsy.</li>
+<li><strong>Aminoglycoside antibiotics, linezolid</strong> (both inhibit the same mitochondrial ribosome that is already failing).</li>
+<li><strong>Cigarettes and alcohol</strong> — named explicitly in GeneReviews management.</li>
+<li>Catabolic stress: intercurrent infection, fasting, dehydration, surgery/anesthesia.</li>
+</ul>
+<blockquote>
+<p>"valproic acid should be avoided in the treatment of seizures" — GeneReviews <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]
+Avoid "Aminoglycoside antibiotics, linezolid, cigarettes, alcohol, valproic acid" — GeneReviews <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [S]</p>
+</blockquote>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>Retention of wild-type mtDNA is the only well-established protective factor</strong>, and it is remarkably potent: "This suggests that a small percentage of normal mtDNAs has a large protective effect on phenotype." — Shoffner 1990, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/2112427/" target="_blank" rel="noopener noreferrer">PMID:2112427</a></strong> [V]</li>
+<li>No protective nuclear variant, haplogroup, diet, or exposure has been established. Aerobic exercise is used therapeutically on a mitochondrial-biogenesis rationale but has not been shown to prevent onset.</li>
+</ul>
+<h3>Gene–environment interactions</h3>
+<p>The clinically actionable interaction is <strong>genotype × drug</strong>: a valproate exposure that is benign in idiopathic generalized epilepsy is hepatotoxic/decompensating in an m.8344A&gt;G carrier. Similarly, aminoglycoside ototoxicity is amplified on a background of mitochondrial translation failure. These belong in the entry as mechanism-derived treatment decisions (the KB already curates valproate avoidance as a <code>treatments</code> entry — the right call).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>The central finding of the modern literature: the classical tetrad is the exception</h3>
+<p>Two large cohorts independently dismantled the textbook picture. <strong>This should be the headline phenotype fact in any KB entry.</strong></p>
+<p><strong>Italian collaborative cohort (n=42 carriers + systematic review of 321 published patients), Mancuso et al., <em>Neurology</em> 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23635963/" target="_blank" rel="noopener noreferrer">PMID:23635963</a></strong> [V — full abstract cached]:</p>
+<blockquote>
+<p>"Forty-two patients carrying the mutation were identified. The great majority did not have full-blown MERRF syndrome. Myoclonus was present in 1 of 5 patients, whereas myopathic signs and symptoms, generalized seizures, hearing loss, eyelid ptosis, and multiple lipomatosis represented the most common clinical features."</p>
+<p>"Considering all of the 321 patients so far available… at the mean age of approximately 35 years, the clinical picture was characterized by the following signs/symptoms, in descending order: myoclonus, muscle weakness, ataxia (35%-45% of patients); generalized seizures, hearing loss (25%-34.9%); cognitive impairment, multiple lipomatosis, neuropathy, exercise intolerance (15%-24.9%); and increased creatine kinase levels, ptosis/ophthalmoparesis, optic atrophy, cardiomyopathy, muscle wasting, respiratory impairment, diabetes, muscle pain, tremor, migraine (5%-14.9%)."</p>
+<p>"MERRF could be better defined as a myoclonic ataxia rather than a myoclonic epilepsy."</p>
+</blockquote>
+<p><strong>German mitoNET registry (n=34), Altmann et al., <em>J Neurol</em> 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a></strong> [V — full abstract cached]:</p>
+<blockquote>
+<p>"Mean age at symptom onset was 24.5 years ±10.9 (6-48 years) with adult onset in 75 % of the patients."</p>
+<p>"In our cohort, the canonical features seizures, myoclonus, cerebellar ataxia and ragged-red fibres that are traditionally associated with MERRF, occurred in only 61, 59, 70, and 63 % of the patients, respectively. In contrast, other features such as hearing impairment were even more frequently present (72 %). Other common features in our cohort were migraine (52 %), psychiatric disorders (54 %), respiratory dysfunction (45 %), gastrointestinal symptoms (38 %), dysarthria (36 %), and dysphagia (35 %). Brain MRI revealed cerebral and/or cerebellar atrophy in 43 % of our patients."</p>
+</blockquote>
+<p><strong>East-Chinese tRNA-Lys cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a></strong> [V, already in KB]: myopathy-plus-neuropathy dominates; "the classic syndrome of myoclonic epilepsy with ragged-red fibers (MERRF) was rare (23%)"; symptom frequencies "muscle weakness (76.9%), exercise intolerance (76.9%), elevated creatine kinase levels (61.5%), peripheral neuropathy (69.2%) and cerebellar ataxia (61.5%)".</p>
+<p><strong>Pediatric MT-TK cohort (n=22), <a href="https://pubmed.ncbi.nlm.nih.gov/39429077/" target="_blank" rel="noopener noreferrer">PMID:39429077</a></strong> [V, already in KB]: 15 MERRF, 3 Leigh syndrome, 4 LS-MERRF overlap; median onset <strong>5.00 (2.75, 9.00) years</strong>; myoclonus progressive in all 15 MERRF children, initial symptom in 10; EEG split myoclonus into 6 cortical myoclonic epilepsy vs 4 subcortical.</p>
+<h3>Phenotype table with HPO suggestions and frequency evidence</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Onset</th>
+<th>Course</th>
+<th>Frequency (source)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Myoclonus (often first symptom; action-sensitive)</td>
+<td>Myoclonus <strong><a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" rel="noopener noreferrer">HP:0001336</a></strong> ✓</td>
+<td>childhood–adult</td>
+<td>progressive</td>
+<td>35–45% of 321 pooled (<a href="https://pubmed.ncbi.nlm.nih.gov/23635963/" target="_blank" rel="noopener noreferrer">PMID:23635963</a>); 59% (<a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a>); ~20% in Italian n=42. <strong>Do not assert a band inside a MERRF-defined cohort — circular</strong></td>
+</tr>
+<tr>
+<td>Generalized seizures</td>
+<td>Seizure <strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></strong> ✓</td>
+<td>after myoclonus</td>
+<td>recurrent/progressive</td>
+<td>25–34.9% pooled; 61% (mitoNET)</td>
+</tr>
+<tr>
+<td>Cerebellar ataxia</td>
+<td>Progressive cerebellar ataxia <strong><a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" rel="noopener noreferrer">HP:0002073</a></strong> ✓</td>
+<td>variable</td>
+<td>progressive</td>
+<td>35–45% pooled; 70% (mitoNET); 61.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a>) → <strong>FREQUENT</strong></td>
+</tr>
+<tr>
+<td>Muscle weakness</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a></strong> ✓</td>
+<td>variable</td>
+<td>slowly progressive</td>
+<td>76.9% (<a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a>) → <strong>FREQUENT</strong></td>
+</tr>
+<tr>
+<td>Exercise intolerance</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a></strong> ✓</td>
+<td>early</td>
+<td>stable-progressive</td>
+<td>76.9% → <strong>FREQUENT</strong></td>
+</tr>
+<tr>
+<td>Peripheral neuropathy</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" rel="noopener noreferrer">HP:0009830</a></strong> ✓</td>
+<td>adult</td>
+<td>progressive</td>
+<td>69.2%; 15–24.9% pooled → <strong>FREQUENT</strong></td>
+</tr>
+<tr>
+<td>Ragged-red fibers</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003200" target="_blank" rel="noopener noreferrer">HP:0003200</a></strong> ✓</td>
+<td>—</td>
+<td>—</td>
+<td>63% (mitoNET) — note: <em>not</em> universal</td>
+</tr>
+<tr>
+<td>Sensorineural hearing impairment</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></strong> ✓</td>
+<td>variable</td>
+<td>progressive</td>
+<td><strong>72% (mitoNET) — the single most frequent feature in that cohort</strong>; 25–34.9% pooled → <strong>FREQUENT</strong></td>
+</tr>
+<tr>
+<td>Cognitive impairment / dementia</td>
+<td>Dementia <strong><a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" rel="noopener noreferrer">HP:0000726</a></strong> ✓</td>
+<td>late</td>
+<td>progressive</td>
+<td>15–24.9% pooled</td>
+</tr>
+<tr>
+<td>Ptosis / ophthalmoparesis</td>
+<td>Ptosis <strong><a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a></strong> ✓</td>
+<td>variable</td>
+<td>progressive</td>
+<td>5–14.9% pooled (ptosis common in Italian n=42)</td>
+</tr>
+<tr>
+<td>Optic atrophy</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a></strong> ✓</td>
+<td>variable</td>
+<td>progressive</td>
+<td>5–14.9% pooled</td>
+</tr>
+<tr>
+<td>Cardiomyopathy</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" rel="noopener noreferrer">HP:0001638</a></strong> ✓</td>
+<td>variable</td>
+<td>progressive</td>
+<td>5–14.9% pooled</td>
+</tr>
+<tr>
+<td>Wolff-Parkinson-White</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001716" target="_blank" rel="noopener noreferrer">HP:0001716</a></strong> ✓</td>
+<td>variable</td>
+<td>—</td>
+<td>not quantified; named in GeneReviews</td>
+</tr>
+<tr>
+<td>Diabetes mellitus</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" rel="noopener noreferrer">HP:0000819</a></strong> ✓</td>
+<td>adult</td>
+<td>progressive</td>
+<td>5–14.9% pooled</td>
+</tr>
+<tr>
+<td>Multiple symmetric lipomatosis</td>
+<td>Lipoma <strong><a href="http://purl.obolibrary.org/obo/HP_0012032" target="_blank" rel="noopener noreferrer">HP:0012032</a></strong> ✓</td>
+<td>adult</td>
+<td>progressive</td>
+<td>15–24.9% pooled — clinically distinctive red flag</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></strong> ✓</td>
+<td>childhood</td>
+<td>—</td>
+<td>GeneReviews "common"</td>
+</tr>
+<tr>
+<td>Elevated creatine kinase</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a></strong> ✓</td>
+<td>—</td>
+<td>—</td>
+<td>61.5%; 5–14.9% pooled → <strong>FREQUENT</strong> in tRNA-Lys carriers</td>
+</tr>
+<tr>
+<td><strong>Migraine</strong> <em>(KB gap)</em></td>
+<td>Migraine <strong><a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" rel="noopener noreferrer">HP:0002076</a></strong> ⚠</td>
+<td>adult</td>
+<td>recurrent</td>
+<td><strong>52% (mitoNET)</strong> → FREQUENT</td>
+</tr>
+<tr>
+<td><strong>Psychiatric disorder</strong> <em>(KB gap)</em></td>
+<td>Behavioral abnormality <strong><a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a></strong> ⚠ (or a depression/anxiety child term)</td>
+<td>adult</td>
+<td>—</td>
+<td><strong>54% (mitoNET)</strong> → FREQUENT</td>
+</tr>
+<tr>
+<td><strong>Respiratory dysfunction</strong> <em>(KB gap)</em></td>
+<td>Respiratory insufficiency <strong><a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a></strong> ⚠</td>
+<td>adult</td>
+<td>progressive</td>
+<td><strong>45% (mitoNET)</strong>; 5–14.9% pooled</td>
+</tr>
+<tr>
+<td><strong>Gastrointestinal symptoms</strong> <em>(KB gap)</em></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" rel="noopener noreferrer">HP:0011024</a></strong> ⚠</td>
+<td>adult</td>
+<td>—</td>
+<td>38% (mitoNET)</td>
+</tr>
+<tr>
+<td><strong>Dysarthria</strong> <em>(KB gap)</em></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a></strong> ⚠</td>
+<td>with ataxia</td>
+<td>progressive</td>
+<td>36% (mitoNET)</td>
+</tr>
+<tr>
+<td><strong>Dysphagia</strong> <em>(KB gap)</em></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a></strong> ⚠</td>
+<td>later</td>
+<td>progressive</td>
+<td>35% (mitoNET)</td>
+</tr>
+<tr>
+<td><strong>Cerebral/cerebellar atrophy on MRI</strong> <em>(KB gap)</em></td>
+<td>Cerebellar atrophy <strong><a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" rel="noopener noreferrer">HP:0001272</a></strong> ⚠ / Cerebral atrophy <strong><a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" rel="noopener noreferrer">HP:0002059</a></strong> ⚠</td>
+<td>—</td>
+<td>progressive</td>
+<td>43% (mitoNET)</td>
+</tr>
+<tr>
+<td>Elevated lactate (blood/CSF)</td>
+<td>Increased circulating lactate <strong><a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" rel="noopener noreferrer">HP:0002151</a></strong> ⚠</td>
+<td>—</td>
+<td>—</td>
+<td>supportive, neither sensitive nor specific</td>
+</tr>
+<tr>
+<td>Pigmentary retinopathy</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000580" target="_blank" rel="noopener noreferrer">HP:0000580</a></strong> ⚠</td>
+<td>—</td>
+<td>—</td>
+<td>GeneReviews "have been observed"</td>
+</tr>
+<tr>
+<td>Tremor, muscle pain, muscle wasting</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a> ⚠ / <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> ⚠ / <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" rel="noopener noreferrer">HP:0003202</a> ⚠</td>
+<td>—</td>
+<td>—</td>
+<td>5–14.9% pooled</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Six of these (migraine, psychiatric, respiratory, GI, dysarthria, dysphagia) are frequency-quantified in a registry cohort and are currently absent from the dismech entry — the highest-yield phenotype additions available.</strong></p>
+<h3>Quality of life</h3>
+<p>No MERRF-specific QoL study was found. Generic mitochondrial-disease instruments apply and are the right anchors:
+- <strong>NMDAS</strong> (Newcastle Mitochondrial Disease Adult Scale) — three sections: current function, system-specific involvement, current clinical assessment.
+- <strong>NMQ</strong> (Newcastle Mitochondrial Quality of life measure) — 63 items across 16 domains.
+- Predictors of overall QoL in mitochondrial disease are <strong>fatigue and physical functioning</strong>; one cohort reported 79.8% with severe fatigue [S — verify].
+- The KL1333 phase 1a/1b trial validated the <strong>30-second Sit-to-Stand</strong> and <strong>patient-reported fatigue scales</strong> as outcome measures in primary mitochondrial disease (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/39657714/" target="_blank" rel="noopener noreferrer">PMID:39657714</a></strong> [V]).</p>
+<p>Per-phenotype QoL impact: myoclonus is the dominant disability driver in classical MERRF (the levetiracetam case report documented that "the average myoclonus score improved dramatically, as well as the quality of life" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/16414077/" target="_blank" rel="noopener noreferrer">PMID:16414077</a></strong> [V]); ataxia and hearing loss dominate in the broader carrier population.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal gene</h3>
+<p><strong>MT-TK</strong> — mitochondrially encoded tRNA-lysine. <a href="https://bioregistry.io/HGNC:7489" target="_blank" rel="noopener noreferrer">HGNC:7489</a> (lowercase <code>hgnc:7489</code> in dismech), NCBI Gene 4566, OMIM 590060. A 70-nucleotide RNA at mtDNA map position <strong>8295–8364</strong>. GeneReviews: <em>MT-TK</em> accounts for <strong>&gt;90%</strong> of MERRF; m.8344A&gt;G alone for <strong>&gt;80%</strong> of typical presentations.</p>
+<h3>Pathogenic variants</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>m.8344A&gt;G</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nomenclature</td>
+<td>NC_012920.1(MT-TK):m.8344A&gt;G</td>
+</tr>
+<tr>
+<td>dbSNP</td>
+<td>rs118192098</td>
+</tr>
+<tr>
+<td>ClinVar</td>
+<td>VCV000009579; <strong>Pathogenic</strong>, 2-star review status (criteria provided, multiple submitters, no conflicts), 6 submissions, last evaluated 2026-01-07</td>
+</tr>
+<tr>
+<td>Variant class</td>
+<td>Point substitution (transition) in a non-coding structural RNA — <strong>not</strong> missense/nonsense/frameshift; standard ACMG protein-level codes do not apply, mt-tRNA-specific criteria (Yarham/McFarland scoring) do</td>
+</tr>
+<tr>
+<td>Origin</td>
+<td><strong>Germline, maternal; mitochondrial; heteroplasmic</strong> (occasionally homoplasmic)</td>
+</tr>
+<tr>
+<td>Population frequency</td>
+<td>Heteroplasmic allele frequency <strong>0.011% in gnomAD v4.1.0</strong> [S — verify in gnomAD directly]</td>
+</tr>
+<tr>
+<td>Functional consequence</td>
+<td><strong>Loss of function of the tRNA</strong> via loss of the wobble-uridine taurine modification → complete failure to decode both AAA and AAG</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Other <em>MT-TK</em> alleles reported in MERRF: m.8356T&gt;C, m.8363G&gt;A, m.8361G&gt;A, m.8340G&gt;A ⚠, plus the newly reported <strong>m.8315A&gt;C</strong> ⚠. Non-<em>MT-TK</em> genes: <em>MT-TF, MT-TH, MT-TI, MT-TL1, MT-TP, MT-TS1, MT-TS2</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]).</p>
+<h3>Functional consequence — the molecular core</h3>
+<blockquote>
+<p>"revealed the lack of a post-transcriptional taurine-modification at the anticodon wobble uridine in two mt tRNAs bearing typical pathogenic mutations" — Kirino/Suzuki, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/17132941/" target="_blank" rel="noopener noreferrer">PMID:17132941</a></strong> [V]</p>
+<p>"The MERRF mt tRNA(Lys) lacking the wobble modification cannot translate either of its codons (AAA and AAG), while the translational activity of MELAS mt tRNA(Leu(UUR)) lacking wobble modification is more depressed in decoding of UUG codon than UUA codon." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/17132941/" target="_blank" rel="noopener noreferrer">PMID:17132941</a></strong> [V]</p>
+</blockquote>
+<p>That contrast is the cleanest molecular discriminator between MERRF and MELAS: <strong>MERRF's decoding failure is complete; MELAS's is codon-selective.</strong> GO term: <code>tRNA wobble uridine modification</code> <strong><a href="http://purl.obolibrary.org/obo/GO_0002098" target="_blank" rel="noopener noreferrer">GO:0002098</a></strong> ✓ (DECREASED).</p>
+<h3>Modifier genes</h3>
+<p>No named modifier gene is established. The strongest evidence that nuclear modifiers <em>exist</em> is Zhou 1997 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/9315896/" target="_blank" rel="noopener noreferrer">PMID:9315896</a></strong> [V]) — see §6. Candidate classes (all unvalidated): mitochondrial biogenesis capacity (PGC-1α axis), mitophagy capacity, antioxidant reserve, mtDNA haplogroup. In the rapamycin study, MERRF fibroblasts carried haplogroups H and U vs control T/U5a/U5b — an incidental observation, <strong>not</strong> a haplogroup association [S].</p>
+<h3>Epigenetics</h3>
+<p>No established role for nuclear DNA methylation or histone modification in MERRF. The relevant "epigenetic-adjacent" layer is <strong>mitochondrial RNA post-transcriptional modification</strong> (the taurinomethyl-uridine tag itself, installed by MTO1/GTPBP3/TRMU) — mechanistically central, and worth flagging as distinct from classical epigenetics.</p>
+<h3>Chromosomal abnormalities</h3>
+<p><strong>Not applicable.</strong> MERRF is caused by point variants in a 16.6 kb circular genome; karyotype, CMA, and FISH have no role.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> none causal. Mitochondrial toxins (aminoglycosides, linezolid, valproate, tobacco, alcohol) modify course. No occupational or pollutant exposure is implicated.</li>
+<li><strong>Lifestyle:</strong> avoidance of alcohol and tobacco is recommended; aerobic exercise is recommended (biogenesis rationale); fasting and catabolic stress should be avoided.</li>
+<li><strong>Infectious agents:</strong> none causal. Intercurrent infection is a recognized decompensation trigger — relevant to the <code>metabolic_intoxication_decompensation</code> module logic, though MERRF is not itself an intoxication-type IEM.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (upstream → downstream)</h3>
+<pre><code>m.8344A&gt;G in MT-TK (heteroplasmic)                        [MOLECULAR]
+   ├─→ Loss of tRNA-Lys wobble taurine modification        [MOLECULAR]  GO:0002098 ↓
+   │      └─→ Defective mitochondrial translation          [MOLECULAR]  GO:0032543 ↓
+   └─→ Mitotic segregation → tissue heteroplasmy threshold [CELLULAR]   GO:0042391 abnormal
+  └─→ Respiratory chain deficiency + ΔΨm collapse  [CELLULAR]   GO:0042775 ↓, GO:0004129 ↓, GO:0072593 ↑
+ ├─→ Compensatory mitochondrial proliferation in muscle [TISSUE] → RAGGED-RED FIBER
+ │      └─→ Skeletal muscle respiratory failure [TISSUE] → weakness, exercise intolerance, ↑CK
+ └─→ Neuronal energy failure + oxidative stress [CELLULAR] GO:0006915 ↑
+        ├─→ Cortical neuronal hyperexcitability [CELLULAR] → progressive myoclonic epilepsy
+        ├─→ Dentate/cerebellar degeneration     [TISSUE]   → progressive ataxia + subcortical myoclonus
+        └─→ Progressive multisystem involvement [ORGANISM] → deafness, cardiomyopathy, DM, lipomatosis
+</code></pre>
+<p>This is the graph already committed in <code>kb/disorders/MERRF_Syndrome.yaml</code>, with conformance to <code>epilepsy_excitation_inhibition_imbalance</code> (at the hyperexcitability node, deliberately not at the module trigger — MERRF's entry point is bioenergetic, not channelopathic) and <code>cerebellar_purkinje_degeneration</code>.</p>
+<h3>Key mechanistic evidence</h3>
+<p><strong>Threshold behavior (in vitro, cybrids/fibroblasts) — <a href="https://pubmed.ncbi.nlm.nih.gov/10477264/" target="_blank" rel="noopener noreferrer">PMID:10477264</a></strong> [V]:</p>
+<blockquote>
+<p>"Within the range of 87-73% mutated mtDNA, COX activity was decreased to 5-35% and DeltaPsi was decreased to 6-78%."
+"indicate that the biochemical manifestation of the MERRF mutation exerts a very steep threshold of DeltaPsi inhibition"
+"The activity of cytochrome c oxidase (COX) in patient fibroblasts with 89% mutated mtDNA was decreased to 20% of the control levels."</p>
+</blockquote>
+<p><strong>Causal sufficiency of the tRNA lesion (rescue experiment) — <a href="https://pubmed.ncbi.nlm.nih.gov/15317755/" target="_blank" rel="noopener noreferrer">PMID:15317755</a></strong> [V]:</p>
+<blockquote>
+<p>"import of tRNALys is accompanied by a partial rescue of mitochondrial functions affected by the mutation such as mitochondrial translation, activity of respiratory complexes, electrochemical potential across the mitochondrial membrane and respiration rate"
+"Import of a tRNALys with a mutation in the anticodon preventing recognition of the lysine codons does not lead to any rescue, whereas downregulation of the transgenic tRNAs by small interfering RNA (siRNA) transiently abolishes the functional rescue, showing that this rescue is due to the import."</p>
+</blockquote>
+<p><strong>Neuronal-level mechanism, human iPSC model (NEW — not in KB) — Wu et al., <em>J Biomed Sci</em> 2023, <a href="https://pubmed.ncbi.nlm.nih.gov/37605213/" target="_blank" rel="noopener noreferrer">PMID:37605213</a></strong> [V]:</p>
+<blockquote>
+<p>"MERRF neural cells harboring the m.8344A &gt; G mutation exhibited impaired mitochondrial bioenergetic function, elevated ROS levels and imbalanced expression of antioxidant enzymes."
+"Our findings indicate that neural immaturity and synaptic protein loss led to the impairment of neuronal activity and plasticity in MERRF neurons harboring the m.8344A &gt; G mutation."
+"neurons harboring a high level of the m.8344A &gt; G mutation exhibited impairment of the spontaneous and evoked potential-stimulated neuronal activities."</p>
+</blockquote>
+<p>Quantitative [S — from full text, verify]: ATP-coupled respiration 50.1% of control in high-mutation iNSCs; H₂O₂ elevated 307–446%; synaptophysin, vGLUT2 and AMPAR reduced. <strong>This paper supplies a mechanistic bridge dismech currently lacks: bioenergetic deficit → synaptic protein loss → impaired plasticity → network-level dysfunction.</strong> It is the strongest available in-human-cell support for the "Cortical Neuronal Hyperexcitability" node.</p>
+<p><strong>Regional selectivity — the unresolved core problem (NEW evidence for the KB's existing KNOWLEDGE_GAP) — Zhou, Chomyn, Attardi &amp; Miller, <em>J Neurosci</em> 1997, <a href="https://pubmed.ncbi.nlm.nih.gov/9315896/" target="_blank" rel="noopener noreferrer">PMID:9315896</a></strong> [V]:</p>
+<blockquote>
+<p>"Neurons and the surrounding neuropil and glia from all CNS regions that were analyzed exhibited high proportions of mutant mtDNA, ranging from 97.6 +/- 0.7% in Purkinje cells to 80.6 +/- 2.8% in the anterior horn cells."
+"Surprisingly, as compared with controls, neuronal loss ranged from 7% of the Purkinje cells to 46% of the neurons of the dentate nucleus in MERRF cerebellum."
+"Thus, factors other than the high proportion of mutant mtDNA, in particular nuclear-controlled neuronal differences among various regions of the CNS, seem to contribute to the mitochondrial dysfunction and ultimate cell death."</p>
+</blockquote>
+<p>This is a near-perfect adjudication of the <code>merrf_regional_selectivity_gap</code> discussion: <strong>Purkinje cells had the <em>highest</em> mutant load (97.6%) and the <em>least</em> loss (7%); dentate neurons had lower load and the <em>most</em> loss (46%).</strong> Single-cell heteroplasmy was already measured, and it does not explain selectivity. The proposed experiment in the KB should be updated to reflect that this measurement exists and was negative — the open question is now <em>which</em> nuclear/cell-intrinsic factor, not <em>whether</em> load explains it.</p>
+<p><strong>Neuropathology — <a href="https://pubmed.ncbi.nlm.nih.gov/3128314/" target="_blank" rel="noopener noreferrer">PMID:3128314</a></strong> [V]: "degeneration of dentate nucleus, red nucleus, globus pallidus, subthalamic nucleus and pontine tegmentum"; "degeneration of substantia nigra, locus ceruleus, cerebellar cortex and inferior olivary nucleus"; distribution "different from those of dentato-rubropallidoluysian atrophy, Joseph's disease or Friedreich's ataxia."</p>
+<p><strong>Mitochondrial vasculopathy:</strong> intramuscular vessels show the same SDH-strong/COX-deficient pattern (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/8186718/" target="_blank" rel="noopener noreferrer">PMID:8186718</a></strong>, "Evidence of a mitochondrial vasculopathy in muscle biopsies" [S — verify]; the vascular finding is quoted in KB from <a href="https://pubmed.ncbi.nlm.nih.gov/25337734/" target="_blank" rel="noopener noreferrer">PMID:25337734</a>).</p>
+<h3>Molecular pathway / process annotations</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>GO / other</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tRNA modification</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0002098" target="_blank" rel="noopener noreferrer">GO:0002098</a></strong> tRNA wobble uridine modification ✓ (DECREASED)</td>
+</tr>
+<tr>
+<td>Translation</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" rel="noopener noreferrer">GO:0032543</a></strong> mitochondrial translation ✓ (DECREASED)</td>
+</tr>
+<tr>
+<td>OXPHOS</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0042775" target="_blank" rel="noopener noreferrer">GO:0042775</a></strong> mitochondrial ATP synthesis coupled electron transport ✓ (DECREASED); <strong><a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a></strong> oxidative phosphorylation ⚠</td>
+</tr>
+<tr>
+<td>Terminal oxidase</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0004129" target="_blank" rel="noopener noreferrer">GO:0004129</a></strong> cytochrome-c oxidase activity ✓ (DECREASED)</td>
+</tr>
+<tr>
+<td>ROS</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" rel="noopener noreferrer">GO:0072593</a></strong> reactive oxygen species metabolic process ✓ (INCREASED); <strong><a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a></strong> response to oxidative stress ⚠</td>
+</tr>
+<tr>
+<td>Membrane potential</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" rel="noopener noreferrer">GO:0042391</a></strong> regulation of membrane potential ✓ (ABNORMAL)</td>
+</tr>
+<tr>
+<td>Cell death</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a></strong> apoptotic process ✓ (INCREASED)</td>
+</tr>
+<tr>
+<td>Mitophagy (therapeutic axis)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" rel="noopener noreferrer">GO:0000422</a></strong> autophagy of mitochondrion ⚠</td>
+</tr>
+<tr>
+<td>Biogenesis (failed therapeutic axis)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" rel="noopener noreferrer">GO:0007005</a></strong> mitochondrion organization ⚠</td>
+</tr>
+<tr>
+<td>Synaptic (NEW, from iPSC paper)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" rel="noopener noreferrer">GO:0048167</a></strong> regulation of synaptic plasticity ⚠</td>
+</tr>
+<tr>
+<td>Pathways</td>
+<td>KEGG hsa00190 (Oxidative phosphorylation); Reactome R-HSA-5368287 (Mitochondrial translation) ⚠</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Metabolic changes:</strong> blocked electron flow → NADH accumulation → pyruvate diverted to lactate → elevated blood/CSF lactate (<a href="http://purl.obolibrary.org/obo/CHEBI_24996" target="_blank" rel="noopener noreferrer">CHEBI:24996</a> ✓) and elevated lactate:pyruvate ratio; secondary carnitine depletion; MR spectroscopy shows elevated lactate and reduced N-acetylaspartate [S].</p>
+<p><strong>Immune involvement:</strong> none primary. No autoimmunity, no immunodeficiency. Secondary neuroinflammation is plausible but not documented in MERRF specifically.</p>
+<p><strong>Molecular profiling available:</strong> transcriptomic/proteomic/metabolomic MERRF-specific datasets are sparse. The iPSC study (<a href="https://pubmed.ncbi.nlm.nih.gov/37605213/" target="_blank" rel="noopener noreferrer">PMID:37605213</a>) provides targeted protein-level data (synaptophysin, vGLUT2, AMPAR, antioxidant enzymes). No published single-cell or spatial transcriptomic MERRF atlas was found — a genuine gap. No CRISPR/RNAi functional-genomics screen specific to MERRF; DepMap has no MERRF context.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong> central nervous system (cerebellum and its output nuclei, cerebrum), skeletal muscle. <strong>Secondary/multisystem:</strong> heart (cardiomyopathy, conduction — WPW), inner ear (cochlea), eye (optic nerve, retina, levator palpebrae/extraocular), peripheral nerve, endocrine pancreas, adipose tissue (symmetric lipomatosis), GI tract, respiratory system.</p>
+<p><strong>Body systems:</strong> nervous (central + peripheral), musculoskeletal, cardiovascular, special sense, endocrine, gastrointestinal, respiratory.</p>
+<h3>Anatomical term suggestions (UBERON)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Structure</th>
+<th>UBERON</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cerebellum</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a></strong> ✓</td>
+</tr>
+<tr>
+<td>dentate nucleus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002688" target="_blank" rel="noopener noreferrer">UBERON:0002688</a> ⚠</td>
+</tr>
+<tr>
+<td>inferior olivary nucleus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" rel="noopener noreferrer">UBERON:0002298</a> ⚠</td>
+</tr>
+<tr>
+<td>red nucleus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002038" target="_blank" rel="noopener noreferrer">UBERON:0002038</a> ⚠</td>
+</tr>
+<tr>
+<td>globus pallidus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001875" target="_blank" rel="noopener noreferrer">UBERON:0001875</a> ⚠</td>
+</tr>
+<tr>
+<td>subthalamic nucleus</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001882" target="_blank" rel="noopener noreferrer">UBERON:0001882</a> ⚠</td>
+</tr>
+<tr>
+<td>superior cerebellar peduncle (imaging target)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002807" target="_blank" rel="noopener noreferrer">UBERON:0002807</a> ⚠</td>
+</tr>
+<tr>
+<td>pontine tegmentum / brainstem</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002550" target="_blank" rel="noopener noreferrer">UBERON:0002550</a> ⚠ / <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" rel="noopener noreferrer">UBERON:0002298</a> ⚠</td>
+</tr>
+<tr>
+<td>skeletal muscle tissue</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> ⚠</td>
+</tr>
+<tr>
+<td>optic nerve</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a> ⚠</td>
+</tr>
+<tr>
+<td>cochlea</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a> ⚠</td>
+</tr>
+<tr>
+<td>heart</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> ⚠</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Cell types (CL)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cell type</th>
+<th>CL</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>neuron</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong> ✓</td>
+<td>generic energy-failure node</td>
+</tr>
+<tr>
+<td>Purkinje cell</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a></strong> ✓</td>
+<td>highest mutant load, <em>least</em> loss (<a href="https://pubmed.ncbi.nlm.nih.gov/9315896/" target="_blank" rel="noopener noreferrer">PMID:9315896</a>)</td>
+</tr>
+<tr>
+<td>pyramidal neuron</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" rel="noopener noreferrer">CL:0000598</a></strong> ✓</td>
+<td>cortical hyperexcitability node</td>
+</tr>
+<tr>
+<td>skeletal muscle fiber</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a></strong> ✓</td>
+<td>RRF substrate</td>
+</tr>
+<tr>
+<td>glutamatergic neuron</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a> ⚠</td>
+<td>the iPSC model's cell type</td>
+</tr>
+<tr>
+<td>cardiac muscle cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> ⚠</td>
+<td>cardiomyopathy</td>
+</tr>
+<tr>
+<td>type B pancreatic cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a> ⚠</td>
+<td>diabetes</td>
+</tr>
+<tr>
+<td>retinal ganglion cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a> ⚠</td>
+<td>optic atrophy</td>
+</tr>
+<tr>
+<td>endothelial cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> ⚠</td>
+<td>intramuscular vasculopathy</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Subcellular (GO CC)</h3>
+<p><strong><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></strong> mitochondrion ⚠; <strong><a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a></strong> mitochondrial inner membrane ⚠ (site of the respiratory chain and ΔΨm); <strong><a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a></strong> mitochondrial matrix ⚠ (site of mitochondrial translation); subsarcolemmal mitochondrial accumulation is the histological localization of the RRF.</p>
+<p><strong>Lateralization:</strong> bilateral and broadly symmetric. Neuropathological and imaging findings are symmetric; MERRF has no lateralized presentation (unlike MELAS stroke-like episodes, which are focal and asymmetric — a useful differential handle).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li>Normal early development, then onset: "Onset can occur from childhood to adulthood, occurring after normal early development." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]</li>
+<li><strong>Adult cohort:</strong> mean symptom onset <strong>24.5 ± 10.9 years (range 6–48)</strong>; <strong>adult onset in 75%</strong> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a></strong> [V]).</li>
+<li><strong>Pediatric cohort:</strong> median onset <strong>5.00 (IQR 2.75–9.00) years</strong> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/39429077/" target="_blank" rel="noopener noreferrer">PMID:39429077</a></strong> [V]).</li>
+<li>Pooled published cases: clinical picture characterized "at the mean age of approximately 35 years" (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/23635963/" target="_blank" rel="noopener noreferrer">PMID:23635963</a></strong> [V]).</li>
+<li>Onset pattern: <strong>insidious/chronic</strong>, occasionally punctuated by subacute decompensation during catabolic stress.</li>
+<li><strong>Onset order:</strong> myoclonus first in classical MERRF; but <em>cerebellar ataxia was the first symptom in all three</em> patients in the imaging series (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/17989367/" target="_blank" rel="noopener noreferrer">PMID:17989367</a></strong> [V]) — consistent with the "myoclonic ataxia" reframing.</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li>Course: <strong>chronic, lifelong, progressive</strong>; not relapsing-remitting, not self-limited. This is what places MERRF in the progressive myoclonic epilepsy group rather than among the stable genetic generalized epilepsies.</li>
+<li>"Myoclonus presented and worsened progressively in all 15 MERRF children, with 10 as the initial symptom" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/39429077/" target="_blank" rel="noopener noreferrer">PMID:39429077</a></strong> [V]</li>
+<li>Rate: highly variable, even within families. mitoNET explicitly documents "large clinical variability between carriers of the same mutation, even within families" [V].</li>
+<li>Staging: no formal MERRF staging system exists. NMDAS is the practical progression instrument.</li>
+<li>Remission: <strong>none spontaneous</strong>; treatment-induced improvement is symptomatic (myoclonus control) only.</li>
+<li><strong>Critical intervention window (hypothesis, not established):</strong> the rapamycin cell data show complete bioenergetic rescue at <em>intermediate</em> mutant load but only marginal effect at <em>high</em> load — implying a window that closes (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/35922766/" target="_blank" rel="noopener noreferrer">PMID:35922766</a></strong> [V]). This is the mechanistic argument for early intervention and is already curated as a KNOWLEDGE_GAP in the entry.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mtDNA disease (all causes), adults, NE England</td>
+<td><strong>~20 per 100,000</strong> (1 in 5,000)</td>
+<td>Gorman et al., <strong><a href="https://pubmed.ncbi.nlm.nih.gov/25652200/" target="_blank" rel="noopener noreferrer">PMID:25652200</a></strong> [V] — "The minimum prevalence rate for mtDNA mutations was 1 in 5,000 (20 per 100,000)". <strong>This is an upper bound on MERRF, not a MERRF rate.</strong></td>
+</tr>
+<tr>
+<td>m.8344A&gt;G, NE England adults</td>
+<td><strong>0.28 per 100,000</strong> (95% CI 0.02–0.54)</td>
+<td>GeneReviews-cited [S] ⚠ verify primary source</td>
+</tr>
+<tr>
+<td>m.8344A&gt;G, northern Finland (n=353,895)</td>
+<td><strong>0 per 100,000</strong> (95% CI 0–1.5)</td>
+<td>Remes et al. 2003, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/12876264/" target="_blank" rel="noopener noreferrer">PMID:12876264</a></strong> (PubMed record has no abstract text — figures are from secondary citation [S])</td>
+</tr>
+<tr>
+<td>m.8344A&gt;G, pediatric western Sweden</td>
+<td><strong>0–0.25 per 100,000</strong></td>
+<td>GeneReviews-cited [S]</td>
+</tr>
+<tr>
+<td>MERRF syndrome (clinical)</td>
+<td>probably <strong>&lt; 1 per 100,000</strong></td>
+<td>StatPearls [S]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Suggested dismech <code>prevalence</code> records:</strong> keep the existing Gorman upper-bound record, and add a m.8344A&gt;G-specific record with <code>measure_type: POINT_PREVALENCE</code>, <code>prevalence_class: BELOW_1_IN_1000000</code>… actually 0.28/100,000 = 2.8 per million → <strong><code>BAND_1_9_PER_1000000</code></strong>, <code>rate_per_100000: 0.28</code>, population "Adults in North East England", with the caveat that this is <em>variant</em> prevalence, not <em>syndrome</em> prevalence.</p>
+<h3>Inheritance</h3>
+<ul>
+<li><strong>Maternal (mitochondrial) inheritance with heteroplasmy.</strong> HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001427" target="_blank" rel="noopener noreferrer">HP:0001427</a></strong> Mitochondrial inheritance ✓.</li>
+<li>"MERRF is caused by pathogenic variants in mtDNA and is transmitted by maternal inheritance." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]</li>
+<li>"A female with a mtDNA pathogenic variant (whether symptomatic or asymptomatic) transmits the pathogenic variant to all of her offspring." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]</li>
+<li>Affected males transmit nothing.</li>
+<li><strong>Penetrance:</strong> incomplete and unpredictable; asymptomatic carriers with high mutant load are documented ("high proportions of mutant genomes (up to 63%) were found in asymptomatic relatives" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/9272179/" target="_blank" rel="noopener noreferrer">PMID:9272179</a></strong> [V]).</li>
+<li><strong>Expressivity:</strong> extremely variable, within and between families.</li>
+<li><strong>Anticipation:</strong> not a repeat-expansion disease; apparent anticipation can occur through bottleneck-driven load increase across generations, but is not a formal genetic anticipation mechanism.</li>
+<li><strong>Germline mosaicism / bottleneck:</strong> the mtDNA genetic bottleneck in oogenesis is the operative mechanism — the child's mutant load is drawn stochastically and is <em>not</em> predictable from the mother's.</li>
+<li><strong>Founder effects:</strong> none established; m.8344A&gt;G arises recurrently on multiple haplogroup backgrounds.</li>
+<li><strong>Consanguinity:</strong> irrelevant (not autosomal recessive).</li>
+<li><strong>Carrier frequency:</strong> not a meaningful concept in the Mendelian sense; population heteroplasmic allele frequency ~0.011% in gnomAD v4.1.0 [S].</li>
+</ul>
+<h3>The heteroplasmy–phenotype disconnect (curate as CONTROVERSY — already in the entry)</h3>
+<p>Three independent lines converge:
+- "Although there seems to be a gene dosage effect in MERRF, we found no absolute relationship between the relative proportion of mutant genomes in blood and clinical severity." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/9272179/" target="_blank" rel="noopener noreferrer">PMID:9272179</a></strong> [V]
+- "heteroplasmy in blood was high both in symptomatic (mean 64.5%, range 41-82%) and asymptomatic individuals (mean 53.1%, range 21-78%)" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a></strong> [V]
+- "<strong>There was no correlation between the heteroplasmy level in blood and age at onset or clinical phenotype.</strong>" — mitoNET, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a></strong> [V] ← <em>new, independent, registry-scale confirmation; add to the controversy evidence block</em>
+- Counter-directional single case: "the m.8344A&gt;G variant may manifest milder and with a later onset in the homoplasmic as compared to the heteroplasmic form" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/36176839/" target="_blank" rel="noopener noreferrer">PMID:36176839</a></strong> [V]
+- And at the tissue level, Zhou 1997 shows load doesn't even explain <em>regional</em> neuronal loss (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/9315896/" target="_blank" rel="noopener noreferrer">PMID:9315896</a></strong> [V]).</p>
+<h3>Population demographics</h3>
+<ul>
+<li><strong>Ethnic distribution:</strong> worldwide; described in European, Japanese, Chinese, and other populations. No population enrichment established.</li>
+<li><strong>Geographic:</strong> the Finnish zero-prevalence result vs the English 0.28/100,000 suggests real regional variation in the variant's frequency, though small-number uncertainty dominates.</li>
+<li><strong>Sex ratio:</strong> ~1:1. Mitochondrial inheritance means both sexes are affected equally; only transmission is sex-asymmetric. (No formal sex-ratio study found.)</li>
+<li><strong>Age distribution:</strong> bimodal-ish in practice — a pediatric group (median onset 5 y, enriched for Leigh/LS-MERRF overlap) and a much larger adult group (mean onset 24.5 y, 75% adult onset).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Laboratory</h3>
+<ul>
+<li><strong>Blood/CSF lactate</strong> (<a href="http://purl.obolibrary.org/obo/CHEBI_24996" target="_blank" rel="noopener noreferrer">CHEBI:24996</a> ✓; LOINC 2524-7 ⚠, 32693-4 ⚠): supportive when elevated; <strong>neither sensitive nor specific</strong>, normal value does not exclude. Lactate:pyruvate ratio adds specificity.</li>
+<li><strong>Creatine kinase</strong> (LOINC 2157-6 ⚠): elevated in 61.5% of tRNA-Lys carriers (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a></strong> [V]).</li>
+<li>Others per Mitochondrial Medicine Society consensus (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/25503498/" target="_blank" rel="noopener noreferrer">PMID:25503498</a></strong>): plasma amino acids, acylcarnitine profile, urine organic acids, FGF-21/GDF-15 as mitochondrial-myopathy biomarkers (⚠ FGF-21/GDF-15 performance in MERRF specifically not established).</li>
+</ul>
+<h3>Imaging (currently a KB gap — nothing in <code>diagnosis</code> covers MRI)</h3>
+<p><strong>Ito et al., <em>AJNR</em> 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/17989367/" target="_blank" rel="noopener noreferrer">PMID:17989367</a></strong> [V]:</p>
+<blockquote>
+<p>"Conventional brain MR imaging showed atrophy of the superior cerebellar peduncles and the cerebellum in all patients and brain stem atrophy in 2 patients."
+"There was a discrepancy between clinical disabilities (severe) and radiologic abnormalities (mild). This discrepancy and atrophy of the superior cerebellar peduncles and the cerebellum may be important findings suggesting a diagnosis of MERRF."</p>
+</blockquote>
+<p>Registry-scale: "Brain MRI revealed cerebral and/or cerebellar atrophy in 43 % of our patients" (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a></strong> [V]).</p>
+<p>Additional reported features [S — verify before curation]: basal ganglia/dentate calcification (better on CT), white-matter change late, signal abnormality in medial thalami/mesencephalon/posterior pons/medulla, MRS showing elevated lactate and reduced NAA. <strong>The clinico-radiological discrepancy is itself a diagnostic clue and deserves a <code>diagnosis[]</code> entry.</strong> NCIT: Magnetic Resonance Imaging <strong>NCIT:C16809</strong> ⚠.</p>
+<h3>Electrophysiology</h3>
+<ul>
+<li><strong>EEG</strong> (<strong>NCIT:C38054</strong> ✓) with myoclonus correlation — separates cortical myoclonic epilepsy from subcortical myoclonus: "Electroencephalogram monitoring in the 15 MERRF children revealed myoclonic seizures in 10 children, with 6 classified as myoclonic epilepsy, and 4 as subcortical myoclonus." (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/39429077/" target="_blank" rel="noopener noreferrer">PMID:39429077</a></strong> [V]). Giant SSEPs and C-reflex support cortical origin (⚠ not sourced this session).</li>
+<li><strong>EMG/NCS</strong>: myopathic units plus axonal sensorimotor neuropathy (69.2% neuropathy — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a></strong> [V]).</li>
+<li><strong>ECG + echocardiography</strong>: for WPW and cardiomyopathy; recommended annually (GeneReviews).</li>
+<li><strong>Audiometry</strong>: hearing loss in 72% (mitoNET) — recommended every 2–3 years.</li>
+</ul>
+<h3>Biopsy / pathology</h3>
+<p>Muscle biopsy (<strong>NCIT:C51895</strong> ✓): RRF on modified Gomori trichrome, COX-negative fibers, strong SDH — <strong>including intramuscular vessels</strong>.</p>
+<blockquote>
+<p>"Morphological changes seen upon muscle biopsy in MERRF include a substantive proportion of RRF, muscle fibers showing a deficient activity of cytochrome c oxidase (COX)" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/25337734/" target="_blank" rel="noopener noreferrer">PMID:25337734</a></strong> [V]
+"the presence of vessels with a strong reaction for succinate dehydrogenase and COX deficiency" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/25337734/" target="_blank" rel="noopener noreferrer">PMID:25337734</a></strong> [V]</p>
+</blockquote>
+<p>The SDH-spared/COX-deficient dissociation is the histological signature of a <em>mitochondrially encoded</em> translation defect: SDH (complex II) is entirely nuclear-encoded and therefore unaffected. Caveat: RRF present in only <strong>63%</strong> of mitoNET patients — a negative biopsy does not exclude.</p>
+<h3>Genetic testing</h3>
+<ul>
+<li><strong>Approach:</strong> targeted m.8344A&gt;G testing first; if negative with high suspicion, full <strong>mtDNA sequencing</strong> with heteroplasmy quantification; then nuclear gene panel/exome for phenocopies.</li>
+<li><strong>Tissue matters:</strong> blood can be falsely reassuring because heteroplasmy varies by tissue and declines in blood with age. <strong>Urinary sediment or muscle</strong> is preferred when blood is negative.</li>
+<li>Historical convenience: "The mutation alters the T psi C loop of the tRNA(Lys) gene and creates a CviJI restriction site, providing a simple molecular diagnostic test for the disease." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/2112427/" target="_blank" rel="noopener noreferrer">PMID:2112427</a></strong> [V]</li>
+<li><strong>Not useful:</strong> karyotype, chromosomal microarray, FISH, repeat-expansion testing (all target nuclear architecture MERRF does not involve). CMA/karyotype should be explicitly marked "not applicable" in the entry.</li>
+<li><strong>WES caveat worth flagging:</strong> standard exome pipelines historically under-called mtDNA; mtDNA is well covered by genome sequencing and by dedicated mtDNA assays. Resources: <strong>MITOMAP</strong>, <strong>MSeqDR</strong>, ClinVar, GTR.</li>
+</ul>
+<h3>Omics-based diagnostics</h3>
+<p>RNA-seq, proteomics, metabolomics, and liquid biopsy have <strong>no established clinical diagnostic role in MERRF</strong>. Research-grade only.</p>
+<h3>Clinical criteria</h3>
+<p>Four canonical features (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/25337734/" target="_blank" rel="noopener noreferrer">PMID:25337734</a></strong> [V]):</p>
+<blockquote>
+<p>"Diagnostic criteria for MERRF include typical manifestations of the disease: myoclonus, generalized epilepsy, cerebellar ataxia and ragged red fibers (RRF) on muscle biopsy."</p>
+</blockquote>
+<p>⚠ <strong>But the criteria are now known to be poorly calibrated against the genotype</strong> — applying them strictly misses most m.8344A&gt;G carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/23635963/" target="_blank" rel="noopener noreferrer">PMID:23635963</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32577866/" target="_blank" rel="noopener noreferrer">PMID:32577866</a>). A "MERRF Classification: Implications for Diagnosis and Clinical Trials" paper exists (<em>Pediatr Neurol</em> — ⚠ PMID unresolved) addressing exactly this.</p>
+<h3>Differential diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>MONDO</th>
+<th>Distinguishing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MELAS</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0010789" target="_blank" rel="noopener noreferrer">MONDO:0010789</a> ✓</td>
+<td>m.3243A&gt;G in <em>MT-TL1</em>; stroke-like episodes in non-vascular territories; codon-selective (not complete) decoding failure</td>
+</tr>
+<tr>
+<td><strong>Leigh syndrome</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009723" target="_blank" rel="noopener noreferrer">MONDO:0009723</a> ✓</td>
+<td><em>Same m.8344A&gt;G can cause it</em> — symmetric necrotizing basal ganglia/brainstem lesions; earlier onset with regression. Overlap syndrome (LS-MERRF) is real: "Fifteen children had myoclonic epilepsy with ragged-red fibers (MERRF), 3 had Leigh syndrome (LS), and 4 had LS-MERRF overlap syndrome (LS-MERRF)." (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/39429077/" target="_blank" rel="noopener noreferrer">PMID:39429077</a></strong> [V])</td>
+</tr>
+<tr>
+<td><strong>Lafora disease</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009697" target="_blank" rel="noopener noreferrer">MONDO:0009697</a> ✓</td>
+<td>AR <em>EPM2A</em>/<em>NHLRC1</em>; PAS+ Lafora bodies; occipital seizures; rapid cognitive collapse</td>
+</tr>
+<tr>
+<td><strong>Unverricht-Lundborg</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009698" target="_blank" rel="noopener noreferrer">MONDO:0009698</a> ✓</td>
+<td>AR <em>CSTB</em> dodecamer expansion; preserved cognition; no myopathy</td>
+</tr>
+<tr>
+<td>Sialidosis type I</td>
+<td>⚠</td>
+<td>cherry-red spot, <em>NEU1</em>, urinary oligosaccharides</td>
+</tr>
+<tr>
+<td>Neuronal ceroid lipofuscinoses</td>
+<td>⚠</td>
+<td>visual failure first, storage material on EM</td>
+</tr>
+<tr>
+<td>DRPLA</td>
+<td>⚠</td>
+<td>AD CAG expansion in <em>ATN1</em>; overlapping dentatorubral anatomy but different distribution (explicitly distinguished in <strong><a href="https://pubmed.ncbi.nlm.nih.gov/3128314/" target="_blank" rel="noopener noreferrer">PMID:3128314</a></strong> [V])</td>
+</tr>
+<tr>
+<td>KSS / CPEO</td>
+<td>⚠</td>
+<td>large-scale mtDNA deletion; ophthalmoplegia dominant; a MERRF/KSS overlap due to m.3291T&gt;C is reported</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Screening</h3>
+<ul>
+<li><strong>No newborn screening.</strong> Not on the RUSP; no biochemical marker with adequate sensitivity.</li>
+<li><strong>Cascade testing</strong> of maternal relatives is the correct family strategy. GeneReviews: at-risk relatives get molecular testing if the family variant is known; otherwise complete neurologic, ophthalmologic and audiology evaluation plus EKG, echocardiogram and blood lactate [S].</li>
+<li><strong>Carrier screening:</strong> not applicable in the Mendelian sense.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Honest summary: MERRF-specific survival statistics are weak.</strong> No dedicated natural-history/survival study of MERRF was found.</p>
+<ul>
+<li>The most-cited adult mitochondrial-myopathy outcome cohort (Mayo Clinic, n=94, <em>Brain Commun</em> 2024, DOI 10.1093/braincomms/fcae041) reports "Thirty patients died, with median survival of 33.4 years from symptom onset and 10.9 years from diagnosis. Median age at death was 55 years" [V] — <strong>but this is the whole mitochondrial-myopathy cohort, dominated by <em>MT-TL1</em> and <em>POLG</em>; MERRF-specific survival was not separately reported.</strong> Do <strong>not</strong> curate "median age at death 55" as a MERRF figure. Also from that cohort: "Cardiac involvement was associated with increased mortality [hazard ratio 2.36 (1.05, 5.29)]" and "There was no difference in survival based on genotype or phenotype."</li>
+<li><strong>Prognostic factors (qualitative, well-supported):</strong> cardiac involvement (cardiomyopathy, conduction disease); respiratory dysfunction (45% in mitoNET); dysphagia (35%) with aspiration risk; earlier onset generally worse; higher mutant load associated with more severe manifestations at the family level (but see the disconnect above).</li>
+<li><strong>Morbidity/disability:</strong> progressive; disability is driven by action myoclonus, ataxia, weakness, deafness and cognitive decline. Median time to gait assistance in the broader mitochondrial-myopathy cohort was 5.5 years from diagnosis / 17 years from onset [V] — again, cohort-wide, not MERRF-specific.</li>
+<li><strong>Complications:</strong> status myoclonicus/status epilepticus, aspiration pneumonia, respiratory failure, cardiac arrhythmia and sudden death (WPW), diabetes complications, falls/fracture from ataxia, hepatic failure if valproate is given.</li>
+<li><strong>Recovery potential:</strong> none — no disease-modifying therapy exists; the neuronal loss is not reversible. Symptomatic myoclonus control can meaningfully improve function.</li>
+<li><strong>Prognostic biomarkers:</strong> none validated. Blood heteroplasmy explicitly fails as a prognostic marker (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a></strong> [V]). GDF-15/FGF-21 are candidate severity markers in mitochondrial disease generally ⚠.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no disease-modifying therapy. All current care is symptomatic and supportive.</strong></p>
+<blockquote>
+<p>"Therapy is currently limited to symptomatic management of myoclonic epilepsy, and supportive measures to counteract muscle weakness with co-factors/supplements." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/35922766/" target="_blank" rel="noopener noreferrer">PMID:35922766</a></strong> [V]</p>
+</blockquote>
+<h3>Pharmacotherapy</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th>Agent (CHEBI)</th>
+<th>NCIT action</th>
+<th>Modality</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Levetiracetam</strong> — first choice for myoclonus</td>
+<td>levetiracetam <strong><a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" rel="noopener noreferrer">CHEBI:6437</a></strong> ✓</td>
+<td>Pharmacotherapy <strong>NCIT:C15986</strong> ✓</td>
+<td>SMALL_MOLECULE</td>
+<td>"LEV may benefit myoclonus in PME of mitochondrial origin without altering mitochondrial function, and it could be considered the drug of first choice for the treatment of myoclonus in MERRF." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/16414077/" target="_blank" rel="noopener noreferrer">PMID:16414077</a></strong> [V]</td>
+</tr>
+<tr>
+<td><strong>Clonazepam</strong></td>
+<td>clonazepam <strong><a href="http://purl.obolibrary.org/obo/CHEBI_3756" target="_blank" rel="noopener noreferrer">CHEBI:3756</a></strong> ✓</td>
+<td>NCIT:C15986 ✓</td>
+<td>SMALL_MOLECULE</td>
+<td>"levetiracetam or clonazepam for myoclonus" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]</td>
+</tr>
+<tr>
+<td>Other AEDs for generalized seizures (lamotrigine, topiramate, zonisamide, perampanel) ⚠</td>
+<td>⚠</td>
+<td>NCIT:C15986</td>
+<td>SMALL_MOLECULE</td>
+<td>not MERRF-specific; ⚠ unsourced this session</td>
+</tr>
+<tr>
+<td><strong>Avoid valproate</strong> (+ aminoglycosides, linezolid, tobacco, alcohol)</td>
+<td>valproic acid <a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" rel="noopener noreferrer">CHEBI:39867</a> ⚠</td>
+<td>Supportive Care <strong>NCIT:C15747</strong> ✓</td>
+<td>BEHAVIORAL</td>
+<td>"VPA should be used with caution in PME due to mitochondrial dysfunction, i.e. in MERRF… because of its interaction with mitochondrial respiration and metabolism." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/16414077/" target="_blank" rel="noopener noreferrer">PMID:16414077</a></strong> [V]</td>
+</tr>
+<tr>
+<td><strong>Cofactor/supplement "mito cocktail"</strong></td>
+<td>coenzyme Q10 <strong><a href="http://purl.obolibrary.org/obo/CHEBI_46245" target="_blank" rel="noopener noreferrer">CHEBI:46245</a></strong> ✓, L-carnitine <strong><a href="http://purl.obolibrary.org/obo/CHEBI_16347" target="_blank" rel="noopener noreferrer">CHEBI:16347</a></strong> ✓, α-lipoic acid ⚠, vitamin E ⚠, B vitamins ⚠, creatine ⚠, riboflavin ⚠</td>
+<td>Nutritional Support <strong>NCIT:C15433</strong> ✓</td>
+<td>SMALL_MOLECULE (<strong>not</strong> BEHAVIORAL — see the CLAUDE.md warning about NCIT:C15433)</td>
+<td>"Coenzyme Q10 (50-200 mg 2-3x/day), L-carnitine (1000 mg 2-3x/day), alpha lipoic acid, vitamin E, vitamin B supplements, and creatine… have been of modest benefit in some individuals." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]. GeneReviews also lists <strong>ubiquinol</strong> [S]. No controlled trial establishes disease modification.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacogenomics:</strong> the relevant interaction is genotype-driven drug <em>avoidance</em> (valproate, aminoglycosides, linezolid) rather than metabolizer-status dosing. No PharmGKB/CPIC guideline exists for MERRF. ⚠ Worth noting: <em>POLG</em>-related disease has the hardest valproate contraindication; the MERRF contraindication is mechanistically analogous but based on weaker evidence.</p>
+<h3>Advanced / experimental therapeutics (none in patients)</h3>
+<p><strong>1. Mitochondrial tRNA import — proof of concept, in vitro (<a href="https://pubmed.ncbi.nlm.nih.gov/15317755/" target="_blank" rel="noopener noreferrer">PMID:15317755</a> [V])</strong>
+Nuclear-encoded tRNA-Lys targeted into mitochondria partially rescued translation, complex activity, ΔΨm and respiration; rescue was abolished by siRNA knockdown of the transgene, proving specificity.</p>
+<p><strong>2. Mitophagy stimulation (rapamycin) — in vitro (<a href="https://pubmed.ncbi.nlm.nih.gov/35922766/" target="_blank" rel="noopener noreferrer">PMID:35922766</a> [V])</strong></p>
+<blockquote>
+<p>"The second approach, when administered chronically (4 weeks), induced a slight increase of mitochondrial respiration in fibroblasts with high-mutation load, and a significant improvement in fibroblasts with intermediate-mutation load, rescuing completely the bioenergetics defect."
+"This suggests that induction of mitochondrial biogenesis may not be sufficient to rescue mitochondrial dysfunction in MERRF cells with high-mutation load."
+(The failed arm — PGC-1α overexpression / nicotinic acid — is as informative as the successful one.) CHEBI: sirolimus ⚠.</p>
+</blockquote>
+<p><strong>3. Heteroplasmy-shifting nucleases — in vitro, MERRF-specific (NEW, a genuine KB gap)</strong>
+<strong>Pereira, Bacman, … Moraes, <em>EMBO Mol Med</em> 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30012581/" target="_blank" rel="noopener noreferrer">PMID:30012581</a></strong> [V]:</p>
+<blockquote>
+<p>"We tested whether molecular hybrids (mitoTev-TALEs) could specifically bind and cleave mtDNA of patient-derived cybrids harboring different levels of the m.8344A&gt;G mtDNA point mutation, associated with myoclonic epilepsy with ragged-red fibers (MERRF). We tested two mitoTev-TALE designs, one of which robustly shifted the mtDNA ratio toward the wild type. When this mitoTev-TALE was tested in a clone with high levels of the MERRF mutation (91% mutant), the shift in heteroplasmy resulted in an improvement of oxidative phosphorylation function."
+"mitoTALENs are dimeric and relatively large, making it difficult to package their coding genes into viral vectors, limiting their clinical application."</p>
+</blockquote>
+<p>Related platform work: mitoTALENs generally (Bacman et al., <em>Nat Med</em> 2013, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/23913125/" target="_blank" rel="noopener noreferrer">PMID:23913125</a></strong> — note this paper targeted a large deletion and m.14459G&gt;A, <strong>not</strong> m.8344A&gt;G; do not miscite it); in vivo mitoTALEN in the m.5024C&gt;T mouse (<em>Nat Med</em> 2018); mtZFN tandem architecture (<em>EMBO Mol Med</em> 2025) ⚠. <strong>Key mechanistic limitation for MERRF: DdCBE-type base editors perform C•G→T•A conversions, so reverting an A→G transition requires an adenine-capable mitochondrial editor (TALED-class), which remains preclinical.</strong></p>
+<p><strong>4. Systemic drug candidates in trial (not MERRF-specific)</strong>
+- <strong>KL1333</strong> (NAD⁺ modulator, oral) — <em>Brain</em> 2025, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/39657714/" target="_blank" rel="noopener noreferrer">PMID:39657714</a></strong> [V]: "KL1333 aims to normalize the NAD+:NADH ratio that is critical for ATP production… Results indicate KL1333 is safe and well tolerated, with dose-dependent gastrointestinal side effects, and validate potential novel outcome measures in primary mitochondrial disease including the 30-s Sit to Stand, and the patient-reported fatigue scales." Phase 2 pivotal study ongoing; open-label extension <strong>NCT07514338</strong> ⚠. Development explicitly names MERRF among target indications [S].
+- <strong>Sonlicromanol</strong> (KH176) — phase 2 reported in <em>Brain</em>; primarily studied in m.3243A&gt;G ⚠.
+- <strong>Elamipretide</strong> — FDA-approved for Barth syndrome (2025) [S]; not approved for MERRF but establishes regulatory precedent.
+- <strong>Vatiquinone (PTC743)</strong> — inherited mitochondrial disease trials, incl. <strong>NCT05218655</strong> ⚠.</p>
+<p>⚠ <strong>No interventional trial recruiting MERRF specifically was confirmed this session.</strong> Any <code>clinical_trials</code> block should be built by querying ClinicalTrials.gov for "MERRF" directly and validating with <code>just fetch-reference NCT…</code>.</p>
+<h3>Surgical / device / rehabilitative / supportive</h3>
+<ul>
+<li>Cochlear implantation for severe sensorineural hearing loss (mitochondrial deafness responds well) ⚠; hearing aids.</li>
+<li>Cardiac: pacemaker/ICD for conduction disease; ablation for symptomatic WPW ⚠.</li>
+<li>Ptosis surgery / ptosis crutches ⚠.</li>
+<li>Gastrostomy for dysphagia; non-invasive ventilation for respiratory dysfunction (45% affected).</li>
+<li>Debulking of symptomatic lipomas ⚠.</li>
+<li><strong>Physical therapy and aerobic exercise</strong> (<strong>NCIT:C15302</strong> ✓): "physical therapy to improve any impaired motor function; aerobic exercise" — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]. Occupational (<strong>NCIT:C121351</strong>) and speech therapy (<strong>NCIT:C159273</strong>) for dysarthria/dysphagia.</li>
+<li><strong>Genetic counseling</strong> (<strong>NCIT:C15240</strong> ✓) — see §13.</li>
+</ul>
+<h3>Surveillance (GeneReviews [S], worth curating as a management block)</h3>
+<p>Annual neurologic, ophthalmologic, cardiologic (ECG + echocardiogram) and endocrinologic evaluation; audiology every 2–3 years.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention of the disease:</strong> not possible — the variant is present from conception. The only true primary prevention is <strong>reproductive</strong>.</li>
+<li><strong>Reproductive options and their limits:</strong><blockquote>
+<p>"because the mutational load in tissues sampled prenatally may shift in utero or after birth as a result of random mitotic segregation, prediction of the phenotype from prenatal studies is not possible." — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/20301693/" target="_blank" rel="noopener noreferrer">PMID:20301693</a></strong> [V]</p>
+</blockquote>
+</li>
+</ul>
+<p>Prenatal diagnosis and PGT are technically feasible and are offered, but cannot forecast phenotype. <strong>Mitochondrial replacement therapy / mitochondrial donation</strong> (licensed in the UK, and with first outcome reports published) is the only intervention that prevents transmission outright ⚠ — not confirmed against a primary source this session, but should be curated once verified, as it is the single most consequential preventive option for this disease class.
+- <strong>Secondary prevention:</strong> cascade testing of maternal relatives; baseline and periodic cardiac (ECG/echo — asymptomatic WPW is silent until it isn't), audiologic, ophthalmologic and diabetes screening in identified carriers.
+- <strong>Tertiary prevention (preventing complications) — the practically important arm:</strong>
+  - Avoid valproate, aminoglycosides, linezolid, tobacco, alcohol.
+  - Avoid prolonged fasting; aggressive management of intercurrent illness and dehydration; careful perioperative/anesthetic planning.
+  - Treat WPW and cardiomyopathy before they cause events.
+  - Aspiration precautions once dysphagia appears.
+- <strong>Immunization:</strong> no MERRF-specific vaccine issue; routine immunization is <em>encouraged</em> because infection is a decompensation trigger.
+- <strong>Newborn/population screening:</strong> none, and none justified at this prevalence with no disease-modifying therapy.
+- <strong>Public health / environmental interventions:</strong> not applicable.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> <em>Homo sapiens</em> <strong>NCBITaxon:9606</strong>. <strong>No naturally occurring animal disease equivalent to MERRF is documented.</strong> OMIA has no MERRF entry (⚠ not directly queried this session — verify). This is expected: pathogenic heteroplasmic mt-tRNA point variants are purged efficiently by the germline bottleneck in most species and are essentially absent as spontaneous veterinary disease.</li>
+<li><strong>Orthologous gene:</strong> mouse <strong>mt-Tk</strong> (mitochondrially encoded tRNA lysine) ⚠ — NCBI Gene ID not confirmed this session; do not curate an ID without checking.</li>
+<li><strong>Evolutionary conservation:</strong> high. The mitochondrial genome's 22-tRNA translation system and the wobble taurine modification are deeply conserved across metazoa, which is why the mechanism generalizes — and why the <em>absence</em> of a natural animal model is a limitation rather than a biological difference.</li>
+<li><strong>Zoonotic potential / cross-species transmission:</strong> <strong>not applicable</strong> (genetic disease).</li>
+<li><strong>Comparative pathology:</strong> the closest comparative material is engineered — the heteroplasmic mouse mt-tRNA-Ala model (below), which reproduces the <em>class</em> of lesion (mt-tRNA point mutation, heteroplasmy, translation failure) in a different tRNA and a different target organ.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>The honest headline: <strong>there is no mouse model of MERRF.</strong></h3>
+<p>No transmitochondrial mouse carrying m.8344A&gt;G (or a mt-tRNA-Lys equivalent) exists. Introducing defined point variants into mtDNA in vivo remains extremely difficult, and this is the field's central experimental bottleneck. Every mechanistic claim about MERRF in a whole organism therefore rests on human tissue.</p>
+<h3>What actually exists</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>What it captures</th>
+<th>What it misses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cytoplasmic hybrids (cybrids)</strong> — patient mtDNA into ρ⁰ recipient cells</td>
+<td>IN_VITRO, human</td>
+<td>The cleanest demonstration that the tRNA lesion alone is sufficient, independent of nuclear background; supports precise heteroplasmy titration (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/10477264/" target="_blank" rel="noopener noreferrer">PMID:10477264</a></strong> [V])</td>
+<td>Dividing cells; no tissue architecture; no neurons</td>
+</tr>
+<tr>
+<td><strong>Patient fibroblasts</strong></td>
+<td>IN_VITRO, human</td>
+<td>Threshold behavior, COX kinetics, ΔΨm, drug response (rapamycin — <strong><a href="https://pubmed.ncbi.nlm.nih.gov/35922766/" target="_blank" rel="noopener noreferrer">PMID:35922766</a></strong> [V])</td>
+<td>Not a post-mitotic, energy-limited cell</td>
+</tr>
+<tr>
+<td><strong>iPSC-derived NPCs and cortical glutamatergic neurons</strong></td>
+<td>IN_VITRO, human</td>
+<td><strong>The best current model.</strong> Retains patient heteroplasmy; reproduces bioenergetic deficit, ROS, antioxidant imbalance, neural immaturity, synaptic protein loss, and impaired spontaneous/evoked activity (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/37605213/" target="_blank" rel="noopener noreferrer">PMID:37605213</a></strong> [V])</td>
+<td>Immature/fetal-like; no cerebellar dentate neurons; no aging; heteroplasmy can drift in culture</td>
+</tr>
+<tr>
+<td><strong>mitoTev-TALE / mitoTALEN-engineered MERRF cybrid clones</strong></td>
+<td>IN_VITRO, human</td>
+<td>Heteroplasmy manipulation as an experimental variable and a therapeutic readout (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/30012581/" target="_blank" rel="noopener noreferrer">PMID:30012581</a></strong> [V])</td>
+<td>Delivery, in vivo behavior untested for this variant</td>
+</tr>
+<tr>
+<td><strong>m.5024C&gt;T mt-tRNA-Ala mouse</strong> (Kauppila 2016 ⚠)</td>
+<td>MODEL_ORGANISM</td>
+<td>The <em>class</em> model: heteroplasmic mt-tRNA point mutation → reduced steady-state mt-tRNA → impaired mitochondrial translation → hypertrophic cardiomyopathy; the standard platform for testing mitoTALEN/mtZFN/DdCBE in vivo</td>
+<td><strong>Wrong tRNA, wrong target organ (heart, not cerebellum/cortex), no myoclonus, no epilepsy.</strong> Any MERRF claim drawn from it is an extrapolation and should be marked <code>HUMAN_MODEL_MISMATCH</code>, not <code>MODEL_ORGANISM</code> support for a human phenotype</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Genetic model types available</h3>
+<p>Knockout/knock-in/conditional/transgenic approaches used routinely for nuclear genes <strong>do not transfer to mtDNA</strong>: mtDNA is not amenable to homologous recombination, and there is no germline mtDNA transgenesis. Available genetic manipulations are limited to (a) cybrid transfer, (b) nuclease-based heteroplasmy shifting, (c) allotopic/nuclear-encoded rescue constructs, and (d) mtDNA-targeted base editors (C→T only, so <strong>not</strong> capable of reverting m.8344A&gt;G as of this writing).</p>
+<h3>Research applications and databases</h3>
+<p>Applications: threshold biology, drug screening (the iPSC platform is explicitly proposed for this — <a href="https://pubmed.ncbi.nlm.nih.gov/37605213/" target="_blank" rel="noopener noreferrer">PMID:37605213</a> [V]), heteroplasmy-shifting therapeutics, synaptic/network consequences of bioenergetic failure.
+Resources: MGI (for <em>mt-Tk</em> ⚠), IMSR, Cellosaurus (for MERRF cybrid lines ⚠), MITOMAP/MSeqDR for variant-level curation.</p>
+<hr />
+<h2>Curation notes for the dismech entry</h2>
+<p><strong>Highest-value additions to <code>kb/disorders/MERRF_Syndrome.yaml</code>, ranked:</strong></p>
+<ol>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/26995359/" target="_blank" rel="noopener noreferrer">PMID:26995359</a> (mitoNET, n=34)</strong> — supplies six frequency-quantified phenotypes the entry lacks (migraine 52%, psychiatric 54%, respiratory dysfunction 45%, GI 38%, dysarthria 36%, dysphagia 35%), a registry-scale onset figure (24.5 ± 10.9 y, 75% adult onset), a brain-atrophy frequency (43%), and — importantly — a third independent statement of the heteroplasmy–phenotype disconnect for the existing CONTROVERSY block.</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/23635963/" target="_blank" rel="noopener noreferrer">PMID:23635963</a> (Italian, n=42 + 321 pooled)</strong> — the full frequency ladder at mean age ~35, and the "myoclonic ataxia rather than myoclonic epilepsy" reframing, which directly supports the nosological arm of the existing controversy.</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/9315896/" target="_blank" rel="noopener noreferrer">PMID:9315896</a> (Zhou/Attardi autopsy)</strong> — nearly resolves the <code>merrf_regional_selectivity_gap</code>: single-cell regional heteroplasmy has <em>already</em> been measured and is inversely related to loss (Purkinje 97.6% load / 7% loss vs dentate / 46% loss). The proposed experiment in that discussion should be revised accordingly.</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/37605213/" target="_blank" rel="noopener noreferrer">PMID:37605213</a> (iPSC cortical neurons)</strong> — human-cell mechanistic bridge from bioenergetics to synaptic dysfunction; strengthens the Cortical Neuronal Hyperexcitability node, which currently rests on EEG phenomenology.</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/17989367/" target="_blank" rel="noopener noreferrer">PMID:17989367</a> (AJNR MRI)</strong> — the entry has no imaging <code>diagnosis</code> entry at all; superior-cerebellar-peduncle atrophy plus the clinico-radiological discrepancy is a distinctive diagnostic clue.</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/30012581/" target="_blank" rel="noopener noreferrer">PMID:30012581</a> (mitoTev-TALE)</strong> — a MERRF-specific heteroplasmy-shifting result that belongs in the <code>merrf_disease_modifying_therapy_gap</code> discussion alongside the tRNA-import and rapamycin evidence (and makes the "two independent routes" framing into three).</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/39657714/" target="_blank" rel="noopener noreferrer">PMID:39657714</a> (KL1333 phase 1a/1b)</strong> — the only trial-grade therapeutic evidence touching this disease class; also validates outcome measures.</li>
+<li>A m.8344A&gt;G-specific <code>prevalence</code> record (0.28/100,000 NE England; 0/100,000 northern Finland) distinct from the existing mtDNA-class upper bound.</li>
+</ol>
+<p><strong>Before committing any of the above:</strong> run <code>just fetch-reference</code> for every PMID marked <strong>[S]</strong> or ⚠, verify each snippet is an exact substring of the cached abstract, seed and validate all new HP/GO/CL/UBERON/CHEBI/NCIT terms with <code>just validate-terms</code>, and run the full <code>just qc</code>. Two citation hazards found in this session are worth remembering: <strong><a href="https://pubmed.ncbi.nlm.nih.gov/23913125/" target="_blank" rel="noopener noreferrer">PMID:23913125</a> (Bacman 2013 mitoTALEN) did <em>not<em> target m.8344A&gt;G</em>* despite being widely cited as MERRF gene-therapy work, and the </em></strong>Brain Commun<em> 2024 "median age at death 55 years" figure is cohort-wide, not MERRF-specific</em>* — both are exactly the kind of plausible-but-wrong claim that survives snippet validation.</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK1520/">MERRF — GeneReviews (PMID:20301693)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23635963/">Phenotypic heterogeneity of the 8344A&gt;G mtDNA "MERRF" mutation — Neurology 2013 (PMID:23635963)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26995359/">Expanded phenotypic spectrum of the m.8344A&gt;G "MERRF" mutation: German mitoNET registry — J Neurol 2016 (PMID:26995359)</a></li>
+<li><a href="https://www.jneurosci.org/content/17/20/7746">MERRF: selective vulnerability of CNS neurons does not correlate with tRNAlys mutation level — J Neurosci 1997 (PMID:9315896)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37605213/">Mitochondrial impairment and synaptic dysfunction in iPSC-derived cortical neurons of MERRF patients — J Biomed Sci 2023 (PMID:37605213)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9347137/">Rapamycin rescues mitochondrial dysfunction in cells carrying m.8344A&gt;G — Mol Med 2022 (PMID:35922766)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6127889/">mitoTev-TALE: a monomeric DNA editing enzyme to reduce mutant mtDNA levels — EMBO Mol Med 2018 (PMID:30012581)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23913125/">Specific elimination of mutant mitochondrial genomes by mitoTALENs — Nat Med 2013 (PMID:23913125)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17989367/">Clinical and brain MR imaging features in MERRF due to A8344G — AJNR 2008 (PMID:17989367)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12876264/">Epidemiology of the mtDNA 8344A&gt;G mutation for MERRF — JNNP 2003 (PMID:12876264)</a></li>
+<li><a href="https://academic.oup.com/brain/article/148/1/39/7911991">Optimizing rare disorder trials: phase 1a/1b of KL1333 — Brain 2025 (PMID:39657714)</a></li>
+<li><a href="https://academic.oup.com/braincomms/article/6/2/fcae041/7607785">Mitochondrial myopathies diagnosed in adulthood — Brain Commun 2024</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/clinvar/RCV000010192/">ClinVar: NC_012920.1(MT-TK):m.8344A&gt;G / MERRF syndrome</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/E00-E89/E70-E88/E88-/E88.42">ICD-10-CM E88.42 MERRF syndrome</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK555923/">Myoclonic Epilepsy and Ragged Red Fibers — StatPearls</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25503498/">Diagnosis and management of mitochondrial disease: Mitochondrial Medicine Society consensus (PMID:25503498)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9513505/">Milder phenotype of homoplasmic vs heteroplasmic m.8344A&gt;G in the same family (PMID:36176839)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9319148/">A novel MTTK gene variant m.8315A&gt;C as a cause of MERRF syndrome</a></li>
+<li><a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=MT-TK">MT-TK gene overview</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3841574/">Newcastle mitochondrial disease quality-of-life measure development</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Merkel_Cell_Carcinoma-falcon.html">← Merkel Cell Carcinoma (Falcon)</a>
+                
+                
+                <a href="MERTK-Related_Retinopathy-claude_code.html">MERTK-Related Retinopathy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MERRF_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MERRF_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
