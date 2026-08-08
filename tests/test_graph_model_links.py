@@ -6,6 +6,7 @@ from dismech.graph import (
     _genetic_item_infers_mechanism_edges,
     build_causal_graph,
     graph_to_json,
+    model_edge_predicate,
 )
 
 
@@ -213,15 +214,47 @@ def test_graph_to_json_includes_animal_model_links() -> None:
     animal_nodes = {n["id"] for n in data["nodes"] if n["node_type"] == "animal_model"}
     assert animal_nodes == {"SOD1-G93A transgenic mouse", "sod1-null Danio rerio"}
 
+    # The predicate carries the curated claim, so the falsified model is not
+    # drawn as an ordinary `models` arrow asserting the opposite.
     model_edges = {
-        (e["source"], e["target"])
+        (e["source"], e["target"], e["predicate"], e.get("relationship"))
         for e in data["edges"]
-        if e.get("predicate") == "models"
+        if e["source"] in animal_nodes
     }
     assert model_edges == {
-        ("SOD1-G93A transgenic mouse", "Motor Neuron Degeneration"),
-        ("sod1-null Danio rerio", "Motor Neuron Degeneration"),
+        (
+            "SOD1-G93A transgenic mouse",
+            "Motor Neuron Degeneration",
+            "models",
+            "RECAPITULATES",
+        ),
+        (
+            "sod1-null Danio rerio",
+            "Motor Neuron Degeneration",
+            "fails_to_model",
+            "FAILS_TO_RECAPITULATE",
+        ),
     }
+    fidelity = {
+        e["source"]: e.get("fidelity")
+        for e in data["edges"]
+        if e["source"] in animal_nodes
+    }
+    assert fidelity["SOD1-G93A transgenic mouse"] == "MODERATE"
+
+
+def test_model_edge_predicate_maps_every_relationship() -> None:
+    """Each relationship gets its own predicate; an absent one stays `models`."""
+    assert model_edge_predicate(None) == "models"
+    assert model_edge_predicate("RECAPITULATES") == "models"
+    assert model_edge_predicate("PARTIALLY_RECAPITULATES") == "partially_models"
+    assert model_edge_predicate("FAILS_TO_RECAPITULATE") == "fails_to_model"
+    assert model_edge_predicate("PERTURBS") == "perturbs"
+    assert model_edge_predicate("MEASURES") == "measures"
+    assert model_edge_predicate("RESCUES") == "rescues"
+    # An unrecognized value degrades to the neutral predicate rather than
+    # inventing one or raising.
+    assert model_edge_predicate("SOMETHING_NEW") == "models"
 
 
 def test_animal_models_without_mechanism_links_stay_out_of_the_graph() -> None:

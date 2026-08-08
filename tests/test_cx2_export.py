@@ -197,15 +197,23 @@ def test_disorder_to_cx2_exports_animal_model_edges() -> None:
     model_edge = edges[(canine, "Motor Neuron Degeneration")]
     assert model_edge["v"]["predicate"] == "models"
     assert "PMID:19188595" in model_edge["v"]["Evidence"]
+    # The caveat slots must reach cx2, not stay HTML-only.
+    assert model_edge["v"]["relationship"] == "RECAPITULATES"
+    assert model_edge["v"]["fidelity"] == "MODERATE"
+    assert "E40K is not among the SOD1 alleles" in model_edge["v"]["limitations"]
 
     # The equine model links two different nodes, which is the case that makes
-    # per-link (rather than per-model) detail necessary.
+    # per-link (rather than per-model) detail necessary -- and the two links
+    # carry different relationships, so they must not share a predicate.
     equine = "Equine motor neuron disease (vitamin E-deficient horse)"
-    assert edges[(equine, "Motor Neuron Degeneration")]["v"]["predicate"] == "models"
+    degeneration = edges[(equine, "Motor Neuron Degeneration")]["v"]
+    assert degeneration["predicate"] == "partially_models"
+    assert degeneration["relationship"] == "PARTIALLY_RECAPITULATES"
     assert edges[(equine, "Oxidative Stress")]["v"]["predicate"] == "models"
 
     # Nodes the models point at advertise them back.
     assert canine in node_map["Motor Neuron Degeneration"]["v"]["linked_animal_models"]
+    assert node_map[canine]["v"]["type_label"] == "Animal Model"
 
 
 def test_disorder_to_cx2_exports_event_location_links() -> None:

@@ -3,6 +3,7 @@
 import glob
 import sys
 import warnings
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
@@ -995,6 +996,57 @@ def test_animal_model_mechanism_targets(filepath):
     assert not errors, (
         f"Animal model mechanism mismatches in {Path(filepath).name}. "
         f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+def _animal_model_label(model):
+    """Mirror of dismech.graph.animal_model_label, kept dependency-free here."""
+    name = str(model.get("name") or "").strip()
+    if name:
+        return name
+    parts = [
+        str(model.get(key)).strip()
+        for key in ("genotype", "species")
+        if str(model.get(key) or "").strip()
+    ]
+    return " ".join(parts) or None
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_linked_animal_model_labels_are_unique(filepath):
+    """An animal model that reaches the pathograph needs an unambiguous label.
+
+    `AnimalModel` is the only pathograph-bearing class whose node identity is
+    *derived* (`animal_model_label`) rather than a required `name`. Two models
+    sharing a derived label collapse into one graph node -- the second
+    description silently overwrites the first -- and render with the same HTML
+    anchor id, so card links land on the wrong one.
+
+    Gated on `modeled_mechanisms` deliberately: the ~400 legacy entries with no
+    `name`, several of which do collide on species alone, are untouched until
+    someone links them. This is what gives the "`name` is recommended once a
+    model carries mechanism links" guidance teeth.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    models = [m for m in (data.get("animal_models") or []) if isinstance(m, dict)]
+    label_counts = Counter(
+        label for m in models if (label := _animal_model_label(m)) is not None
+    )
+
+    errors = [
+        f"animal_models[{i}] label={label!r} is shared by "
+        f"{label_counts[label]} models in this file; give it a `name`"
+        for i, m in enumerate(models)
+        if m.get("modeled_mechanisms")
+        and (label := _animal_model_label(m)) is not None
+        and label_counts[label] > 1
+    ]
+
+    assert not errors, (
+        f"Ambiguous animal model labels in {Path(filepath).name}: {errors}"
     )
 
 

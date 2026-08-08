@@ -38,6 +38,8 @@ class Edge:
     relationship: str | None = None
     direction: str | None = None
     endpoint_context: str | None = None
+    fidelity: str | None = None
+    limitations: str | None = None
     hypothesis_groups: list[str] = field(default_factory=list)
     causal_link_type: str | None = None
     intermediate_mechanisms: list[str] = field(default_factory=list)
@@ -88,6 +90,43 @@ DEFAULT_ENVIRONMENTAL_PREDICATE = "influences"
 ENVIRONMENTAL_PREDICATES: frozenset[str] = frozenset(
     ENVIRONMENTAL_EFFECT_PREDICATES.values()
 ) | {DEFAULT_ENVIRONMENTAL_PREDICATE}
+
+# ModelMechanismRelationshipEnum value to pathograph edge predicate, following
+# the same principle as ENVIRONMENTAL_EFFECT_PREDICATES: the predicate carries
+# the semantics. A model curated as NOT reproducing a mechanism must not be
+# drawn as an ordinary "models" arrow, which would invert the curated claim.
+MODEL_RELATIONSHIP_PREDICATES = {
+    "RECAPITULATES": "models",
+    "PARTIALLY_RECAPITULATES": "partially_models",
+    "FAILS_TO_RECAPITULATE": "fails_to_model",
+    "PERTURBS": "perturbs",
+    "MEASURES": "measures",
+    "RESCUES": "rescues",
+}
+
+# Used when `relationship` is absent, which is every model link curated before
+# the slot existed. Keeps those edges exactly as they were.
+DEFAULT_MODEL_PREDICATE = "models"
+
+# Every predicate a model edge can carry, for consumers reasoning about them as
+# a group (export styling, QC) rather than one at a time.
+MODEL_PREDICATES: frozenset[str] = frozenset(
+    MODEL_RELATIONSHIP_PREDICATES.values()
+) | {DEFAULT_MODEL_PREDICATE}
+
+# The negative claim: the model does NOT reproduce the mechanism. Called out
+# separately so styling can distinguish it rather than treating it as a weaker
+# shade of "models".
+NEGATIVE_MODEL_PREDICATE = "fails_to_model"
+
+
+def model_edge_predicate(relationship: Any) -> str:
+    """Map a ModelMechanismLink relationship onto its edge predicate."""
+    if isinstance(relationship, str):
+        return MODEL_RELATIONSHIP_PREDICATES.get(
+            relationship.upper(), DEFAULT_MODEL_PREDICATE
+        )
+    return DEFAULT_MODEL_PREDICATE
 
 
 def _sanitize_node_id(name: str) -> str:
@@ -493,8 +532,12 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     Edge(
                         source=source,
                         target=link["target"],
-                        predicate="models",
+                        predicate=model_edge_predicate(link.get("relationship")),
                         source_type="experimental_model",
+                        description=link.get("description"),
+                        relationship=link.get("relationship"),
+                        fidelity=link.get("fidelity"),
+                        limitations=link.get("limitations"),
                     )
                 )
 
@@ -512,8 +555,12 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     Edge(
                         source=source,
                         target=link["target"],
-                        predicate="models",
+                        predicate=model_edge_predicate(link.get("relationship")),
                         source_type="animal_model",
+                        description=link.get("description"),
+                        relationship=link.get("relationship"),
+                        fidelity=link.get("fidelity"),
+                        limitations=link.get("limitations"),
                     )
                 )
 
@@ -531,8 +578,12 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     Edge(
                         source=source,
                         target=link["target"],
-                        predicate="models",
+                        predicate=model_edge_predicate(link.get("relationship")),
                         source_type="computational_model",
+                        description=link.get("description"),
+                        relationship=link.get("relationship"),
+                        fidelity=link.get("fidelity"),
+                        limitations=link.get("limitations"),
                     )
                 )
 
@@ -1345,6 +1396,10 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
             edge_data["direction"] = edge.direction
         if edge.endpoint_context:
             edge_data["endpoint_context"] = edge.endpoint_context
+        if edge.fidelity:
+            edge_data["fidelity"] = edge.fidelity
+        if edge.limitations:
+            edge_data["limitations"] = edge.limitations
         if edge.hypothesis_groups:
             edge_data["hypothesis_groups"] = edge.hypothesis_groups
         if edge.causal_link_type:

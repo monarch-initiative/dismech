@@ -56,6 +56,8 @@ NODE_TYPE_LABELS = {
     "treatment": "Treatment",
     "biochemical": "Biochemical",
     "experimental_model": "Experimental Model",
+    "animal_model": "Animal Model",
+    "computational_model": "Computational Model",
     "orphan": "Orphan",
     "unknown": "Unknown",
 }
@@ -68,8 +70,10 @@ NODE_SORT_ORDER = {
     "biochemical": 4,
     "phenotype": 5,
     "experimental_model": 6,
-    "orphan": 7,
-    "unknown": 8,
+    "animal_model": 7,
+    "computational_model": 8,
+    "orphan": 9,
+    "unknown": 10,
 }
 
 
@@ -205,6 +209,39 @@ EDGE_STYLE_BY_PREDICATE = {
         color="#0f766e",
         line_style="dashed",
         target_arrow_shape="triangle",
+        width=2,
+    ),
+    "partially_models": EdgeStyle(
+        color="#0f766e",
+        line_style="dotted",
+        target_arrow_shape="triangle",
+        width=2,
+    ),
+    # A model curated as NOT reproducing the mechanism must never read as a
+    # causal arrow -- same reasoning as protects_against, so it gets the same
+    # tee head, in the muted red used for contradicted claims.
+    "fails_to_model": EdgeStyle(
+        color="#b91c1c",
+        line_style="dotted",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "perturbs": EdgeStyle(
+        color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="diamond",
+        width=2,
+    ),
+    "measures": EdgeStyle(
+        color="#0f766e",
+        line_style="dotted",
+        target_arrow_shape="circle",
+        width=2,
+    ),
+    "rescues": EdgeStyle(
+        color="#0f766e",
+        line_style="dashed",
+        target_arrow_shape="tee",
         width=2,
     ),
     "readout": EdgeStyle(
@@ -1086,6 +1123,10 @@ def _build_edge_detail_lookup(
                 "models",
                 {
                     "description": target_item.get("description"),
+                    # relationship/fidelity/limitations deliberately not passed
+                    # here: `_merge_edge_detail` has its own key allowlist and
+                    # would drop them. They reach cx2 through the graph edge
+                    # payload instead, which `_edge_attributes` falls back to.
                     "evidence": target_item.get("evidence") or parent_evidence,
                 },
             )
@@ -1108,6 +1149,10 @@ def _build_edge_detail_lookup(
                 "models",
                 {
                     "description": target_item.get("description"),
+                    # relationship/fidelity/limitations deliberately not passed
+                    # here: `_merge_edge_detail` has its own key allowlist and
+                    # would drop them. They reach cx2 through the graph edge
+                    # payload instead, which `_edge_attributes` falls back to.
                     "evidence": target_item.get("evidence") or parent_evidence,
                 },
             )
@@ -1428,6 +1473,10 @@ def _edge_attributes(
         "direction",
         "endpoint_context",
         "regulatory_endpoint_refs",
+        # Model-link caveats: without these the cx2 edge would carry the
+        # relationship but not how faithful the model is, or why not.
+        "fidelity",
+        "limitations",
     ):
         value = detail.get(key) or edge_payload.get(key)
         if value:

@@ -637,8 +637,12 @@ grounded to an HP phenotype, a biomarker, a GO process, or an OBI assay.
   measurement made in a model system. `UNCHANGED` is a real negative result —
   omit `direction` entirely when the measurement was simply not made.
 - A readout's `target` is **required** and must repeat the link's `target`
-  (`test_model_readout_targets_match_link` enforces this). The redundancy is
-  deliberate: the graph and KGX exporters lift readouts out of their link.
+  (`test_model_readout_targets_match_link` enforces this). The redundancy keeps
+  a readout self-describing so it can be lifted out of its link. Note this is
+  forward-looking: today only `biochemical.readouts` and
+  `investigations.reports_on` are lifted into the graph and cx2, and
+  `kgx_export.py` has no model handling at all — model-link readouts render in
+  the HTML card but are not yet exported independently.
 - **OBI assay grounding is under-supported today.** `OBI` is not in
   `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so `assays:`
   terms cannot be validated the way HP/GO/CL terms are. Prefer
