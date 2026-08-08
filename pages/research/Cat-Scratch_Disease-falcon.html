@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1717,7 +1879,7 @@ For each section, provide:
 <td>Serum</td>
 <td>In the Atlanta pediatric cohort, seropositivity was defined as <strong>IgM &gt;1:20</strong> and <strong>IgG ≥1:128</strong>; another clinical source notes <strong>IFA/EIA &gt;1:64</strong> as positive, and a <strong>fourfold rise</strong> in paired sera as definitive</td>
 <td>Mainstay diagnostic approach because culture is difficult; in the Atlanta cohort, <strong>IgM ≥1:20 in 63.2% (110/174)</strong> and <strong>IgG ≥1:128 in 95.5% (169/177)</strong>; ELISA/IFA described as the “best initial test” in review literature (<a href="#ref-amin2022catscratchdisease-pages-1-2">amin2022catscratchdisease pages 1-2</a>, <a href="#ref-amin2022catscratchdisease-pages-2-3">amin2022catscratchdisease pages 2-3</a>, <a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> serological test</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> serological test</td>
 <td>Amin 2022 <a href="https://doi.org/10.1093/ofid/ofac426" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/ofid/ofac426</a>; Nguyen 2024 <a href="https://doi.org/10.7759/cureus.66134" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.66134</a>; Puspitasari 2025 <a href="https://doi.org/10.5455/ovj.2025.v15.i5.5" target="_blank" rel="noopener noreferrer">https://doi.org/10.5455/ovj.2025.v15.i5.5</a> (<a href="#ref-amin2022catscratchdisease-pages-1-2">amin2022catscratchdisease pages 1-2</a>, <a href="#ref-amin2022catscratchdisease-pages-2-3">amin2022catscratchdisease pages 2-3</a>, <a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>)</td>
 </tr>
 <tr>
@@ -1726,7 +1888,7 @@ For each section, provide:
 <td>Serum</td>
 <td>Reported high titers include <strong>IgM &gt;1:20, IgG 1:4096</strong> and <strong>IgG &gt;1:1024, IgM 1:640</strong></td>
 <td>Illustrates that markedly elevated titers may support diagnosis even when PCR is negative; useful in atypical or malignancy-mimicking presentations (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-smith2024catscratchdiseasemimicking-pages-3-5">smith2024catscratchdiseasemimicking pages 3-5</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> serological test</td>
+<td><a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> serological test</td>
 <td>Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a>; Smith 2024 <a href="https://doi.org/10.7759/cureus.66840" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.66840</a> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-smith2024catscratchdiseasemimicking-pages-3-5">smith2024catscratchdiseasemimicking pages 3-5</a>)</td>
 </tr>
 <tr>
@@ -1735,7 +1897,7 @@ For each section, provide:
 <td>Lymph node tissue; blood/tissue in selected cases</td>
 <td>No universal cutoff reported in retrieved evidence; positivity is pathogen DNA detection</td>
 <td>Lymph node PCR sensitivity reported as <strong>30–60%</strong>, increasing to <strong>~87% when combined with histology and serology</strong>; in the Atlanta cohort, PCR was used in <strong>4.3% (13/304)</strong> and only <strong>3 lymph nodes</strong> were PCR-positive; PCR described as <strong>lower sensitivity but very high specificity</strong> than serology (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-amin2022catscratchdisease-pages-2-3">amin2022catscratchdisease pages 2-3</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> polymerase chain reaction assay</td>
+<td><a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> polymerase chain reaction assay</td>
 <td>Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a>; Amin 2022 <a href="https://doi.org/10.1093/ofid/ofac426" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/ofid/ofac426</a>; Puspitasari 2025 <a href="https://doi.org/10.5455/ovj.2025.v15.i5.5" target="_blank" rel="noopener noreferrer">https://doi.org/10.5455/ovj.2025.v15.i5.5</a> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-amin2022catscratchdisease-pages-2-3">amin2022catscratchdisease pages 2-3</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>)</td>
 </tr>
 <tr>
@@ -1744,7 +1906,7 @@ For each section, provide:
 <td>Lymph node biopsy / aspirate</td>
 <td>Characteristic features: <strong>stellate granulomas with central necrosis</strong>, <strong>neutrophilic infiltration</strong>, <strong>palisading histiocytes</strong>; other reports describe <strong>granulomatous inflammation with multiple microabscesses</strong></td>
 <td>Helpful when diagnosis is uncertain or malignancy must be excluded; in the Atlanta cohort, histopathology was done in <strong>11.2% (36/304)</strong>, with <strong>necrotizing granulomatous inflammation in 38.2% (13/34)</strong> and <strong>Warthin–Starry positive in 8.8% (3/34)</strong>; Warthin–Starry may show bacilli but a negative stain does not exclude CSD (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-5-6">puspitasari2025uncoveringthetruth pages 5-6</a>, <a href="#ref-amin2022catscratchdisease-pages-2-3">amin2022catscratchdisease pages 2-3</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000373" target="_blank" rel="noopener noreferrer">MAXO:0000373</a> biopsy of lymph node</td>
+<td><a href="https://bioregistry.io/MAXO:0000373" target="_blank" rel="noopener noreferrer">MAXO:0000373</a> biopsy of lymph node</td>
 <td>Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a>; Nguyen 2024 <a href="https://doi.org/10.7759/cureus.66134" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.66134</a>; Puspitasari 2025 <a href="https://doi.org/10.5455/ovj.2025.v15.i5.5" target="_blank" rel="noopener noreferrer">https://doi.org/10.5455/ovj.2025.v15.i5.5</a>; Amin 2022 <a href="https://doi.org/10.1093/ofid/ofac426" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/ofid/ofac426</a> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-5-6">puspitasari2025uncoveringthetruth pages 5-6</a>, <a href="#ref-amin2022catscratchdisease-pages-2-3">amin2022catscratchdisease pages 2-3</a>)</td>
 </tr>
 <tr>
@@ -1753,7 +1915,7 @@ For each section, provide:
 <td>Blood, tissue biopsy, drainage fluid; aqueous humor in ocular disease</td>
 <td>Positive when <strong>B. henselae sequence reads</strong> are identified; ocular case reported <strong>521 reads</strong> in aqueous humor</td>
 <td>Valuable for atypical disease and when history/serology are equivocal; in the pediatric mNGS-confirmed series, <strong>B. henselae was detected in all 20 specimens</strong>; review notes blood culture sensitivity around <strong>~20%</strong>, supporting molecular testing (<a href="#ref-lai2026clinicalandepidemiological-pages-1-2">lai2026clinicalandepidemiological pages 1-2</a>, <a href="#ref-lai2026clinicalandepidemiological-pages-3-4">lai2026clinicalandepidemiological pages 3-4</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000140" target="_blank" rel="noopener noreferrer">MAXO:0000140</a> metagenomic sequencing assay</td>
+<td><a href="https://bioregistry.io/MAXO:0000140" target="_blank" rel="noopener noreferrer">MAXO:0000140</a> metagenomic sequencing assay</td>
 <td>Li 2024 <a href="https://doi.org/10.1186/s12348-024-00387-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00387-0</a>; Lai 2026 <a href="https://doi.org/10.3389/fpubh.2025.1743423" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fpubh.2025.1743423</a> (<a href="#ref-lai2026clinicalandepidemiological-pages-1-2">lai2026clinicalandepidemiological pages 1-2</a>, <a href="#ref-lai2026clinicalandepidemiological-pages-3-4">lai2026clinicalandepidemiological pages 3-4</a>)</td>
 </tr>
 <tr>
@@ -1762,7 +1924,7 @@ For each section, provide:
 <td>Immunocompetent patient with localized disease</td>
 <td><strong>Azithromycin 10 mg/kg on day 1, then 5 mg/kg on days 2–5</strong></td>
 <td>Most uncomplicated disease is self-limited; antibiotics are often not required, but azithromycin is the best-supported short regimen for reducing node size/pain; review/case sources cite this as standard for typical disease (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>, <a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> azithromycin therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> azithromycin therapy</td>
 <td>Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a>; Puspitasari 2025 <a href="https://doi.org/10.5455/ovj.2025.v15.i5.5" target="_blank" rel="noopener noreferrer">https://doi.org/10.5455/ovj.2025.v15.i5.5</a>; Rolain 2004 <a href="https://doi.org/10.1128/AAC.48.6.1921-1933.2004" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/AAC.48.6.1921-1933.2004</a> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>, <a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>)</td>
 </tr>
 <tr>
@@ -1771,7 +1933,7 @@ For each section, provide:
 <td>Immunocompetent patient with mild-to-moderate lymphadenitis</td>
 <td>No antibiotic regimen</td>
 <td>Multiple sources state disease is usually <strong>self-limited</strong>, often resolving over <strong>weeks to months</strong>; one report notes typical CSD resolves in <strong>2–6 months</strong>, and another that lymphadenopathy commonly lasts <strong>2–3 months</strong> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>, <a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-5-6">puspitasari2025uncoveringthetruth pages 5-6</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> clinical observation</td>
+<td><a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> clinical observation</td>
 <td>Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a>; Rolain 2004 <a href="https://doi.org/10.1128/AAC.48.6.1921-1933.2004" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/AAC.48.6.1921-1933.2004</a>; Nguyen 2024 <a href="https://doi.org/10.7759/cureus.66134" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.66134</a>; Puspitasari 2025 <a href="https://doi.org/10.5455/ovj.2025.v15.i5.5" target="_blank" rel="noopener noreferrer">https://doi.org/10.5455/ovj.2025.v15.i5.5</a> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>, <a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-5-6">puspitasari2025uncoveringthetruth pages 5-6</a>)</td>
 </tr>
 <tr>
@@ -1780,7 +1942,7 @@ For each section, provide:
 <td>Suppurated node, painful adenitis</td>
 <td>Needle aspiration for decompression; surgical management in selected persistent cases</td>
 <td>Needle aspiration may relieve pain within <strong>24–48 h</strong>; persistent/worsening nodes may need biopsy or excision to exclude malignancy; intranodal gentamicin and surgery have been reported in the literature, but evidence is limited (<a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>, <a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> needle aspiration; <a href="http://purl.obolibrary.org/obo/MAXO_0001175" target="_blank" rel="noopener noreferrer">MAXO:0001175</a> surgical excision</td>
+<td><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> needle aspiration; <a href="https://bioregistry.io/MAXO:0001175" target="_blank" rel="noopener noreferrer">MAXO:0001175</a> surgical excision</td>
 <td>Rolain 2004 <a href="https://doi.org/10.1128/AAC.48.6.1921-1933.2004" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/AAC.48.6.1921-1933.2004</a>; Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a> (<a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>, <a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>)</td>
 </tr>
 <tr>
@@ -1789,7 +1951,7 @@ For each section, provide:
 <td>Disseminated disease, prolonged fever, organ involvement</td>
 <td>Pediatric mNGS series used <strong>azithromycin alone (1/20)</strong>, <strong>azithromycin + rifampicin (8/20)</strong>, <strong>doxycycline alone (1/20)</strong>, <strong>doxycycline + rifampicin (10/20)</strong></td>
 <td>In the 20-case pediatric series, <strong>all improved and were discharged</strong>, though one child with hepatic/renal involvement had progression on CT at ~1 month; systemic disease often prompts combination therapy despite limited trial evidence (<a href="#ref-lai2026clinicalandepidemiological-pages-3-4">lai2026clinicalandepidemiological pages 3-4</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> azithromycin therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000096" target="_blank" rel="noopener noreferrer">MAXO:0000096</a> rifampicin therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> azithromycin therapy; <a href="https://bioregistry.io/MAXO:0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="https://bioregistry.io/MAXO:0000096" target="_blank" rel="noopener noreferrer">MAXO:0000096</a> rifampicin therapy</td>
 <td>Lai 2026 <a href="https://doi.org/10.3389/fpubh.2025.1743423" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fpubh.2025.1743423</a> (<a href="#ref-lai2026clinicalandepidemiological-pages-3-4">lai2026clinicalandepidemiological pages 3-4</a>)</td>
 </tr>
 <tr>
@@ -1798,7 +1960,7 @@ For each section, provide:
 <td>Neuroretinitis, optic neuritis, encephalopathy/CNS disease</td>
 <td><strong>Doxycycline 100 mg twice daily + rifampin 300 mg twice daily</strong> is the classic recommended adult combination for ocular/CNS Bartonella disease</td>
 <td>Frequently used for complicated ocular/CNS disease because of tissue penetration; case reports describe good visual recovery after doxycycline + rifampin; Rolain recommends this combination for CNS involvement (<a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>, <a href="#ref-lai2026clinicalandepidemiological-pages-1-2">lai2026clinicalandepidemiological pages 1-2</a>, <a href="#ref-smith2024catscratchdiseasemimicking-pages-3-5">smith2024catscratchdiseasemimicking pages 3-5</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000096" target="_blank" rel="noopener noreferrer">MAXO:0000096</a> rifampicin therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="https://bioregistry.io/MAXO:0000096" target="_blank" rel="noopener noreferrer">MAXO:0000096</a> rifampicin therapy</td>
 <td>Rolain 2004 <a href="https://doi.org/10.1128/AAC.48.6.1921-1933.2004" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/AAC.48.6.1921-1933.2004</a>; Li 2024 <a href="https://doi.org/10.1186/s12348-024-00387-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12348-024-00387-0</a>; Avaylon 2023 <a href="https://doi.org/10.7759/cureus.45866" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.45866</a> (via retrieved paper list); Smith 2024 <a href="https://doi.org/10.7759/cureus.66840" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.66840</a> (<a href="#ref-rolain2004recommendationsfortreatment-pages-6-7">rolain2004recommendationsfortreatment pages 6-7</a>, <a href="#ref-lai2026clinicalandepidemiological-pages-1-2">lai2026clinicalandepidemiological pages 1-2</a>, <a href="#ref-smith2024catscratchdiseasemimicking-pages-3-5">smith2024catscratchdiseasemimicking pages 3-5</a>)</td>
 </tr>
 <tr>
@@ -1807,7 +1969,7 @@ For each section, provide:
 <td>Uveitis / neuroretinitis with optic disc inflammation</td>
 <td>Systemic antibiotics plus corticosteroids used in ocular series; one pediatric case received <strong>doxycycline + methylprednisolone</strong> for <strong>6 months</strong> with improvement</td>
 <td>Ocular case series reported improvement in visual acuity and lesions with systemic antibiotics; corticosteroids are often reserved for marked optic nerve or inflammatory involvement and should accompany antimicrobial treatment (<a href="#ref-lai2026clinicalandepidemiological-pages-1-2">lai2026clinicalandepidemiological pages 1-2</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000016" target="_blank" rel="noopener noreferrer">MAXO:0000016</a> corticosteroid therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="https://bioregistry.io/MAXO:0000016" target="_blank" rel="noopener noreferrer">MAXO:0000016</a> corticosteroid therapy</td>
 <td>Hong 2023 <a href="https://doi.org/10.1186/s12886-023-03063-4" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s12886-023-03063-4</a>; Acar 2023 <a href="https://doi.org/10.4274/tjo.galenos.2022.44692" target="_blank" rel="noopener noreferrer">https://doi.org/10.4274/tjo.galenos.2022.44692</a> (<a href="#ref-lai2026clinicalandepidemiological-pages-1-2">lai2026clinicalandepidemiological pages 1-2</a>)</td>
 </tr>
 <tr>
@@ -1816,7 +1978,7 @@ For each section, provide:
 <td>HIV/immunosuppression, disseminated Bartonella</td>
 <td><strong>Doxycycline or erythromycin for 10 days to 2 months</strong> cited in case-review literature</td>
 <td>Complicated and immunocompromised disease is more likely to require prolonged therapy; evidence is largely case-based and expert review rather than trials (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000100" target="_blank" rel="noopener noreferrer">MAXO:0000100</a> erythromycin therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000574" target="_blank" rel="noopener noreferrer">MAXO:0000574</a> doxycycline therapy; <a href="https://bioregistry.io/MAXO:0000100" target="_blank" rel="noopener noreferrer">MAXO:0000100</a> erythromycin therapy</td>
 <td>Sulaiman 2023 <a href="https://doi.org/10.7759/cureus.44280" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.44280</a>; Puspitasari 2025 <a href="https://doi.org/10.5455/ovj.2025.v15.i5.5" target="_blank" rel="noopener noreferrer">https://doi.org/10.5455/ovj.2025.v15.i5.5</a> (<a href="#ref-sulaiman2023catscratchdisease-pages-4-7">sulaiman2023catscratchdisease pages 4-7</a>, <a href="#ref-puspitasari2025uncoveringthetruth-pages-6-7">puspitasari2025uncoveringthetruth pages 6-7</a>)</td>
 </tr>
 <tr>
@@ -1825,7 +1987,7 @@ For each section, provide:
 <td>Selected systemic or refractory cases</td>
 <td>Retrospective effectiveness rates reported for <strong>rifampin 87%</strong>, <strong>ciprofloxacin 84%</strong>, <strong>gentamicin 73%</strong>, <strong>TMP-SMX 58%</strong></td>
 <td>These data come from non-randomized retrospective literature and should be interpreted cautiously; they are useful mainly when standard regimens cannot be used or in refractory disease (<a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>)</td>
-<td><a href="http://purl.obolibrary.org/obo/MAXO_0000096" target="_blank" rel="noopener noreferrer">MAXO:0000096</a> rifampicin therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000085" target="_blank" rel="noopener noreferrer">MAXO:0000085</a> ciprofloxacin therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000111" target="_blank" rel="noopener noreferrer">MAXO:0000111</a> gentamicin therapy; <a href="http://purl.obolibrary.org/obo/MAXO_0000154" target="_blank" rel="noopener noreferrer">MAXO:0000154</a> trimethoprim-sulfamethoxazole therapy</td>
+<td><a href="https://bioregistry.io/MAXO:0000096" target="_blank" rel="noopener noreferrer">MAXO:0000096</a> rifampicin therapy; <a href="https://bioregistry.io/MAXO:0000085" target="_blank" rel="noopener noreferrer">MAXO:0000085</a> ciprofloxacin therapy; <a href="https://bioregistry.io/MAXO:0000111" target="_blank" rel="noopener noreferrer">MAXO:0000111</a> gentamicin therapy; <a href="https://bioregistry.io/MAXO:0000154" target="_blank" rel="noopener noreferrer">MAXO:0000154</a> trimethoprim-sulfamethoxazole therapy</td>
 <td>Nguyen 2024 <a href="https://doi.org/10.7759/cureus.66134" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.66134</a> (<a href="#ref-nguyen2024threemonthhistoryof-pages-4-6">nguyen2024threemonthhistoryof pages 4-6</a>)</td>
 </tr>
 </tbody>
@@ -1994,7 +2156,7 @@ For each section, provide:
                 <a href="Castleman_Disease-falcon.html">← Castleman Disease (Falcon)</a>
                 
                 
-                <a href="Cauda_Equina_Syndrome-claude_code.html">Cauda Equina Syndrome (Claude Code) →</a>
+                <a href="Catecholaminergic_Polymorphic_Ventricular_Tachycardia-claude_code.html">Catecholaminergic Polymorphic Ventricular Tachycardia (Claude Code) →</a>
                 
             </nav>
         </main>
