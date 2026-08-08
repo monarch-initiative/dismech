@@ -139,13 +139,16 @@ Congenital Zika Syndrome entry (#4088). All are `IN_VITRO` **except where noted*
 | [27279226](https://pubmed.ncbi.nlm.nih.gov/27279226/) | The Brazilian Zika virus strain causes birth defects in experimental models. | Cugola FR et al., *Nature*, 2016 | **mixed-model**: human organoids **and** mouse / non-human-primate models. Split evidence items so the organoid arm is `IN_VITRO` and the in-vivo arm is `MODEL_ORGANISM`. | `viral_neural_progenitor_cytopathy`, `Congenital_Zika_Syndrome` |
 | [27118425](https://pubmed.ncbi.nlm.nih.gov/27118425/) | Brain-Region-Specific Organoids Using Mini-bioreactors for Modeling ZIKV Exposure. | Qian X et al., *Cell*, 2016 | forebrain-specific organoids in mini-bioreactors: ZIKV preferentially infects NPCs, reduces proliferation, increases death, and thins the neuronal layer | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
 | [27911847](https://pubmed.ncbi.nlm.nih.gov/27911847/) | Zika virus cell tropism in the developing human brain and inhibition by azithromycin. | Retallack H et al., *Proc Natl Acad Sci U S A*, 2016 | human astrocyte/NPC and organotypic fetal-brain tropism mapping; **azithromycin reduces ZIKV proliferation and cytopathic effect** | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
-| [29020636](https://pubmed.ncbi.nlm.nih.gov/29020636/) | Self-Organized Cerebral Organoids with Human-Specific Features Predict Effective Drugs to Combat Zika Virus Infection. | Watanabe M et al., *Cell Rep*, 2017 | cerebral organoids with human-specific features used as a **drug-screening** readout against ZIKV infection | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
+| [29020636](https://pubmed.ncbi.nlm.nih.gov/29020636/) | Self-Organized Cerebral Organoids with Human-Specific Features Predict Effective Drugs to Combat Zika Virus Infection. | Watanabe M et al., *Cell Rep*, 2017 | cerebral organoid screen identified **duramycin and ivermectin** as active hits; azithromycin was ineffective in this platform despite prior protection in cultured glial cells | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
 | [28098253](https://pubmed.ncbi.nlm.nih.gov/28098253/) | The clinically approved antiviral drug sofosbuvir inhibits Zika virus replication. | Sacramento CQ et al., *Sci Rep*, 2017 | **sofosbuvir rescue**: inhibits ZIKV replication in hepatoma (Huh-7) cells, neural stem cells, and brain organoids. All-in-vitro (no in-vivo arm) → `IN_VITRO`. | fetch-reference-verified 2026-07-29; not yet cited in the cluster |
 
 > **Drug-rescue caveat (azithromycin, sofosbuvir):** these are *mechanistic*
 > rescue results in NAM systems, not clinical evidence. Per #4100 they belong on
 > the perturbed causal branch as `IN_VITRO` support, **not** in a `treatments:`
 > block, unless separate clinical evidence for congenital Zika syndrome exists.
+> Azithromycin's effect is platform-dependent: pair Retallack's supportive
+> glial-cell result with Watanabe's refuting cerebral-organoid result rather than
+> recording unqualified support.
 
 ---
 
@@ -172,11 +175,12 @@ unless separate clinical evidence exists:
 - chromosome-17 compensation rescues bRG mitotic delay — Bershteyn 28111201
 - Wnt activation rescues premature neurogenesis in MDS organoids — Iefremova 28380362
 - TLR3 inhibition reduces ZIKV-induced organoid volume loss — Dang 27162029
-- azithromycin reduces ZIKV proliferation/cytopathic effect in human glial and
-  organotypic fetal-brain models — Retallack 27911847
+- azithromycin reduces ZIKV proliferation/cytopathic effect in glial cell lines
+  and human astrocytes — Retallack 27911847
 - sofosbuvir inhibits ZIKV replication in neural stem cells and brain organoids —
   Sacramento 28098253
-- organoid-based antiviral drug screening against ZIKV — Watanabe 29020636
+- duramycin and ivermectin reduce ZIKV infection in cerebral organoids, while
+  azithromycin shows little activity — Watanabe 29020636
 
 ---
 
