@@ -161,13 +161,16 @@ def test_model_edge_styling_matches_cx2_for_every_predicate(tmp_path: Path) -> N
             f"HTML MODEL_EDGE_STYLES missing {predicate}"
         )
 
-    # The non-causal heads must exist as markers, not just be named.
+    # The non-causal heads must be *defined* in defs, not merely named. A bare
+    # substring check would also match the marker id inside MODEL_EDGE_STYLES,
+    # so it would pass for a style table pointing at a marker that does not
+    # exist -- which is the failure this is meant to catch.
     for marker in (
         "pg-arrow-failed-model",
         "pg-arrow-model-tee",
         "pg-arrow-model-readout",
     ):
-        assert f'"{marker}"' in html, f"marker {marker} not defined"
+        assert f'.attr("id", "{marker}")' in html, f"marker {marker} not in defs"
 
     # cx2 agrees that these three are non-causal.
     assert EDGE_STYLE_BY_PREDICATE["fails_to_model"].target_arrow_shape == "tee"
