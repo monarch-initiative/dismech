@@ -1,0 +1,131 @@
+name: Approve regen PR
+description: >-
+  Deterministically approve an automated page-build regen PR as the
+  ai4c-reviewer app. Used by the generate-pages / generate-grouping-pages /
+  generate-project-pages workflows as their final step: regen PRs deliberately
+  get no agentic review (claude-code-review.yml declines them — an LLM review
+  of thousands of regenerated HTML files is cost without signal), but branch
+  protection still requires one approving review before their armed auto-merge
+  can fire. The approval lives in the regen workflows because their jobs are
+  guaranteed to execute — pull_request-triggered runs on the GITHUB_TOKEN-pushed
+  auto/generate-* branches sit gated at conclusion=action_required with zero
+  jobs executed. Running here also re-arms the approval after every force-push,
+  each of which dismisses the previous one (main has dismiss_stale_reviews
+  enabled).
+
+  The approval must come from the ai4c-reviewer app because GITHUB_TOKEN is
+  github-actions[bot], the PR author, and GitHub forbids approving your own PR.
+  A token-minting failure fails the calling job red on purpose — the approval
+  is load-bearing for the PR ever merging.
+
+  Only the exact commit the calling run built and pushed (the checkout's HEAD)
+  is ever approved: if the PR tip differs after retries, nothing is vouched
+  for — the run that produced the newer tip approves its own push.
+inputs:
+  branch-name:
+    description: Regen branch whose open bot-authored PR should be approved
+    required: true
+  app-id:
+    description: ai4c-reviewer GitHub App ID
+    required: true
+  private-key:
+    description: ai4c-reviewer GitHub App private key
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Generate ai4c-reviewer token
+      id: reviewer-token
+      uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+
+    - name: Approve regen PR (deterministic)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ steps.reviewer-token.outputs.token }}
+        BRANCH_NAME: ${{ inputs.branch-name }}
+      run: |
+        set -euo pipefail
+        head_sha="$(git rev-parse HEAD)"
+
+        # This read races the push/PR-create the calling workflow made moments
+        # ago: a stale headRefOid, or a PR listing that hasn't caught up, is
+        # indistinguishable from a genuinely moved tip on a single read. Re-read
+        # a few times before concluding, so the approval stays deterministic
+        # instead of silently no-oping on API lag (the PR would otherwise sit
+        # unapproved with auto-merge armed until the next regen run).
+        #
+        # The read is also allowed to FAIL transiently: `|| read_rc=$?` keeps a
+        # non-zero `gh` exit (a 5xx, a timeout) from tripping `set -e` and
+        # failing the whole regen job after it has already spent minutes
+        # rendering pages. A retryable error is treated like stale data — try
+        # again — and only an all-attempts-failed read is fatal, since at that
+        # point we cannot know whether an approval is owed.
+        pr_number=""
+        pr_head=""
+        read_ok=false
+        successful_reads=0
+        for attempt in 1 2 3; do
+          read_rc=0
+          pr_json="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" \
+            --state open \
+            --author "app/github-actions" \
+            --json number,headRefOid \
+            --limit 1)" || read_rc=$?
+
+          if [ "$read_rc" -eq 0 ]; then
+            read_ok=true
+            successful_reads=$((successful_reads + 1))
+            pr_number="$(jq -r '.[0].number // empty' <<<"$pr_json")"
+            pr_head="$(jq -r '.[0].headRefOid // empty' <<<"$pr_json")"
+            if [ -n "$pr_number" ] && [ "$pr_head" = "$head_sha" ]; then
+              break
+            fi
+          else
+            echo "Attempt ${attempt}: 'gh pr list' failed (rc=${read_rc})." >&2
+          fi
+
+          if [ "$attempt" -lt 3 ]; then
+            echo "Attempt ${attempt}: PR='${pr_number:-<none>}' head='${pr_head:-<none>}' vs pushed ${head_sha}; re-reading in 5s."
+            sleep 5
+          fi
+        done
+
+        # An all-attempts-failed read is the one fatal case: we genuinely do not
+        # know the PR state, so failing red (rather than silently skipping) keeps
+        # the load-bearing approval from being lost without a trace.
+        if [ "$read_ok" != true ]; then
+          echo "Could not read the regen PR for $BRANCH_NAME after 3 attempts (gh kept erroring)." >&2
+          exit 1
+        fi
+
+        if [ -z "$pr_number" ]; then
+          echo "No open bot-authored regen PR for $BRANCH_NAME; nothing to approve."
+          exit 0
+        fi
+
+        if [ "$pr_head" != "$head_sha" ]; then
+          # Report successful reads, not attempts: reads that errored never
+          # returned a tip, so pr_head is only ever an earlier successful read's
+          # value carried forward — "after 3 reads" would overstate the evidence
+          # when some attempts errored.
+          echo "PR #$pr_number head ($pr_head) still differs from the commit this run pushed ($head_sha) after ${successful_reads} successful read(s); assuming the tip genuinely moved. Not approving — the run that produced the newer tip approves its own push."
+          exit 0
+        fi
+
+        gh pr review "$pr_number" \
+          --repo "$GITHUB_REPOSITORY" \
+          --approve \
+          --body "$(cat <<EOF
+        ✅ **Automated approval — page-build regeneration PR**
+
+        Deterministic approval of \`$head_sha\`, the commit this regen workflow run
+        just built from \`main\` and force-pushed (derived static assets only).
+        Agentic review is intentionally skipped for these PRs; to force a full
+        review anyway, comment \`/review\` on this PR.
+        EOF
+        )"
