@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3510,6 +3741,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3520,6 +3752,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4324,7 +4564,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epistaxis" data-dismech-node="Epistaxis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Epistaxis
 
@@ -4383,7 +4623,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diffuse-alveolar-hemorrhage" data-dismech-node="Diffuse Alveolar Hemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diffuse Alveolar Hemorrhage
 
@@ -4444,7 +4684,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-purpura" data-dismech-node="Purpura" data-dismech-type="phenotype">
                     <div class="item-name">
                         Purpura
 
@@ -4527,7 +4767,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-granulomatosis" data-dismech-node="Granulomatosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Granulomatosis
 
@@ -4597,7 +4837,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pericarditis" data-dismech-node="Pericarditis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pericarditis
 
@@ -4656,7 +4896,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertension" data-dismech-node="Hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertension
 
@@ -4715,7 +4955,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vasculitis" data-dismech-node="Vasculitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vasculitis
 
@@ -4785,7 +5025,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea-and-vomiting" data-dismech-node="Nausea and Vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nausea and Vomiting
 
@@ -4853,7 +5093,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-otitis-media" data-dismech-node="Otitis Media" data-dismech-type="phenotype">
                     <div class="item-name">
                         Otitis Media
 
@@ -4912,7 +5152,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural Hearing Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural Hearing Impairment
 
@@ -4971,7 +5211,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-otitis-media" data-dismech-node="Chronic otitis media" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic otitis media
 
@@ -5041,7 +5281,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scleritis" data-dismech-node="Scleritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scleritis
 
@@ -5100,7 +5340,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proptosis" data-dismech-node="Proptosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proptosis
 
@@ -5161,7 +5401,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-keratitis" data-dismech-node="Keratitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Keratitis
 
@@ -5220,7 +5460,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinopathy" data-dismech-node="Retinopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinopathy
 
@@ -5290,7 +5530,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hematuria" data-dismech-node="Hematuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hematuria
 
@@ -5349,7 +5589,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proteinuria
 
@@ -5408,7 +5648,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-insufficiency" data-dismech-node="Renal Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Renal Insufficiency
 
@@ -5476,7 +5716,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sinusitis" data-dismech-node="Sinusitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sinusitis
 
@@ -5577,7 +5817,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-saddle-nose-deformity" data-dismech-node="Saddle Nose Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Saddle Nose Deformity
 
@@ -5647,7 +5887,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent Respiratory Infections" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent Respiratory Infections
 
@@ -5708,7 +5948,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin Rash" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skin Rash
 
@@ -5767,7 +6007,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autoimmunity
 
@@ -5837,7 +6077,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-ulcer" data-dismech-node="Skin Ulcer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skin Ulcer
 
@@ -5905,7 +6145,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -5973,7 +6213,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthritis
 
@@ -6041,7 +6281,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Neuropathy
 
@@ -6102,7 +6342,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cranial-nerve-paralysis" data-dismech-node="Cranial Nerve Paralysis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cranial Nerve Paralysis
 
@@ -6161,7 +6401,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
                         Headache
 
@@ -6229,7 +6469,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-infiltrates" data-dismech-node="Pulmonary Infiltrates" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Infiltrates
 
@@ -6288,7 +6528,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemoptysis" data-dismech-node="Hemoptysis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hemoptysis
 
@@ -6347,7 +6587,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cough
 
@@ -6406,7 +6646,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary Fibrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Fibrosis
 
@@ -6465,7 +6705,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Insufficiency
 
@@ -6524,7 +6764,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-pulmonary-obstruction" data-dismech-node="Chronic Pulmonary Obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Pulmonary Obstruction
 
@@ -6594,7 +6834,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest Pain
 
@@ -6653,7 +6893,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -6712,7 +6952,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthralgia
 
@@ -6771,7 +7011,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myalgia
 
@@ -6830,7 +7070,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal Pain
 
@@ -6898,7 +7138,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Loss
 
@@ -6966,7 +7206,7 @@
                     <span class="cat-count">24</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-septum-perforation" data-dismech-node="Nasal Septum Perforation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nasal Septum Perforation
 
@@ -6997,7 +7237,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-subglottic-stenosis" data-dismech-node="Subglottic Stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Subglottic Stenosis
 
@@ -7058,7 +7298,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-cavity-abnormality" data-dismech-node="Oral Cavity Abnormality" data-dismech-type="phenotype">
                     <div class="item-name">
                         Oral Cavity Abnormality
 
@@ -7119,7 +7359,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-nodules" data-dismech-node="Pulmonary Nodules" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Nodules
 
@@ -7202,7 +7442,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-intrapulmonary-hemorrhage" data-dismech-node="Recurrent Intrapulmonary Hemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent Intrapulmonary Hemorrhage
 
@@ -7261,7 +7501,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glomerulonephritis" data-dismech-node="Glomerulonephritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Glomerulonephritis
 
@@ -7344,7 +7584,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nasolacrimal-duct-obstruction" data-dismech-node="Nasolacrimal Duct Obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nasolacrimal Duct Obstruction
 
@@ -7403,7 +7643,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-hypothalamus-pituitary-axis" data-dismech-node="Abnormality of the Hypothalamus-Pituitary Axis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormality of the Hypothalamus-Pituitary Axis
 
@@ -7464,7 +7704,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-pr3-antibody-positivity" data-dismech-node="Anti-PR3 Antibody Positivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anti-PR3 Antibody Positivity
 
@@ -7547,7 +7787,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-c-anca-positivity" data-dismech-node="c-ANCA Positivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         c-ANCA Positivity
 
@@ -7606,7 +7846,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-esr" data-dismech-node="Elevated ESR" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated ESR
 
@@ -7665,7 +7905,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-neutrophil-elastase-antibody-positivity" data-dismech-node="Anti-Neutrophil Elastase Antibody Positivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anti-Neutrophil Elastase Antibody Positivity
 
@@ -7724,7 +7964,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-crp" data-dismech-node="Elevated CRP" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated CRP
 
@@ -7783,7 +8023,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-ischemia" data-dismech-node="Cerebral ischemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral ischemia
 
@@ -7911,7 +8151,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glomerulopathy" data-dismech-node="Glomerulopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Glomerulopathy
 
@@ -7972,7 +8212,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyarticular-arthritis" data-dismech-node="Polyarticular arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Polyarticular arthritis
 
@@ -8033,7 +8273,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-inflammatory-response" data-dismech-node="Increased inflammatory response" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased inflammatory response
 
@@ -8094,7 +8334,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anti-myeloperoxidase-antibody-positivity" data-dismech-node="Anti-myeloperoxidase antibody positivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anti-myeloperoxidase antibody positivity
 
@@ -8155,7 +8395,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inflammatory-abnormality-of-the-eye" data-dismech-node="Inflammatory abnormality of the eye" data-dismech-type="phenotype">
                     <div class="item-name">
                         Inflammatory abnormality of the eye
 
@@ -8216,7 +8456,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periorbital-edema" data-dismech-node="Periorbital edema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Periorbital edema
 
@@ -8277,7 +8517,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papule" data-dismech-node="Papule" data-dismech-type="phenotype">
                     <div class="item-name">
                         Papule
 
@@ -8338,7 +8578,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prostatitis" data-dismech-node="Prostatitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Prostatitis
 
@@ -8399,7 +8639,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ureteral-stenosis" data-dismech-node="Ureteral stenosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ureteral stenosis
 
@@ -8460,7 +8700,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hydronephrosis" data-dismech-node="Hydronephrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hydronephrosis
 
@@ -8560,7 +8800,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dpb1" data-dismech-node="HLA-DPB1" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DPB1
 
@@ -8602,9 +8842,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dpa1" data-dismech-node="HLA-DPA1" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DPA1
 
@@ -8646,9 +8887,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prtn3" data-dismech-node="PRTN3" data-dismech-type="genetic">
                 <div class="item-name">
                     PRTN3
 
@@ -8690,9 +8932,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ctla4" data-dismech-node="CTLA4" data-dismech-type="genetic">
                 <div class="item-name">
                     CTLA4
 
@@ -8734,9 +8977,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
                 <div class="item-name">
                     PTPN22
 
@@ -8778,9 +9022,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-serpina1" data-dismech-node="SERPINA1" data-dismech-type="genetic">
                 <div class="item-name">
                     SERPINA1
 
@@ -8824,9 +9069,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8838,7 +9087,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rituximab" data-dismech-node="Rituximab" data-dismech-type="treatment">
                 <div class="item-name">
                     Rituximab
                 </div>
@@ -8932,7 +9181,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cyclophosphamide" data-dismech-node="Cyclophosphamide" data-dismech-type="treatment">
                 <div class="item-name">
                     Cyclophosphamide
                 </div>
@@ -9026,7 +9275,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroids" data-dismech-node="Corticosteroids" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroids
                 </div>
@@ -9120,7 +9369,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-avacopan" data-dismech-node="Avacopan" data-dismech-type="treatment">
                 <div class="item-name">
                     Avacopan
                 </div>
@@ -9262,7 +9511,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-silica-dust-exposure" data-dismech-node="Silica Dust Exposure" data-dismech-type="environmental">
                 <div class="item-name">Silica Dust Exposure</div>
 
 
@@ -9326,9 +9575,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-staphylococcus-aureus-nasal-carriage" data-dismech-node="Staphylococcus aureus Nasal Carriage" data-dismech-type="environmental">
                 <div class="item-name">Staphylococcus aureus Nasal Carriage</div>
 
 
@@ -9370,6 +9620,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -9384,7 +9635,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-pr3-anca-c-anca" data-dismech-node="PR3-ANCA (c-ANCA)" data-dismech-type="biochemical">
                 <div class="item-name">
                     PR3-ANCA (c-ANCA)
 
@@ -9431,7 +9682,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-mpo-anca-p-anca" data-dismech-node="MPO-ANCA (p-ANCA)" data-dismech-type="biochemical">
                 <div class="item-name">
                     MPO-ANCA (p-ANCA)
 
@@ -9478,7 +9729,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-esr" data-dismech-node="ESR" data-dismech-type="biochemical">
                 <div class="item-name">
                     ESR
 
@@ -9495,7 +9746,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-crp" data-dismech-node="CRP" data-dismech-type="biochemical">
                 <div class="item-name">
                     CRP
 
@@ -9519,6 +9770,101 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptome analysis of naive CD4T cells from Granulomatosis with Polyangiitis(GPA) patients and healthy control (HC)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE184898" target="_blank">geo:GSE184898</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Analysis of transcriptional profile of GPA and HC naive CD4 T cells to understand intrinsic molecular differences after early TCR activation that may explain different effector T cell genereation.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/35039330" target="_blank" style="color: var(--secondary);">PMID:35039330</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Defining the Nasal Transcriptome in Granulomatosis with Polyangiitis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE119136" target="_blank">geo:GSE119136</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Objectives: To determine whether disease processes related to granulomatosis with polyangiitis (GPA) are reflected in gene expression profiles of nasal mucosa. Methods: Nasal brushings of the inferior turbinate were obtained from 32 patients with GPA (10 with active nasal disease, 13 with prior nasal disease, 9 with no history of nasal disease) and a composite comparator group with and without inflammatory nasal disease (12 healthy people, 15 with sarcoidosis, 8 with allergic rhinitis). Differential gene expression was assessed between subgroups of GPA and comparators.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=76</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/25939343" target="_blank" style="color: var(--secondary);">PMID:25939343</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -11131,6 +11477,31 @@ references:
   title: &#39;Granulomatosis with polyangiitis: clinical characteristics and updates in diagnosis.&#39;
   findings:
   - statement: GPA clinical characterization and diagnostic updates
+datasets:
+- accession: geo:GSE184898
+  title: Transcriptome analysis of naive CD4T cells from Granulomatosis with Polyangiitis(GPA) patients and healthy control (HC)
+  description: Analysis of transcriptional profile of GPA and HC naive CD4 T cells to understand intrinsic molecular differences after early TCR activation that may explain different effector T cell genereation.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 20
+  publication: PMID:35039330
+  notes: Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE119136
+  title: Defining the Nasal Transcriptome in Granulomatosis with Polyangiitis
+  description: &#39;Objectives: To determine whether disease processes related to granulomatosis with polyangiitis (GPA) are reflected in gene expression profiles of nasal mucosa. Methods: Nasal brushings of the inferior turbinate were obtained from 32 patients with GPA (10 with active nasal disease, 13 with prior nasal disease, 9 with no history of nasal disease) and a composite comparator group with and without inflammatory nasal disease (12 healthy people, 15 with sarcoidosis, 8 with allergic rhinitis). Differential gene expression was assessed between subgroups of GPA and comparators.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 76
+  publication: PMID:25939343
+  notes: Identified by GEO DataSets index search for Granulomatosis with Polyangiitis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -12587,7 +12958,7 @@ These data suggest incomplete real-world uptake of guideline-recommended prophyl
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Granulomatosis with Polyangiitis", "mondoId": "MONDO:0012105", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Granulomatosis_with_Polyangiitis", "yamlRevision": "d2356ecc5cdb"};
+        const OS_CONFIG = {"diseaseName": "Granulomatosis with Polyangiitis", "mondoId": "MONDO:0012105", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Granulomatosis_with_Polyangiitis", "yamlRevision": "b52537b58056"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

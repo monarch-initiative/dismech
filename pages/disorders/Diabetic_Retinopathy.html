@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Diabetic%20Retinopathy"
@@ -3467,6 +3696,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3496,10 +3727,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -3521,6 +3753,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4721,7 +4961,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blood-Retinal Barrier Breakdown\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the inner blood-retinal barrier (formed by retinal vascular endothelium with tight junctions) by VEGF, inflammatory cytokines, and loss of pericyte support allows plasma proteins and fluid to leak into the retinal parenchyma. Oxidative stress is a key driver of BRB disruption, which also promotes neurodegeneration and angiogenesis. BRB breakdown is the immediate cause of diabetic macular edema (DME) through fluid accumulation in the macular subfield, and contributes to ischemia through progressive endothelial dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"retina\"]}}, {\"id\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hyperglycemia activates four major biochemical pathways\\u2014increased polyol pathway flux, increased advanced glycation end product (AGE) formation, activation of protein kinase C (PKC) isoforms, and increased hexosamine pathway flux\\u2014all of which converge on a single unifying mechanism: overproduction of superoxide by the mitochondrial electron-transport chain. This excess reactive oxygen species (ROS) production drives oxidative stress that initiates the downstream cascade of retinal neurovascular injury, BRB disruption, neurodegeneration, and angiogenesis. DR is now recognized as a neurovascular disorder arising from chronic hyperglycemia-induced oxidative stress, inflammation, and vascular dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"retina\"]}}, {\"id\": \"Intravitreal Anti-VEGF Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for center-involving diabetic macular edema (CI-DME) and vision-threatening PDR complications. Agents (ranibizumab, bevacizumab, aflibercept, faricimab) neutralize VEGF-A, reducing vascular permeability and pathological neovascularization. Landmark trials (RISE/RIDE for ranibizumab; VIVID/VISTA for aflibercept; PROTOCOL T) demonstrated superior outcomes over macular laser for CI-DME, with 18\\u201345% of patients gaining \\u226515 ETDRS letters. Best outcomes require frequent injections and close monitoring; real-world outcomes often fall short of trials due to treatment burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"anti-VEGF biologic\"]}}, {\"id\": \"Macular Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fluid accumulation in the macula due to BRB breakdown; center-involving diabetic macular edema (CI-DME) is the most common cause of moderate vision loss in DR and can occur at any stage of retinopathy. Characterized by retinal thickening of the central 1 mm subfield on optical coherence tomography. Anti-VEGF is the standard of care for CI-DME.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040049\"}}, {\"id\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A persistent pro-inflammatory milieu in the diabetic retina is maintained by elevated TNF-\\u03b1, IL-1\\u03b2, and IL-6, alongside activation of resident microglia. NF-\\u03baB and Toll-like receptor (TLR) signaling amplify cytokine production, and oxidative stress interacts with inflammation in a self-amplifying cycle in which each factor amplifies the other. This inflammatory environment promotes BRB breakdown, endothelial dysfunction, and retinal neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"retina\"]}}, {\"id\": \"Panretinal Laser Photocoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Established standard of care for high-risk proliferative diabetic retinopathy (PDR). Panretinal photocoagulation (PRP) ablates ischemic peripheral retina, reducing the hypoxic stimulus for pathological VEGF production and causing regression of neovascularization. Network meta-analysis of 14 RCTs found anti-VEGF slightly superior to PRP for short-term visual acuity but PRP remains the backbone long-term treatment for PDR, particularly where frequent anti-VEGF injections cannot be sustained.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pars Plana Vitrectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the vitreous, indicated for non-clearing vitreous hemorrhage, tractional retinal detachment involving or threatening the macula, and severe fibrovascular proliferation in PDR. Restores optical clarity and allows retinal reattachment. Altered pharmacokinetics in vitrectomized eyes (faster clearance of intravitreal agents) may require modification of anti-VEGF treatment intervals.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative and metabolic injury selectively destroys retinal pericytes, the stabilizing mural cells of the microvasculature, while simultaneously damaging vascular endothelial cells. Pericyte loss is the earliest histopathological hallmark of DR and destabilizes the retinal microvasculature by disrupting ANGPT2-Tie2 signaling: interaction between angiopoietin 2 and the Tie2 receptor results in aberrant signaling that further drives pericyte loss, neovascularization, and inflammation. Progressive capillary closure and acellular capillary formation lead to retinal ischemia, which upregulates VEGF as the pro-angiogenic signal driving PDR.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pericyte\", \"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"VEGF-Driven Retinal Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive retinal ischemia from capillary closure drives upregulation of vascular endothelial growth factor A (VEGF-A), the central molecular mediator of pathological neovascularization that defines PDR. VEGF is recognized as a crucial and central molecule in abnormal neovascularization, and anti-VEGF therapy is now the most successful form of treatment for retinal vascular disorders including DR. Notch signaling and hypoxia-inducible factors (HIFs) also contribute to pathological vessel growth. New fibrovascular membranes grow from the optic disc and retinal surface into the vitreous cavity, where rupture causes vitreous hemorrhage and contracture causes tractional retinal detachment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"Vitreous Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rupture of fragile neovascular vessels in PDR causes blood to enter the vitreous cavity. Presents as sudden painless vision loss ranging from floaters to complete visual obscuration. A major complication of PDR and a key endpoint in comparative treatment trials.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Proliferative Diabetic Retinopathy\"], \"term_id\": \"HP:0007902\"}}], \"edges\": [{\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial ROS overproduction directly damages retinal pericytes and endothelial cells, initiating the microvascular degeneration that underlies DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress activates NF-\\u03baB signaling and the NLRP3 inflammasome, driving cytokine production and microglial activation in the retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericyte loss and endothelial cell injury disrupt tight junctions, causing blood-retinal barrier failure and increased vascular permeability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ischemia from capillary degeneration drives VEGF overexpression, triggering pathological neovascularization that defines PDR.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive pericyte loss and capillary closure cause retinal ischemia, which upregulates VEGF as the primary angiogenic signal.\"]}, {\"source\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines disrupt tight junctions between retinal endothelial cells, increasing vascular permeability and contributing to BRB failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Retinal Barrier Breakdown\", \"target\": \"Macular Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRB failure allows plasma constituents to leak into the macular area, causing retinal thickening and diabetic macular edema, the major cause of moderate vision impairment in DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VEGF-Driven Retinal Neovascularization\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile neovascular vessels on the retinal surface and vitreous face rupture, causing vitreous hemorrhage and acute vision loss in PDR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Macular Edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pars Plana Vitrectomy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Blood-Retinal Barrier Breakdown\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the inner blood-retinal barrier (formed by retinal vascular endothelium with tight junctions) by VEGF, inflammatory cytokines, and loss of pericyte support allows plasma proteins and fluid to leak into the retinal parenchyma. Oxidative stress is a key driver of BRB disruption, which also promotes neurodegeneration and angiogenesis. BRB breakdown is the immediate cause of diabetic macular edema (DME) through fluid accumulation in the macular subfield, and contributes to ischemia through progressive endothelial dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"retina\"]}}, {\"id\": \"Chronic Hyperglycemia\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diabetes Duration\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic hyperglycemia activates four major biochemical pathways\\u2014increased polyol pathway flux, increased advanced glycation end product (AGE) formation, activation of protein kinase C (PKC) isoforms, and increased hexosamine pathway flux\\u2014all of which converge on a single unifying mechanism: overproduction of superoxide by the mitochondrial electron-transport chain. This excess reactive oxygen species (ROS) production drives oxidative stress that initiates the downstream cascade of retinal neurovascular injury, BRB disruption, neurodegeneration, and angiogenesis. DR is now recognized as a neurovascular disorder arising from chronic hyperglycemia-induced oxidative stress, inflammation, and vascular dysfunction.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"retina\"]}}, {\"id\": \"Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intravitreal Anti-VEGF Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for center-involving diabetic macular edema (CI-DME) and vision-threatening PDR complications. Agents (ranibizumab, bevacizumab, aflibercept, faricimab) neutralize VEGF-A, reducing vascular permeability and pathological neovascularization. Landmark trials (RISE/RIDE for ranibizumab; VIVID/VISTA for aflibercept; PROTOCOL T) demonstrated superior outcomes over macular laser for CI-DME, with 18\\u201345% of patients gaining \\u226515 ETDRS letters. Best outcomes require frequent injections and close monitoring; real-world outcomes often fall short of trials due to treatment burden.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"anti-VEGF biologic\"]}}, {\"id\": \"Macular Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fluid accumulation in the macula due to BRB breakdown; center-involving diabetic macular edema (CI-DME) is the most common cause of moderate vision loss in DR and can occur at any stage of retinopathy. Characterized by retinal thickening of the central 1 mm subfield on optical coherence tomography. Anti-VEGF is the standard of care for CI-DME.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040049\"}}, {\"id\": \"Nephropathy and Proteinuria\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A persistent pro-inflammatory milieu in the diabetic retina is maintained by elevated TNF-\\u03b1, IL-1\\u03b2, and IL-6, alongside activation of resident microglia. NF-\\u03baB and Toll-like receptor (TLR) signaling amplify cytokine production, and oxidative stress interacts with inflammation in a self-amplifying cycle in which each factor amplifies the other. This inflammatory environment promotes BRB breakdown, endothelial dysfunction, and retinal neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"inflammatory response\", \"cytokine-mediated signaling pathway\"], \"locations\": [\"retina\"]}}, {\"id\": \"Panretinal Laser Photocoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Established standard of care for high-risk proliferative diabetic retinopathy (PDR). Panretinal photocoagulation (PRP) ablates ischemic peripheral retina, reducing the hypoxic stimulus for pathological VEGF production and causing regression of neovascularization. Network meta-analysis of 14 RCTs found anti-VEGF slightly superior to PRP for short-term visual acuity but PRP remains the backbone long-term treatment for PDR, particularly where frequent anti-VEGF injections cannot be sustained.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Pars Plana Vitrectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical removal of the vitreous, indicated for non-clearing vitreous hemorrhage, tractional retinal detachment involving or threatening the macula, and severe fibrovascular proliferation in PDR. Restores optical clarity and allows retinal reattachment. Altered pharmacokinetics in vitrectomized eyes (faster clearance of intravitreal agents) may require modification of anti-VEGF treatment intervals.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained oxidative and metabolic injury selectively destroys retinal pericytes, the stabilizing mural cells of the microvasculature, while simultaneously damaging vascular endothelial cells. Pericyte loss is the earliest histopathological hallmark of DR and destabilizes the retinal microvasculature by disrupting ANGPT2-Tie2 signaling: interaction between angiopoietin 2 and the Tie2 receptor results in aberrant signaling that further drives pericyte loss, neovascularization, and inflammation. Progressive capillary closure and acellular capillary formation lead to retinal ischemia, which upregulates VEGF as the pro-angiogenic signal driving PDR.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"pericyte\", \"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"VEGF-Driven Retinal Neovascularization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive retinal ischemia from capillary closure drives upregulation of vascular endothelial growth factor A (VEGF-A), the central molecular mediator of pathological neovascularization that defines PDR. VEGF is recognized as a crucial and central molecule in abnormal neovascularization, and anti-VEGF therapy is now the most successful form of treatment for retinal vascular disorders including DR. Notch signaling and hypoxia-inducible factors (HIFs) also contribute to pathological vessel growth. New fibrovascular membranes grow from the optic disc and retinal surface into the vitreous cavity, where rupture causes vitreous hemorrhage and contracture causes tractional retinal detachment.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal vascular endothelial cell\"], \"biological_processes\": [\"angiogenesis\"], \"locations\": [\"retina\"]}}, {\"id\": \"Vitreous Hemorrhage\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rupture of fragile neovascular vessels in PDR causes blood to enter the vitreous cavity. Presents as sudden painless vision loss ranging from floaters to complete visual obscuration. A major complication of PDR and a key endpoint in comparative treatment trials.\\n\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Proliferative Diabetic Retinopathy\"], \"term_id\": \"HP:0007902\"}}], \"edges\": [{\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial ROS overproduction directly damages retinal pericytes and endothelial cells, initiating the microvascular degeneration that underlies DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"target\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress activates NF-\\u03baB signaling and the NLRP3 inflammasome, driving cytokine production and microglial activation in the retina.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pericyte loss and endothelial cell injury disrupt tight junctions, causing blood-retinal barrier failure and increased vascular permeability.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ischemia from capillary degeneration drives VEGF overexpression, triggering pathological neovascularization that defines PDR.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive pericyte loss and capillary closure cause retinal ischemia, which upregulates VEGF as the primary angiogenic signal.\"]}, {\"source\": \"Neuroinflammatory Cytokine and Microglial Activation\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory cytokines disrupt tight junctions between retinal endothelial cells, increasing vascular permeability and contributing to BRB failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Blood-Retinal Barrier Breakdown\", \"target\": \"Macular Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"BRB failure allows plasma constituents to leak into the macular area, causing retinal thickening and diabetic macular edema, the major cause of moderate vision impairment in DR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"VEGF-Driven Retinal Neovascularization\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fragile neovascular vessels on the retinal surface and vitreous face rupture, causing vitreous hemorrhage and acute vision loss in PDR.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic Hyperglycemia\", \"target\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The exposure and the node are the same fact: sustained glucose elevation drives the polyol, hexosamine, protein kinase C and advanced glycation pathways this node names.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diabetes Duration\", \"target\": \"Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Duration is not a separate exposure but the integral of the same one: damage accumulates with cumulative glycaemic exposure, which is why ten years or more carries the highest odds ratio in this cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hypertension\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Adds haemodynamic stress to retinal capillaries already injured metabolically, which is why blood-pressure control slows retinopathy independently of glycaemic control. It targets the vascular node rather than the metabolic one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Nephropathy and Proteinuria\", \"target\": \"Retinal Vascular Cell Injury and Pericyte Loss\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Not an exposure acting on the retina but a marker that the same diabetic microvascular process is already established elsewhere. Proteinuria signals generalised endothelial injury, which is why nephropathy predicts retinopathy without causing it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Blood-Retinal Barrier Breakdown\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Macular Edema\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intravitreal Anti-VEGF Therapy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"VEGF-Driven Retinal Neovascularization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Panretinal Laser Photocoagulation\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pars Plana Vitrectomy\", \"target\": \"Vitreous Hemorrhage\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4755,7 +4995,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-impairment" data-dismech-node="Visual Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Visual Impairment
 
@@ -4814,7 +5054,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-macular-edema" data-dismech-node="Macular Edema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Macular Edema
 
@@ -4873,7 +5113,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neovascular-glaucoma" data-dismech-node="Neovascular Glaucoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neovascular Glaucoma
 
@@ -4941,7 +5181,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-hemorrhage" data-dismech-node="Retinal Hemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinal Hemorrhage
 
@@ -5001,7 +5241,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vitreous-hemorrhage" data-dismech-node="Vitreous Hemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vitreous Hemorrhage
 
@@ -5082,7 +5322,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tractional-retinal-detachment" data-dismech-node="Tractional Retinal Detachment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tractional Retinal Detachment
 
@@ -5174,6 +5414,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -5183,7 +5426,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-intravitreal-anti-vegf-therapy" data-dismech-node="Intravitreal Anti-VEGF Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Intravitreal Anti-VEGF Therapy
                 </div>
@@ -5382,7 +5625,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-panretinal-laser-photocoagulation" data-dismech-node="Panretinal Laser Photocoagulation" data-dismech-type="treatment">
                 <div class="item-name">
                     Panretinal Laser Photocoagulation
                 </div>
@@ -5518,7 +5761,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pars-plana-vitrectomy" data-dismech-node="Pars Plana Vitrectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Pars Plana Vitrectomy
                 </div>
@@ -5626,7 +5869,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-chronic-hyperglycemia" data-dismech-node="Chronic Hyperglycemia" data-dismech-type="environmental">
                 <div class="item-name">Chronic Hyperglycemia</div>
 
 
@@ -5669,9 +5912,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The exposure and the node are the same fact: sustained glucose elevation drives the polyol, hexosamine, protein kinase C and advanced glycation pathways this node names.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy."</div>
+
+
+                <div class="evidence-explanation">Reports poor glycaemic control with an adjusted odds ratio of 3.83 for retinopathy, the exposure this node is built on.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-diabetes-duration" data-dismech-node="Diabetes Duration" data-dismech-type="environmental">
                 <div class="item-name">Diabetes Duration</div>
 
 
@@ -5714,9 +6010,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Duration is not a separate exposure but the integral of the same one: damage accumulates with cumulative glycaemic exposure, which is why ten years or more carries the highest odds ratio in this cohort.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ten years and longer with diabetes (AOR = 4.36, 95% CI: 1.71-7.01), hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy."</div>
+
+
+                <div class="evidence-explanation">Reports an adjusted odds ratio of 4.36 for ten years or longer with diabetes, the highest in the cited analysis, reflecting cumulative rather than distinct exposure.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-hypertension" data-dismech-node="Hypertension" data-dismech-type="environmental">
                 <div class="item-name">Hypertension</div>
 
 
@@ -5759,9 +6108,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Retinal Vascular Cell Injury and Pericyte Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Adds haemodynamic stress to retinal capillaries already injured metabolically, which is why blood-pressure control slows retinopathy independently of glycaemic control. It targets the vascular node rather than the metabolic one.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy."</div>
+
+
+                <div class="evidence-explanation">Reports an adjusted odds ratio of 2.54 for hypertension, an effect on the retinal vasculature separate from glycaemic control.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-nephropathy-and-proteinuria" data-dismech-node="Nephropathy and Proteinuria" data-dismech-type="environmental">
                 <div class="item-name">Nephropathy and Proteinuria</div>
 
 
@@ -5826,6 +6228,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Retinal Vascular Cell Injury and Pericyte Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Not an exposure acting on the retina but a marker that the same diabetic microvascular process is already established elsewhere. Proteinuria signals generalised endothelial injury, which is why nephropathy predicts retinopathy without causing it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39550444" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39550444" target="_blank">PMID:39550444</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Retinopathy affects one in four patients with diabetes. Diabetic patients with longer duration, hypertension, poor glycemic control, and positive proteinuria should receive special care."</div>
+
+
+                <div class="evidence-explanation">Names longer duration, hypertension and poor control alongside proteinuria among the factors identifying patients with retinopathy, a marker of shared microvascular disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -5838,6 +6293,58 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    N-acetyl-L-cysteine ethyl ester (NACET) induces the transcription factor NRF2 in the retina and prevents its aging and diabetic retinopathy. [III]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE299877" target="_blank">geo:GSE299877</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Age-related macular degeneration (AMD) and diabetic retinopathy (DR) are leading causes of visual impairment in older people, with oxidative stress playing a central role in the development of these diseases. In fact, the cells of the retina are particularly susceptible to oxidative damage due to high metabolic activity and exposure to light. Glutathione (GSH), a key intracellular antioxidant, is essential for retinal protection but it becomes limited during aging and in diabetes patients.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=20</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41205411" target="_blank" style="color: var(--secondary);">PMID:41205411</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Diabetic Retinopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6393,6 +6900,23 @@ phenotypes:
   subtype: Proliferative Diabetic Retinopathy
 environmental:
 - name: Chronic Hyperglycemia
+  influences_mechanisms:
+  - target: Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The exposure and the node are the same fact: sustained glucose elevation
+      drives the polyol, hexosamine, protein kinase C and advanced glycation
+      pathways this node names.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
+      explanation: &gt;-
+        Reports poor glycaemic control with an adjusted odds ratio of 3.83 for
+        retinopathy, the exposure this node is built on.
   notes: &gt;
     The primary modifiable risk factor for DR onset and progression. Poor glycemic
     control (elevated HbA1c) is among the strongest independent predictors of DR
@@ -6408,6 +6932,24 @@ environmental:
     snippet: &#34;poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
     explanation: Meta-analysis quantifies poor glycemic control as conferring ~3.8-fold odds of DR, establishing it as the primary modifiable systemic risk factor.
 - name: Diabetes Duration
+  influences_mechanisms:
+  - target: Hyperglycemia-Induced Oxidative Stress and Metabolic Pathway Activation
+    environmental_effect: EXACERBATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      Duration is not a separate exposure but the integral of the same one:
+      damage accumulates with cumulative glycaemic exposure, which is why ten
+      years or more carries the highest odds ratio in this cohort.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Ten years and longer with diabetes (AOR = 4.36, 95% CI: 1.71-7.01), hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
+      explanation: &gt;-
+        Reports an adjusted odds ratio of 4.36 for ten years or longer with
+        diabetes, the highest in the cited analysis, reflecting cumulative
+        rather than distinct exposure.
   notes: &gt;
     Duration of diabetes is among the strongest predictors of DR onset; risk
     increases substantially with each decade. Virtually all patients with type 1
@@ -6420,6 +6962,24 @@ environmental:
     snippet: &#34;Ten years and longer with diabetes (AOR = 4.36, 95% CI: 1.71-7.01), hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
     explanation: Meta-analysis demonstrates that ≥10 years of diabetes confers over 4-fold adjusted odds of DR, making duration the strongest identified risk factor in this cohort.
 - name: Hypertension
+  influences_mechanisms:
+  - target: Retinal Vascular Cell Injury and Pericyte Loss
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Adds haemodynamic stress to retinal capillaries already injured
+      metabolically, which is why blood-pressure control slows retinopathy
+      independently of glycaemic control. It targets the vascular node rather
+      than the metabolic one.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
+      explanation: &gt;-
+        Reports an adjusted odds ratio of 2.54 for hypertension, an effect on
+        the retinal vasculature separate from glycaemic control.
   notes: &gt;
     Co-existing hypertension accelerates retinal microvascular damage and DR
     progression. Blood pressure control (target &lt;130/80 mmHg per ADA) reduces DR
@@ -6432,6 +6992,25 @@ environmental:
     snippet: &#34;hypertension (AOR = 2.54, 95% CI: 1.45-3.63), poor glycemic control (AOR = 3.83, 95% CI: 1.62-6.04), and positive proteinuria (AHR = 1.55, 95% CI: 1.02-2.07) were risk factors for diabetic retinopathy.&#34;
     explanation: Meta-analysis identifies hypertension as an independent risk factor conferring ~2.5-fold adjusted odds of DR, supporting blood pressure control as a protective intervention.
 - name: Nephropathy and Proteinuria
+  influences_mechanisms:
+  - target: Retinal Vascular Cell Injury and Pericyte Loss
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Not an exposure acting on the retina but a marker that the same diabetic
+      microvascular process is already established elsewhere. Proteinuria
+      signals generalised endothelial injury, which is why nephropathy
+      predicts retinopathy without causing it.
+    evidence:
+    - reference: PMID:39550444
+      reference_title: &#34;Prevalence of diabetic retinopathy and its associated risk factors among adults in Ethiopia: a systematic review and meta-analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Retinopathy affects one in four patients with diabetes. Diabetic patients with longer duration, hypertension, poor glycemic control, and positive proteinuria should receive special care.&#34;
+      explanation: &gt;-
+        Names longer duration, hypertension and poor control alongside
+        proteinuria among the factors identifying patients with retinopathy, a
+        marker of shared microvascular disease.
   notes: &gt;
     Diabetic nephropathy co-occurs with retinopathy due to shared microvascular
     vulnerability. Proteinuria is an independent predictor of DR risk and
@@ -6619,6 +7198,19 @@ classifications:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;12. Retinopathy, Neuropathy, and Foot Care: Standards of Care in Diabetes-2025.&#34;
       explanation: ADA Standards of Care section on retinopathy is organized within diabetes care guidelines, confirming DR classification as an endocrine-metabolic complication.
+datasets:
+- accession: geo:GSE299877
+  title: N-acetyl-L-cysteine ethyl ester (NACET) induces the transcription factor NRF2 in the retina and prevents its aging and diabetic retinopathy. [III]
+  description: Age-related macular degeneration (AMD) and diabetic retinopathy (DR) are leading causes of visual impairment in older people, with oxidative stress playing a central role in the development of these diseases. In fact, the cells of the retina are particularly susceptible to oxidative damage due to high metabolic activity and exposure to light. Glutathione (GSH), a key intracellular antioxidant, is essential for retinal protection but it becomes limited during aging and in diabetes patients.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 20
+  publication: PMID:41205411
+  notes: Identified by GEO DataSets index search for Diabetic Retinopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7019,7 +7611,7 @@ and DME classification into center-involving vs nonecenter-involving by clinical
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Diabetic Retinopathy", "mondoId": "MONDO:0005266", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetic_Retinopathy", "yamlRevision": "df155ad8e7ac"};
+        const OS_CONFIG = {"diseaseName": "Diabetic Retinopathy", "mondoId": "MONDO:0005266", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Diabetic_Retinopathy", "yamlRevision": "7829bc4c9cfe"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3502,6 +3733,7 @@
 
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3512,6 +3744,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4286,7 +4526,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-uveitis" data-dismech-node="Uveitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Uveitis
 
@@ -4374,7 +4614,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nail-dystrophy" data-dismech-node="Nail Dystrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nail Dystrophy
 
@@ -4442,7 +4682,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthritis
 
@@ -4501,7 +4741,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-enthesitis" data-dismech-node="Enthesitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Enthesitis
 
@@ -4560,7 +4800,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spondylitis" data-dismech-node="Spondylitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spondylitis
 
@@ -4628,7 +4868,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dactylitis" data-dismech-node="Dactylitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dactylitis
 
@@ -4697,7 +4937,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dactylitis-finger" data-dismech-node="Dactylitis (finger)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dactylitis (finger)
 
@@ -4756,7 +4996,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dactylitis-toe" data-dismech-node="Dactylitis (toe)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dactylitis (toe)
 
@@ -4815,7 +5055,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nail-psoriasis" data-dismech-node="Nail psoriasis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nail psoriasis
 
@@ -4907,6 +5147,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -4916,7 +5159,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-conventional-synthetic-dmard-therapy" data-dismech-node="Conventional Synthetic DMARD Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Conventional Synthetic DMARD Therapy
                 </div>
@@ -5010,7 +5253,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-targeted-cytokine-biologic-therapy" data-dismech-node="Targeted Cytokine Biologic Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Targeted Cytokine Biologic Therapy
                 </div>
@@ -5108,7 +5351,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-jak-inhibitor-therapy" data-dismech-node="JAK Inhibitor Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     JAK Inhibitor Therapy
                 </div>
@@ -5234,6 +5477,233 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Dissection of the immune landscape in Psoriatic Arthritis patients
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE277596" target="_blank">geo:GSE277596</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Despite significant advancements in psoriatic arthritis (PsA) treatment modalities, a considerable proportion of patients continue to experience persistent joint inflammation and functional impairment, unresponsive to the armamentarium of biological disease-modifying antirheumatic drugs (bDMARDs) or Janus kinase (JAK) inhibitors. The etiology of resistance in these cases is complex, likely involving intricate immunological and genetic factors which are currently mostly unknown. Identifying novel biomarkers and targets for refractory disease is urgently needed.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=635</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40478933" target="_blank" style="color: var(--secondary);">PMID:40478933</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Psoriatic Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A novel immunosenescent CD8+ T cell subset in patients with Ankylosing Spondylitis and Psoriatic Arthritis links spontaneous motility to telomere shortening and dysfunction
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE266295" target="_blank">geo:GSE266295</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Objectives: A pathogenetic role of CD8+ T lymphocytes in ankylosing spondylitis (AS) and other spondyloarthritis (SpA) is sustained by genome-wide association studies (GWAS) as well as the expansion of public T cell clonotypes in the target tissues. This study focuses on CD8+ T cells from AS and psoriatic arthritis (PsA) patients with the aim to correlate their phenotype and function with motility. Methods: Peripheral blood CD8+ and CD4+ T cells were isolated from AS (n= 128), PsA (n= 60) and rheumatoid arthritis (RA, n= 74) patients and healthy donors (HD, n= 79). Transwell migration assay was performed in the presence of different chemokines.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=16</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39835465" target="_blank" style="color: var(--secondary);">PMID:39835465</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Psoriatic Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Combined – whole blood and skin fibroblasts - transcriptomic analysis in Psoriatic arthritis.
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001006288" target="_blank">ega:EGAS00001006288</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Whole blood RNA sequencing was performed longitudinally in 27 subjects with PsA at the beginning, one month and six months after treatment and response to therapy was defined at 6 months. As control groups 7 healthy individuals and 9 subjects with rheumatoid arthritis were recruited combined with public RNA-sequencing datasets from patients with psoriasis and systemic lupus erythematous. Differential expression analysis and weighted gene co-expression network analysis were performed to identify gene expression signatures, while deconvolution and flow cytometry to characterize the peripheral blood immune cell profile.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Psoriatic Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Role of Microbiome in Psoriatic Arthritis (SCFA in PsA)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000218" target="_blank">metabolomics_workbench:ST000218</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Psoriatic Arthritis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genetic Analysis of Psoriasis and Psoriatic Arthritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000982" target="_blank">dbgap:phs000982</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study is a genome-wide study of genetic associations with psoriatic arthritis (PsA), an inflammatory musculoskeletal condition that develops in up to 30% of people who have chronic psoriasis skin lesions. 1,526 cases affected with psoriatic arthritis and 1,508 unaffected controls were recruited and typed on the Illumina HumanOmni1-Quad BeadChip array. After application of quality control measures to both samples and SNPs, genotypes for 791,217 autosomal SNPs were available for 1,430 PsA cases and 1,417 controls.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Psoriatic Arthritis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Identifying Serum Metabolomic Markers Associated with Skin Disease Activity in patients with Psoriatic Arthritis
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000092967" target="_blank">massive:MSV000092967</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This dataset contains .RAW files acquired for the paper: Identifying Serum Metabolomic Markers Associated with Skin Disease Activity in patients with Psoriatic Arthritis.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Psoriatic Arthritis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -5673,6 +6143,51 @@ references:
 - reference: PMID:40528683
   title: Linking Skin and Joint Inflammation in Psoriatic Arthritis through Shared CD8(+) T Cell Clones.
   findings: []
+datasets:
+- accession: geo:GSE277596
+  title: Dissection of the immune landscape in Psoriatic Arthritis patients
+  description: Despite significant advancements in psoriatic arthritis (PsA) treatment modalities, a considerable proportion of patients continue to experience persistent joint inflammation and functional impairment, unresponsive to the armamentarium of biological disease-modifying antirheumatic drugs (bDMARDs) or Janus kinase (JAK) inhibitors. The etiology of resistance in these cases is complex, likely involving intricate immunological and genetic factors which are currently mostly unknown. Identifying novel biomarkers and targets for refractory disease is urgently needed.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 635
+  publication: PMID:40478933
+  notes: Identified by GEO DataSets index search for Psoriatic Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE266295
+  title: A novel immunosenescent CD8+ T cell subset in patients with Ankylosing Spondylitis and Psoriatic Arthritis links spontaneous motility to telomere shortening and dysfunction
+  description: &#39;Objectives: A pathogenetic role of CD8+ T lymphocytes in ankylosing spondylitis (AS) and other spondyloarthritis (SpA) is sustained by genome-wide association studies (GWAS) as well as the expansion of public T cell clonotypes in the target tissues. This study focuses on CD8+ T cells from AS and psoriatic arthritis (PsA) patients with the aim to correlate their phenotype and function with motility. Methods: Peripheral blood CD8+ and CD4+ T cells were isolated from AS (n= 128), PsA (n= 60) and rheumatoid arthritis (RA, n= 74) patients and healthy donors (HD, n= 79). Transwell migration assay was performed in the presence of different chemokines.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 16
+  publication: PMID:39835465
+  notes: Identified by GEO DataSets index search for Psoriatic Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001006288
+  title: Combined – whole blood and skin fibroblasts - transcriptomic analysis in Psoriatic arthritis.
+  description: Whole blood RNA sequencing was performed longitudinally in 27 subjects with PsA at the beginning, one month and six months after treatment and response to therapy was defined at 6 months. As control groups 7 healthy individuals and 9 subjects with rheumatoid arthritis were recruited combined with public RNA-sequencing datasets from patients with psoriasis and systemic lupus erythematous. Differential expression analysis and weighted gene co-expression network analysis were performed to identify gene expression signatures, while deconvolution and flow cytometry to characterize the peripheral blood immune cell profile.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Psoriatic Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST000218
+  title: Role of Microbiome in Psoriatic Arthritis (SCFA in PsA)
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Psoriatic Arthritis&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs000982
+  title: Genetic Analysis of Psoriasis and Psoriatic Arthritis
+  description:  This study is a genome-wide study of genetic associations with psoriatic arthritis (PsA), an inflammatory musculoskeletal condition that develops in up to 30% of people who have chronic psoriasis skin lesions. 1,526 cases affected with psoriatic arthritis and 1,508 unaffected controls were recruited and typed on the Illumina HumanOmni1-Quad BeadChip array. After application of quality control measures to both samples and SNPs, genotypes for 791,217 autosomal SNPs were available for 1,430 PsA cases and 1,417 controls.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Psoriatic Arthritis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000092967
+  title: Identifying Serum Metabolomic Markers Associated with Skin Disease Activity in patients with Psoriatic Arthritis
+  description: &#39;This dataset contains .RAW files acquired for the paper: Identifying Serum Metabolomic Markers Associated with Skin Disease Activity in patients with Psoriatic Arthritis.&#39;
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Psoriatic Arthritis&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -6790,7 +7305,7 @@ PsA pathophysiology is best conceptualized as an enthesis‑initiated, cytokine�
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Psoriatic Arthritis", "mondoId": "MONDO:0011849", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriatic_Arthritis", "yamlRevision": "f5b318e7deaf"};
+        const OS_CONFIG = {"diseaseName": "Psoriatic Arthritis", "mondoId": "MONDO:0011849", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Psoriatic_Arthritis", "yamlRevision": "e763e971bdd8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

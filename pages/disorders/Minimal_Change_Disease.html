@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3518,6 +3749,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3528,6 +3760,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4745,7 +4985,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thromboembolism" data-dismech-node="Thromboembolism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thromboembolism
 
@@ -4813,7 +5053,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proteinuria
 
@@ -4872,7 +5112,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-kidney-injury" data-dismech-node="Acute Kidney Injury" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute Kidney Injury
 
@@ -4940,7 +5180,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-edema" data-dismech-node="Peripheral Edema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Edema
 
@@ -4967,7 +5207,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoalbuminemia" data-dismech-node="Hypoalbuminemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoalbuminemia
 
@@ -4994,7 +5234,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperlipidemia" data-dismech-node="Hyperlipidemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperlipidemia
 
@@ -5030,7 +5270,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nephrotic Syndrome
 
@@ -5128,7 +5368,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dqa1-susceptibility-locus" data-dismech-node="HLA-DQA1 susceptibility locus" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DQA1 susceptibility locus
 
@@ -5213,9 +5453,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-dqb1-susceptibility-locus" data-dismech-node="HLA-DQB1 susceptibility locus" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DQB1 susceptibility locus
 
@@ -5300,9 +5541,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1-susceptibility-locus" data-dismech-node="HLA-DRB1 susceptibility locus" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1 susceptibility locus
 
@@ -5387,9 +5629,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphs1-rare-variants" data-dismech-node="NPHS1 rare variants" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHS1 rare variants
 
@@ -5472,9 +5715,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nphs2-podocin-variants" data-dismech-node="NPHS2 (podocin) variants" data-dismech-type="genetic">
                 <div class="item-name">
                     NPHS2 (podocin) variants
 
@@ -5558,9 +5802,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5572,7 +5820,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroid-therapy" data-dismech-node="Corticosteroid Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroid Therapy
                 </div>
@@ -5719,7 +5967,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rituximab" data-dismech-node="Rituximab" data-dismech-type="treatment">
                 <div class="item-name">
                     Rituximab
                 </div>
@@ -5894,7 +6142,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-calcineurin-inhibitors" data-dismech-node="Calcineurin Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     Calcineurin Inhibitors
                 </div>
@@ -6081,7 +6329,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cyclophosphamide" data-dismech-node="Cyclophosphamide" data-dismech-type="treatment">
                 <div class="item-name">
                     Cyclophosphamide
                 </div>
@@ -6228,7 +6476,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mycophenolate-therapy" data-dismech-node="Mycophenolate Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Mycophenolate Therapy
                 </div>
@@ -6399,7 +6647,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-drug-induced-mcd" data-dismech-node="Drug-Induced MCD" data-dismech-type="environmental">
                 <div class="item-name">Drug-Induced MCD</div>
 
 
@@ -6442,6 +6690,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -6456,7 +6705,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-urinary-cd80" data-dismech-node="Urinary CD80" data-dismech-type="biochemical">
                 <div class="item-name">
                     Urinary CD80
 
@@ -6527,7 +6776,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-circulating-anti-nephrin-autoantibodies" data-dismech-node="Circulating anti-nephrin autoantibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Circulating anti-nephrin autoantibodies
 
@@ -6598,7 +6847,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-soluble-st2" data-dismech-node="Serum soluble ST2" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum soluble ST2
 
@@ -6654,6 +6903,241 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Digital Spatial Profiling of Human Kidney Biopsies from Patients with Minimal Change Disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE277674" target="_blank">geo:GSE277674</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Spatial transcriptomic profiling enables precise quantification of gene expression with simultaneous localization of expression profiles onto tissue structures. This new technology promises to improve our understanding of the disease mechanisms. Therefore, there is intense interest in applying these methods in clinical trials or as laboratory developed tests to aid in diagnosis of disease. Before these applications can been more broadly deployed in clinical research and diagnostics, it is necessary to thoroughly understand the technology’s performance in real world conditions.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SPATIAL TRANSCRIPTOMICS</span>
+
+
+                    <span class="tag tag-dataset">n=96</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40311874" target="_blank" style="color: var(--secondary);">PMID:40311874</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Idiopathic membranous nephropathy and minimal change disease (MCD) transcriptome
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE216841" target="_blank">geo:GSE216841</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Introduction: Minimal change disease (MCD) is a major cause of nephrotic syndrome. With a substantial number of patients requiring long-term immunosuppression leading to significant morbidity, the study aim was to determine MCD glomerular transcriptome to serve as a basis for biomarker discovery and novel drug target identification. Animal work showed podocyte injury induced by IL-7/IL-7R signaling (Zhai S, BBRC, 2018). Methods: Renal biopsies from adult patients representing the following groups were selected from the Norwegian Kidney Biopsy Registry: MCD (n=14), as well as normal tissue (n=8) and primary membranous nephropathy (MN; n=12) as the two reference groups.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=34</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36672735" target="_blank" style="color: var(--secondary);">PMID:36672735</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    miRNA and mRNA Signatures in Human Acute Kidney Injury Tissue [mRNA, minimal change disease]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE246204" target="_blank">geo:GSE246204</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Acute kidney injury (AKI) is an important contributor to the development of chronic kidney disease (CKD). We performed miRNA and mRNA sequencing on biobanked human kidney tissues obtained in the routine clinical care of patients with the diagnoses of AKI and minimal change disease (MCD), in addition to nephrectomized (Ref) tissue from individuals without known kidney disease. From all renal biopsy samples, 2 cryosections (10 μM) including the entire cross-section of the tissue were placed directly into PicoPure RNA extraction buffer. RNA was isolated using the PicoPure isolation kit. Total RNA was evaluated for quantity and quality using an Agilent Bioanalyzer.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38954486" target="_blank" style="color: var(--secondary);">PMID:38954486</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Minimal change disease and focal segmental sclerosis in urine
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000329" target="_blank">metabolomics_workbench:ST000329</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Pathogenesis of focal segmental glomerulosclerosis and minimal change disease
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000097297" target="_blank">massive:MSV000097297</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Podocyte injury is the hallmark of both focal segmental glomerulosclerosis (FSGS) and minimal change disease (MCD) and is ultimately reflected in foot process effacement proteinuria. Triggers and pathogenic pathways leading to podocyte cytoskeleton rearrangements are however incompletely explained. Here, we aimed to contribute to the understanding of these pathways using tissue bottom-up proteomic profiling of laser capture micro dissected glomeruli from MCD and FSGS.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Minimal Change Disease: a proteomics approach
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000094293" target="_blank">massive:MSV000094293</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study aimed to shed light on the potential pathophysiology of MCD by using glomerular proteomic analysis. Shotgun proteomics using label-free quantitative mass spectrometry was performed on formalin-fixed, paraffin-embedded (FFPE) renal biopsies from two groups of samples: control (CTR) and MCD. Glomeruli were excised from FFPE renal biopsies using laser capture microdissection (LCM), and a single-pot solid-phase-enhanced sample preparation (SP3) digest method was used to improve yield and protein identifications.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -8210,6 +8694,54 @@ notes: &gt;
   incomplete biomarkers. Recent anti-nephrin autoantibody studies support an
   autoantibody-associated subgroup within biopsy-proven MCD and related
   podocytopathies, while seronegative MCD remains biologically heterogeneous.
+datasets:
+- accession: geo:GSE277674
+  title: Digital Spatial Profiling of Human Kidney Biopsies from Patients with Minimal Change Disease
+  data_type: SPATIAL_TRANSCRIPTOMICS
+  description: Spatial transcriptomic profiling enables precise quantification of gene expression with simultaneous localization of expression profiles onto tissue structures. This new technology promises to improve our understanding of the disease mechanisms. Therefore, there is intense interest in applying these methods in clinical trials or as laboratory developed tests to aid in diagnosis of disease. Before these applications can been more broadly deployed in clinical research and diagnostics, it is necessary to thoroughly understand the technology’s performance in real world conditions.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 96
+  publication: PMID:40311874
+  notes: Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE216841
+  title: Idiopathic membranous nephropathy and minimal change disease (MCD) transcriptome
+  description: &#39;Introduction: Minimal change disease (MCD) is a major cause of nephrotic syndrome. With a substantial number of patients requiring long-term immunosuppression leading to significant morbidity, the study aim was to determine MCD glomerular transcriptome to serve as a basis for biomarker discovery and novel drug target identification. Animal work showed podocyte injury induced by IL-7/IL-7R signaling (Zhai S, BBRC, 2018). Methods: Renal biopsies from adult patients representing the following groups were selected from the Norwegian Kidney Biopsy Registry: MCD (n=14), as well as normal tissue (n=8) and primary membranous nephropathy (MN; n=12) as the two reference groups.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 34
+  publication: PMID:36672735
+  notes: Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE246204
+  title: miRNA and mRNA Signatures in Human Acute Kidney Injury Tissue [mRNA, minimal change disease]
+  description: Acute kidney injury (AKI) is an important contributor to the development of chronic kidney disease (CKD). We performed miRNA and mRNA sequencing on biobanked human kidney tissues obtained in the routine clinical care of patients with the diagnoses of AKI and minimal change disease (MCD), in addition to nephrectomized (Ref) tissue from individuals without known kidney disease. From all renal biopsy samples, 2 cryosections (10 μM) including the entire cross-section of the tissue were placed directly into PicoPure RNA extraction buffer. RNA was isolated using the PicoPure isolation kit. Total RNA was evaluated for quantity and quality using an Agilent Bioanalyzer.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:38954486
+  notes: Identified by GEO DataSets index search for Minimal Change Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: metabolomics_workbench:ST000329
+  title: Minimal change disease and focal segmental sclerosis in urine
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000097297
+  title: Pathogenesis of focal segmental glomerulosclerosis and minimal change disease
+  description: Podocyte injury is the hallmark of both focal segmental glomerulosclerosis (FSGS) and minimal change disease (MCD) and is ultimately reflected in foot process effacement proteinuria. Triggers and pathogenic pathways leading to podocyte cytoskeleton rearrangements are however incompletely explained. Here, we aimed to contribute to the understanding of these pathways using tissue bottom-up proteomic profiling of laser capture micro dissected glomeruli from MCD and FSGS.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000094293
+  title: &#39;Minimal Change Disease: a proteomics approach&#39;
+  description: &#39;This study aimed to shed light on the potential pathophysiology of MCD by using glomerular proteomic analysis. Shotgun proteomics using label-free quantitative mass spectrometry was performed on formalin-fixed, paraffin-embedded (FFPE) renal biopsies from two groups of samples: control (CTR) and MCD. Glomeruli were excised from FFPE renal biopsies using laser capture microdissection (LCM), and a single-pot solid-phase-enhanced sample preparation (SP3) digest method was used to improve yield and protein identifications.&#39;
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Minimal Change Disease&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9683,7 +10215,7 @@ A 2023 translational study examined 49 biopsy-proven MCD patients and reported e
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Minimal Change Disease", "mondoId": "MONDO:0006835", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Minimal_Change_Disease", "yamlRevision": "dc486ffe9969"};
+        const OS_CONFIG = {"diseaseName": "Minimal Change Disease", "mondoId": "MONDO:0006835", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Minimal_Change_Disease", "yamlRevision": "29b57398b63f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

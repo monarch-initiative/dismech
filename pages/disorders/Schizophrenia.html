@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3526,6 +3757,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3536,6 +3768,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -5392,7 +5632,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hallucinations" data-dismech-node="Hallucinations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hallucinations
 
@@ -5495,7 +5735,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delusions" data-dismech-node="Delusions" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delusions
 
@@ -5607,7 +5847,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disorganized-thinking" data-dismech-node="Disorganized Thinking" data-dismech-type="phenotype">
                     <div class="item-name">
                         Disorganized Thinking
 
@@ -5700,7 +5940,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-social-withdrawal" data-dismech-node="Social Withdrawal" data-dismech-type="phenotype">
                     <div class="item-name">
                         Social Withdrawal
 
@@ -5793,7 +6033,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-affect" data-dismech-node="Flat Affect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Flat Affect
 
@@ -5896,7 +6136,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-working-memory-deficits" data-dismech-node="Working Memory Deficits" data-dismech-type="phenotype">
                     <div class="item-name">
                         Working Memory Deficits
 
@@ -5989,7 +6229,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-catatonia" data-dismech-node="Catatonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Catatonia
 
@@ -6121,7 +6361,7 @@
                 <span class="card-count">14</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-setd1a" data-dismech-node="SETD1A" data-dismech-type="genetic">
                 <div class="item-name">
                     SETD1A
 
@@ -6150,9 +6390,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nrxn1" data-dismech-node="NRXN1" data-dismech-type="genetic">
                 <div class="item-name">
                     NRXN1
 
@@ -6181,9 +6422,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-22q11-2-deletion-digeorge-velocardiofacial-syndrome-locus" data-dismech-node="22q11.2 deletion (DiGeorge / Velocardiofacial Syndrome locus)" data-dismech-type="genetic">
                 <div class="item-name">
                     22q11.2 deletion (DiGeorge / Velocardiofacial Syndrome locus)
 
@@ -6195,9 +6437,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-drd2" data-dismech-node="DRD2" data-dismech-type="genetic">
                 <div class="item-name">
                     DRD2
 
@@ -6209,9 +6452,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-grin1" data-dismech-node="GRIN1" data-dismech-type="genetic">
                 <div class="item-name">
                     GRIN1
 
@@ -6223,9 +6467,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-grin2a" data-dismech-node="GRIN2A" data-dismech-type="genetic">
                 <div class="item-name">
                     GRIN2A
 
@@ -6237,9 +6482,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gad1" data-dismech-node="GAD1" data-dismech-type="genetic">
                 <div class="item-name">
                     GAD1
 
@@ -6251,9 +6497,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-reln" data-dismech-node="RELN" data-dismech-type="genetic">
                 <div class="item-name">
                     RELN
 
@@ -6265,9 +6512,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-c4a" data-dismech-node="C4A" data-dismech-type="genetic">
                 <div class="item-name">
                     C4A
 
@@ -6279,9 +6527,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-c3" data-dismech-node="C3" data-dismech-type="genetic">
                 <div class="item-name">
                     C3
 
@@ -6293,9 +6542,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-disc1" data-dismech-node="DISC1" data-dismech-type="genetic">
                 <div class="item-name">
                     DISC1
 
@@ -6379,9 +6629,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-comt" data-dismech-node="COMT" data-dismech-type="genetic">
                 <div class="item-name">
                     COMT
 
@@ -6423,9 +6674,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nrg1" data-dismech-node="NRG1" data-dismech-type="genetic">
                 <div class="item-name">
                     NRG1
 
@@ -6509,9 +6761,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-dtnbp1" data-dismech-node="DTNBP1" data-dismech-type="genetic">
                 <div class="item-name">
                     DTNBP1
 
@@ -6593,9 +6846,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6607,7 +6864,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-xanomeline-trospium-karxt" data-dismech-node="Xanomeline-Trospium (KarXT)" data-dismech-type="treatment">
                 <div class="item-name">
                     Xanomeline-Trospium (KarXT)
                 </div>
@@ -6713,7 +6970,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antipsychotic-medications" data-dismech-node="Antipsychotic Medications" data-dismech-type="treatment">
                 <div class="item-name">
                     Antipsychotic Medications
                 </div>
@@ -6889,7 +7146,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cognitive-behavioral-therapy-cbt" data-dismech-node="Cognitive Behavioral Therapy (CBT)" data-dismech-type="treatment">
                 <div class="item-name">
                     Cognitive Behavioral Therapy (CBT)
                 </div>
@@ -7007,7 +7264,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-social-skills-training" data-dismech-node="Social Skills Training" data-dismech-type="treatment">
                 <div class="item-name">
                     Social Skills Training
                 </div>
@@ -7125,7 +7382,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-therapy" data-dismech-node="Supportive Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Therapy
                 </div>
@@ -7241,7 +7498,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vocational-rehabilitation" data-dismech-node="Vocational Rehabilitation" data-dismech-type="treatment">
                 <div class="item-name">
                     Vocational Rehabilitation
                 </div>
@@ -7371,7 +7628,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-prenatal-stress" data-dismech-node="Prenatal Stress" data-dismech-type="environmental">
                 <div class="item-name">Prenatal Stress</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7464,9 +7721,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-cannabis-use" data-dismech-node="Cannabis Use" data-dismech-type="environmental">
                 <div class="item-name">Cannabis Use</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7566,6 +7824,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -7580,7 +7839,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-dopamine-metabolites" data-dismech-node="Dopamine Metabolites" data-dismech-type="biochemical">
                 <div class="item-name">
                     Dopamine Metabolites
 
@@ -7669,7 +7928,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-glutamate-levels" data-dismech-node="Glutamate Levels" data-dismech-type="biochemical">
                 <div class="item-name">
                     Glutamate Levels
 
@@ -7765,6 +8024,309 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">8</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Mutations of schizophrenia risk gene SETD1A dysregulate synaptic function in human neurons
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE278808" target="_blank">geo:GSE278808</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Schizophrenia (SCZ) is a complex neuropsychiatric disorder associated with both common risk variants of small effect sizes and rare risk variants of high penetrance. Rare protein truncating variants (PTVs) in SETD1A (SET Domain Containing 1A) show a strong association with SCZ; however, it remains largely unclear how rare PTVs in SETD1A contribute to the pathophysiology of SCZ. To understand the impact of SETD1A rare PTVs in human neurons, we CRISPR/Cas9-engineered five isogenic pairs of human induced pluripotent stem cells (iPSCs), with a recurrent heterozygous patient-specific PTV mutation c.4582-2delAG in two donor lines and a heterozygous frameshift mutation c.4596_4597insG (p.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=26</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40962831" target="_blank" style="color: var(--secondary);">PMID:40962831</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Schizophrenia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    SETD1A Regulates Psychiatric Gene Networks Involved in Genomic Stability and Synaptic Function in Rare and Sporadic Schizophrenia [CUT&amp;Tag]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE293154" target="_blank">geo:GSE293154</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Rare loss-of-function (LoF) mutations in SETD1A are associated with schizophrenia (SCZ). However, how SETD1A haploinsufficiency leads to SCZ-associated phenotypes and its relevance to patients without these rare mutations is unknown. Here, we identify SETD1A bound loci and regulated genes in human prenatal cortex and isogenic pluripotent stem cell-derived neuronal models engineered with SETD1A LoF variants, including the most common patient mutation. SETD1A preferentially binds the promoters of SCZ and Bipolar risk loci that regulate chromatin remodeling, DNA repair, and synaptic function.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">ATAC SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=48</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41422157" target="_blank" style="color: var(--secondary);">PMID:41422157</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Schizophrenia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC2 Schizophrenia study
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000118" target="_blank">ega:EGAS00000000118</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">A WTCCC2 project genome-wide case-control association study for schizophrenia (SP) in individuals from Ireland.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Schizophrenia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Full genome sequencing of a monozygotic twin discordant for schizophrenia
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000152" target="_blank">ega:EGAS00001000152</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We sequenced the genomes from a monozygotic twin discordant for schizophrenia and a tumor-normal pair of an ovarian cancer patient. Using whole-genome twin data to discriminate between correctly identified single nucleotide variants (SNVs) and errors a strategy for the accurate detection of SNVs was developed. By applying stringent sequencing quality measures, excluding error-prone regions and selecting SNVs identified by different mapping and variation calling algorithms, error rates were ~37-fold reduced. This enabled us to identify the first discordant SNVs in monozygotic twins using whole-genome sequencing.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">WGS</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Schizophrenia&#34;); description-level mentions were not accepted. EGA study_type: Whole Genome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Novel CNV contribution to schizophrenia from a genome wide study of 41,321 subjects
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001001960" target="_blank">ega:EGAS00001001960</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Genomic copy number variants (CNVs) have been strongly implicated in the etiology schizophrenia (SCZ). However, apart from a small number of risk variants, elucidation of the CNV contribution to risk has been difficult due to the very low frequencies of risk alleles, all occurring in less than 1% of patients. We sought to address this obstacle through a collaborative effort unprecedented in psychiatry in which we applied a centralized analysis pipeline to a large SCZ cohort of 21,094 cases and 20,227 controls. A global enrichment of CNV burden is observed in SCZ patients (OR=1.11, P=5.7e-15), and persists after excluding loci implicated in previous studies (OR=1.07, P=1.7e-6).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/9820031" target="_blank" style="color: var(--secondary);">PMID:9820031</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Schizophrenia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Schizophrenia Proteome Data High Resolution Method
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000086977" target="_blank">massive:MSV000086977</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">PTM-tolerant quantitative proteome analysis of plasma collected from schizophrenia patients and nonspychiatric healthy controls.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Schizophrenia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Schizophrenia Plasma Metabolome Analysis
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000086975" target="_blank">massive:MSV000086975</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Metabolomics analysis of plasma collected from patients with schizophrenia and non-psychiatric control subjects.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Schizophrenia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Metabolomic study on a schizophrenia and type 2 diabetes susceptibility gene
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000568" target="_blank">metabolomics_workbench:ST000568</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Schizophrenia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -9057,6 +9619,71 @@ disease_term:
 classifications:
   harrisons_chapter:
   - classification_value: NEUROLOGIC
+datasets:
+- accession: geo:GSE278808
+  title: Mutations of schizophrenia risk gene SETD1A dysregulate synaptic function in human neurons
+  description: Schizophrenia (SCZ) is a complex neuropsychiatric disorder associated with both common risk variants of small effect sizes and rare risk variants of high penetrance. Rare protein truncating variants (PTVs) in SETD1A (SET Domain Containing 1A) show a strong association with SCZ; however, it remains largely unclear how rare PTVs in SETD1A contribute to the pathophysiology of SCZ. To understand the impact of SETD1A rare PTVs in human neurons, we CRISPR/Cas9-engineered five isogenic pairs of human induced pluripotent stem cells (iPSCs), with a recurrent heterozygous patient-specific PTV mutation c.4582-2delAG in two donor lines and a heterozygous frameshift mutation c.4596_4597insG (p.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 26
+  publication: PMID:40962831
+  notes: Identified by GEO DataSets index search for Schizophrenia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE293154
+  title: SETD1A Regulates Psychiatric Gene Networks Involved in Genomic Stability and Synaptic Function in Rare and Sporadic Schizophrenia [CUT&amp;Tag]
+  description: Rare loss-of-function (LoF) mutations in SETD1A are associated with schizophrenia (SCZ). However, how SETD1A haploinsufficiency leads to SCZ-associated phenotypes and its relevance to patients without these rare mutations is unknown. Here, we identify SETD1A bound loci and regulated genes in human prenatal cortex and isogenic pluripotent stem cell-derived neuronal models engineered with SETD1A LoF variants, including the most common patient mutation. SETD1A preferentially binds the promoters of SCZ and Bipolar risk loci that regulate chromatin remodeling, DNA repair, and synaptic function.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: ATAC_SEQ
+  sample_count: 48
+  publication: PMID:41422157
+  notes: Identified by GEO DataSets index search for Schizophrenia (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00000000118
+  title: WTCCC2 Schizophrenia study
+  description: A WTCCC2 project genome-wide case-control association study for schizophrenia (SP) in individuals from Ireland.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Schizophrenia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001000152
+  title: Full genome sequencing of a monozygotic twin discordant for schizophrenia
+  description: We sequenced the genomes from a monozygotic twin discordant for schizophrenia and a tumor-normal pair of an ovarian cancer patient. Using whole-genome twin data to discriminate between correctly identified single nucleotide variants (SNVs) and errors a strategy for the accurate detection of SNVs was developed. By applying stringent sequencing quality measures, excluding error-prone regions and selecting SNVs identified by different mapping and variation calling algorithms, error rates were ~37-fold reduced. This enabled us to identify the first discordant SNVs in monozygotic twins using whole-genome sequencing.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: WGS
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Schizophrenia&#34;); description-level mentions were not accepted. EGA study_type: Whole Genome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001001960
+  title: Novel CNV contribution to schizophrenia from a genome wide study of 41,321 subjects
+  description: Genomic copy number variants (CNVs) have been strongly implicated in the etiology schizophrenia (SCZ). However, apart from a small number of risk variants, elucidation of the CNV contribution to risk has been difficult due to the very low frequencies of risk alleles, all occurring in less than 1% of patients. We sought to address this obstacle through a collaborative effort unprecedented in psychiatry in which we applied a centralized analysis pipeline to a large SCZ cohort of 21,094 cases and 20,227 controls. A global enrichment of CNV burden is observed in SCZ patients (OR=1.11, P=5.7e-15), and persists after excluding loci implicated in previous studies (OR=1.07, P=1.7e-6).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:9820031
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Schizophrenia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: massive:MSV000086977
+  title: Schizophrenia Proteome Data High Resolution Method
+  description: PTM-tolerant quantitative proteome analysis of plasma collected from schizophrenia patients and nonspychiatric healthy controls.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Schizophrenia&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000086975
+  title: Schizophrenia Plasma Metabolome Analysis
+  description: Metabolomics analysis of plasma collected from patients with schizophrenia and non-psychiatric control subjects.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Schizophrenia&#34;). Retrieved 2026-08-02.
+- accession: metabolomics_workbench:ST000568
+  title: Metabolomic study on a schizophrenia and type 2 diabetes susceptibility gene
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Schizophrenia&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9314,7 +9941,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Schizophrenia", "mondoId": "MONDO:0005090", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Schizophrenia", "yamlRevision": "5714e963a610"};
+        const OS_CONFIG = {"diseaseName": "Schizophrenia", "mondoId": "MONDO:0005090", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Schizophrenia", "yamlRevision": "1a9cd3587152"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

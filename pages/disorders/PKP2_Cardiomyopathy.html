@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3518,6 +3749,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3528,6 +3760,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4659,7 +4899,7 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-tachycardia" data-dismech-node="Ventricular Tachycardia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ventricular Tachycardia
 
@@ -4718,7 +4958,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-dilatation" data-dismech-node="Right Ventricular Dilatation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Right Ventricular Dilatation
 
@@ -4777,7 +5017,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fibrofatty-replacement-of-rv-myocardium" data-dismech-node="Fibrofatty Replacement of RV Myocardium" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fibrofatty Replacement of RV Myocardium
 
@@ -4836,7 +5076,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sudden Cardiac Death
 
@@ -4895,7 +5135,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-t-wave-inversion" data-dismech-node="T-wave Inversion" data-dismech-type="phenotype">
                     <div class="item-name">
                         T-wave Inversion
 
@@ -4954,7 +5194,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
                     <div class="item-name">
                         Syncope
 
@@ -5013,7 +5253,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Palpitations
 
@@ -5072,7 +5312,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive Heart Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congestive Heart Failure
 
@@ -5131,7 +5371,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-cardiomyopathy" data-dismech-node="Right Ventricular Cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Right Ventricular Cardiomyopathy
 
@@ -5199,7 +5439,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epsilon-wave" data-dismech-node="Epsilon Wave" data-dismech-type="phenotype">
                     <div class="item-name">
                         Epsilon Wave
 
@@ -5258,7 +5498,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ventricular-contraction" data-dismech-node="Premature Ventricular Contraction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Premature Ventricular Contraction
 
@@ -5356,7 +5596,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pkp2-loss-of-function-variants" data-dismech-node="PKP2 Loss-of-Function Variants" data-dismech-type="genetic">
                 <div class="item-name">
                     PKP2 Loss-of-Function Variants
 
@@ -5469,9 +5709,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5483,7 +5727,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-blocker-therapy" data-dismech-node="Beta-Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta-Blocker Therapy
                 </div>
@@ -5529,7 +5773,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-implantable-cardioverter-defibrillator" data-dismech-node="Implantable Cardioverter-Defibrillator" data-dismech-type="treatment">
                 <div class="item-name">
                     Implantable Cardioverter-Defibrillator
                 </div>
@@ -5575,7 +5819,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-exercise-restriction" data-dismech-node="Exercise Restriction" data-dismech-type="treatment">
                 <div class="item-name">
                     Exercise Restriction
                 </div>
@@ -5621,7 +5865,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiarrhythmic-drug-therapy" data-dismech-node="Antiarrhythmic Drug Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiarrhythmic Drug Therapy
                 </div>
@@ -5667,7 +5911,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-heart-transplantation" data-dismech-node="Heart Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Heart Transplantation
                 </div>
@@ -5758,6 +6002,140 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Modeling arrhythmogenic cardiomyopathy fattyfibro pathology through the use of PKP2-deficient human iPSC-derived epicardial cells
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301005" target="_blank">geo:GSE301005</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Arrhythmogenic cardiomyopathy (ACM) is an inherited cardiac disease characterized by progressive fatty-fibro replacement of the ventricular myocardium leading to arrhythmias and an increased risk of sudden cardiac death. To date, the cell types and signaling mechanisms involved in fatty-fibro infiltration of the myocardium have yet to be fully resolved. However, given that fatty-fibro replacement is initiated within the subepicardial layer, epicardial cells are predicted to contribute to the development of this pathology.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=17</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41145823" target="_blank" style="color: var(--secondary);">PMID:41145823</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for PKP2 Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    PKP2 Gene Therapy Improves Heart Function and Reduces Mortality in a Pkp2-deficient Mouse Model of Arrhythmogenic Right Ventricular Cardiomyopathy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE253226" target="_blank">geo:GSE253226</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=112</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38499690" target="_blank" style="color: var(--secondary);">PMID:38499690</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for PKP2 Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Desmosomal protein degradation as underlying causes of arrhythmogenic cardiomyopathy [PKP2 c.1755delA/WT and WT]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE199925" target="_blank">geo:GSE199925</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Arrhythmogenic cardiomyopathy (ACM) is an inherited progressive cardiomyopathy. The pathophysiological events are well understood, yet the underlying molecular mechanisms remain undefined. Here we use patient originated hiPSC-derived cardiomyocytes bearing a pathogenic PKP2 mutation (PKP2 c.2013delC/WT), a corresponding knock-in mouse model carrying the equivalent murine mutation (Pkp2 c.1755delA/WT), and human explanted ACM hearts, to identify disease driving mechanisms. Pkp2 c.1755delA/WT mice over time displayed signs of ACM as observed by cardiac dysfunction and pathological remodeling.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=8</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36947592" target="_blank" style="color: var(--secondary);">PMID:36947592</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for PKP2 Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6425,6 +6803,37 @@ notes: &gt;-
   association remains controversial and is not considered a definitive
   gene-disease relationship. Similarly, rare reports of PKP2 variants in
   CPVT and DCM phenotypes exist but lack definitive evidence for causality.
+datasets:
+- accession: geo:GSE301005
+  title: Modeling arrhythmogenic cardiomyopathy fattyfibro pathology through the use of PKP2-deficient human iPSC-derived epicardial cells
+  description: Arrhythmogenic cardiomyopathy (ACM) is an inherited cardiac disease characterized by progressive fatty-fibro replacement of the ventricular myocardium leading to arrhythmias and an increased risk of sudden cardiac death. To date, the cell types and signaling mechanisms involved in fatty-fibro infiltration of the myocardium have yet to be fully resolved. However, given that fatty-fibro replacement is initiated within the subepicardial layer, epicardial cells are predicted to contribute to the development of this pathology.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 17
+  publication: PMID:41145823
+  notes: Identified by GEO DataSets index search for PKP2 Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE253226
+  title: PKP2 Gene Therapy Improves Heart Function and Reduces Mortality in a Pkp2-deficient Mouse Model of Arrhythmogenic Right Ventricular Cardiomyopathy
+  data_type: BULK_RNA_SEQ
+  sample_count: 112
+  publication: PMID:38499690
+  notes: Identified by GEO DataSets index search for PKP2 Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE199925
+  title: Desmosomal protein degradation as underlying causes of arrhythmogenic cardiomyopathy [PKP2 c.1755delA/WT and WT]
+  description: Arrhythmogenic cardiomyopathy (ACM) is an inherited progressive cardiomyopathy. The pathophysiological events are well understood, yet the underlying molecular mechanisms remain undefined. Here we use patient originated hiPSC-derived cardiomyocytes bearing a pathogenic PKP2 mutation (PKP2 c.2013delC/WT), a corresponding knock-in mouse model carrying the equivalent murine mutation (Pkp2 c.1755delA/WT), and human explanted ACM hearts, to identify disease driving mechanisms. Pkp2 c.1755delA/WT mice over time displayed signs of ACM as observed by cardiac dysfunction and pathological remodeling.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 8
+  publication: PMID:36947592
+  notes: Identified by GEO DataSets index search for PKP2 Cardiomyopathy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -6925,7 +7334,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PKP2_Cardiomyopathy", "mondoId": "MONDO:0012180", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PKP2_Cardiomyopathy", "yamlRevision": "6fd48bedf972"};
+        const OS_CONFIG = {"diseaseName": "PKP2_Cardiomyopathy", "mondoId": "MONDO:0012180", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PKP2_Cardiomyopathy", "yamlRevision": "fbe91620cd64"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

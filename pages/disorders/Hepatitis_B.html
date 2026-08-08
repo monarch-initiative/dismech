@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hepatitis%20B"
@@ -3464,6 +3693,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3493,7 +3724,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3508,6 +3739,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3518,6 +3750,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4482,7 +4722,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent immune response against HBV-infected hepatocytes leads to liver damage mediated by T cells, NK cells, and Kupffer cells.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"CD8-positive, alpha-beta T cell\", \"natural killer cell\", \"inflammatory macrophage\"]}}, {\"id\": \"Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive fibrosis and scarring significantly impair liver function.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Elevated Liver Enzymes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased serum levels of ALT and AST indicating hepatocyte injury and ongoing liver inflammation.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Chronic Inflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum ALT/AST reflect immune-mediated hepatocyte injury and ongoing liver inflammation.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"HBV DNA Integration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integration of viral dslDNA into host genome occurs at sites of DNA damage, driving insertional mutagenesis, structural rearrangements, and activation of proto-oncogenes.\", \"meta\": {\"biological_processes\": [\"DNA integration\"]}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Hepatocyte Infection and cccDNA Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HBV enters hepatocytes via NTCP receptor binding, and viral rcDNA is converted to covalently closed circular DNA (cccDNA) which forms a stable chromatinized minichromosome in the nucleus, enabling persistent infection.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"viral entry into host cell\", \"epigenetic regulation of gene expression\"], \"locations\": [\"liver\"]}}, {\"id\": \"Liver Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation promotes fibrotic tissue deposition replacing healthy liver cells.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"Hepatocyte Infection and cccDNA Formation\", \"target\": \"Chronic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HBV infection triggers persistent immune activation and hepatic inflammation through both innate and adaptive immune responses.\"}, {\"source\": \"Hepatocyte Infection and cccDNA Formation\", \"target\": \"HBV DNA Integration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A fraction of viral DNA integrates into host genome at sites of DNA damage, contributing to persistent HBsAg expression and oncogenesis.\"}, {\"source\": \"HBV DNA Integration\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"DNA integration drives oncogenesis through activation of TERT and other proto-oncogenes, genomic instability, and structural rearrangements.\"}, {\"source\": \"Chronic Inflammation\", \"target\": \"Liver Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation activates hepatic stellate cells leading to extracellular matrix deposition and progressive fibrosis.\"}, {\"source\": \"Chronic Inflammation\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive fibrosis leads to architectural disruption and nodule formation characteristic of cirrhosis.\"}, {\"source\": \"Liver Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive fibrosis leads to complete architectural disruption and end-stage liver disease.\"}, {\"source\": \"Chronic Inflammation\", \"target\": \"Elevated Liver Enzymes\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum ALT/AST reflect immune-mediated hepatocyte injury and ongoing liver inflammation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": [\"Hepatocellular Carcinoma\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Chronic Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent immune response against HBV-infected hepatocytes leads to liver damage mediated by T cells, NK cells, and Kupffer cells.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"CD8-positive, alpha-beta T cell\", \"natural killer cell\", \"inflammatory macrophage\"]}}, {\"id\": \"Cirrhosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extensive fibrosis and scarring significantly impair liver function.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Elevated Liver Enzymes\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased serum levels of ALT and AST indicating hepatocyte injury and ongoing liver inflammation.\", \"meta\": {\"evidence_count\": 5, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"Chronic Inflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum ALT/AST reflect immune-mediated hepatocyte injury and ongoing liver inflammation.\"}], \"term_id\": \"HP:0002910\"}}, {\"id\": \"HBV DNA Integration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integration of viral dslDNA into host genome occurs at sites of DNA damage, driving insertional mutagenesis, structural rearrangements, and activation of proto-oncogenes.\", \"meta\": {\"biological_processes\": [\"DNA integration\"]}}, {\"id\": \"Hepatocellular Carcinoma\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"Hepatocyte Infection and cccDNA Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HBV enters hepatocytes via NTCP receptor binding, and viral rcDNA is converted to covalently closed circular DNA (cccDNA) which forms a stable chromatinized minichromosome in the nucleus, enabling persistent infection.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Hepatocyte\"], \"biological_processes\": [\"viral entry into host cell\", \"epigenetic regulation of gene expression\"], \"locations\": [\"liver\"]}}, {\"id\": \"High-risk Behaviors\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Behavioral risk factors including unprotected sexual intercourse, intravenous drug use with shared needles, and occupational exposure to blood.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Liver Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation promotes fibrotic tissue deposition replacing healthy liver cells.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Poor Sterile Practices\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Inadequate infection control in healthcare settings increases HBV transmission through contaminated needles, surgical instruments, and blood products.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Hepatocyte Infection and cccDNA Formation\", \"target\": \"Chronic Inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HBV infection triggers persistent immune activation and hepatic inflammation through both innate and adaptive immune responses.\"}, {\"source\": \"Hepatocyte Infection and cccDNA Formation\", \"target\": \"HBV DNA Integration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A fraction of viral DNA integrates into host genome at sites of DNA damage, contributing to persistent HBsAg expression and oncogenesis.\"}, {\"source\": \"HBV DNA Integration\", \"target\": \"Hepatocellular Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"DNA integration drives oncogenesis through activation of TERT and other proto-oncogenes, genomic instability, and structural rearrangements.\"}, {\"source\": \"Chronic Inflammation\", \"target\": \"Liver Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation activates hepatic stellate cells leading to extracellular matrix deposition and progressive fibrosis.\"}, {\"source\": \"Chronic Inflammation\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive fibrosis leads to architectural disruption and nodule formation characteristic of cirrhosis.\"}, {\"source\": \"Liver Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive fibrosis leads to complete architectural disruption and end-stage liver disease.\"}, {\"source\": \"Poor Sterile Practices\", \"target\": \"Hepatocyte Infection and cccDNA Formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A percutaneous breach with contaminated instruments or an infected provider introduces virus directly into blood, from which it reaches hepatocytes and establishes covalently closed circular DNA. Bloodstream transit is the known intermediate.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"High-risk Behaviors\", \"target\": \"Hepatocyte Infection and cccDNA Formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Sexual exposure and needle sharing are the dominant non-perinatal routes by which the virus enters the bloodstream and reaches the liver.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Inflammation\", \"target\": \"Elevated Liver Enzymes\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum ALT/AST reflect immune-mediated hepatocyte injury and ongoing liver inflammation.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": [\"Hepatocellular Carcinoma\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4520,7 +4760,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-jaundice" data-dismech-node="Jaundice" data-dismech-type="phenotype">
                     <div class="item-name">
                         Jaundice
 
@@ -4623,7 +4863,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea" data-dismech-node="Nausea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nausea
 
@@ -4682,7 +4922,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vomiting" data-dismech-node="Vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vomiting
 
@@ -4741,7 +4981,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatomegaly
 
@@ -4831,7 +5071,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rash" data-dismech-node="Rash" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rash
 
@@ -4939,7 +5179,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-liver-enzymes" data-dismech-node="Elevated Liver Enzymes" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Liver Enzymes
 
@@ -5042,7 +5282,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -5150,7 +5390,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -5209,7 +5449,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal Pain
 
@@ -5290,7 +5530,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgias" data-dismech-node="Arthralgias" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthralgias
 
@@ -5390,7 +5630,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hbv-genotype" data-dismech-node="HBV Genotype" data-dismech-type="genetic">
                 <div class="item-name">
                     HBV Genotype
 
@@ -5470,9 +5710,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5484,7 +5728,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiviral-medications" data-dismech-node="Antiviral Medications" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiviral Medications
                 </div>
@@ -5602,7 +5846,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-interferon-therapy" data-dismech-node="Interferon Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Interferon Therapy
                 </div>
@@ -5718,7 +5962,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-liver-transplant" data-dismech-node="Liver Transplant" data-dismech-type="treatment">
                 <div class="item-name">
                     Liver Transplant
                 </div>
@@ -5813,7 +6057,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-regular-monitoring" data-dismech-node="Regular Monitoring" data-dismech-type="treatment">
                 <div class="item-name">
                     Regular Monitoring
                 </div>
@@ -5904,7 +6148,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vaccination" data-dismech-node="Vaccination" data-dismech-type="treatment">
                 <div class="item-name">
                     Vaccination
                 </div>
@@ -6033,7 +6277,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-poor-sterile-practices" data-dismech-node="Poor Sterile Practices" data-dismech-type="environmental">
                 <div class="item-name">Poor Sterile Practices</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -6133,9 +6377,60 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hepatocyte Infection and cccDNA Formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A percutaneous breach with contaminated instruments or an infected provider introduces virus directly into blood, from which it reaches hepatocytes and establishes covalently closed circular DNA. Bloodstream transit is the known intermediate.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23074317" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23074317" target="_blank">PMID:23074317</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"We documented HBV transmission during orthopedic surgery to 2 patients from a surgeon with HBV. This investigation highlights the importance of evaluating individuals who do not respond to 2 series of HBV vaccination, the increased risk of HBV transmission from providers with high viral loads,..."</div>
+
+
+                <div class="evidence-explanation">Documents hepatitis B transmission to patients during surgery from an infected surgeon, a percutaneous healthcare route of infection.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-high-risk-behaviors" data-dismech-node="High-risk Behaviors" data-dismech-type="environmental">
                 <div class="item-name">High-risk Behaviors</div>
 
 
@@ -6219,6 +6514,57 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Hepatocyte Infection and cccDNA Formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Sexual exposure and needle sharing are the dominant non-perinatal routes by which the virus enters the bloodstream and reaches the liver.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:2183516" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/2183516" target="_blank">PMID:2183516</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                </div>
+
+                <div class="evidence-snippet">"In the Western world most cases of hepatitis B virus (HBV) infection are acquired through sexual intercourse and through needle sharing by intravenous drug users (IVDU)."</div>
+
+
+                <div class="evidence-explanation">States that most infections in the Western world are acquired through sexual intercourse and needle exposure, the two dominant behavioural routes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -6233,7 +6579,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hepatitis-b-surface-antigen-hbsag" data-dismech-node="Hepatitis B Surface Antigen (HBsAg)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hepatitis B Surface Antigen (HBsAg)
 
@@ -6322,7 +6668,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hepatitis-b-e-antigen-hbeag" data-dismech-node="Hepatitis B e Antigen (HBeAg)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hepatitis B e Antigen (HBeAg)
 
@@ -6411,7 +6757,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hbv-dna" data-dismech-node="HBV DNA" data-dismech-type="biochemical">
                 <div class="item-name">
                     HBV DNA
 
@@ -6507,6 +6853,286 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">7</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Long-Term Hepatitis B Virus Infection Induces Cytopathic Effects in Primary Human Hepatocytes, and Can be Partially Reversed by Antiviral Therapy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE183156" target="_blank">geo:GSE183156</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Based on our recently developed 5 chemicals-cultured primary human hepatocytes (5C-PHH) model that supports long-term HBV infection, we performed multiplexed quantitative analysis of temporal changes of host proteome and transcriptome on PHH cells infected by HBV for up to 4 weeks. We showed that metabolic-, complement-, cytoskeleton-, mitochondrial- and oxidation-related pathways were modulated at transcriptional or post-transcriptional levels during long-term HBV infection, which led to cytopathic effects and could be partially rescued by early rather than late nucleot(s)ide analogs (NAs) administration.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/35171034" target="_blank" style="color: var(--secondary);">PMID:35171034</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hepatitis B (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Microarray gene expression from hepatitis B virus infection to hepatocellular carcinoma
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE114783" target="_blank">geo:GSE114783</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background: The pathogenesis of hepatitis B virus (HBV)-caused hepatocellular carcinoma (HCC) is complex and not fully understood. In clinical, the effective prevention and treatment of HCC rely on the accurate diagnosis. We developed a biology network approach to investigate the potential mechanisms and biomarkers of each stages from HBV infection to HCC. Methods Global gene profiling of healthy individuals (HC), HBV carriers (HBVC), chronic hepatitis B patients (CHB), liver cirrhosis (LC) and HCC was analyzed by gene array. Differentially expressed genes (DEG) were found by RVM (Random variance model) corrective ANOVA and STC (Series Test of Cluster) analysis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=36</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/30925583" target="_blank" style="color: var(--secondary);">PMID:30925583</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hepatitis B (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Characteristics of impaired dendritic cell function in patients with hepatitis B virus infection
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE119322" target="_blank">geo:GSE119322</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dendritic cells are antigen-presenting cells with a central role in host immune response. This study analyzed gene expression and dendritic cell function in hepatitis B virus (HBV) patients and functions impaired due to HBV, and identified the genes related to these functions. Peripheral blood mononuclear cells from 23 HBV patients and 9 healthy controls were utilized. Mononuclear cells were isolated from side-scatter and forward-scatter gating using fluorescence-activated cell sorting (FACS), the lineage-negative HLA-DR-positive fraction was extracted, and was further divided into CD123-positive plasmacytoid DCs (pDCs) and CD11c-positive myeloid DCs (mDCs).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=32</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/30938456" target="_blank" style="color: var(--secondary);">PMID:30938456</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hepatitis B (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole genome bisulfite sequencing of hepatitis B virus-associated hepatocellular carcinoma tumor and non-cancerous samples
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002230" target="_blank">ega:EGAS00001002230</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">To understand comprehensive epigenetic alterations in hepatitis B virus-associated HCC, we have conducted a whole genome bisulfite sequencing of 5 tumor samples and 3 non-cancerous samples (3 pairs and 2 tumors).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hepatitis B&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Large-scale viral genome analysis identifies novel clinical associations between hepatitis B virus and chronically infected patients
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003689" target="_blank">ega:EGAS00001003689</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Despite the high global prevalence of chronic hepatitis B (CHB) infection, datasets covering the whole hepatitis B viral genome from large patient cohorts are lacking, greatly limiting our understanding of the viral genetic factors involved in this deadly disease. We performed deep sequencing of viral samples from patients chronically infected with HBV to investigate the association between viral genome variation and patients’ clinical characteristics. We discovered novel viral variants strongly associated with viral load and HBeAg status. Patients with viral variants C1817T and A1838G had viral loads nearly three orders of magnitude lower than patients without those variants.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31324819" target="_blank" style="color: var(--secondary);">PMID:31324819</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hepatitis B&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Hepatitis B virus integrations promote local and distant oncogenic driver alterations in hepatocarcinogenesis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001004629" target="_blank">ega:EGAS00001004629</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Infection by Hepatitis B Virus (HBV) is the main risk factor for Hepatocellular Carcinoma (HCC) worldwide. HBV can directly drive carcinogenesis through integrations in human genome. This integrative analysis of a French cohort of 190 patients mainly coming from Europe and Africa provides a deep characterization of HBV integrations, in relation with viral and host genomics and clinical features. Clonal HBV integrations directly contribute to HCC development through alterations of cancer driver genes, either at distance when co-localizing with copy number alterations, either locally through viral Enhancers.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hepatitis B&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Label-free Proteomic Analysis of Exosomes Derived from Inducible Hepatitis B Virus-Replicating HepAD38 Cell Line
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000080718" target="_blank">massive:MSV000080718</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Hepatitis B virus (HBV) infection is a major health problem worldwide. Recent evidence suggests that various viruses can manipulate the infection process by secretion of specific viral and cellular components into exosomes, small nanometer-sized (30-150 nm) vesicles secreted from various cells. However, the impact of HBV replication on hepatocytes produced exosomes has not been fully delineated. In this work, an HBV-inducible cell line HepAD38 was used to directly compare changes in the protein content of exosomes secreted from HepAD38 cells with or without HBV replication.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hepatitis B&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -7499,6 +8125,23 @@ diagnosis:
     explanation: The reference confirms that liver biopsy is the gold standard for assessing liver fibrosis, supporting the statement.
 environmental:
 - name: Poor Sterile Practices
+  influences_mechanisms:
+  - target: Hepatocyte Infection and cccDNA Formation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A percutaneous breach with contaminated instruments or an infected
+      provider introduces virus directly into blood, from which it reaches
+      hepatocytes and establishes covalently closed circular DNA. Bloodstream
+      transit is the known intermediate.
+    evidence:
+    - reference: PMID:23074317
+      reference_title: &#34;Transmission of hepatitis B virus from an orthopedic surgeon with a high viral load.&#34;
+      supports: SUPPORT
+      snippet: &#34;We documented HBV transmission during orthopedic surgery to 2 patients from a surgeon with HBV. This investigation highlights the importance of evaluating individuals who do not respond to 2 series of HBV vaccination, the increased risk of HBV transmission from providers with high viral loads, and the need to evaluate the clinical practice of providers with HBV and implement appropriate procedure-based practice restrictions.&#34;
+      explanation: &gt;-
+        Documents hepatitis B transmission to patients during surgery from an
+        infected surgeon, a percutaneous healthcare route of infection.
   description: Inadequate infection control in healthcare settings increases HBV transmission through contaminated needles, surgical instruments, and blood products.
   notes: Increases the risk of transmission via medical procedures
   environment_context:
@@ -7523,6 +8166,22 @@ environmental:
     snippet: We documented HBV transmission during orthopedic surgery to 2 patients from a surgeon with HBV. This investigation highlights the importance of evaluating individuals who do not respond to 2 series of HBV vaccination, the increased risk of HBV transmission from providers with high viral loads, and the need to evaluate the clinical practice of providers with HBV and implement appropriate procedure-based practice restrictions.
     explanation: The study demonstrates that poor sterile practices and high viral loads in healthcare providers can lead to the transmission of hepatitis B during medical procedures.
 - name: High-risk Behaviors
+  influences_mechanisms:
+  - target: Hepatocyte Infection and cccDNA Formation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Sexual exposure and needle sharing are the dominant non-perinatal routes
+      by which the virus enters the bloodstream and reaches the liver.
+    evidence:
+    - reference: PMID:2183516
+      reference_title: &#34;Hepatitis B: transmission by sexual contact and needle sharing.&#34;
+      supports: SUPPORT
+      snippet: &#34;In the Western world most cases of hepatitis B virus (HBV) infection are acquired through sexual intercourse and through needle sharing by intravenous drug users (IVDU).&#34;
+      explanation: &gt;-
+        States that most infections in the Western world are acquired through
+        sexual intercourse and needle exposure, the two dominant behavioural
+        routes.
   description: Behavioral risk factors including unprotected sexual intercourse, intravenous drug use with shared needles, and occupational exposure to blood.
   notes: Includes unprotected sexual contact and intravenous drug use
   evidence:
@@ -7694,6 +8353,75 @@ disease_term:
   term:
     id: MONDO:0005344
     label: hepatitis B virus infection
+datasets:
+- accession: geo:GSE183156
+  title: Long-Term Hepatitis B Virus Infection Induces Cytopathic Effects in Primary Human Hepatocytes, and Can be Partially Reversed by Antiviral Therapy
+  description: Based on our recently developed 5 chemicals-cultured primary human hepatocytes (5C-PHH) model that supports long-term HBV infection, we performed multiplexed quantitative analysis of temporal changes of host proteome and transcriptome on PHH cells infected by HBV for up to 4 weeks. We showed that metabolic-, complement-, cytoskeleton-, mitochondrial- and oxidation-related pathways were modulated at transcriptional or post-transcriptional levels during long-term HBV infection, which led to cytopathic effects and could be partially rescued by early rather than late nucleot(s)ide analogs (NAs) administration.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 24
+  publication: PMID:35171034
+  notes: Identified by GEO DataSets index search for Hepatitis B (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE114783
+  title: Microarray gene expression from hepatitis B virus infection to hepatocellular carcinoma
+  description: &#39;Background: The pathogenesis of hepatitis B virus (HBV)-caused hepatocellular carcinoma (HCC) is complex and not fully understood. In clinical, the effective prevention and treatment of HCC rely on the accurate diagnosis. We developed a biology network approach to investigate the potential mechanisms and biomarkers of each stages from HBV infection to HCC. Methods Global gene profiling of healthy individuals (HC), HBV carriers (HBVC), chronic hepatitis B patients (CHB), liver cirrhosis (LC) and HCC was analyzed by gene array. Differentially expressed genes (DEG) were found by RVM (Random variance model) corrective ANOVA and STC (Series Test of Cluster) analysis.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 36
+  publication: PMID:30925583
+  notes: Identified by GEO DataSets index search for Hepatitis B (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE119322
+  title: Characteristics of impaired dendritic cell function in patients with hepatitis B virus infection
+  description: Dendritic cells are antigen-presenting cells with a central role in host immune response. This study analyzed gene expression and dendritic cell function in hepatitis B virus (HBV) patients and functions impaired due to HBV, and identified the genes related to these functions. Peripheral blood mononuclear cells from 23 HBV patients and 9 healthy controls were utilized. Mononuclear cells were isolated from side-scatter and forward-scatter gating using fluorescence-activated cell sorting (FACS), the lineage-negative HLA-DR-positive fraction was extracted, and was further divided into CD123-positive plasmacytoid DCs (pDCs) and CD11c-positive myeloid DCs (mDCs).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 32
+  publication: PMID:30938456
+  notes: Identified by GEO DataSets index search for Hepatitis B (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001002230
+  title: Whole genome bisulfite sequencing of hepatitis B virus-associated hepatocellular carcinoma tumor and non-cancerous samples
+  description: To understand comprehensive epigenetic alterations in hepatitis B virus-associated HCC, we have conducted a whole genome bisulfite sequencing of 5 tumor samples and 3 non-cancerous samples (3 pairs and 2 tumors).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hepatitis B&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001003689
+  title: Large-scale viral genome analysis identifies novel clinical associations between hepatitis B virus and chronically infected patients
+  description: Despite the high global prevalence of chronic hepatitis B (CHB) infection, datasets covering the whole hepatitis B viral genome from large patient cohorts are lacking, greatly limiting our understanding of the viral genetic factors involved in this deadly disease. We performed deep sequencing of viral samples from patients chronically infected with HBV to investigate the association between viral genome variation and patients’ clinical characteristics. We discovered novel viral variants strongly associated with viral load and HBeAg status. Patients with viral variants C1817T and A1838G had viral loads nearly three orders of magnitude lower than patients without those variants.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:31324819
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hepatitis B&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001004629
+  title: Hepatitis B virus integrations promote local and distant oncogenic driver alterations in hepatocarcinogenesis
+  description: Infection by Hepatitis B Virus (HBV) is the main risk factor for Hepatocellular Carcinoma (HCC) worldwide. HBV can directly drive carcinogenesis through integrations in human genome. This integrative analysis of a French cohort of 190 patients mainly coming from Europe and Africa provides a deep characterization of HBV integrations, in relation with viral and host genomics and clinical features. Clonal HBV integrations directly contribute to HCC development through alterations of cancer driver genes, either at distance when co-localizing with copy number alterations, either locally through viral Enhancers.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hepatitis B&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: massive:MSV000080718
+  title: Label-free Proteomic Analysis of Exosomes Derived from Inducible Hepatitis B Virus-Replicating HepAD38 Cell Line
+  description: Hepatitis B virus (HBV) infection is a major health problem worldwide. Recent evidence suggests that various viruses can manipulate the infection process by secretion of specific viral and cellular components into exosomes, small nanometer-sized (30-150 nm) vesicles secreted from various cells. However, the impact of HBV replication on hepatocytes produced exosomes has not been fully delineated. In this work, an HBV-inducible cell line HepAD38 was used to directly compare changes in the protein content of exosomes secreted from HepAD38 cells with or without HBV replication.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hepatitis B&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -8147,7 +8875,7 @@ disease_term:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatitis B", "mondoId": "MONDO:0005344", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_B", "yamlRevision": "738066459e88"};
+        const OS_CONFIG = {"diseaseName": "Hepatitis B", "mondoId": "MONDO:0005344", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_B", "yamlRevision": "17fc2cd7a881"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

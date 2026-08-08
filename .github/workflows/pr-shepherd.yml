@@ -23,6 +23,13 @@ on:
         required: false
         default: false
         type: boolean
+      min_age_days:
+        description: >-
+          Minimum age in days a PR must reach before the deterministic sweep
+          will merge it (blank = 3). 0 merges as soon as it is otherwise ready.
+        required: false
+        default: "3"
+        type: string
       model:
         description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
@@ -277,9 +284,14 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.ai4c-token-merge.outputs.token }}
           DRY_RUN: ${{ inputs.dry_run || false }}
+          # Scheduled runs supply no inputs, so `inputs.min_age_days` is empty
+          # and the fallback applies. The script rejects a negative or
+          # non-integer value, so a typo fails loudly instead of quietly
+          # widening what gets merged.
+          MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
         run: |
           set -euo pipefail
-          args=(--repo "$GITHUB_REPOSITORY" --min-age-days 3)
+          args=(--repo "$GITHUB_REPOSITORY" --min-age-days "$MIN_AGE_DAYS")
           if [ "$DRY_RUN" = "true" ]; then
             args+=(--dry-run)
           fi
