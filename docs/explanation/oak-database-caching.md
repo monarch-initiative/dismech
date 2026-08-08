@@ -62,9 +62,13 @@ still fetched is small (`hgnc`, `geno`, `icd10cm`, `icd11f`, `ecto`, `xco`,
 Several modules bypass the config entirely and construct an adapter directly.
 **Page generation is where this costs real egress**, because
 `.github/workflows/generate-pages.yaml` has **no** OAK cache step (its only
-`cache` line is `setup-uv`'s Python-dependency cache) and runs on every push to
-`main` touching `kb/disorders/*.yaml` or `kb/comorbidities/*.yaml`. Two paths in
-that workflow pull cold builds:
+`cache` line is `setup-uv`'s Python-dependency cache). It runs on a **daily
+`0 6 * * *` full-rebuild cron**, plus every push to `main` matching a path
+filter much broader than the KB itself — `kb/disorders/*.yaml`,
+`kb/comorbidities/*.yaml`, `research/*.md`, `src/dismech/schema/**`,
+`src/dismech/templates/**`, `render.py`, `project.justfile`, `mkdocs.yml`, and
+`docs/**`. (A docs-only change to this very file matches it.) Two paths in that
+workflow pull cold builds:
 
 | Path | Build | Trigger |
 |---|---|---|
@@ -78,9 +82,12 @@ on an empty corpus. The corpus is not empty.
 
 None of this is a regression; it all predates the OLS migration and became
 visible only because the config-driven downloads were removed around it. It is
-tracked in issue #8173. `scripts/validate_terms.py`,
-`src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py` bypass the config
-the same way, at much lower frequency.
+tracked in issue #8173. Other modules bypass the config the same way but are not
+on a CI hot path: `scripts/ncit_p302_audit.py` (also `sqlite:obo:ncit`, reached
+from `just ncit-p302-audit`), `scripts/validate_terms.py`,
+`src/dismech/compare/d2p.py`, and `src/phenoagent/matching.py`. That list is
+"the ones known as of writing", not a guarantee — `grep -rn 'sqlite:obo:' src/
+scripts/` is the way to re-derive it.
 
 Note the rendering path is **not** a candidate for a straight `ols:` swap: both
 `_build_hierarchy_path` and `_cached_mondo_descendants` do bulk hierarchy
