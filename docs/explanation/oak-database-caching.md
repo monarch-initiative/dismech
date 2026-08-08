@@ -64,11 +64,12 @@ Several modules bypass the config entirely and construct an adapter directly.
 `.github/workflows/generate-pages.yaml` has **no** OAK cache step (its only
 `cache` line is `setup-uv`'s Python-dependency cache). It runs on a **daily
 `0 6 * * *` full-rebuild cron**, plus every push to `main` matching a path
-filter much broader than the KB itself — `kb/disorders/*.yaml`,
-`kb/comorbidities/*.yaml`, `research/*.md`, `src/dismech/schema/**`,
-`src/dismech/templates/**`, `render.py`, `project.justfile`, `mkdocs.yml`, and
-`docs/**`. (A docs-only change to this very file matches it.) Two paths in that
-workflow pull cold builds:
+filter much broader than the KB itself — 13 patterns covering not just
+`kb/disorders/*.yaml` and `kb/comorbidities/*.yaml` but also `research/*.md`,
+several `src/dismech/**` paths, `conf/qc_config.yaml`, `project.justfile`,
+`mkdocs.yml`, and `docs/**`; see `on.push.paths` for the current set. (A
+docs-only change to this very file matches it.) Two paths in that workflow pull
+cold builds:
 
 | Path | Build | Trigger |
 |---|---|---|
