@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-08
 **Entry:** `kb/disorders/Fanconi_Anemia.yaml`
+**PR:** [monarch-initiative/dismech#8190](https://github.com/monarch-initiative/dismech/pull/8190)
 **Feedback to profile authors / schema issue:** [monarch-initiative/dismech#8179](https://github.com/monarch-initiative/dismech/issues/8179)
 **Trigger:** Connelly *et al.*, *A custom phenotypic profile for Fanconi anemia: Addressing
 gaps in existing disease annotations* (manuscript; profile published at
@@ -44,7 +45,7 @@ verified against the cached PubMed abstract (`just count-verified-snippets`: 388
 Where the literature would only support a treatment sequela rather than a disease
 phenotype, the term was left uncurated (see "Deliberately not added").
 
-## What was added (47 phenotype blocks)
+## What was added (43 phenotype blocks)
 
 | Domain | Terms | Key sources |
 |---|---|---|
