@@ -687,8 +687,10 @@ All evidence items MUST:
 
 ### "Snippet not found in reference"
 - The quoted text must be from the PMID's abstract
-- Fetch and verify: `just validate-references <file>`
-- Use `--fix-threshold 0.80` to auto-repair minor mismatches
+- Fetch, then check against the cache: `just count-verified-snippets <file>` —
+  seconds, offline, and it names each snippet it could not find
+- `just validate-references <file>` is the slow full check; use
+  `--fix-threshold 0.80` there to auto-repair minor mismatches
 
 ### "Required field missing"
 - Check the schema for required fields
@@ -751,5 +753,8 @@ Before finalizing a new disorder file, verify:
 - [ ] NCIT treatment terms (if used) exist and labels match exactly
 - [ ] `just validate` passes
 - [ ] `just validate-terms` passes
-- [ ] `just validate-references` passes
+- [ ] `just count-verified-snippets <file>` reports N/N verified (fast, per-edit)
+- [ ] `just validate-disorders <every changed file>` passes — one batched run at
+      the end, the same check CI runs. Tick this only after reading its output;
+      naming a check that was killed partway is what #8119 was filed about.
 - [ ] History record scaffolded (`just new-history`) and `just validate-history` passes

@@ -255,6 +255,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     range: string
     required: true
   relationship:
@@ -265,7 +266,9 @@ attributes:
     alias: relationship
     owner: BiomarkerReadout
     domain_of:
+    - GeneSetAssociation
     - BiomarkerReadout
+    - PhenotypeReadout
     range: BiomarkerReadoutRelationshipEnum
     required: true
   direction:
@@ -279,6 +282,7 @@ attributes:
     domain_of:
     - ExperimentalReadout
     - BiomarkerReadout
+    - PhenotypeReadout
     range: BiomarkerReadoutDirectionEnum
   endpoint_context:
     name: endpoint_context
@@ -290,6 +294,7 @@ attributes:
     owner: BiomarkerReadout
     domain_of:
     - BiomarkerReadout
+    - PhenotypeReadout
     range: BiomarkerEndpointContextEnum
   regulatory_endpoint_refs:
     name: regulatory_endpoint_refs
@@ -315,6 +320,7 @@ attributes:
     domain_of:
     - ExperimentalReadout
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRangeBand
     range: string
   description:
@@ -342,6 +348,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -349,6 +356,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -400,17 +408,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -426,6 +438,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics

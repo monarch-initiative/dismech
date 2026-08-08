@@ -80,6 +80,7 @@ URI: [dismech:class/OnsetDescriptor](https://w3id.org/monarch-initiative/dismech
 | [BiomarkerDescriptor](../classes/BiomarkerDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
 | [GeneProductDescriptor](../classes/GeneProductDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
 | [HistopathologyFindingDescriptor](../classes/HistopathologyFindingDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
+| [ImagingFindingDescriptor](../classes/ImagingFindingDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
 | [LifeCycleStageDescriptor](../classes/LifeCycleStageDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
 | [PhenotypeDescriptor](../classes/PhenotypeDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
 | [InheritanceDescriptor](../classes/InheritanceDescriptor.md) | [onset](../slots/onset.md) | range | [OnsetDescriptor](../classes/OnsetDescriptor.md) |
@@ -234,12 +235,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease

@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naxos disease · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Naxos disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Naxos disease</h1>
+                
+                <p class="report-subtitle">Naxos Disease: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011017" target="_blank" rel="noopener noreferrer">MONDO:0011017</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">34 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Naxos Disease: A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Naxos disease</strong> is a rare <strong>autosomal recessive cardiocutaneous syndrome</strong> defined by the triad of <strong>arrhythmogenic right ventricular cardiomyopathy (ARVC)</strong>, <strong>woolly hair</strong> (present from birth), and <strong>palmoplantar keratoderma</strong> (developing in the first year of life). It was first described in families from the Greek island of Naxos and is caused by homozygous loss-of-function mutation of <strong>plakoglobin (JUP)</strong> — most classically the founder frameshift deletion <strong>c.2157del2 (p.Ser710fs)</strong> on chromosome <strong>17q21</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>). Plakoglobin (γ-catenin) is a core component of the desmosome and adherens-junction "composite junction" of the cardiomyocyte intercalated disk; its loss destabilizes cell–cell adhesion and, under mechanical/exercise stress, drives progressive myocyte death and fibrofatty myocardial replacement.</p>
+<p>The cardiac phenotype is the life-limiting feature: it is <strong>100% penetrant</strong> in adult homozygotes, manifesting by adolescence (the youngest patient fulfilled ARVC criteria by age 13), and carries an <strong>annual disease-related mortality of ~3%</strong> and <strong>sudden-death mortality of ~2.3%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>). The cutaneous phenotype is congenital/infantile and therefore serves as an early clinical flag that should trigger cardiac surveillance well before arrhythmias appear. Mechanistically, three interlocking processes are established: (1) mutant plakoglobin fails to localize at intercalated disks and causes early <strong>connexin43 (Cx43) gap-junction and NaV1.5 sodium-channel remodeling</strong> — an arrhythmogenic substrate present even before overt structural disease (<a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">PMID: 15851108</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23178689/">PMID: 23178689</a>); (2) <strong>nuclear translocation of plakoglobin suppresses canonical Wnt/β-catenin signaling</strong> through Tcf/Lef1, switching on adipogenic and fibrogenic gene programs and producing the characteristic fibrofatty replacement (<a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">PMID: 16823493</a>); and (3) <strong>"myocarditis-like" hot-phase episodes</strong> and mechanical stress accelerate the transition from a concealed to a symptomatic, fibrofatty end-stage phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">PMID: 34776086</a>).</p>
+<p>There is <strong>no curative therapy</strong>. Management follows ARVC and heart-failure guidelines: exercise restriction, antiarrhythmic drugs, catheter ablation, and <strong>implantable cardioverter-defibrillator (ICD)</strong> placement for sudden-death prevention, with cardiac transplantation reserved for end-stage failure (<a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">PMID: 25894016</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>). A promising translational lead is <strong>GSK3β inhibition (SB216763)</strong>, which rescues and partly reverses the arrhythmogenic phenotype across zebrafish, neonatal-rat-cardiomyocyte, and iPSC models, and normalizes junctional protein distribution in patient-derived cells (<a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a>).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Naxos disease is a recessively inherited syndrome combining ARVC with a distinctive cutaneous phenotype (woolly hair + palmoplantar keratoderma). It was originally described in families from the Greek island of Naxos, with additional families identified across the Aegean islands, Turkey, Israel, Saudi Arabia, and beyond. A closely related allelic/phenotypic variant with predominantly <strong>left ventricular</strong> involvement — <strong>Carvajal syndrome</strong> — is caused by desmoplakin (DSP) mutations and described in families from India and Ecuador (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td><strong>601214</strong> (Naxos disease)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:34217" target="_blank" rel="noopener noreferrer">ORPHA:34217</a></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Naxos disease / Arrhythmogenic Right Ventricular Dysplasia</td>
+</tr>
+<tr>
+<td>Gene (Naxos)</td>
+<td><strong>JUP</strong> (plakoglobin), OMIM *173325, 17q21.2</td>
+</tr>
+<tr>
+<td>Related (Carvajal)</td>
+<td><strong>DSP</strong> (desmoplakin), OMIM 605676</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td>Mendelian cardiocutaneous ARVC syndrome (map to MONDO Naxos/ARVC entry)</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>Note: OMIM/Orphanet numeric IDs above are the standard catalog entries for this disorder; the investigation's primary-literature anchor for the gene and locus is <a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>.</p>
+</blockquote>
+<p><strong>Synonyms / alternative names:</strong> Naxos disease; cardiocutaneous syndrome; ARVC with palmoplantar keratoderma and woolly hair; plakoglobin-related arrhythmogenic cardiomyopathy. The DSP-associated left-dominant form is <strong>Carvajal syndrome</strong> (Naxos disease variant).</p>
+<p><strong>Source of information:</strong> Predominantly <strong>aggregated disease-level resources</strong> and family-based cohort/natural-history studies (Protonotarios, McKoy, Antoniades cohorts) rather than individual EHR records; complemented by case series (e.g., a 10-patient Saudi pediatric Carvajal-variant cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">PMID: 40108711</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Naxos disease is a <strong>Mendelian, autosomal recessive</strong> disorder. The causal event is <strong>homozygous loss of functional plakoglobin</strong> due to a <strong>2-bp deletion in JUP (c.2157del2; p.Ser710fs)</strong> producing a frameshift and premature truncation, confirmed by Western blot (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>). The disease is thus fundamentally a <strong>cell-adhesion (desmosomal) cardiomyopathy</strong> rather than an environmental or infectious disorder.</p>
+<blockquote>
+<p><em>"A homozygous 2 base pair deletion in the plakoglobin gene was identified only in the 19 affected individuals. This deletion caused a frameshift and premature termination of the protein, which was shown by western blot analysis."</em> — McKoy et al., <a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a></p>
+</blockquote>
+<p><strong>Genetic risk factors.</strong> The homozygous JUP truncation is fully causal (not merely a susceptibility allele). Heterozygous carriers (parents, unaffected relatives) are clinically unaffected for the full syndrome, consistent with recessive inheritance (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>). The related recessive syndrome maps to <strong>DSP</strong> (Carvajal); dominant non-syndromic ARVC is caused by heterozygous mutations in <strong>PKP2, DSG2, DSC2, DSP</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/16698823/">PMID: 16698823</a>).</p>
+<p><strong>Environmental risk factors / disease modifiers.</strong> No environmental factor <em>causes</em> Naxos disease, but <strong>strenuous/endurance exercise and mechanical stress are major disease-accelerating modifiers</strong>: desmosomal junctions fail preferentially "under conditions of increased mechanical stress or stretch, leading to cell death, progressive loss of myocardium and fibro-fatty replacement" (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>). In transgenic DSP models, <strong>endurance exercise accelerates arrhythmogenic remodeling</strong> via perturbed AKT1/GSK3β signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/26545710/">PMID: 26545710</a>). Male sex and vigorous exercise are recognized adverse modifiers in ARVC more broadly.</p>
+<p><strong>Protective factors.</strong> No validated genetic protective alleles are established for Naxos disease specifically. The clearest <em>modifiable protective factor</em> is <strong>avoidance of competitive/endurance exercise</strong>, which reduces the mechanical stress that drives progression.</p>
+<p><strong>Gene–environment interaction.</strong> The central GxE axis is <strong>desmosomal loss-of-function × mechanical load</strong>: an intrinsically weakened intercalated disk tolerates normal contraction poorly, so exercise-induced wall stress converts a genetically primed but "concealed" myocardium into a symptomatic, fibrofatty, arrhythmic one (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26545710/">PMID: 26545710</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Naxos disease has an obligate <strong>cutaneous</strong> phenotype (congenital/infantile) and an obligate <strong>cardiac</strong> phenotype (adolescent-onset).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Severity / course</th>
+<th>Frequency</th>
+<th>HPO term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Woolly hair</td>
+<td>Physical manifestation (hair)</td>
+<td>From birth (congenital)</td>
+<td>Stable, non-progressive</td>
+<td>~100%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002216" target="_blank" rel="noopener noreferrer">HP:0002216</a> (Woolly hair)</td>
+</tr>
+<tr>
+<td>Palmoplantar keratoderma</td>
+<td>Physical manifestation (skin)</td>
+<td>First year of life</td>
+<td>Stable/slowly progressive</td>
+<td>~100% (Naxos); ~50% in some Carvajal cohorts</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000982" target="_blank" rel="noopener noreferrer">HP:0000982</a> (Palmoplantar keratoderma)</td>
+</tr>
+<tr>
+<td>Arrhythmogenic RV cardiomyopathy</td>
+<td>Clinical sign / structural</td>
+<td>Adolescence</td>
+<td>Progressive</td>
+<td>100% of adult homozygotes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011663" target="_blank" rel="noopener noreferrer">HP:0011663</a> (Right ventricular cardiomyopathy)</td>
+</tr>
+<tr>
+<td>Ventricular tachycardia / arrhythmia</td>
+<td>Clinical sign (electrophysiologic)</td>
+<td>Adolescence–adulthood</td>
+<td>Episodic, life-threatening</td>
+<td>~92%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" rel="noopener noreferrer">HP:0004756</a> (Ventricular arrhythmia)</td>
+</tr>
+<tr>
+<td>ECG abnormalities (T-wave inversion V1–V3)</td>
+<td>Laboratory/electrophysiologic</td>
+<td>Adolescence</td>
+<td>Progressive</td>
+<td>~92%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012248" target="_blank" rel="noopener noreferrer">HP:0012248</a> (Abnormal ECG)</td>
+</tr>
+<tr>
+<td>RV structural alteration</td>
+<td>Clinical sign (imaging)</td>
+<td>Adolescence</td>
+<td>Progressive</td>
+<td>100%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001714" target="_blank" rel="noopener noreferrer">HP:0001714</a></td>
+</tr>
+<tr>
+<td>Left ventricular involvement</td>
+<td>Clinical sign</td>
+<td>Later / variable</td>
+<td>Progressive</td>
+<td>~27% (Naxos); dominant in Carvajal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" rel="noopener noreferrer">HP:0001644</a> (Dilated cardiomyopathy)</td>
+</tr>
+<tr>
+<td>Syncope</td>
+<td>Symptom</td>
+<td>Adolescence–adult</td>
+<td>Episodic</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" rel="noopener noreferrer">HP:0001279</a></td>
+</tr>
+<tr>
+<td>Sudden cardiac death</td>
+<td>Outcome</td>
+<td>Young adulthood</td>
+<td>Catastrophic</td>
+<td>~2.3%/yr</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" rel="noopener noreferrer">HP:0001645</a> (Sudden cardiac death)</td>
+</tr>
+<tr>
+<td>Heart failure (right, then bi-ventricular)</td>
+<td>Clinical sign</td>
+<td>End-stage</td>
+<td>Progressive</td>
+<td>~27% develop HF</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Detailed characteristics.</strong> In the definitive natural-history cohort (12 families, 26 adult homozygotes), <strong>all adults who were homozygous fulfilled ARVC criteria, the youngest by age 13</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>). Among affected homozygotes: <strong>92% ECG abnormalities, 92% ventricular arrhythmias, 100% RV structural alterations, and 27% LV involvement.</strong> Over ~10 ± 6 years of follow-up, <strong>62% showed structural progression, 46% had arrhythmic events, and 27% developed heart failure</strong>.</p>
+<blockquote>
+<p><em>"All adults who were homozygous (n = 26) fulfilled the diagnostic criteria for ARVC, the youngest by the age of 13 years."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a></p>
+</blockquote>
+<p>The <strong>temporal sequence is diagnostically important</strong>: <em>"woolly hair appears from birth, palmoplantar keratoderma develop during the first year of life and cardiomyopathy is clinically manifested by adolescence with 100% penetrance"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>); across 22 affected families <em>"all patients had the hair and skin phenotype from infancy and developed ARVC by adolescence"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a>).</p>
+<p><strong>Quality-of-life impact.</strong> The cutaneous features cause modest QoL impact (cosmetic, keratoderma discomfort). The cardiac phenotype dominates: exercise restriction, ICD implantation, arrhythmia burden, and heart-failure symptoms substantially impair daily functioning; sudden-death risk imposes major psychosocial burden on patients and families. No disease-specific validated QoL instrument (EQ-5D/SF-36) data were identified for Naxos disease.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>JUP</strong> — junction plakoglobin (γ-catenin); <a href="https://bioregistry.io/HGNC:6207" target="_blank" rel="noopener noreferrer">HGNC:6207</a>; OMIM <em>173325; chromosome </em><em>17q21.2</em>*. Loss of functional plakoglobin is the primary lesion in Naxos disease (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>).</p>
+<p><strong>Canonical pathogenic variant.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Variant</td>
+<td><strong>c.2157del2 (TG deletion) / p.Ser710fs</strong> ("2157del2"; also written 2057del2 in some model papers)</td>
+</tr>
+<tr>
+<td>Type</td>
+<td>Frameshift → premature termination (truncating)</td>
+</tr>
+<tr>
+<td>Classification</td>
+<td><strong>Pathogenic</strong> (ACMG); recessive, biallelic required</td>
+</tr>
+<tr>
+<td>Zygosity in affected</td>
+<td>Homozygous</td>
+</tr>
+<tr>
+<td>Functional consequence</td>
+<td><strong>Loss of function</strong> — truncated plakoglobin; mislocalization from intercalated disk</td>
+</tr>
+<tr>
+<td>Origin</td>
+<td>Germline</td>
+</tr>
+<tr>
+<td>Population frequency</td>
+<td>Rare; <strong>founder allele</strong> on Naxos/Aegean islands; essentially absent from general population databases (gnomAD)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The frameshift was found <strong>only</strong> in the 19 affected homozygotes, with 29 unaffected relatives heterozygous and 20 unrelated islanders plus 43 dominant-ARVC probands homozygous wild-type — establishing both causality and a <strong>founder effect</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>).</p>
+<p><strong>Allelic / related genes.</strong> The <strong>Carvajal (Naxos-variant) form</strong> is caused by homozygous truncating <strong>DSP</strong> mutations — e.g., c.4297C&gt;T (p.Gln1433<em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/38433550/">PMID: 38433550</a>) and c.8586delC (p.Ser2863Hisfs</em>20) at the extreme C-terminus (<a href="https://pubmed.ncbi.nlm.nih.gov/37143080/">PMID: 37143080</a>). In a Saudi pediatric cohort, <strong>8/8 genetically tested Carvajal-variant patients were homozygous for DSP</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">PMID: 40108711</a>). Recessive cardiocutaneous overlap also arises from <strong>desmocollin-2 (DSC2)</strong> mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/25824144/">PMID: 25824144</a>). A comprehensive junctional-protein thesaurus catalogs DSC2, DSG2, DSP, JUP, PKP2 and non-desmosomal genes (TMEM43, RYR2, desmin, lamin A/C, TTN, TGFβ3) associated with ARVC/Naxos/Carvajal (<a href="https://pubmed.ncbi.nlm.nih.gov/22450909/">PMID: 22450909</a>).</p>
+<p><strong>Modifier genes.</strong> No specific modifier locus is validated for Naxos disease; <strong>DSP</strong> and <strong>desmin</strong> variants associate with a more heart-failure-prone ACM phenotype generally (<a href="https://pubmed.ncbi.nlm.nih.gov/42372975/">PMID: 42372975</a>). Genotype–phenotype work suggests the <em>site</em> of the desmosomal defect (outer vs inner dense plaque) shapes RV- vs LV-dominant expression (<a href="https://pubmed.ncbi.nlm.nih.gov/16698823/">PMID: 16698823</a>).</p>
+<p><strong>Epigenetic / chromosomal information.</strong> No recurrent epigenetic signature or large-scale chromosomal abnormality is described for Naxos disease; it is a single-gene point/indel disorder.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental/toxic factors:</strong> None causal. No toxin, radiation, or occupational exposure is implicated in disease <em>causation</em>.</li>
+<li><strong>Lifestyle factors:</strong> <strong>Strenuous, competitive, and endurance exercise</strong> is the principal deleterious lifestyle exposure — it accelerates myocyte loss and fibrofatty remodeling in genetically susceptible myocardium (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26545710/">PMID: 26545710</a>). Exercise restriction is therefore a cornerstone of management/prevention.</li>
+<li><strong>Infectious agents:</strong> None cause Naxos disease. However, the phenotype can <strong>mimic acute myocarditis</strong> ("myocarditis-like"/"hot-phase" episodes), which are sterile inflammatory manifestations of desmosomal injury rather than true infection (<a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">PMID: 34776086</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42406223/">PMID: 42406223</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38652395/">PMID: 38652395</a>).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain</h3>
+<pre><code>Homozygous JUP truncation (c.2157del2)
+│
+▼
+Loss of functional plakoglobin at intercalated disk
+│
+├──► Composite-junction (desmosome + adherens) destabilization
+│        │
+│        ▼
+│   Mechanical-stress–induced myocyte detachment &amp; death
+│
+├──► Cx43 gap-junction + NaV1.5 remodeling (EARLY, pre-structural)
+│        │
+│        ▼
+│   Slowed conduction → reentry → ventricular arrhythmia / SCD
+│
+└──► Nuclear translocation of plakoglobin
+ │
+ ▼
+     Suppression of canonical Wnt/β-catenin (Tcf/Lef1) ↓2-fold
+ │
+ ▼
+     ↑ Adipogenic + fibrogenic gene programs
+ │
+ ▼
+     Fibrofatty replacement of myocardium (subepicardial/mediomural)
+ │
+ ▼
+     RV (± LV) dysfunction, heart failure
+</code></pre>
+<p><strong>Molecular pathways.</strong> The defining pathway is <strong>canonical Wnt/β-catenin signaling suppression by nuclear plakoglobin</strong>. Garcia-Gras et al. showed that suppressing desmoplakin drives plakoglobin into the nucleus, producing a <strong>2-fold reduction in Wnt/β-catenin signaling through Tcf/Lef1</strong>, with resulting up-regulation of adipogenic and fibrogenic genes and fat-droplet accumulation (<a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">PMID: 16823493</a>).</p>
+<blockquote>
+<p><em>"suppression of DP expression leads to nuclear localization of the desmosomal protein plakoglobin and a 2-fold reduction in canonical Wnt/beta-catenin signaling through Tcf/Lef1 transcription factors. The ensuing phenotype is increased expression of adipogenic and fibrogenic genes and accumulation of fat droplets."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">PMID: 16823493</a></p>
+</blockquote>
+<p>A parallel and druggable node is <strong>GSK3β</strong>: GSK3β inhibition (SB216763) rescues the arrhythmogenic phenotype in a Naxos-specific plakoglobin (2057del2) zebrafish model, in neonatal rat cardiomyocytes, and in PKP2-mutant iPSC-cardiomyocytes (<a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a>), and reverses abnormal plakoglobin/Cx43 distribution in patient buccal cells (<a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a>). <strong>RhoA-ROCK</strong> signaling has been modeled as a co-contributor to loss of cardiomyocyte identity (<a href="https://pubmed.ncbi.nlm.nih.gov/33670616/">PMID: 33670616</a>).</p>
+<blockquote>
+<p><em>"SB21 was able to rescue and partly reverse the ACM phenotype in three different experimental models: (I) a zebrafish model of Naxos disease induced by the overexpression of the 2057del2 mutation in plakoglobin"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a></p>
+</blockquote>
+<p><strong>Cellular processes.</strong> (i) <strong>Loss of cell–cell adhesion</strong> and myocyte death (apoptosis) under mechanical stress; (ii) <strong>gap-junction remodeling</strong> reducing intercellular electrical coupling; (iii) <strong>transdifferentiation/adipogenesis + fibrosis</strong> replacing lost myocytes; (iv) episodic <strong>inflammation</strong> ("myocarditis-like"). Suggested GO terms: <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" rel="noopener noreferrer">GO:0007155</a> (cell adhesion), <a href="http://purl.obolibrary.org/obo/GO_0016055" target="_blank" rel="noopener noreferrer">GO:0016055</a> (Wnt signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" rel="noopener noreferrer">GO:0045444</a> (fat cell differentiation), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" rel="noopener noreferrer">GO:0007507</a> (heart development), <a href="http://purl.obolibrary.org/obo/GO_0086064" target="_blank" rel="noopener noreferrer">GO:0086064</a> (cell communication by electrical coupling).</p>
+<p><strong>Protein dysfunction.</strong> Truncated plakoglobin is expressed but <strong>fails to localize normally at intercalated disks</strong>, secondarily depleting Cx43 and NaV1.5 immunosignal there (<a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">PMID: 15851108</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23178689/">PMID: 23178689</a>). This is a <strong>loss-of-function at the junction combined with a gain-of-function (Wnt-suppressing) role in the nucleus</strong>.</p>
+<blockquote>
+<p><em>"Connexin43 expression at intercellular junctions was reduced significantly in both right and left ventricles in all patients with Naxos disease."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">PMID: 15851108</a></p>
+<p><em>"Mutant plakoglobin was expressed but failed to localize normally at intercellular junctions."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">PMID: 15851108</a></p>
+</blockquote>
+<p><strong>Ion-channel / electrophysiologic defect.</strong> Reduced NaV1.5 (SCN5A product) at intercalated disks in ~65% of ACM patients contributes to conduction slowing and arrhythmia vulnerability (<a href="https://pubmed.ncbi.nlm.nih.gov/23178689/">PMID: 23178689</a>); Cx43 reduced in ~70% and plakoglobin in ~74%.</p>
+<p><strong>Metabolic / immune changes.</strong> Adipogenic reprogramming produces lipid-droplet accumulation in cardiomyocytes (recapitulated in patient iPSC-CMs, <a href="https://pubmed.ncbi.nlm.nih.gov/22798562/">PMID: 22798562</a>). Immune involvement is <strong>secondary/sterile</strong> — recurrent "myocarditis-like" injury episodes rather than autoimmune or infectious primary pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/42406223/">PMID: 42406223</a>).</p>
+<p><strong>Tissue-damage mechanism.</strong> Mechanical-stress-induced myocyte death → replacement fibrosis and adipogenesis, concentrated <strong>subepicardially and mediomurally</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a>). "Myocarditis-like episodes" step up disease evolution and mark the transition from concealed to symptomatic phase (<a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">PMID: 34776086</a>).</p>
+<blockquote>
+<p><em>"'Myocarditis-like episodes' may step up the disease evolution or mark a transition from concealed to symptomatic cardiomyopathy phase."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">PMID: 34776086</a></p>
+<p><em>"progressive fibrotic or fibrofatty myocardial remodeling, eventually developing phenotypic features consistent with arrhythmogenic cardiomyopathy"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42406223/">PMID: 42406223</a></p>
+</blockquote>
+<p><strong>Cell types (CL) &amp; subcellular compartments (GO CC).</strong> Cardiomyocytes (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), specifically ventricular cardiomyocytes (<a href="http://purl.obolibrary.org/obo/CL_0002131" target="_blank" rel="noopener noreferrer">CL:0002131</a>); keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) for the skin phenotype; hair follicle cells. Subcellular: <strong>intercalated disc / cell–cell junction</strong> (<a href="http://purl.obolibrary.org/obo/GO_0014704" target="_blank" rel="noopener noreferrer">GO:0014704</a>, <a href="http://purl.obolibrary.org/obo/GO_0005911" target="_blank" rel="noopener noreferrer">GO:0005911</a>), <strong>desmosome</strong> (<a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" rel="noopener noreferrer">GO:0030057</a>), <strong>gap junction</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005921" target="_blank" rel="noopener noreferrer">GO:0005921</a>), <strong>nucleus</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> — for Wnt/Tcf-Lef signaling).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong>
+- <strong>Primary organ:</strong> Heart — right ventricle preferentially (Naxos); left/biventricular in Carvajal variant. <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart), <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" rel="noopener noreferrer">UBERON:0002080</a> (right ventricle), <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" rel="noopener noreferrer">UBERON:0002084</a> (left ventricle).
+- <strong>Skin &amp; appendages:</strong> palms and soles (palmoplantar keratoderma), hair/hair follicles (woolly hair). <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin of body), <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> (skin of palm/sole), <a href="http://purl.obolibrary.org/obo/UBERON_0002073" target="_blank" rel="noopener noreferrer">UBERON:0002073</a> (hair follicle).
+- <strong>Secondary organ involvement:</strong> systemic congestion / hepatomegaly from right heart failure at end stage (<a href="https://pubmed.ncbi.nlm.nih.gov/38433550/">PMID: 38433550</a>).
+- <strong>Body systems:</strong> Cardiovascular (primary), Integumentary (primary), with secondary systemic/circulatory effects.</p>
+<p><strong>Tissue &amp; cell level.</strong> Myocardial (cardiac muscle) tissue — cardiomyocytes at the intercalated disk; epidermis — keratinocytes; hair follicle. Fibrofatty replacement introduces adipocytes (<a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" rel="noopener noreferrer">CL:0000136</a>) and fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>) into myocardium.</p>
+<p><strong>Subcellular level.</strong> Intercalated disc composite junctions (desmosome + adherens junction + gap junction), and the nucleus (Wnt/Tcf-Lef transcriptional node).</p>
+<p><strong>Localization / lateralization.</strong> Cardiac involvement is <strong>bilateral within the heart</strong> but <strong>regionally predominant in the RV free wall, inflow, apex, and outflow (the "triangle of dysplasia")</strong>; cutaneous involvement is <strong>bilateral and symmetric</strong> (palms/soles, scalp hair).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Timing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Woolly hair</td>
+<td>Congenital (from birth)</td>
+</tr>
+<tr>
+<td>Palmoplantar keratoderma</td>
+<td>First year of life</td>
+</tr>
+<tr>
+<td>Cardiac (ARVC) onset</td>
+<td>Adolescence (concealed earlier; criteria met as young as 13)</td>
+</tr>
+<tr>
+<td>Onset pattern (cardiac)</td>
+<td>Insidious/chronic, punctuated by acute arrhythmic or "hot-phase" episodes</td>
+</tr>
+<tr>
+<td>Disease course</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Duration</td>
+<td>Chronic, lifelong</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Progression / stages.</strong> A <strong>concealed phase</strong> (structurally subtle, but with early Cx43/NaV1.5 remodeling already present, even in a child dying before overt ARVC — <a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">PMID: 15851108</a>) transitions to an <strong>overt electrical phase</strong> (arrhythmias, ECG changes), then a <strong>structural progression phase</strong> (RV then ± LV dysfunction), and finally <strong>end-stage heart failure</strong>. In the natural-history cohort, <strong>62% showed structural progression</strong> and <strong>27% developed heart failure</strong> over ~10 years (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>). "Myocarditis-like" episodes can abruptly advance the disease (<a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">PMID: 34776086</a>).</p>
+<p><strong>Patterns.</strong> Course is <strong>progressive with episodic arrhythmic exacerbations</strong>; no spontaneous remission. <strong>Critical windows for intervention:</strong> the concealed/adolescent phase (where exercise restriction and surveillance are most valuable) and the early symptomatic phase (ICD decision-making).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Naxos disease is <strong>rare</strong>. It shows notable clustering on the Greek island of Naxos and the wider Aegean (founder effect), with additional families in Turkey, Israel, Saudi Arabia, India, and Ecuador (the latter two mainly the Carvajal/DSP variant) (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a>). Precise prevalence/incidence figures are not established (Orphanet lists it as a rare/ultra-rare disease); reported cohorts are small (dozens of families).</p>
+<p><strong>Inheritance.</strong> <strong>Autosomal recessive</strong> (biallelic JUP truncation) (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>).</p>
+<p><strong>Penetrance / expressivity.</strong> Cardiac penetrance is <strong>complete (100%) in adult homozygotes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>); expressivity is <strong>variable</strong> in extent/timing of LV involvement and heart-failure development. The recessive JUP phenotype is clinically comparable in arrhythmic risk to dominant PKP2 ARVC (<a href="https://pubmed.ncbi.nlm.nih.gov/16893920/">PMID: 16893920</a>).</p>
+<p><strong>Founder effect / consanguinity.</strong> Strong <strong>founder effect</strong> for the JUP 2157del2 allele on Naxos (<a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">PMID: 10902626</a>). <strong>Consanguinity</strong> amplifies recessive expression, particularly relevant in Middle Eastern populations — e.g., Saudi/Arab Carvajal-variant families, where the authors emphasize extended genetic workup of relatives because "consanguineous marriage is common" (<a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">PMID: 40108711</a>).</p>
+<p><strong>Carrier frequency.</strong> Heterozygous carriers are asymptomatic for the full syndrome; carrier frequency is elevated locally in founder populations but not quantified in general databases.</p>
+<p><strong>Population demographics / sex ratio.</strong> No strong sex bias in the recessive cardiocutaneous phenotype is established, though male sex and exercise are adverse modifiers of arrhythmic outcome in ARVC broadly. Age distribution: cutaneous features from infancy; cardiac disease clinically emerges in adolescence/young adulthood.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical recognition.</strong> The pathognomonic clue is <strong>woolly hair + palmoplantar keratoderma in a child</strong>, which should prompt cardiac evaluation. <em>"The association of woolly hair with palmoplantar keratoderma in a child should lead to a cardiac workup in the search for those at increased risk for sudden cardiac death"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25824144/">PMID: 25824144</a>).</p>
+<p><strong>Electrophysiology (ECG/Holter).</strong> Most sensitive/specific markers: <strong>T-wave inversion in leads V1–V3, RV wall-motion abnormalities, and frequent ventricular extrasystoles</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/16893920/">PMID: 16893920</a>). ~92% of homozygotes have ECG abnormalities and ventricular arrhythmias (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>). QRS dispersion ≥40 ms predicts syncope.</p>
+<p><strong>Imaging.</strong> Echocardiography and <strong>cardiac MRI</strong> demonstrate RV dilation, wall-motion abnormalities, and fibrofatty replacement; updated CMR thresholds improve specificity (<a href="https://pubmed.ncbi.nlm.nih.gov/41317940/">PMID: 41317940</a>). <strong>Left-ventricular late gadolinium enhancement (LGE)</strong> is associated with arrhythmic risk though it did not add incremental value over the ARVC risk calculator in one multicenter study (<a href="https://pubmed.ncbi.nlm.nih.gov/41608798/">PMID: 41608798</a>). RVOT diameter is a useful diagnostic/prognostic parameter (<a href="https://pubmed.ncbi.nlm.nih.gov/41342822/">PMID: 41342822</a>).</p>
+<p><strong>Biopsy / histopathology.</strong> Myocardial loss with <strong>fibrofatty/fibrous replacement at subepicardial and mediomural layers</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a>). <strong>Immunohistochemistry for plakoglobin</strong> shows reduced junctional signal (reported sensitivity ~85%, specificity ~57% in one series — a useful but not standalone test) (<a href="https://pubmed.ncbi.nlm.nih.gov/22036107/">PMID: 22036107</a>). Reduced Cx43, NaV1.5, and plakoglobin immunosignal at intercalated disks is seen in the majority of ACM patients (<a href="https://pubmed.ncbi.nlm.nih.gov/23178689/">PMID: 23178689</a>). A <strong>buccal-mucosa cell assay</strong> offers a minimally invasive readout of abnormal plakoglobin/Cx43 distribution (<a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a>).</p>
+<p><strong>Genetic testing.</strong> Definitive diagnosis is by <strong>molecular confirmation of biallelic JUP (or DSP for Carvajal) mutation</strong>. Approaches: targeted single-gene testing for the JUP founder allele in Aegean families; <strong>ARVC/cardiomyopathy gene panels</strong> (JUP, DSP, PKP2, DSG2, DSC2, plus broader cardiomyopathy genes); <strong>whole-exome sequencing</strong> is effective in consanguineous/atypical presentations (<a href="https://pubmed.ncbi.nlm.nih.gov/25824144/">PMID: 25824144</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">PMID: 40108711</a>). Recent guidance favors <strong>broad cardiomyopathy/arrhythmia gene panels</strong> over restricting to validated ARVC genes (<a href="https://pubmed.ncbi.nlm.nih.gov/42389803/">PMID: 42389803</a>).</p>
+<p><strong>Clinical criteria.</strong> Cardiac diagnosis uses the <strong>2010 modified Task Force Criteria</strong> for ARVC (and Padua criteria for ACM), integrating ECG, arrhythmia, structural, and tissue features.</p>
+<p><strong>Differential diagnosis.</strong> Carvajal syndrome (DSP, LV-dominant, dilated phenotype); dominant non-syndromic ARVC (PKP2/DSG2/DSC2/DSP); <strong>acute myocarditis</strong> (desmosomal cardiomyopathy can masquerade as myocarditis — <a href="https://pubmed.ncbi.nlm.nih.gov/38652395/">PMID: 38652395</a>); other palmoplantar keratoderma/woolly-hair syndromes without cardiac disease.</p>
+<p><strong>Screening.</strong> <strong>Cascade family screening</strong> (clinical + genetic) of first-degree relatives is standard. Non-invasive family screening can be based largely on T-wave inversion, RV wall-motion abnormalities, and frequent ventricular extrasystoles (<a href="https://pubmed.ncbi.nlm.nih.gov/16893920/">PMID: 16893920</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Mortality.</strong> In the definitive cohort, <strong>annual disease-related mortality was 3% and annual sudden-death mortality 2.3%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>).</p>
+<blockquote>
+<p><em>"The annual disease-related and sudden death mortality was 3% and 2.3%, respectively."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a></p>
+</blockquote>
+<p><strong>Morbidity / disease course.</strong> Over ~10 years: <strong>46% arrhythmic events, 62% structural progression, 27% heart failure</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">PMID: 11691526</a>). The Carvajal variant is more heart-failure-prone: in a 10-patient pediatric cohort, all had severely dilated/depressed LV function, <strong>4 underwent heart transplantation and 3 died suddenly while awaiting a donor</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">PMID: 40108711</a>). In ACM broadly, DSP variants and reduced biventricular EF predict heart-failure hospitalization (<a href="https://pubmed.ncbi.nlm.nih.gov/42372975/">PMID: 42372975</a>).</p>
+<p><strong>Prognostic factors.</strong> Adverse: younger age at presentation, extensive RV/LV structural disease, prior sustained VA, reduced biventricular EF, high arrhythmic burden, and DSP genotype (for HF risk). ICD implantation substantially alters natural history by preventing sudden death; with appropriate management, <strong>near-normal life expectancy is achievable</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">PMID: 25894016</a>).</p>
+<p><strong>Recovery potential.</strong> No spontaneous recovery; the disease is progressive. End-stage disease requires transplantation.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>Management is <strong>ARVC/heart-failure–guideline-based</strong>, as no Naxos-specific curative therapy exists (<a href="https://pubmed.ncbi.nlm.nih.gov/32966140/">PMID: 32966140</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">PMID: 25894016</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Role</th>
+<th>MAXO term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Exercise restriction</strong></td>
+<td>Reduce mechanical-stress-driven progression</td>
+<td>MAXO (lifestyle/physical-activity intervention)</td>
+</tr>
+<tr>
+<td><strong>Antiarrhythmic drugs</strong> (β-blockers, sotalol, amiodarone)</td>
+<td>Reduce number/complexity of arrhythmias (do NOT reduce SCD risk)</td>
+<td><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (pharmacotherapy)</td>
+</tr>
+<tr>
+<td><strong>Catheter ablation</strong></td>
+<td>Control recurrent VT (high recurrence)</td>
+<td>MAXO (catheter ablation)</td>
+</tr>
+<tr>
+<td><strong>ICD implantation</strong></td>
+<td>Prevent sudden cardiac death (mainstay)</td>
+<td>MAXO (implantable cardioverter defibrillator)</td>
+</tr>
+<tr>
+<td><strong>Heart-failure therapy</strong> (ACEi/ARB, β-blocker, diuretics; SGLT2i emerging)</td>
+<td>Manage HF</td>
+<td><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a></td>
+</tr>
+<tr>
+<td><strong>Heart transplantation</strong></td>
+<td>End-stage failure</td>
+<td>MAXO (organ transplantation)</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"Treatment consists of restriction of physical exercise, antiarrhythmic drugs, catheter ablation and ICD implantation."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">PMID: 25894016</a></p>
+<p><em>"Antiarrhythmic drugs play an important role in terms of reduction of both the number and the complexity of arrhythmias, but they do not reduce the risk of SD."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">PMID: 25894016</a></p>
+</blockquote>
+<p>For sudden-death prevention, <strong>ICD implantation is indicated</strong> in Naxos disease, and heart transplantation is considered at end stages (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>). ICD decisions should follow risk stratification (the ARVC risk calculator; ICDs are indicated in only a minority of screened relatives — <a href="https://pubmed.ncbi.nlm.nih.gov/22505462/">PMID: 22505462</a>).</p>
+<p><strong>Emerging / experimental therapeutics.</strong>
+- <strong>GSK3β inhibition (SB216763):</strong> rescues/partly reverses the arrhythmogenic phenotype in Naxos-specific plakoglobin models and normalizes junctional protein distribution in patient cells — the leading mechanism-targeted candidate (<a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a>).</p>
+<blockquote>
+<p><em>"Abnormal protein distributions were reversed in cultured cells incubated with SB216763, a small molecule that rescues the disease phenotype in cardiac myocytes."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a></p>
+</blockquote>
+<ul>
+<li><strong>SGLT2 inhibitors (dapagliflozin):</strong> in carriers of cardiomyopathy-associated variants (including ACM), SGLT2 inhibition strongly reduced HF hospitalization (HR 0.18 in carriers vs 0.70 in non-carriers), suggesting a role in HF prevention for genotype-positive individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/42260102/">PMID: 42260102</a>).</li>
+<li><strong>Stem-cell/iPSC-based translational approaches</strong> are under active investigation (<a href="https://pubmed.ncbi.nlm.nih.gov/32966140/">PMID: 32966140</a>).</li>
+</ul>
+<p><strong>Pharmacogenomics.</strong> No Naxos-specific pharmacogenomic guidance established.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible for the genetic disease itself; <strong>genetic counseling and reproductive options</strong> (carrier testing, prenatal/preimplantation genetic diagnosis) prevent affected births, especially important in consanguineous founder populations (<a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">PMID: 40108711</a>).</li>
+<li><strong>Secondary prevention:</strong> <strong>Early detection via the cutaneous phenotype</strong> — woolly hair + keratoderma in a child mandates cardiac surveillance (<a href="https://pubmed.ncbi.nlm.nih.gov/25824144/">PMID: 25824144</a>). Cascade clinical + genetic screening of first-degree relatives (<a href="https://pubmed.ncbi.nlm.nih.gov/16893920/">PMID: 16893920</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42389803/">PMID: 42389803</a>).</li>
+<li><strong>Tertiary prevention:</strong> <strong>Exercise restriction</strong> to slow progression; <strong>ICD</strong> to prevent sudden death; HF therapy to prevent decompensation (<a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">PMID: 25894016</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26545710/">PMID: 26545710</a>).</li>
+<li><strong>Genetic screening:</strong> Carrier screening in founder/consanguineous populations; PGD/prenatal testing available.</li>
+<li><strong>Counseling:</strong> Genetic counseling for recessive risk (25% recurrence for carrier couples) is essential (<a href="https://pubmed.ncbi.nlm.nih.gov/38433550/">PMID: 38433550</a>).</li>
+<li><strong>Immunization / public-health / prophylaxis:</strong> Not applicable (non-infectious Mendelian disorder).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Naturally occurring homolog:</strong> A <strong>lethal autosomal recessive cardiocutaneous syndrome of Poll Hereford calves</strong> (<em>Bos taurus</em>, NCBI Taxon:9913) has been reported in Australia, sharing features with human Naxos disease (<a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a>).</li>
+</ul>
+<blockquote>
+<p><em>"A lethal autosomal recessive cardiocutaneous syndrome of Poll Hereford calves has been reported in Australia sharing similarities with the human syndrome"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a></p>
+</blockquote>
+<ul>
+<li><strong>Spontaneous mouse mutant:</strong> A recessive mutation on <strong>mouse chromosome 13 (aht)</strong> produces abnormal hair texture with cardiomyopathy, a naturally arising rodent counterpart (<a href="https://pubmed.ncbi.nlm.nih.gov/37702215/">PMID: 37702215</a>).</li>
+<li><strong>Orthologous genes:</strong> <em>Jup</em> (mouse, NCBI Gene 16480), <em>jup</em> (zebrafish). Desmosomal biology is evolutionarily conserved across vertebrates, underlying the transferability of zebrafish/mouse models.</li>
+<li><strong>Zoonotic potential:</strong> None (genetic disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Genetic manipulation</th>
+<th>Recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JUP-KO iPSC line (JMUi001-A-4)</strong></td>
+<td>Human cellular</td>
+<td>CRISPR/Cas9 knockout of JUP</td>
+<td>Models cardiac ACM phenotype on CM differentiation; retains pluripotency</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37995437/">PMID: 37995437</a></td>
+</tr>
+<tr>
+<td><strong>Patient-specific iPSC-CMs</strong></td>
+<td>Human cellular</td>
+<td>Endogenous desmosomal mutation (PKP2)</td>
+<td>Reduced desmosomal protein signal; adipogenic/lipid-droplet phenotype</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22798562/">PMID: 22798562</a></td>
+</tr>
+<tr>
+<td><strong>Zebrafish (2057del2 plakoglobin)</strong></td>
+<td>Vertebrate in vivo</td>
+<td>Overexpression of Naxos mutation</td>
+<td>Reproduces arrhythmogenic phenotype; rescued by SB216763</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a></td>
+</tr>
+<tr>
+<td><strong>Neonatal rat cardiomyocytes (2057del2)</strong></td>
+<td>Mammalian cellular</td>
+<td>Overexpression of Naxos mutation</td>
+<td>Arrhythmogenic phenotype; SB216763-responsive</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a></td>
+</tr>
+<tr>
+<td><strong>Heterozygous DP (Dsp)-deficient mouse</strong></td>
+<td>Mammalian in vivo</td>
+<td>Cardiac-restricted Dsp deletion (het)</td>
+<td>Excess adipocytes/fibrosis, myocyte apoptosis, cardiac dysfunction, VT — recapitulates ARVC</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">PMID: 16823493</a></td>
+</tr>
+<tr>
+<td><strong>Tg-DSP(R2834H) mouse</strong></td>
+<td>Mammalian in vivo</td>
+<td>Desmoplakin mutant transgene</td>
+<td>Exercise-accelerated RV remodeling; perturbed AKT1/GSK3β</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26545710/">PMID: 26545710</a></td>
+</tr>
+<tr>
+<td><strong>Poll Hereford calf</strong></td>
+<td>Natural (bovine)</td>
+<td>Spontaneous recessive</td>
+<td>Cardiocutaneous syndrome homolog</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">PMID: 15210133</a></td>
+</tr>
+<tr>
+<td><strong>aht mouse (Chr 13)</strong></td>
+<td>Natural (rodent)</td>
+<td>Spontaneous recessive</td>
+<td>Abnormal hair + cardiomyopathy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37702215/">PMID: 37702215</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"we generated a knock-out (KO) of the junctional protein Plakoglobin (JUP-KO; JMUi001-A-4) using the CRISPR/Cas9 system in healthy control induced pluripotent stem cells"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37995437/">PMID: 37995437</a></p>
+</blockquote>
+<p><strong>Model applications &amp; limitations.</strong> These models enable study of junctional protein trafficking, Wnt/GSK3β signaling, adipogenic transdifferentiation, and drug rescue. Complete cardiac Dsp knockout is embryonic-lethal, so heterozygous or conditional strategies are required (<a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">PMID: 16823493</a>). iPSC-CMs are relatively immature and lack the tissue-level mechanical stress and three-dimensional architecture central to the human phenotype; zebrafish overexpression models do not fully capture the recessive loss-of-function context. The cutaneous phenotype is generally under-modeled relative to the cardiac phenotype.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Naxos disease is best understood as a <strong>desmosomal adhesion failure with dual downstream consequences — electrical and structural — amplified by mechanical load.</strong></p>
+<ol>
+<li><strong>Upstream trigger (genetic):</strong> biallelic JUP truncation removes functional plakoglobin from the cardiomyocyte intercalated disk.</li>
+<li><strong>Early electrical remodeling (upstream of structural disease):</strong> loss of junctional plakoglobin destabilizes Cx43 gap junctions and NaV1.5 channels, producing conduction slowing and an arrhythmic substrate <strong>before</strong> overt structural changes — this explains sudden death in young, minimally remodeled hearts and the finding of remodeling in a child who died pre-ARVC (<a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">PMID: 15851108</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23178689/">PMID: 23178689</a>).</li>
+<li><strong>Structural remodeling (downstream):</strong> nuclear plakoglobin suppresses Wnt/β-catenin/Tcf-Lef signaling, activating adipogenic and fibrogenic transcription and yielding fibrofatty replacement (<a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">PMID: 16823493</a>).</li>
+<li><strong>Amplifier (environmental):</strong> mechanical/exercise stress and episodic "myocarditis-like" injury accelerate myocyte death and the concealed→symptomatic transition (<a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">PMID: 16722579</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">PMID: 34776086</a>).</li>
+<li><strong>Convergent therapeutic node:</strong> GSK3β sits at the intersection of these pathways; its inhibition restores junctional protein localization and rescues the phenotype in multiple models — the most compelling disease-modifying lead (<a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a>).</li>
+</ol>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Support/Challenge</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10902626/">10902626</a></td>
+<td>Identifies causal homozygous JUP 2-bp deletion; founder effect</td>
+<td>Foundational — establishes gene &amp; recessive inheritance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11691526/">11691526</a></td>
+<td>Natural history; 100% penetrance; mortality 3%/2.3%</td>
+<td>Defines cardiac penetrance, progression, mortality</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15851108/">15851108</a></td>
+<td>Cx43 remodeling; mutant plakoglobin mislocalizes</td>
+<td>Core electrical mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23178689/">23178689</a></td>
+<td>Reduced PKG/Cx43/NaV1.5 in ~65–74% of ACM</td>
+<td>Extends channel-remodeling mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16823493/">16823493</a></td>
+<td>Nuclear plakoglobin suppresses Wnt; DP-KO mouse</td>
+<td>Structural/adipogenic mechanism + in vivo model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16722579/">16722579</a></td>
+<td>Clinical overview; mechanical-stress mechanism; ICD</td>
+<td>Clinical synthesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15210133/">15210133</a></td>
+<td>Cardiocutaneous spectrum; Poll Hereford homolog</td>
+<td>Temporal sequence + comparative biology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">26015932</a></td>
+<td>SB216763 rescues Naxos plakoglobin models</td>
+<td>Therapeutic mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">26850880</a></td>
+<td>SB216763 normalizes patient buccal cells</td>
+<td>Translational drug evidence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25894016/">25894016</a></td>
+<td>ARVC treatment modalities and their limits</td>
+<td>Treatment framework</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16893920/">16893920</a></td>
+<td>JUP vs PKP2 phenotype/screening markers</td>
+<td>Diagnosis/prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37995437/">37995437</a></td>
+<td>JUP-KO iPSC line</td>
+<td>Model resource</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34776086/">34776086</a></td>
+<td>Myocarditis-like hot-phase episodes</td>
+<td>Progression mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40108711/">40108711</a></td>
+<td>Carvajal (DSP) pediatric cohort; transplant/SCD outcomes</td>
+<td>Genotype-outcome, consanguinity</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Epidemiology is imprecise:</strong> true prevalence/incidence and carrier frequencies are not well quantified beyond founder-population clustering; larger registries are needed (<a href="https://pubmed.ncbi.nlm.nih.gov/32966140/">PMID: 32966140</a>).</li>
+<li><strong>Small cohorts:</strong> natural-history and outcome data derive from limited family cohorts; risk-stratification tools (ARVC risk calculator, LGE) are validated largely in broader ARVC populations, not Naxos-specific samples.</li>
+<li><strong>No approved disease-modifying therapy:</strong> GSK3β inhibition and SGLT2 inhibition are promising but unproven in Naxos-specific human trials.</li>
+<li><strong>Mechanistic gaps:</strong> the precise trafficking route of mutant plakoglobin to the nucleus, the relative timing of electrical vs structural mechanisms in individual patients, and modifiers of variable expressivity remain incompletely defined.</li>
+<li><strong>Cutaneous phenotype under-modeled:</strong> most models focus on the heart; the keratoderma/woolly-hair biology is comparatively unstudied.</li>
+<li><strong>Nomenclature variance:</strong> the causal allele appears as both "2157del2" and "2057del2" across sources — a numbering discrepancy to reconcile against reference transcripts.</li>
+<li><strong>No primary datasets analyzed:</strong> this report is a literature synthesis; all claims are literature-derived and PMID-cited, not derived from a provided experimental dataset.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish a Naxos disease registry</strong> to obtain robust prevalence, penetrance-by-age, and outcome data, and to validate the ARVC risk calculator in this genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/32966140/">PMID: 32966140</a>).</li>
+<li><strong>Advance GSK3β-inhibitor translation:</strong> dose-ranging and safety studies of SB216763 analogs in iPSC-CM and mouse Naxos models, then early-phase human evaluation (<a href="https://pubmed.ncbi.nlm.nih.gov/26015932/">PMID: 26015932</a>).</li>
+<li><strong>Test SGLT2 inhibitors prospectively</strong> in genotype-positive cardiomyopathy carriers for HF prevention, extending the DECLARE-TIMI 58 signal (<a href="https://pubmed.ncbi.nlm.nih.gov/42260102/">PMID: 42260102</a>).</li>
+<li><strong>Generate a homozygous/recessive JUP disease model</strong> (patient iPSC-CMs with the native 2157del2 allele in engineered heart tissue under mechanical load) to capture the exercise/GxE axis.</li>
+<li><strong>Longitudinal biomarker study</strong> using the buccal-mucosa plakoglobin/Cx43 assay to track concealed-phase disease and treatment response (<a href="https://pubmed.ncbi.nlm.nih.gov/26850880/">PMID: 26850880</a>).</li>
+<li><strong>Standardize variant nomenclature</strong> (c.2157del2 vs 2057del2) against the current reference JUP transcript and deposit in ClinVar with full ACMG classification.</li>
+<li><strong>Cutaneous-phenotype mechanistic studies</strong> (keratinocyte/hair-follicle models) to understand plakoglobin's tissue-specific roles.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 5 iterations, 9 confirmed findings, and 39 reviewed papers. Evidence sources span human clinical cohorts, model organisms (mouse, zebrafish, rat, bovine), and in vitro/iPSC systems, as annotated per citation. Category: Mendelian (autosomal recessive).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Naxos_disease-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Naxos_disease-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Naxos_disease-claude_code.html">← Naxos disease (Claude Code)</a>
+                
+                
+                <a href="NDE1-related_Microcephaly_Lissencephaly-falcon.html">NDE1-related Microcephaly-Lissencephaly (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Naxos_disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Naxos_disease-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Naxos_disease-claude_code.html"><span class="provider-pill provider-claude-code">Claude Code</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
