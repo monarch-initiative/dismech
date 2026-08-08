@@ -66,6 +66,7 @@ runs:
         pr_number=""
         pr_head=""
         read_ok=false
+        successful_reads=0
         for attempt in 1 2 3; do
           read_rc=0
           pr_json="$(gh pr list \
@@ -78,6 +79,7 @@ runs:
 
           if [ "$read_rc" -eq 0 ]; then
             read_ok=true
+            successful_reads=$((successful_reads + 1))
             pr_number="$(jq -r '.[0].number // empty' <<<"$pr_json")"
             pr_head="$(jq -r '.[0].headRefOid // empty' <<<"$pr_json")"
             if [ -n "$pr_number" ] && [ "$pr_head" = "$head_sha" ]; then
@@ -107,7 +109,11 @@ runs:
         fi
 
         if [ "$pr_head" != "$head_sha" ]; then
-          echo "PR #$pr_number head ($pr_head) still differs from the commit this run pushed ($head_sha) after 3 reads; assuming the tip genuinely moved. Not approving — the run that produced the newer tip approves its own push."
+          # Report successful reads, not attempts: reads that errored never
+          # returned a tip, so pr_head is only ever an earlier successful read's
+          # value carried forward — "after 3 reads" would overstate the evidence
+          # when some attempts errored.
+          echo "PR #$pr_number head ($pr_head) still differs from the commit this run pushed ($head_sha) after ${successful_reads} successful read(s); assuming the tip genuinely moved. Not approving — the run that produced the newer tip approves its own push."
           exit 0
         fi
 

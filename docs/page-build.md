@@ -235,8 +235,9 @@ carries the full rationale in its `description`), using the ai4c-reviewer app
 token (GITHUB_TOKEN is the PR author and cannot approve its own PR). The
 approval names the exact commit the run just pushed and is skipped if the branch
 tip has moved since, so nothing is vouched for sight-unseen; it re-arms after
-every force-push, since pushes dismiss stale approvals. Placing it in the regen workflows — which always execute — rather
-than a `pull_request`-triggered job is deliberate, per the gating above.
+every force-push, since pushes dismiss stale approvals. Placing it in the regen
+workflows — which always execute — rather than a `pull_request`-triggered job is
+deliberate, per the gating above.
 
 Human-authored PRs are unaffected — every skip requires the bot author — and a
 full agentic review of a regen PR can still be forced by commenting `/review`
