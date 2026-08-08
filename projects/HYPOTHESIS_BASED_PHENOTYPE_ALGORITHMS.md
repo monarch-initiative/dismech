@@ -48,11 +48,11 @@ mechanism.
    (`status` + `rationale` + `evidence`), and reuses `attaches_to` to link the
    pathograph node(s) a hypothesis-based algorithm is predicated on. Gated by
    `test_hypothesis_based_definition_attaches_to_foreign_keys`. See
-   [the design write-up](../hypothesis-based-phenotype-algorithms.md).
+   [the design write-up](../docs/hypothesis-based-phenotype-algorithms.md).
 2. **Worked examples** — each carries a `PHENOTYPE_ALGORITHM` case-finding
    definition **and** a NAM confirmation experiment (below).
 3. **Candidate register + validation guidance** — see
-   [the survey report](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).
+   [the survey report](../docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).
 
 ## Worked examples
 
@@ -94,7 +94,7 @@ This connects to two adjacent projects: `NAMO_RD_MODELS` (the NAMO bridge) and
 
 ## Status & worklist
 
-- [x] Schema extension enacted + gating test + docs (proposal, design-decisions §11, CLAUDE.md)
+- [x] Schema extension enacted + gating test + docs (proposal, design-decisions §12, CLAUDE.md)
 - [x] Timothy_Syndrome — hypothesis, fever nodes/edges, case-finding definition, HUMAN_MODEL_MISMATCH discussion, NAM experiment
 - [x] Brugada_Syndrome — fever-unmasking node, definition, NAM experiment
 - [x] Long_QT_Syndrome — drug-unmasking node, definition, CiPA NAM experiment
@@ -106,7 +106,7 @@ This connects to two adjacent projects: `NAMO_RD_MODELS` (the NAMO bridge) and
 
 ## Links
 
-- Design write-up: [`docs/hypothesis-based-phenotype-algorithms.md`](../hypothesis-based-phenotype-algorithms.md)
-- Candidate register & datasets: [`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](../reports/hypothesis-driven-ehr-case-finding-2026-07-12.md)
-- Decision register: [Design Decisions §11](../explanation/design-decisions.md)
+- Design write-up: [`docs/hypothesis-based-phenotype-algorithms.md`](../docs/hypothesis-based-phenotype-algorithms.md)
+- Candidate register & datasets: [`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](../docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md)
+- Decision register: [Design Decisions §12](../docs/explanation/design-decisions.md#12-gaps)
 - Driving issue: [#6245](https://github.com/monarch-initiative/dismech/issues/6245)

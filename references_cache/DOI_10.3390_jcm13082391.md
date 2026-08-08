@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13082391"
+reference_id: DOI:10.3390/jcm13082391
 title: Primary Coenzyme Q10 Deficiency-Related Ataxias
 authors:
 - Piervito Lopriore
@@ -15,6 +15,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13082391
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Coenzyme Q10 Deficiency-Related Ataxias

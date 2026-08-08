@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells12212579"
+reference_id: DOI:10.3390/cells12212579
 title: "Mechanisms Underlying Rare Inherited Pediatric Retinal Vascular Diseases: FEVR, Norrie Disease, Persistent Fetal Vascular Syndrome"
 authors:
 - Vincent Le
@@ -14,6 +14,7 @@ journal: Cells
 year: '2023'
 doi: 10.3390/cells12212579
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Mechanisms Underlying Rare Inherited Pediatric Retinal Vascular Diseases: FEVR, Norrie Disease, Persistent Fetal Vascular Syndrome

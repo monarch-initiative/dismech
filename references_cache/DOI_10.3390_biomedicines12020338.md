@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12020338"
+reference_id: DOI:10.3390/biomedicines12020338
 title: "Hidradenitis Suppurativa: An Understanding of Genetic Factors and Treatment"
 authors:
 - Yi-Lun Chu
@@ -8,6 +8,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12020338
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Hidradenitis Suppurativa: An Understanding of Genetic Factors and Treatment

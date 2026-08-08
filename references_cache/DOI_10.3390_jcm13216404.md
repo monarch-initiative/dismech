@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13216404"
+reference_id: DOI:10.3390/jcm13216404
 title: The Current Role of Hydroxyurea in the Treatment of Sickle Cell Anemia
 authors:
 - Montserrat López Rubio
@@ -8,6 +8,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13216404
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Current Role of Hydroxyurea in the Treatment of Sickle Cell Anemia

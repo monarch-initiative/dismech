@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm14196826"
+reference_id: DOI:10.3390/jcm14196826
 title: "KRAS G12C Mutation Predicts Improved Survival in NSCLC Patients Receiving Immunotherapy: Insights from a Real-World Cohort"
 authors:
 - Aslı Geçgel
@@ -14,6 +14,7 @@ journal: Journal of Clinical Medicine
 year: '2025'
 doi: 10.3390/jcm14196826
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # KRAS G12C Mutation Predicts Improved Survival in NSCLC Patients Receiving Immunotherapy: Insights from a Real-World Cohort

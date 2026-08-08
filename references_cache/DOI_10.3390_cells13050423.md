@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells13050423"
+reference_id: DOI:10.3390/cells13050423
 title: "Role of Inflammatory Mechanisms in Major Depressive Disorder: From Etiology to Potential Pharmacological Targets"
 authors:
 - Bruna R. Kouba
@@ -11,6 +11,7 @@ journal: Cells
 year: '2024'
 doi: 10.3390/cells13050423
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Role of Inflammatory Mechanisms in Major Depressive Disorder: From Etiology to Potential Pharmacological Targets

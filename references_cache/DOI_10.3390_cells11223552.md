@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cells11223552"
+reference_id: DOI:10.3390/cells11223552
 title: "HIF-1α Regulates Bone Homeostasis and Angiogenesis, Participating in the Occurrence of Bone Metabolic Diseases"
 authors:
 - Wei Chen
@@ -12,6 +12,7 @@ journal: Cells
 year: '2022'
 doi: 10.3390/cells11223552
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # HIF-1α Regulates Bone Homeostasis and Angiogenesis, Participating in the Occurrence of Bone Metabolic Diseases

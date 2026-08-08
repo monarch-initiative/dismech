@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers17111784"
+reference_id: DOI:10.3390/cancers17111784
 title: "Skin Photodamage and Melanomagenesis: A Comprehensive Review"
 authors:
 - Michele Manganelli
@@ -28,6 +28,7 @@ journal: Cancers
 year: '2025'
 doi: 10.3390/cancers17111784
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Skin Photodamage and Melanomagenesis: A Comprehensive Review

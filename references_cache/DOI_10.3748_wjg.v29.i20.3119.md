@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3748/wjg.v29.i20.3119"
+reference_id: DOI:10.3748/wjg.v29.i20.3119
 title: Malignancy risk factors and prognostic variables of pancreatic mucinous cystic neoplasms in Chinese patients
 authors:
 - Qing Xia
@@ -13,6 +13,7 @@ journal: World Journal of Gastroenterology
 year: '2023'
 doi: 10.3748/wjg.v29.i20.3119
 content_type: unavailable
+full_text_attempted: true
 ---
 
 # Malignancy risk factors and prognostic variables of pancreatic mucinous cystic neoplasms in Chinese patients

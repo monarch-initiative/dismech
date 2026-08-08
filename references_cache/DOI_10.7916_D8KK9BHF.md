@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.7916/D8KK9BHF"
+reference_id: DOI:10.7916/D8KK9BHF
 title: "Neuroferritinopathy: Pathophysiology, Presentation, Differential Diagnoses and Management"
 authors:
 - "Kumar, Niraj"
@@ -9,6 +9,7 @@ journal: Tremor and Other Hyperkinetic Movements
 year: '2016'
 doi: 10.7916/D8KK9BHF
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Neuroferritinopathy: Pathophysiology, Presentation, Differential Diagnoses and Management

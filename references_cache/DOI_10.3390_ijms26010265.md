@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26010265"
+reference_id: DOI:10.3390/ijms26010265
 title: Innovative Therapies Targeting Drug-Resistant Biomarkers in Metastatic Clear Cell Renal Cell Carcinoma (ccRCC)
 authors:
 - Moses Owoicho Abah
@@ -20,6 +20,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms26010265
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Innovative Therapies Targeting Drug-Resistant Biomarkers in Metastatic Clear Cell Renal Cell Carcinoma (ccRCC)

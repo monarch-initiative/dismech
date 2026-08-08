@@ -433,12 +433,19 @@ _PROTECTIVE_EFFECT_PATTERNS = (
 )
 
 
-def _exposure_predicate(effect: str | None) -> str:
-    """Map an environmental `effect` free-text field to a Biolink predicate.
+def _exposure_predicate(effect: str | None, links: list[dict[str, Any]] | None = None) -> str:
+    """Map an environmental entry to a Biolink predicate.
 
-    Returns `biolink:associated_with_decreased_likelihood_of` when the curated
-    `effect` text matches one of the protective phrasings below (case-insensitive,
-    word-boundary matched):
+    The structured `influences_mechanisms[].environmental_effect` enum wins when
+    present: if the entry declares mechanism links and *every* one is
+    `PROTECTS_AGAINST`, the exposure is protective. Requiring unanimity keeps the
+    disease-level KGX edge honest, since one exposure can protect against one
+    mechanism while driving another; a mixed set falls back to the free-text
+    reading below rather than picking a winner.
+
+    Otherwise, returns `biolink:associated_with_decreased_likelihood_of` when the
+    curated `effect` text matches one of the protective phrasings below
+    (case-insensitive, word-boundary matched):
 
       - `reduces? risk`
       - `decreased? (odds|risk|chance|incidence|likelihood)`
@@ -449,8 +456,17 @@ def _exposure_predicate(effect: str | None) -> str:
     "TRIGGERS" / "Increases risk", or text that mentions reduction of a
     non-risk noun like "reduced HDL") falls through to the default
     `biolink:contributes_to`. Curators adding new protective environmental
-    entries should phrase the `effect` text to match one of the patterns
-    above; see #2098 for context."""
+    entries should set `environmental_effect: PROTECTS_AGAINST` on the mechanism
+    link, or failing that phrase the `effect` text to match one of the patterns
+    above; see #2098 and #8033 for context."""
+    declared_effects = [
+        link.get("environmental_effect")
+        for link in (links or [])
+        if isinstance(link, dict) and link.get("environmental_effect")
+    ]
+    if declared_effects and all(e == "PROTECTS_AGAINST" for e in declared_effects):
+        return "biolink:associated_with_decreased_likelihood_of"
+
     if effect and any(p.search(effect) for p in _PROTECTIVE_EFFECT_PATTERNS):
         return "biolink:associated_with_decreased_likelihood_of"
     return "biolink:contributes_to"
@@ -479,7 +495,10 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     # Format evidence (direct - attached to environmental entry)
     publications, supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
 
-    predicate = _exposure_predicate(environmental.get("effect"))
+    predicate = _exposure_predicate(
+        environmental.get("effect"),
+        environmental.get("influences_mechanisms"),
+    )
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
         subject=exposure_id,
@@ -886,7 +905,7 @@ def treatment_target_phenotype_to_edge(
 
     Args:
         disease_id: The disease term ID (used as disease_context_qualifier)
-        treatment_id: The treatment term ID (MAXO)
+        treatment_id: The treatment term ID (NCIT)
         phenotype: A phenotype descriptor dict from treatments[].target_phenotypes[]
         parent_evidence: Evidence from parent treatment (indirect)
 
@@ -1059,7 +1078,7 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         treatment_id = _get_term_id(treatment, ["treatment_term", "term", "id"])
         treatment_label = _get_term_id(treatment, ["treatment_term", "term", "label"])
         # Use the canonical ontology label, not the free-text treatment.name —
-        # multiple disorders share one MAXO CURIE with different free-text names,
+        # multiple disorders share one NCIT CURIE with different free-text names,
         # and dedup would otherwise pick whichever name wins.
         node = _emit(treatment_id, treatment_label or treatment.get("name"), "biolink:Treatment")
         if node:

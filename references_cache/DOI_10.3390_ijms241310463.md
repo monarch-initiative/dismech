@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241310463"
+reference_id: DOI:10.3390/ijms241310463
 title: Analysis of the Mutational Landscape of Osteosarcomas Identifies Genes Related to Metastasis and Prognosis and Disrupted Biological Pathways of Immune Response and Bone Development
 authors:
 - Sara Ferreira Pires
@@ -17,6 +17,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241310463
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Analysis of the Mutational Landscape of Osteosarcomas Identifies Genes Related to Metastasis and Prognosis and Disrupted Biological Pathways of Immune Response and Bone Development

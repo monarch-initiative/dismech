@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/microorganisms12010014"
+reference_id: DOI:10.3390/microorganisms12010014
 title: Recent Advances in Assessing the Clinical Implications of Epstein-Barr Virus Infection and Their Application to the Diagnosis and Treatment of Nasopharyngeal Carcinoma
 authors:
 - Tomokazu Yoshizaki
@@ -13,6 +13,7 @@ journal: Microorganisms
 year: '2023'
 doi: 10.3390/microorganisms12010014
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Recent Advances in Assessing the Clinical Implications of Epstein-Barr Virus Infection and Their Application to the Diagnosis and Treatment of Nasopharyngeal Carcinoma

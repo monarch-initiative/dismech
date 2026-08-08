@@ -13,6 +13,8 @@ from pathlib import Path
 import yaml
 from oaklib import get_adapter
 
+from dismech.yaml_io import safe_load
+
 # Initialize adapters
 print("Loading ontology adapters...")
 mondo = get_adapter("sqlite:obo:mondo")
@@ -163,7 +165,7 @@ def process_file(file_path: Path) -> dict:
     stats = {"disease_term_added": False, "cell_types_updated": 0, "file": str(file_path.name)}
 
     with open(file_path, 'r') as f:
-        data = yaml.safe_load(f)
+        data = safe_load(f)
 
     if not data:
         return stats

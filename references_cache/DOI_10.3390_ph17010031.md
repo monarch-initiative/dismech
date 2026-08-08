@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ph17010031"
+reference_id: DOI:10.3390/ph17010031
 title: "Illuminating Dersimelagon: A Novel Agent in the Treatment of Erythropoietic Protoporphyria and X-Linked Protoporphyria"
 authors:
 - Katelyn E. Madigan
@@ -11,6 +11,7 @@ journal: Pharmaceuticals
 year: '2023'
 doi: 10.3390/ph17010031
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Illuminating Dersimelagon: A Novel Agent in the Treatment of Erythropoietic Protoporphyria and X-Linked Protoporphyria
