@@ -3,6 +3,7 @@
 import glob
 import sys
 import warnings
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,11 @@ DISORDER_FILES = [
 ]
 COMORBIDITY_FILES = glob.glob(str(COMORBIDITY_DIR / "*.yaml"))
 GROUPING_FILES = glob.glob(str(GROUPINGS_DIR / "*.yaml"))
+MODULE_FILES = glob.glob(str(MODULES_DIR / "*.yaml"))
+# Every KB entry kind whose pathophysiology nodes may carry `conforms_to`.
+# Groupings are excluded: they reference modules through criteria `module:`
+# slots (checked by test_grouping_module_references), not `conforms_to`.
+CONFORMS_TO_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
@@ -105,6 +111,44 @@ def _disease_names():
 def _module_stems():
     """Set of mechanism module filename stems (without .yaml) in kb/modules/."""
     return {Path(f).stem for f in glob.glob(str(MODULES_DIR / "*.yaml"))}
+
+
+@lru_cache(maxsize=1)
+def _module_node_names():
+    """Map each module stem to the set of its pathophysiology node names.
+
+    Used to resolve the `#Node Name` anchor of a `conforms_to` reference, which
+    `_module_stems()` alone cannot check.
+    """
+    nodes = {}
+    for fp in glob.glob(str(MODULES_DIR / "*.yaml")):
+        with open(fp) as f:
+            data = safe_load(f)
+        if not isinstance(data, dict):
+            continue
+        nodes[Path(fp).stem] = {
+            node.get("name")
+            for node in data.get("pathophysiology") or []
+            if isinstance(node, dict) and node.get("name")
+        }
+    return nodes
+
+
+def _iter_conforms_to(node, path=""):
+    """Yield every ``(dotted_path, conforms_to_value)`` pair in a document.
+
+    `conforms_to` hangs off pathophysiology nodes, which appear at more than one
+    depth across entry kinds, so the whole tree is walked rather than one slot.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            child = f"{path}.{key}" if path else key
+            if key == "conforms_to" and isinstance(value, str) and value.strip():
+                yield child, value
+            yield from _iter_conforms_to(value, child)
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            yield from _iter_conforms_to(item, f"{path}[{index}]")
 
 
 def _grouping_names():
@@ -1307,6 +1351,43 @@ def test_grouping_module_references(filepath):
     assert not errors, (
         f"Grouping module reference mismatches in {Path(filepath).name}. "
         f"Bad refs: {errors}"
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", CONFORMS_TO_FILES)
+def test_conforms_to_module_node_references(filepath):
+    """Every `conforms_to` must resolve to a real module AND a real node in it.
+
+    `test_grouping_module_references` checks the `module:` slots inside grouping
+    membership criteria; nothing checked the `conforms_to` edges on entry
+    pathophysiology nodes, which are what grouping CONFORMS_TO_MODULE criteria
+    are actually evaluated against. A stale stem or a drifted node name makes an
+    entry silently stop satisfying a criterion it is asserted to satisfy — the
+    same class of contradiction the grouping audit reports, but caused by a
+    dangling reference rather than a curation gap.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+    if not isinstance(data, dict):
+        return
+
+    module_nodes = _module_node_names()
+    errors = []
+
+    for path, ref in _iter_conforms_to(data):
+        stem, _, node = ref.partition("#")
+        stem, node = stem.strip(), node.strip()
+        if stem not in module_nodes:
+            errors.append(f"{path}={ref!r}: no kb/modules/{stem}.yaml")
+        elif node and node not in module_nodes[stem]:
+            errors.append(
+                f"{path}={ref!r}: module {stem!r} has no pathophysiology node "
+                f"named {node!r}"
+            )
+
+    assert not errors, (
+        f"Unresolved conforms_to references in {Path(filepath).name}: {errors}"
     )
 
 
