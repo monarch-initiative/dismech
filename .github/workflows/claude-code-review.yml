@@ -18,11 +18,25 @@ concurrency:
 
 jobs:
   claude-review:
+    # Automated page-build regen PRs (auto/generate-pages,
+    # auto/generate-grouping-pages, auto/generate-project-pages — all opened by
+    # github-actions[bot]) are pure derived-asset rebuilds: an agentic review of
+    # thousands of regenerated HTML files is expense without signal. Skip the
+    # agent for those and let the deterministic approve-page-build job below
+    # supply the approving review that branch protection (and their auto-merge)
+    # requires. The author guard means a HUMAN pushing a PR from a branch that
+    # happens to match the prefix still gets the normal agentic review, and the
+    # `/review` comment + workflow_dispatch paths below remain manual escape
+    # hatches for the bot PRs too.
     if: >-
       ${{
         (
           github.event_name == 'pull_request' &&
-          github.event.pull_request.head.repo.full_name == github.repository
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          !(
+            startsWith(github.event.pull_request.head.ref, 'auto/generate-') &&
+            github.event.pull_request.user.login == 'github-actions[bot]'
+          )
         ) ||
         github.event_name == 'workflow_dispatch' ||
         (
@@ -377,3 +391,66 @@ jobs:
           summary("### ❌ Claude review errored\n\n" + msg)
           sys.exit(1)
           PY
+
+  # Deterministic counterpart to the claude-review skip above: automated
+  # page-build regen PRs still need one approving review for branch protection
+  # (their workflows enable `gh pr merge --auto`, which waits on it), so supply
+  # that approval mechanically instead of spending an agent run on thousands of
+  # regenerated HTML files. Runs on `synchronize` too because main has
+  # dismiss_stale_reviews enabled — every force-push of a regen branch dismisses
+  # the previous approval, and this re-supplies it.
+  #
+  # Trust model: `auto/generate-*` heads can only be pushed by this repo's own
+  # workflows, and only their `gh pr create` (GITHUB_TOKEN) yields the
+  # github-actions[bot] author this job requires — a human-authored PR, even
+  # from a matching branch name, never lands here (it gets the normal agentic
+  # review instead). The diff is deliberately NOT enumerated: full page
+  # rebuilds are exactly the PRs whose diffs GitHub cannot enumerate (see the
+  # preflight above), so a path allowlist check would be unreliable on the PRs
+  # this job exists for.
+  #
+  # The approval must come from the ai4c-reviewer app: github.token is
+  # github-actions[bot], the PR author, and GitHub forbids approving your own
+  # PR. If the app token cannot be minted this job fails red rather than
+  # letting the PR sit unapproved with a green check.
+  approve-page-build:
+    if: >-
+      ${{
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.base.ref == 'main' &&
+        startsWith(github.event.pull_request.head.ref, 'auto/generate-') &&
+        github.event.pull_request.user.login == 'github-actions[bot]'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Generate ai4c-reviewer token
+        id: reviewer-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.AI4C_REVIEWER_PRIVATE_KEY }}
+
+      - name: Approve automated page-build PR
+        env:
+          GH_TOKEN: ${{ steps.reviewer-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          gh pr review "${PR_NUMBER}" --repo "${REPO}" --approve --body "$(cat <<EOF
+          ✅ **Automated approval — page-build regeneration PR**
+
+          This PR was opened by the \`${HEAD_REF}\` regen workflow and contains only
+          derived static assets, so the agentic review is skipped for it and this
+          deterministic approval satisfies branch protection instead (its workflow
+          has already enabled auto-merge). To force a full agentic review anyway,
+          comment \`/review\` on this PR or dispatch the Claude Code Review workflow
+          with this PR number.
+          EOF
+          )"

@@ -209,6 +209,21 @@ than replacing. Two consequences are easy to get wrong:
   execute an hour after the run was triggered — long enough for a PR that was
   fresh at trigger time to look abandoned by the time it is judged.
 
+### Review and approval
+
+Regen PRs get **no agentic review**. The `claude-code-review` workflow skips its
+review agent for any PR whose head branch starts with `auto/generate-` (this
+covers `auto/generate-pages`, `auto/generate-grouping-pages`, and
+`auto/generate-project-pages`) *and* whose author is `github-actions[bot]` — an
+LLM review of thousands of regenerated HTML files is cost without signal.
+Because branch protection still requires one approving review before the armed
+auto-merge can fire, the same workflow's deterministic `approve-page-build` job
+approves these PRs mechanically (via the ai4c-reviewer app), re-approving after
+each force-push since pushes dismiss stale approvals. Human-authored PRs are
+unaffected — the skip requires the bot author — and a full agentic review of a
+regen PR can still be forced by commenting `/review` on it or dispatching the
+review workflow with its PR number.
+
 See issue [#5507](https://github.com/monarch-initiative/dismech/issues/5507) for
 the design rationale and [#5198](https://github.com/monarch-initiative/dismech/issues/5198)
 for the broader build-speed work.
