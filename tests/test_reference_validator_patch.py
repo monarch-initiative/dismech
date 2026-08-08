@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from linkml_reference_validator.etl.extract.xml import XMLExtractor
 from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.models import ReferenceValidationConfig
 
@@ -32,8 +33,7 @@ def test_bare_nct_reference_resolves_to_clinicaltrials_cache_path(tmp_path):
 
     for reference_id in ("NCT06087757", "nct06087757"):
         assert (
-            fetcher.get_cache_path(reference_id).name
-            == "clinicaltrials_NCT06087757.md"
+            fetcher.get_cache_path(reference_id).name == "clinicaltrials_NCT06087757.md"
         ), reference_id
 
 
@@ -44,9 +44,39 @@ def test_bare_nct_patch_leaves_other_bare_identifiers_alone(tmp_path):
     fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
 
     for reference_id in ("NCTNOTANID", "12345678", "PMID:12345678"):
-        assert "clinicaltrials_NCTNOTANID" not in fetcher.get_cache_path(
-            reference_id
-        ).name, reference_id
+        assert (
+            "clinicaltrials_NCTNOTANID" not in fetcher.get_cache_path(reference_id).name
+        ), reference_id
+
+
+def test_pmc_restricted_by_metadata_does_not_hide_available_body():
+    """JATS ``restricted-by`` metadata is not evidence that the body is absent."""
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <processing-meta><restricted-by>pmc</restricted-by></processing-meta>
+      <body><sec><p>Exact full-text evidence remains available.</p></sec></body>
+    </article>
+    """
+
+    assert XMLExtractor().extract(xml) == "Exact full-text evidence remains available."
+
+
+def test_pmc_restricted_record_without_body_remains_unavailable():
+    """The compatibility patch must not manufacture text for an absent body."""
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"<article><restricted-by>pmc</restricted-by></article>"
+
+    assert XMLExtractor().extract(xml) is None
+
+
+def test_fetch_reference_recipe_uses_patched_validator_wrapper():
+    """Cache generation must apply the same compatibility patches as validation."""
+    recipe = Path("project.justfile").read_text(encoding="utf-8")
+
+    assert 'scripts/run_reference_validator.sh cache reference "$identifier"' in recipe
 
 
 def test_reference_validator_wrapper_treats_warning_only_exit_as_advisory(
