@@ -100,7 +100,17 @@ D3.js + dagre       --> Interactive SVG visualization
 
 ## YAML Structure That Drives Pathographs
 
-Edges come from two sources:
+Edges come from several sources. The causal backbone is built from
+pathophysiology `downstream` and phenotype `sequelae`; the other sections join
+that backbone through their own explicit linking slots (`environmental` via
+`influences_mechanisms`, `treatments` via `target_mechanisms`,
+`experimental_models`/`computational_models` via `modeled_mechanisms`, and
+`biochemical` via `readouts`).
+
+**A node with no edges is not drawn.** `graph_to_json` emits only nodes that
+appear as the source or target of some edge, so an entry that never declares a
+link stays off the pathograph even though it still renders in its own card on
+the disorder page.
 
 ### Pathophysiology `downstream` edges
 
@@ -126,6 +136,59 @@ phenotypes:
   - target: Respiratory Distress
   - target: Reduced Exercise Tolerance
 ```
+
+### Environmental `influences_mechanisms` edges
+
+An environmental factor is only drawn once it says which mechanism it acts on.
+Because these edges point *into* the causal chain and nothing points back at
+them, exposures settle on the far left of the layout as the initiating steps
+they usually are.
+
+```yaml
+environmental:
+- name: Chronic ingestion of arsenic-contaminated drinking water
+  influences_mechanisms:
+  - target: Systemic inorganic arsenic exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: >-
+      Sustained ingestion of contaminated groundwater is the route by which the
+      systemic arsenic burden is established.
+    evidence:
+    - reference: PMID:21576319
+      supports: SUPPORT
+      snippet: "..."
+```
+
+`environmental_effect` (`EnvironmentalEffectEnum`) keeps the direction of the
+exposure honest, and drives the edge predicate:
+
+| `environmental_effect` | Edge predicate | When to use |
+|---|---|---|
+| `TRIGGERS` | `triggers` | The exposure initiates the mechanism |
+| `EXACERBATES` | `exacerbates` | The mechanism can arise independently; the exposure worsens it |
+| `PREDISPOSES` | `predisposes_to` | Raises susceptibility but is not sufficient on its own |
+| `PROTECTS_AGAINST` | `protects_against` | Reduces occurrence or severity |
+| `MODULATES` | `modulates` | Direction is context dependent |
+| *(omitted)* | `influences` | Direction genuinely unstated in the cited evidence |
+
+Protective edges are drawn green with a dashed line and a tee head, so they
+never read as causal arrows. Omitting `environmental_effect` falls back to the
+neutral `influences` predicate rather than silently asserting causation — prefer
+an explicit value.
+
+The effect also decides whether the edge counts as *mechanistically explaining*
+its target. `TRIGGERS` and `EXACERBATES` join `causes`/`leads_to` in
+`qc_plugins.CAUSAL_PREDICATES`, so an exposure curated directly onto a phenotype
+wires that phenotype in for compliance scoring. `PREDISPOSES`,
+`PROTECTS_AGAINST`, `MODULATES` and the bare `influences` fallback deliberately
+do not — raising susceptibility, running the other way, or declining to commit
+is not an explanation.
+
+This is distinct from `Pathophysiology.triggers`, which hangs an ECTO exposure
+term directly on a mechanism node. Use `triggers` to annotate a node's exposure
+term; use `influences_mechanisms` to pull a disease-level `environmental:` entry
+into the graph as its own node.
 
 The `target` field must match the `name` of another entry in any section. Unresolved targets appear as orphan nodes with dashed red borders.
 
