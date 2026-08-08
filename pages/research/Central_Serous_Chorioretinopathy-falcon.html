@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1012,11 +1174,11 @@ CSC has a polygenic, multifactorial inheritance pattern. Multiple genome-wide as
 </table></div></details>
 <p><em>Table: This table summarizes current treatment options for central serous chorioretinopathy, including mechanisms, indications, comparative efficacy, and the strength of supporting evidence. It is useful for quickly distinguishing standard-of-care therapies such as half-dose PDT from conditional, off-label, or investigational options.</em></p>
 <h3>Key Treatment Details</h3>
-<p><strong>Half-Dose Photodynamic Therapy (PDT):</strong> The mainstay of treatment for chronic CSC, with SRF resolution rates of 91% at 19 months and 81% at 50 months follow-up. PDT reduces recurrence risk to approximately 20% compared to 53.8% with observation alone over ≥3-year follow-up (<a href="#ref-kim2025treatmentofcentral-pages-8-9">kim2025treatmentofcentral pages 8-9</a>). PDT works through choriocapillaris vascular remodeling and decreased choroidal hyperpermeability (<a href="#ref-zhang2023centralserouschorioretinopathy-pages-1-2">zhang2023centralserouschorioretinopathy pages 1-2</a>). <strong>MAXO term:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (phototherapy).</p>
-<p><strong>Mineralocorticoid Receptor Antagonists (Eplerenone/Spironolactone):</strong> The randomized VICI trial showed eplerenone failed to meet its primary endpoint of improving BCVA at 12 months in chronic CSC, making its routine use controversial (<a href="#ref-kim2025treatmentofcentral-pages-9-10">kim2025treatmentofcentral pages 9-10</a>, <a href="#ref-zhang2023centralserouschorioretinopathy-pages-1-2">zhang2023centralserouschorioretinopathy pages 1-2</a>). <strong>MAXO term:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000010" target="_blank" rel="noopener noreferrer">MAXO:0000010</a> (pharmacotherapy).</p>
-<p><strong>Anti-VEGF Therapy:</strong> Standard treatment specifically for CSC complicated by active choroidal neovascularization (type 1 CNV), supported by the MINERVA trial. Not effective as monotherapy for uncomplicated CSC (<a href="#ref-kim2025treatmentofcentral-pages-9-10">kim2025treatmentofcentral pages 9-10</a>, <a href="#ref-kim2025treatmentofcentral-pages-9-9">kim2025treatmentofcentral pages 9-9</a>). <strong>MAXO term:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> (intravitreal injection).</p>
+<p><strong>Half-Dose Photodynamic Therapy (PDT):</strong> The mainstay of treatment for chronic CSC, with SRF resolution rates of 91% at 19 months and 81% at 50 months follow-up. PDT reduces recurrence risk to approximately 20% compared to 53.8% with observation alone over ≥3-year follow-up (<a href="#ref-kim2025treatmentofcentral-pages-8-9">kim2025treatmentofcentral pages 8-9</a>). PDT works through choriocapillaris vascular remodeling and decreased choroidal hyperpermeability (<a href="#ref-zhang2023centralserouschorioretinopathy-pages-1-2">zhang2023centralserouschorioretinopathy pages 1-2</a>). <strong>MAXO term:</strong> <a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (phototherapy).</p>
+<p><strong>Mineralocorticoid Receptor Antagonists (Eplerenone/Spironolactone):</strong> The randomized VICI trial showed eplerenone failed to meet its primary endpoint of improving BCVA at 12 months in chronic CSC, making its routine use controversial (<a href="#ref-kim2025treatmentofcentral-pages-9-10">kim2025treatmentofcentral pages 9-10</a>, <a href="#ref-zhang2023centralserouschorioretinopathy-pages-1-2">zhang2023centralserouschorioretinopathy pages 1-2</a>). <strong>MAXO term:</strong> <a href="https://bioregistry.io/MAXO:0000010" target="_blank" rel="noopener noreferrer">MAXO:0000010</a> (pharmacotherapy).</p>
+<p><strong>Anti-VEGF Therapy:</strong> Standard treatment specifically for CSC complicated by active choroidal neovascularization (type 1 CNV), supported by the MINERVA trial. Not effective as monotherapy for uncomplicated CSC (<a href="#ref-kim2025treatmentofcentral-pages-9-10">kim2025treatmentofcentral pages 9-10</a>, <a href="#ref-kim2025treatmentofcentral-pages-9-9">kim2025treatmentofcentral pages 9-9</a>). <strong>MAXO term:</strong> <a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> (intravitreal injection).</p>
 <p><strong>Subthreshold Micropulse Laser:</strong> Complete SRF resolution in 36–100% of chronic CSC patients across studies; the PLACE trial showed inferiority to half-dose PDT (<a href="#ref-kim2025treatmentofcentral-pages-7-8">kim2025treatmentofcentral pages 7-8</a>, <a href="#ref-zhang2023centralserouschorioretinopathy-pages-14-15">zhang2023centralserouschorioretinopathy pages 14-15</a>).</p>
-<p><strong>Focal Laser Photocoagulation:</strong> Appropriate for extrafoveal leakage points identified on FA/ICGA (<a href="#ref-kim2025treatmentofcentral-pages-9-10">kim2025treatmentofcentral pages 9-10</a>, <a href="#ref-kim2025treatmentofcentral-pages-7-8">kim2025treatmentofcentral pages 7-8</a>). <strong>MAXO term:</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0010022" target="_blank" rel="noopener noreferrer">MAXO:0010022</a> (laser photocoagulation).</p>
+<p><strong>Focal Laser Photocoagulation:</strong> Appropriate for extrafoveal leakage points identified on FA/ICGA (<a href="#ref-kim2025treatmentofcentral-pages-9-10">kim2025treatmentofcentral pages 9-10</a>, <a href="#ref-kim2025treatmentofcentral-pages-7-8">kim2025treatmentofcentral pages 7-8</a>). <strong>MAXO term:</strong> <a href="https://bioregistry.io/MAXO:0010022" target="_blank" rel="noopener noreferrer">MAXO:0010022</a> (laser photocoagulation).</p>
 <h3>Active Clinical Trials</h3>
 <p>Current recruiting trials include studies evaluating gut microbiota associations (NCT06527326), micropulse laser treatment (NCT06346405), choroidal blood flow assessment (NCT05589974), and subthreshold nanosecond laser (NCT05570591). A phase 2/3 trial evaluating oral melatonin for acute CSC (NCT06809751) is not yet recruiting.</p>
 <hr />
@@ -1067,7 +1229,7 @@ CSC has a polygenic, multifactorial inheritance pattern. Multiple genome-wide as
 <strong>Anatomical structures (UBERON):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> (retina), <a href="http://purl.obolibrary.org/obo/UBERON_0001776" target="_blank" rel="noopener noreferrer">UBERON:0001776</a> (choroid), <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" rel="noopener noreferrer">UBERON:0000053</a> (macula lutea)
 <strong>Cell types (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a> (retinal pigment epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> (photoreceptor cell)
 <strong>Biological processes (GO):</strong> <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a> (complement activation), <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" rel="noopener noreferrer">GO:0001974</a> (blood vessel remodeling), <a href="http://purl.obolibrary.org/obo/GO_0045766" target="_blank" rel="noopener noreferrer">GO:0045766</a> (positive regulation of angiogenesis)
-<strong>Treatments (MAXO):</strong> <a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (phototherapy), <a href="http://purl.obolibrary.org/obo/MAXO_0000010" target="_blank" rel="noopener noreferrer">MAXO:0000010</a> (pharmacotherapy), <a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> (intravitreal injection), <a href="http://purl.obolibrary.org/obo/MAXO_0010022" target="_blank" rel="noopener noreferrer">MAXO:0010022</a> (laser photocoagulation)
+<strong>Treatments (MAXO):</strong> <a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a> (phototherapy), <a href="https://bioregistry.io/MAXO:0000010" target="_blank" rel="noopener noreferrer">MAXO:0000010</a> (pharmacotherapy), <a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> (intravitreal injection), <a href="https://bioregistry.io/MAXO:0010022" target="_blank" rel="noopener noreferrer">MAXO:0010022</a> (laser photocoagulation)
 <strong>Chemical entities (CHEBI):</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" rel="noopener noreferrer">CHEBI:50858</a> (corticosteroid), <a href="http://purl.obolibrary.org/obo/CHEBI_6781" target="_blank" rel="noopener noreferrer">CHEBI:6781</a> (mineralocorticoid), <a href="http://purl.obolibrary.org/obo/CHEBI_145022" target="_blank" rel="noopener noreferrer">CHEBI:145022</a> (eplerenone), <a href="http://purl.obolibrary.org/obo/CHEBI_50267" target="_blank" rel="noopener noreferrer">CHEBI:50267</a> (verteporfin)</p>
 <hr />
 <p><em>This report integrates evidence from 10 primary literature sources, 13 clinical trials, and OpenTargets disease-target association data. Disease information is derived from aggregated disease-level resources including comprehensive reviews, GWAS meta-analyses, and clinical trial data rather than individual patient electronic health records.</em></p>
