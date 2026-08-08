@@ -837,67 +837,18 @@ validate-references-all:
 # reference-validation recipes, so it MUST be a no-op on a well-formed cache --
 # otherwise every validation run re-writes thousands of unrelated files and the
 # working tree fills with quoting-only churn a curator then has to avoid staging.
+# The logic lives in `dismech.reference_cache_quote` so it is unit-testable and
+# guarded by a no-op regression test (tests/test_reference_cache_quote.py);
+# `needs_quoting` there records WHY the naive "any colon -> quote" rule was wrong.
 #
-# The predicate quotes a value only when YAML genuinely requires it. Critically,
-# an embedded colon forces quoting ONLY when it is followed by whitespace or ends
-# the value (the `key: value` ambiguity); a bare `PREFIX:LOCALID` colon
-# (`reference_id: PMID:11390973`, `doi: 10.1023/a:1022935115323`) is a valid
-# plain scalar and is left alone. The reference fetcher deliberately writes those
-# two fields unquoted, so the old "any colon -> quote" rule fought it and
-# re-quoted ~9.9k files on every run (all reference_id/doi lines) without ever
-# fixing a real problem. Do NOT restore the naive `c in value` test.
+# The committed cache is intentionally left MIXED -- values quoted by past sweeps
+# stay quoted, the fetcher's native unquoted `reference_id:`/`doi:` form stays
+# unquoted, and both parse identically. Do NOT "normalize" that split in either
+# direction: it would be a 10k-26k-file diff and would reintroduce exactly the
+# churn this recipe exists to avoid.
 [group('QC')]
 fix-references-cache:
-    #!/usr/bin/env python3
-    import re
-    from pathlib import Path
-
-    # Leading YAML indicator characters that start a special construct and so
-    # force quoting when they are the first character of a plain scalar.
-    LEADING_INDICATORS = set("!&*[]{}#,>|%@`\"'?:")
-
-    def needs_quoting(value):
-        if not value:
-            return False
-        if value != value.strip():          # leading/trailing whitespace
-            return True
-        if value[0] in LEADING_INDICATORS:  # value starts with an indicator
-            return True
-        if value[0] == "-" and (len(value) == 1 or value[1] == " "):
-            return True                     # "- " block-sequence indicator
-        if ": " in value or value.endswith(":"):
-            return True                     # colon that YAML reads as a mapping
-        if " #" in value:
-            return True                     # start of an inline comment
-        return False
-
-    cache_dir = Path("references_cache")
-    if not cache_dir.exists():
-        exit(0)
-    for md_file in cache_dir.glob("*.md"):
-        content = md_file.read_text(encoding="utf-8")
-        if not content.startswith("---"):
-            continue
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            continue
-        frontmatter, body = parts[1], parts[2]
-        lines, new_lines, modified = frontmatter.split("\n"), [], False
-        for line in lines:
-            if not line.strip() or line.strip().startswith("-"):
-                new_lines.append(line)
-                continue
-            match = re.match(r'^(\s*)([a-z_]+):\s+(.+)$', line, re.IGNORECASE)
-            if match:
-                indent, key, value = match.groups()
-                is_quoted = value.startswith('"') or value.startswith("'")
-                if needs_quoting(value) and not is_quoted:
-                    new_lines.append(f'{indent}{key}: "{value.replace(chr(34), chr(92)+chr(34))}"')
-                    modified = True
-                    continue
-            new_lines.append(line)
-        if modified:
-            md_file.write_text(f"---{chr(10).join(new_lines)}---{body}", encoding="utf-8")
+    uv run python -m dismech.reference_cache_quote references_cache
 
 # Warm the reference cache's full-text-attempt state (stops repeated PDF
 # re-downloads during `just validate`). Idempotent + resumable: only touches
