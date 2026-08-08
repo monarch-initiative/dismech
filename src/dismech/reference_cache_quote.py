@@ -170,7 +170,7 @@ def requote_frontmatter(frontmatter: str) -> tuple[str, bool]:
     # Split only on actual YAML line endings. ``str.splitlines`` also treats
     # U+2028/U+2029 in publication titles as separators and would corrupt them.
     for raw_line in frontmatter.split("\n"):
-        line = raw_line[:-1] if raw_line.endswith("\r") else raw_line
+        line = raw_line.removesuffix("\r")
         carriage_return = "\r" if raw_line.endswith("\r") else ""
         if not line.strip() or line.strip().startswith("-"):
             new_lines.append(raw_line)
