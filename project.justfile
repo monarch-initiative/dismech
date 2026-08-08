@@ -1089,7 +1089,10 @@ export-context-scores output_dir="output/context_scores":
     mkdir -p {{output_dir}}
     uv run dismech-context-scores -i {{kb_dir}} -o {{output_dir}}
 
-# Generate KGX edges from disorder knowledge base
+# Generate KGX edges from disorder knowledge base.
+# Emits three files: kgx_export_nodes.jsonl, kgx_export_edges.jsonl, and the
+# SEPIO evidence sidecar kgx_export_sepio.jsonl (joins to the edges on `id`).
+# See docs/sepio-export.md.
 [group('Export')]
 export-kgx:
     mkdir -p output/kgx
