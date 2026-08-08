@@ -1,10 +1,11 @@
 """Idempotent YAML-quoting normalization for reference-cache frontmatter.
 
-``just fix-references-cache`` runs this as a whole-cache sweep (tens of thousands
-of files) before most reference-validation recipes, so it MUST be a no-op on a
-well-formed cache. If it rewrites files that do not need it, every validation run
+``just fix-references-cache`` normally scopes this operation to the caches cited
+by the data files being validated; omitting data-file arguments retains an
+explicit whole-cache maintenance mode. Either mode MUST be a no-op on already
+well-formed cache records. If it rewrites files that do not need it, validation
 fills the working tree with quoting-only churn a curator then has to notice and
-avoid staging. That is exactly what happened before issue-level fix in PR #8203:
+avoid staging. That is exactly what happened before the issue-level fixes:
 the old predicate quoted any value containing a colon, so it re-quoted every
 ``reference_id: PREFIX:LOCALID`` line (and the handful of ``doi:`` values with an
 embedded colon) on every run — ~9.9k of ~35.6k files — without ever fixing a real
@@ -26,17 +27,23 @@ identically; normalizing either way would mean a 10k–26k-file diff, which is t
 churn this module exists to avoid. Do NOT "clean up" that split, and do NOT
 restore the naive ``c in value`` colon test.
 
-This deliberately keeps the historical ``str.split("---", 2)`` reconstruction so
-its output is byte-for-byte what the recipe produced; the no-op property is what
-protects the rare ``---``-in-title records (issue #7697) from that naive split,
-since a file that needs no rewrite is never reconstructed.
+Frontmatter replacement uses match offsets into the original text so a literal
+``---`` in the body is never mistaken for the closing delimiter. Double-quoted
+rewrites escape backslashes before quotes so values such as ``C:\\study`` remain
+valid YAML and round-trip unchanged.
 """
 
 from __future__ import annotations
 
 import re
 import sys
+from collections.abc import Iterable, Iterator
 from pathlib import Path
+from typing import Any
+
+import yaml
+
+from dismech.yaml_io import safe_load_path
 
 __all__ = [
     "files_needing_requote",
@@ -44,6 +51,7 @@ __all__ = [
     "needs_quoting",
     "normalize_reference_cache",
     "requote_frontmatter",
+    "resolve_cache_paths",
 ]
 
 # YAML indicator characters that force quoting when they are the first character
@@ -57,6 +65,66 @@ __all__ = [
 _LEADING_INDICATORS = frozenset("!&*[]{}#,>|%@`\"'?:")
 
 _FRONTMATTER_KEY_RE = re.compile(r"^(\s*)([a-z_]+):\s+(.+)$", re.IGNORECASE)
+_FRONTMATTER_RE = re.compile(
+    r"\A---[ \t]*\r?\n(?P<frontmatter>.*?)(?:\r?\n)---[ \t]*(?:\r?\n|\Z)",
+    re.DOTALL,
+)
+
+
+def iter_reference_ids(value: Any) -> Iterator[str]:
+    """Yield values from slots implementing ``linkml:authoritative_reference``."""
+    if isinstance(value, dict):
+        for slot_name in ("reference", "accession"):
+            reference = value.get(slot_name)
+            if isinstance(reference, str) and reference.strip():
+                yield reference.strip()
+        for child in value.values():
+            yield from iter_reference_ids(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from iter_reference_ids(child)
+
+
+def _safe_cache_stem(reference_id: str) -> str:
+    return (
+        reference_id.replace(":", "_")
+        .replace("/", "_")
+        .replace("?", "_")
+        .replace("=", "_")
+    )
+
+
+def _cache_index(cache_dir: Path) -> tuple[dict[str, Path], dict[str, Path | None]]:
+    by_stem: dict[str, Path] = {}
+    by_bare_id: dict[str, Path | None] = {}
+    for path in cache_dir.glob("*.md"):
+        by_stem.setdefault(path.stem.casefold(), path)
+        prefix, separator, tail = path.stem.partition("_")
+        if prefix and separator and tail:
+            key = tail.casefold()
+            by_bare_id[key] = None if key in by_bare_id else path
+    return by_stem, by_bare_id
+
+
+def resolve_cache_paths(cache_dir: Path, data_files: Iterable[Path]) -> list[Path]:
+    """Resolve caches cited by data files, leaving input diagnostics to validators."""
+    by_stem, by_bare_id = _cache_index(cache_dir)
+    resolved: set[Path] = set()
+    for data_file in data_files:
+        try:
+            data = safe_load_path(data_file)
+        except (OSError, yaml.YAMLError):
+            continue
+        for reference_id in iter_reference_ids(data):
+            key = _safe_cache_stem(reference_id).casefold()
+            path = by_stem.get(key)
+            if path is None:
+                # Bare identifiers such as NCT06087757 are cached under the
+                # source's canonical prefix (clinicaltrials_NCT06087757.md).
+                path = by_bare_id.get(key)
+            if path is not None:
+                resolved.add(path)
+    return sorted(resolved)
 
 
 def needs_quoting(value: str) -> bool:
@@ -99,56 +167,73 @@ def requote_frontmatter(frontmatter: str) -> tuple[str, bool]:
     """Return ``(new_frontmatter, modified)`` after quoting values that need it."""
     new_lines: list[str] = []
     modified = False
-    for line in frontmatter.split("\n"):
+    # Split only on actual YAML line endings. ``str.splitlines`` also treats
+    # U+2028/U+2029 in publication titles as separators and would corrupt them.
+    for raw_line in frontmatter.split("\n"):
+        line = raw_line[:-1] if raw_line.endswith("\r") else raw_line
+        carriage_return = "\r" if raw_line.endswith("\r") else ""
         if not line.strip() or line.strip().startswith("-"):
-            new_lines.append(line)
+            new_lines.append(raw_line)
             continue
         match = _FRONTMATTER_KEY_RE.match(line)
         if match:
             indent, key, value = match.groups()
             is_quoted = value.startswith(('"', "'"))
             if needs_quoting(value) and not is_quoted:
-                escaped = value.replace('"', '\\"')
-                new_lines.append(f'{indent}{key}: "{escaped}"')
+                escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+                new_lines.append(f'{indent}{key}: "{escaped}"{carriage_return}')
                 modified = True
                 continue
-        new_lines.append(line)
+        new_lines.append(raw_line)
     return "\n".join(new_lines), modified
 
 
-def _iter_cache_files(cache_dir: Path):
-    for md_file in sorted(cache_dir.glob("*.md")):
+def _iter_cache_files(cache_dir: Path, data_files: Iterable[Path] = ()):
+    inputs = list(data_files)
+    targets = (
+        resolve_cache_paths(cache_dir, inputs)
+        if inputs
+        else sorted(cache_dir.glob("*.md"))
+    )
+    for md_file in targets:
         content = md_file.read_text(encoding="utf-8")
-        if not content.startswith("---"):
+        match = _FRONTMATTER_RE.match(content)
+        if match is None:
             continue
-        parts = content.split("---", 2)
-        if len(parts) < 3:
-            continue
-        yield md_file, parts[1], parts[2]
+        yield md_file, content, match
 
 
-def files_needing_requote(cache_dir: str | Path) -> list[str]:
+def files_needing_requote(
+    cache_dir: str | Path, data_files: Iterable[Path] = ()
+) -> list[str]:
     """Read-only: names of cache files the sweep would rewrite (no writes)."""
     cache_dir = Path(cache_dir)
     if not cache_dir.exists():
         return []
     return [
         md_file.name
-        for md_file, frontmatter, _body in _iter_cache_files(cache_dir)
-        if requote_frontmatter(frontmatter)[1]
+        for md_file, _content, match in _iter_cache_files(cache_dir, data_files)
+        if requote_frontmatter(match.group("frontmatter"))[1]
     ]
 
 
-def normalize_reference_cache(cache_dir: str | Path) -> list[str]:
+def normalize_reference_cache(
+    cache_dir: str | Path, data_files: Iterable[Path] = ()
+) -> list[str]:
     """Quote frontmatter values that need it; return the names of rewritten files."""
     cache_dir = Path(cache_dir)
     rewritten: list[str] = []
     if not cache_dir.exists():
         return rewritten
-    for md_file, frontmatter, body in _iter_cache_files(cache_dir):
-        new_frontmatter, modified = requote_frontmatter(frontmatter)
+    for md_file, content, match in _iter_cache_files(cache_dir, data_files):
+        new_frontmatter, modified = requote_frontmatter(match.group("frontmatter"))
         if modified:
-            md_file.write_text(f"---{new_frontmatter}---{body}", encoding="utf-8")
+            normalized = (
+                content[: match.start("frontmatter")]
+                + new_frontmatter
+                + content[match.end("frontmatter") :]
+            )
+            md_file.write_text(normalized, encoding="utf-8")
             rewritten.append(md_file.name)
     return rewritten
 
@@ -156,7 +241,8 @@ def normalize_reference_cache(cache_dir: str | Path) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     cache_dir = Path(args[0]) if args else Path("references_cache")
-    rewritten = normalize_reference_cache(cache_dir)
+    data_files = [Path(value) for value in args[1:]]
+    rewritten = normalize_reference_cache(cache_dir, data_files)
     if rewritten:
         print(f"fix-references-cache: re-quoted {len(rewritten)} file(s)")
     return 0
