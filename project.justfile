@@ -59,9 +59,24 @@ validate-all:
 
 # Full validation of a single disorder file (schema + terms + references)
 # Note: default validation runs only the offline enum-cache structural check.
-# The full OAK-backed `check-enum-cache` audit re-derives every dynamic enum and
-# can pull multi-GB sqlite:obo:* DBs (e.g. ncbitaxon ~13.5 GB), so run it
-# explicitly only when refreshing/auditing enum cache membership.
+# The full OAK-backed `check-enum-cache` audit re-derives membership for EVERY
+# cached CURIE one at a time (see scan_enum_cache_dir -> is_value_in_enum), so
+# run it explicitly only when refreshing/auditing enum cache membership.
+#
+# Cost, now that the ontologies are on `ols:`: that is 13,870 CURIEs across
+# cache/enums/*.csv, each costing at least one OLS ancestors round trip at
+# roughly 1.5-2 s, i.e. the better part of a day serialized. Note this audit was
+# ALREADY mostly remote before the HP/CL/CHEBI/ENVO/FOODON migration — 8,138 of
+# those CURIEs (59%) belong to enums backed by MONDO/GO/UBERON/NCIT/NCBITaxon,
+# which moved to OLS in #5160. The migration took it from 59% to 99.3% remote
+# (only 99 CURIEs, ECTO/XCO/OPL/ICD, still resolve locally); it made an already
+# impractical full audit somewhat slower rather than newly expensive.
+#
+# If you genuinely need a fast full re-derivation, point the relevant prefixes
+# at `sqlite:obo:*` in conf/oak_config.yaml for the duration and restore the
+# file afterwards — the same escape hatch the note at the bottom of that file
+# documents for OLS timeouts. Membership results are adapter-independent
+# (verified before each migration), so the audit is equally valid either way.
 [group('QC')]
 validate file:
     #!/usr/bin/env bash
@@ -580,7 +595,7 @@ check-cache-order:
 # validation needs, so a flaky/blocked download does not abort validation
 # mid-run. Fetch all, or only the named ontologies:
 #   just fetch-ontology-dbs
-#   just fetch-ontology-dbs ncbitaxon hp
+#   just fetch-ontology-dbs hgnc geno
 [group('QC')]
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
