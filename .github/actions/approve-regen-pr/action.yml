@@ -56,27 +56,50 @@ runs:
         # a few times before concluding, so the approval stays deterministic
         # instead of silently no-oping on API lag (the PR would otherwise sit
         # unapproved with auto-merge armed until the next regen run).
+        #
+        # The read is also allowed to FAIL transiently: `|| read_rc=$?` keeps a
+        # non-zero `gh` exit (a 5xx, a timeout) from tripping `set -e` and
+        # failing the whole regen job after it has already spent minutes
+        # rendering pages. A retryable error is treated like stale data — try
+        # again — and only an all-attempts-failed read is fatal, since at that
+        # point we cannot know whether an approval is owed.
         pr_number=""
         pr_head=""
+        read_ok=false
         for attempt in 1 2 3; do
+          read_rc=0
           pr_json="$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --head "$BRANCH_NAME" \
             --state open \
             --author "app/github-actions" \
             --json number,headRefOid \
-            --limit 1)"
-          pr_number="$(jq -r '.[0].number // empty' <<<"$pr_json")"
-          pr_head="$(jq -r '.[0].headRefOid // empty' <<<"$pr_json")"
+            --limit 1)" || read_rc=$?
 
-          if [ -n "$pr_number" ] && [ "$pr_head" = "$head_sha" ]; then
-            break
+          if [ "$read_rc" -eq 0 ]; then
+            read_ok=true
+            pr_number="$(jq -r '.[0].number // empty' <<<"$pr_json")"
+            pr_head="$(jq -r '.[0].headRefOid // empty' <<<"$pr_json")"
+            if [ -n "$pr_number" ] && [ "$pr_head" = "$head_sha" ]; then
+              break
+            fi
+          else
+            echo "Attempt ${attempt}: 'gh pr list' failed (rc=${read_rc})." >&2
           fi
+
           if [ "$attempt" -lt 3 ]; then
             echo "Attempt ${attempt}: PR='${pr_number:-<none>}' head='${pr_head:-<none>}' vs pushed ${head_sha}; re-reading in 5s."
             sleep 5
           fi
         done
+
+        # An all-attempts-failed read is the one fatal case: we genuinely do not
+        # know the PR state, so failing red (rather than silently skipping) keeps
+        # the load-bearing approval from being lost without a trace.
+        if [ "$read_ok" != true ]; then
+          echo "Could not read the regen PR for $BRANCH_NAME after 3 attempts (gh kept erroring)." >&2
+          exit 1
+        fi
 
         if [ -z "$pr_number" ]; then
           echo "No open bot-authored regen PR for $BRANCH_NAME; nothing to approve."

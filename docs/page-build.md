@@ -230,11 +230,12 @@ PRs reach the review workflow by two different routes:
 
 Because branch protection still requires one approving review before the armed
 auto-merge can fire, **each regen workflow approves its own PR** as its final
-step, using the ai4c-reviewer app token (GITHUB_TOKEN is the PR author and
-cannot approve its own PR). The approval names the exact commit the run just
-pushed and is skipped if the branch tip has moved since, so nothing is vouched
-for sight-unseen; it re-arms after every force-push, since pushes dismiss stale
-approvals. Placing it in the regen workflows — which always execute — rather
+step (via the shared `.github/actions/approve-regen-pr` composite action, which
+carries the full rationale in its `description`), using the ai4c-reviewer app
+token (GITHUB_TOKEN is the PR author and cannot approve its own PR). The
+approval names the exact commit the run just pushed and is skipped if the branch
+tip has moved since, so nothing is vouched for sight-unseen; it re-arms after
+every force-push, since pushes dismiss stale approvals. Placing it in the regen workflows — which always execute — rather
 than a `pull_request`-triggered job is deliberate, per the gating above.
 
 Human-authored PRs are unaffected — every skip requires the bot author — and a
