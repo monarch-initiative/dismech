@@ -831,12 +831,46 @@ validate-references-all:
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
-# Fix YAML quoting issues in references cache (workaround for upstream bug)
+# Fix YAML quoting issues in references cache (workaround for upstream bug).
+#
+# This is a whole-cache sweep (tens of thousands of files) run before most
+# reference-validation recipes, so it MUST be a no-op on a well-formed cache --
+# otherwise every validation run re-writes thousands of unrelated files and the
+# working tree fills with quoting-only churn a curator then has to avoid staging.
+#
+# The predicate quotes a value only when YAML genuinely requires it. Critically,
+# an embedded colon forces quoting ONLY when it is followed by whitespace or ends
+# the value (the `key: value` ambiguity); a bare `PREFIX:LOCALID` colon
+# (`reference_id: PMID:11390973`, `doi: 10.1023/a:1022935115323`) is a valid
+# plain scalar and is left alone. The reference fetcher deliberately writes those
+# two fields unquoted, so the old "any colon -> quote" rule fought it and
+# re-quoted ~9.9k files on every run (all reference_id/doi lines) without ever
+# fixing a real problem. Do NOT restore the naive `c in value` test.
 [group('QC')]
 fix-references-cache:
     #!/usr/bin/env python3
     import re
     from pathlib import Path
+
+    # Leading YAML indicator characters that start a special construct and so
+    # force quoting when they are the first character of a plain scalar.
+    LEADING_INDICATORS = set("!&*[]{}#,>|%@`\"'?:")
+
+    def needs_quoting(value):
+        if not value:
+            return False
+        if value != value.strip():          # leading/trailing whitespace
+            return True
+        if value[0] in LEADING_INDICATORS:  # value starts with an indicator
+            return True
+        if value[0] == "-" and (len(value) == 1 or value[1] == " "):
+            return True                     # "- " block-sequence indicator
+        if ": " in value or value.endswith(":"):
+            return True                     # colon that YAML reads as a mapping
+        if " #" in value:
+            return True                     # start of an inline comment
+        return False
+
     cache_dir = Path("references_cache")
     if not cache_dir.exists():
         exit(0)
@@ -856,9 +890,8 @@ fix-references-cache:
             match = re.match(r'^(\s*)([a-z_]+):\s+(.+)$', line, re.IGNORECASE)
             if match:
                 indent, key, value = match.groups()
-                needs_quoting = any(c in value or value.startswith(c) for c in [':', '[', '{', '*', '&', '!', '@', '#'])
                 is_quoted = value.startswith('"') or value.startswith("'")
-                if needs_quoting and not is_quoted:
+                if needs_quoting(value) and not is_quoted:
                     new_lines.append(f'{indent}{key}: "{value.replace(chr(34), chr(92)+chr(34))}"')
                     modified = True
                     continue
