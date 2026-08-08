@@ -63,6 +63,7 @@ NODE_COLORS = {
     "treatment": "#fce7f3",  # pink-100
     "biochemical": "#e0e7ff",  # indigo-100
     "experimental_model": "#ccfbf1",  # teal-100
+    "animal_model": "#ede9fe",  # violet-100
     "computational_model": "#ecfccb",  # lime-100
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
@@ -309,6 +310,24 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     description=item.get("description"),
                 )
 
+    # Animal models cannot ride the loop above: `name` is optional on
+    # AnimalModel, so their node identity comes from animal_model_label(), which
+    # falls back to genotype/species. As with the other model sections, a model
+    # only becomes a node if some edge uses it -- i.e. if it declares
+    # `modeled_mechanisms` -- so entries without mechanism links stay out of the
+    # graph entirely.
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        label = animal_model_label(item)
+        if not label:
+            continue
+        graph.nodes[label] = NodeInfo(
+            name=label,
+            node_type="animal_model",
+            description=item.get("description"),
+        )
+
     for _parent_name, variant in iter_variant_items(disorder):
         name = variant.get("name")
         if not name:
@@ -476,6 +495,25 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         target=link["target"],
                         predicate="models",
                         source_type="experimental_model",
+                    )
+                )
+
+    # Collect edges from animal model links
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = animal_model_label(item)
+        if not source:
+            continue
+
+        for link in item.get("modeled_mechanisms", []) or []:
+            if isinstance(link, dict) and "target" in link:
+                graph.edges.append(
+                    Edge(
+                        source=source,
+                        target=link["target"],
+                        predicate="models",
+                        source_type="animal_model",
                     )
                 )
 
@@ -1028,8 +1066,62 @@ def _collect_experimental_model_links(
                 link_data["model_type"] = model["experimental_model_type"]
             if model.get("namo_type"):
                 link_data["namo_type"] = model["namo_type"]
-            if link.get("description"):
-                link_data["description"] = link["description"]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
+            links_by_target[str(target)].append(link_data)
+
+    return links_by_target
+
+
+def animal_model_label(model: dict[str, Any]) -> str | None:
+    """Return a display label for an animal model.
+
+    `name` is optional on AnimalModel, so fall back to a genotype/species
+    label for the 400-odd entries curated before the slot existed. The fallback
+    is not stable across edits and can collide within one file, which is why
+    `name` is recommended once a model carries `modeled_mechanisms`.
+    """
+    # str() before strip(): a genotype like `2` parses as an int from YAML, and
+    # calling .strip() on it directly would raise rather than degrade.
+    name = str(model.get("name") or "").strip()
+    if name:
+        return name
+    parts = [
+        str(model.get(key)).strip()
+        for key in ("genotype", "species")
+        if str(model.get(key) or "").strip()
+    ]
+    return " ".join(parts) or None
+
+
+def _collect_animal_model_links(
+    disorder: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect animal model links keyed by target pathophysiology node name."""
+    links_by_target: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for model in disorder.get("animal_models", []) or []:
+        if not isinstance(model, dict):
+            continue
+        model_name = animal_model_label(model)
+        if not model_name:
+            continue
+
+        for link in model.get("modeled_mechanisms", []) or []:
+            if not isinstance(link, dict):
+                continue
+            target = link.get("target")
+            if not target:
+                continue
+
+            link_data: dict[str, Any] = {"name": model_name}
+            for model_key in ("species", "genotype", "background", "category"):
+                if model.get(model_key):
+                    link_data[model_key] = model[model_key]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
             links_by_target[str(target)].append(link_data)
 
     return links_by_target
@@ -1062,8 +1154,9 @@ def _collect_computational_model_links(
                 link_data["model_software"] = model["model_software"]
             if model.get("model_format"):
                 link_data["model_format"] = model["model_format"]
-            if link.get("description"):
-                link_data["description"] = link["description"]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
             links_by_target[str(target)].append(link_data)
 
     return links_by_target
@@ -1175,6 +1268,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         if "name" in variant:
             item_lookup[variant["name"]] = variant
     model_links_by_target = _collect_experimental_model_links(disorder)
+    animal_model_links_by_target = _collect_animal_model_links(disorder)
     computational_model_links_by_target = _collect_computational_model_links(disorder)
     histopathology_links_by_key = _collect_histopathology_links(disorder)
 
@@ -1223,6 +1317,10 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         if name in model_links_by_target:
             node_data.setdefault("meta", {})["experimental_models"] = (
                 model_links_by_target[name]
+            )
+        if name in animal_model_links_by_target:
+            node_data.setdefault("meta", {})["animal_models"] = (
+                animal_model_links_by_target[name]
             )
         if name in computational_model_links_by_target:
             node_data.setdefault("meta", {})["computational_models"] = (

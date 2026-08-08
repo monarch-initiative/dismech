@@ -30,6 +30,7 @@ from dismech.graph import (
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
     _resolve_descriptor_target,
+    animal_model_label,
     build_causal_graph,
     graph_to_json,
     iter_variant_items,
@@ -1089,6 +1090,28 @@ def _build_edge_detail_lookup(
                 },
             )
 
+    # Animal models reach the pathograph through the same link object, but
+    # their `name` is optional, so fall back to a genotype/species label.
+    for item in disorder.get("animal_models", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source_name = animal_model_label(item)
+        if not source_name:
+            continue
+        parent_evidence = item.get("evidence")
+        for target_item in item.get("modeled_mechanisms", []) or []:
+            if not isinstance(target_item, dict) or "target" not in target_item:
+                continue
+            add_detail(
+                source_name,
+                str(target_item["target"]),
+                "models",
+                {
+                    "description": target_item.get("description"),
+                    "evidence": target_item.get("evidence") or parent_evidence,
+                },
+            )
+
     for item in disorder.get("biochemical", []) or []:
         if not isinstance(item, dict):
             continue
@@ -1276,13 +1299,20 @@ def _node_attributes(
     if isinstance(meta.get("term_id"), str):
         attributes["term_url"] = curie_to_url(meta["term_id"])
 
-    linked_models = meta.get("experimental_models")
-    if isinstance(linked_models, list) and linked_models:
-        attributes["linked_experimental_models"] = [
-            str(item.get("name"))
-            for item in linked_models
-            if isinstance(item, dict) and item.get("name")
-        ]
+    for meta_key, attribute_key in (
+        ("experimental_models", "linked_experimental_models"),
+        ("animal_models", "linked_animal_models"),
+        ("computational_models", "linked_computational_models"),
+    ):
+        linked_models = meta.get(meta_key)
+        if isinstance(linked_models, list) and linked_models:
+            names = [
+                str(item.get("name"))
+                for item in linked_models
+                if isinstance(item, dict) and item.get("name")
+            ]
+            if names:
+                attributes[attribute_key] = names
 
     pdb_structures = meta.get("pdb_structures")
     if isinstance(pdb_structures, list) and pdb_structures:

@@ -21,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
+    animal_model_label,
     build_causal_graph,
     generate_mermaid,
     graph_to_json,
@@ -572,6 +573,7 @@ def _annotate_model_links(disorder: dict) -> None:
             continue
         item["_anchor_id"] = _make_anchor_id("pathophysiology", name)
         item["_experimental_model_links"] = []
+        item["_animal_model_links"] = []
         item["_computational_model_links"] = []
         patho_by_name[str(name)] = item
 
@@ -608,6 +610,50 @@ def _annotate_model_links(disorder: dict) -> None:
                         "description": link.get("description"),
                         "experimental_model_type": model.get("experimental_model_type"),
                         "namo_type": model.get("namo_type"),
+                    }
+                )
+
+            model["_modeled_mechanisms_resolved"] = resolved_links
+
+    # Animal models reach the pathograph through the same link object. Their
+    # `name` is optional, so fall back to a genotype/species label rather than
+    # dropping the model the way the name-keyed loops above do.
+    animal_models = disorder.get("animal_models") or []
+    if isinstance(animal_models, list):
+        for model in animal_models:
+            if not isinstance(model, dict):
+                continue
+            model_name = animal_model_label(model)
+            if not model_name:
+                continue
+
+            model["_display_name"] = model_name
+            model["_anchor_id"] = _make_anchor_id("animal-model", model_name)
+            resolved_links = []
+
+            for link in model.get("modeled_mechanisms") or []:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                if not target:
+                    continue
+
+                resolved_link = dict(link)
+                target_item = patho_by_name.get(str(target))
+                if target_item is None:
+                    continue
+
+                resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                resolved_links.append(resolved_link)
+                target_item["_animal_model_links"].append(
+                    {
+                        "model_name": model_name,
+                        "model_anchor": model["_anchor_id"],
+                        "description": link.get("description"),
+                        "relationship": link.get("relationship"),
+                        "fidelity": link.get("fidelity"),
+                        "species": model.get("species"),
+                        "genotype": model.get("genotype"),
                     }
                 )
 
