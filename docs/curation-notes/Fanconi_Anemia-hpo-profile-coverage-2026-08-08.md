@@ -116,10 +116,10 @@ that cited them; PMID:34774576 is still referenced in prose above as the source 
 keratoconjunctivitis-sicca exclusion, so re-fetch it with `just fetch-reference` if that
 term is ever curated.
 
-Three further items were term-precision fixes that preserve profile coverage by closure:
+Two further items were term-precision fixes that preserve profile coverage by closure:
 `HP:0000782` → `HP:0000882` Hypoplastic scapulae (exact match to the quoted finding), and
 `HP:0010442` → `HP:0001177` Preaxial hand polydactyly (a descendant, so `HP:0010442`
-stays covered). Two were name collisions with pre-existing blocks, resolved by renaming
+stays covered). Three were name collisions with pre-existing blocks, resolved by renaming
 rather than deleting (`Reduced Circulating Growth Hormone Concentration`,
 `Early-Onset Osteoporosis`, `Radial Ray Anomaly Spectrum`), with the osteoporosis block
 also re-quoted so it no longer reuses a snippet already carried elsewhere in the entry.
@@ -140,7 +140,7 @@ study quantifying them; the one cohort that reports a GI figure (PMID:31990462) 
 This looks like a genuine primary-literature gap rather than a search failure, and is
 worth flagging back to the profile authors.
 
-## Not represented at all (73)
+## Not represented at all (76)
 
 ### Abnormality of limbs (18)
 
@@ -181,6 +181,17 @@ worth flagging back to the profile authors.
 - `HP:0002018` Nausea
 - `HP:0032043` Odynophagia
 
+### Abnormality of head or neck (8)
+
+- `HP:0032154` Aphthous ulcer
+- `HP:0011109` Chronic sinusitis
+- `HP:0001363` Craniosynostosis
+- `HP:0001097` Keratoconjunctivitis sicca
+- `HP:0045025` Narrow palpebral fissure
+- `HP:0002691` Platybasia
+- `HP:0011107` Recurrent aphthous stomatitis
+- `HP:0000506` Telecanthus
+
 ### Abnormality of the integument (7)
 
 - `HP:0025127` Actinic keratosis
@@ -191,15 +202,6 @@ worth flagging back to the profile authors.
 - `HP:0001072` Thickened skin
 - `HP:0200043` Verrucae
 
-### Abnormality of head or neck (6)
-
-- `HP:0032154` Aphthous ulcer
-- `HP:0011109` Chronic sinusitis
-- `HP:0001363` Craniosynostosis
-- `HP:0001097` Keratoconjunctivitis sicca
-- `HP:0002691` Platybasia
-- `HP:0000506` Telecanthus
-
 ### Abnormality of the nervous system (6)
 
 - `HP:0001331` Absent septum pellucidum
@@ -209,6 +211,14 @@ worth flagging back to the profile authors.
 - `HP:0012174` Glioblastoma multiforme
 - `HP:0003006` Neuroblastoma
 
+### Abnormality of the musculoskeletal system (5)
+
+- `HP:0010305` Absence of the sacrum
+- `HP:0008839` Hypoplastic pelvis
+- `HP:0004590` Hypoplastic sacrum
+- `HP:0000912` Sprengel anomaly
+- `HP:0025261` Stiff finger
+
 ### Abnormality of the cardiovascular system (5)
 
 - `HP:0031640` Abnormal radial artery morphology
@@ -216,13 +226,6 @@ worth flagging back to the profile authors.
 - `HP:0011590` Double aortic arch
 - `HP:0004935` Pulmonary artery atresia
 - `HP:0001642` Pulmonic stenosis
-
-### Abnormality of the musculoskeletal system (4)
-
-- `HP:0010305` Absence of the sacrum
-- `HP:0008839` Hypoplastic pelvis
-- `HP:0004590` Hypoplastic sacrum
-- `HP:0025261` Stiff finger
 
 ### Growth abnormality (3)
 
@@ -260,7 +263,7 @@ worth flagging back to the profile authors.
 
 - `HP:6000064` Excessive eructation
 
-## Represented only by a broader parent term (52)
+## Represented only by a broader parent term (50)
 
 - `HP:0010704` 1-2 finger cutaneous syndactyly — entry has `HP:0006101` Finger syndactyly
 - `HP:0006482` Abnormal dental morphology — entry has `HP:0000164` Abnormality of the dentition
@@ -299,7 +302,6 @@ worth flagging back to the profile authors.
 - `HP:0000876` Oligomenorrhea — entry has `HP:0000078` Abnormality of the genital system
 - `HP:0009944` Partial duplication of thumb phalanx — entry has `HP:0001172` Abnormal thumb morphology
 - `HP:0001741` Phimosis — entry has `HP:0000078` Abnormality of the genital system, `HP:0100587` Abnormal preputium morphology
-- `HP:0001177` Preaxial hand polydactyly — entry has `HP:0001172` Abnormal thumb morphology, `HP:0010442` Polydactyly
 - `HP:0002718` Recurrent bacterial infections — entry has `HP:0002719` Recurrent infections
 - `HP:0002841` Recurrent fungal infections — entry has `HP:0002719` Recurrent infections
 - `HP:0004429` Recurrent viral infections — entry has `HP:0002719` Recurrent infections
@@ -310,7 +312,6 @@ worth flagging back to the profile authors.
 - `HP:0009660` Short phalanx of the thumb — entry has `HP:0001172` Abnormal thumb morphology, `HP:0006265` Aplasia/Hypoplasia of fingers
 - `HP:0009778` Short thumb — entry has `HP:0001172` Abnormal thumb morphology, `HP:0006265` Aplasia/Hypoplasia of fingers
 - `HP:0034231` Sigmoid kidney — entry has `HP:0000086` Ectopic kidney, `HP:0012210` Abnormal renal morphology
-- `HP:0000912` Sprengel anomaly — entry has `HP:0000782` Abnormal scapula morphology
 - `HP:0011069` Supernumerary tooth — entry has `HP:0000164` Abnormality of the dentition
 - `HP:0000029` Testicular atrophy — entry has `HP:0000035` Abnormal testis morphology, `HP:0000078` Abnormality of the genital system
 - `HP:6000942` Thumb hypoplasia grade 4 — entry has `HP:0001172` Abnormal thumb morphology, `HP:0006265` Aplasia/Hypoplasia of fingers
