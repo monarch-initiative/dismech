@@ -50,21 +50,25 @@ phenotype, the term was left uncurated (see "Deliberately not added").
 
 ## What was added (41 phenotype blocks)
 
+This table reflects the **final** state after the review pass; two terms curated in the
+first draft (recurrent aphthous stomatitis, narrow palpebral fissure) were withdrawn and
+the moyamoya and microcornea sources were replaced. See "Corrections after review" below.
+
 | Domain | Terms | Key sources |
 |---|---|---|
-| Oral / dental | gingivitis, gingival overgrowth, periodontitis, microdontia, tooth agenesis, tooth malposition, hyposalivation, oral ulcer, recurrent aphthous stomatitis, oral leukoplakia | PMID:17688024, PMID:11759873, PMID:16169820, PMID:18543739, PMID:15139958, PMID:36054728 |
+| Oral / dental | gingivitis, gingival overgrowth, periodontitis, microdontia, tooth agenesis, tooth malposition, hyposalivation, oral ulcer, oral leukoplakia | PMID:17688024, PMID:11759873, PMID:16169820, PMID:18543739, PMID:15139958, PMID:36054728 |
 | Psychiatric | anxiety, depression, diminished mental health | PMID:40272053 |
 | Endocrine / metabolic | osteoporosis, insulin resistance, GH deficiency | PMID:17426088, PMID:32529760, PMID:25575015 |
 | Immune | recurrent infections, reduced NK cell count | PMID:21542827, PMID:24240977, PMID:31990462, PMID:15139958 |
 | Haematologic | marrow hypocellularity, neutropenia, petechiae, bruising, transfusional iron overload | PMID:37303314, PMID:39559288, PMID:31990462, PMID:22510772 |
 | Cellular | crosslinker-induced chromosomal breakage, DNA repair defect, radiosensitivity | PMID:20301575, PMID:25827349, PMID:21930984 |
 | Neoplasm | AML, basal cell carcinoma, oral/oropharyngeal SCC, medulloblastoma, nephroblastoma | PMID:20301575, PMID:38907138, PMID:26484938, PMID:40478605, PMID:26691948 |
-| Skeletal / limb | abnormal rib morphology, scapular hypoplasia, radial ray deficiency, thumb duplication | PMID:17006268, PMID:35360980 |
-| Ocular | microcornea, narrow palpebral fissure | PMID:34774576 |
+| Skeletal / limb | abnormal rib morphology, scapular hypoplasia, radial ray anomaly spectrum, thumb duplication (preaxial polydactyly) | PMID:17006268, PMID:35360980 |
+| Ocular | microcornea | PMID:20022637, PMID:23648176 |
 | Dermatologic | freckling | PMID:32822789 |
-| Other | pulmonary fibrosis, ectopic kidney, moyamoya phenomenon, holoprosencephaly, feeding difficulties | PMID:9096763, PMID:35197271, PMID:35978939, PMID:29278735, PMID:20301575 |
+| Other | pulmonary fibrosis, ectopic kidney, moyamoya phenomenon, holoprosencephaly, feeding difficulties | PMID:9096763, PMID:35197271, PMID:38510908, PMID:25719591, PMID:29278735, PMID:20301575 |
 
-Three added terms (`HP:0002745` oral leukoplakia, `HP:0000782` abnormal scapula morphology,
+Three added terms (`HP:0002745` oral leukoplakia, `HP:0000882` hypoplastic scapulae,
 `HP:0040218` reduced total NK cell count) are **not** in the Connelly profile. They were
 added because they are what the located evidence actually supports — the profile's
 `HP:0000912` Sprengel anomaly, for instance, is not what PMID:17006268 describes (bilateral
@@ -81,7 +85,9 @@ scapular hypoplasia with winging), and `HP:0012178` is obsolete in current HPO.
   non-melanoma skin cancer study (PMID:38907138) is explicitly *non*-melanoma.
 - **Frequency bands** were assigned only where a cited percentage maps cleanly onto a
   `FrequencyEnum` band, per `docs/frequency-evidence-guidelines.md`. Osteoporosis carries
-  no band because the 92% figure applies only to patients aged ≥18.
+  no band: the block now quotes the phenotype-expansion sentence from PMID:17426088, which
+  states no rate at all, and the 92% figure in the same paper covers osteopenia *or*
+  osteoporosis in patients aged ≥18 rather than osteoporosis across the population.
 
 ## Corrections after review (PR #8190)
 
@@ -104,6 +110,11 @@ them changing what is asserted:
   dodge a bracket-stripping interaction in the validator and fell below the minimum
   snippet length. Replaced with the NCI ophthalmic cohort (PMID:20022637, microcornea in
   55% of 22 patients) and an independent series (PMID:23648176).
+
+`references_cache/PMID_34774576.md` and `PMID_35978939.md` were removed with the evidence
+that cited them; PMID:34774576 is still referenced in prose above as the source for the
+keratoconjunctivitis-sicca exclusion, so re-fetch it with `just fetch-reference` if that
+term is ever curated.
 
 Three further items were term-precision fixes that preserve profile coverage by closure:
 `HP:0000782` → `HP:0000882` Hypoplastic scapulae (exact match to the quoted finding), and
