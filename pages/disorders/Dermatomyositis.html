@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3518,6 +3749,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3528,6 +3760,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4252,7 +4492,7 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-erythema" data-dismech-node="Erythema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Erythema
 
@@ -4311,7 +4551,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-erythema" data-dismech-node="Facial Erythema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial Erythema
 
@@ -4370,7 +4610,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-raynaud-phenomenon" data-dismech-node="Raynaud Phenomenon" data-dismech-type="phenotype">
                     <div class="item-name">
                         Raynaud Phenomenon
 
@@ -4449,7 +4689,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myocarditis" data-dismech-node="Myocarditis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myocarditis
 
@@ -4508,7 +4748,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pericarditis" data-dismech-node="Pericarditis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pericarditis
 
@@ -4567,7 +4807,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmia" data-dismech-node="Arrhythmia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arrhythmia
 
@@ -4626,7 +4866,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vasculitis" data-dismech-node="Vasculitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vasculitis
 
@@ -4694,7 +4934,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphagia
 
@@ -4802,7 +5042,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent Respiratory Infections" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent Respiratory Infections
 
@@ -4870,7 +5110,7 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-photosensitivity" data-dismech-node="Cutaneous Photosensitivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cutaneous Photosensitivity
 
@@ -4929,7 +5169,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-ulcer" data-dismech-node="Skin Ulcer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skin Ulcer
 
@@ -5008,7 +5248,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pruritus" data-dismech-node="Pruritus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pruritus
 
@@ -5067,7 +5307,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poikiloderma" data-dismech-node="Poikiloderma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Poikiloderma
 
@@ -5126,7 +5366,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acrocyanosis" data-dismech-node="Acrocyanosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acrocyanosis
 
@@ -5185,7 +5425,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-nail-morphology" data-dismech-node="Abnormal Nail Morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Nail Morphology
 
@@ -5244,7 +5484,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dry-skin" data-dismech-node="Dry Skin" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dry Skin
 
@@ -5312,7 +5552,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -5371,7 +5611,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-creatine-kinase" data-dismech-node="Elevated Creatine Kinase" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Creatine Kinase
 
@@ -5430,7 +5670,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-hepatic-transaminases" data-dismech-node="Elevated Hepatic Transaminases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Hepatic Transaminases
 
@@ -5489,7 +5729,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperferritinemia" data-dismech-node="Hyperferritinemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperferritinemia
 
@@ -5557,7 +5797,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proximal-muscle-weakness" data-dismech-node="Proximal Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proximal Muscle Weakness
 
@@ -5636,7 +5876,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotonia
 
@@ -5695,7 +5935,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency-due-to-muscle-weakness" data-dismech-node="Respiratory Insufficiency due to Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Insufficiency due to Muscle Weakness
 
@@ -5774,7 +6014,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthritis
 
@@ -5853,7 +6093,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-calcinosis-cutis" data-dismech-node="Calcinosis Cutis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Calcinosis Cutis
 
@@ -5943,7 +6183,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary Fibrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Fibrosis
 
@@ -6042,7 +6282,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Insufficiency
 
@@ -6101,7 +6341,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-pulmonary-interstitial-morphology" data-dismech-node="Abnormal Pulmonary Interstitial Morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Pulmonary Interstitial Morphology
 
@@ -6169,7 +6409,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myalgia
 
@@ -6248,7 +6488,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthralgia
 
@@ -6307,7 +6547,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -6375,7 +6615,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Loss
 
@@ -6443,7 +6683,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malignancy" data-dismech-node="Malignancy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Malignancy
 
@@ -6551,7 +6791,7 @@
                     <span class="cat-count">14</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-girdle-muscle-weakness" data-dismech-node="Limb-Girdle Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limb-Girdle Muscle Weakness
 
@@ -6610,7 +6850,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inflammatory-myopathy" data-dismech-node="Inflammatory Myopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Inflammatory Myopathy
 
@@ -6669,7 +6909,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heliotrope-rash" data-dismech-node="Heliotrope Rash" data-dismech-type="phenotype">
                     <div class="item-name">
                         Heliotrope Rash
 
@@ -6748,7 +6988,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gottron-s-papules" data-dismech-node="Gottron&#39;s Papules" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gottron&#39;s Papules
 
@@ -6827,7 +7067,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gottron-sign" data-dismech-node="Gottron Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gottron Sign
 
@@ -6886,7 +7126,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-periorbital-edema" data-dismech-node="Periorbital Edema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Periorbital Edema
 
@@ -6945,7 +7185,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-v-sign" data-dismech-node="V-Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         V-Sign
 
@@ -7004,7 +7244,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-shawl-sign" data-dismech-node="Shawl Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Shawl Sign
 
@@ -7063,7 +7303,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-holster-sign" data-dismech-node="Holster Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Holster Sign
 
@@ -7122,7 +7362,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphonia
 
@@ -7181,7 +7421,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-aldolase" data-dismech-node="Elevated Aldolase" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Aldolase
 
@@ -7240,7 +7480,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-ldh" data-dismech-node="Elevated LDH" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated LDH
 
@@ -7299,7 +7539,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-emg-abnormality" data-dismech-node="EMG Abnormality" data-dismech-type="phenotype">
                     <div class="item-name">
                         EMG Abnormality
 
@@ -7358,7 +7598,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diffuse-reticular-or-finely-nodular-infiltrations" data-dismech-node="Diffuse Reticular or Finely Nodular Infiltrations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diffuse Reticular or Finely Nodular Infiltrations
 
@@ -7456,7 +7696,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1-0301" data-dismech-node="HLA-DRB1*0301" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1*0301
 
@@ -7468,9 +7708,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-trim33-tif1-gamma" data-dismech-node="TRIM33 (TIF1-gamma)" data-dismech-type="genetic">
                 <div class="item-name">
                     TRIM33 (TIF1-gamma)
 
@@ -7529,9 +7770,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ifih1-mda5" data-dismech-node="IFIH1 (MDA5)" data-dismech-type="genetic">
                 <div class="item-name">
                     IFIH1 (MDA5)
 
@@ -7590,9 +7832,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chd4-mi-2" data-dismech-node="CHD4 (Mi-2)" data-dismech-type="genetic">
                 <div class="item-name">
                     CHD4 (Mi-2)
 
@@ -7651,9 +7894,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-morc3-nxp-2" data-dismech-node="MORC3 (NXP-2)" data-dismech-type="genetic">
                 <div class="item-name">
                     MORC3 (NXP-2)
 
@@ -7734,9 +7978,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sae1-sae" data-dismech-node="SAE1 (SAE)" data-dismech-type="genetic">
                 <div class="item-name">
                     SAE1 (SAE)
 
@@ -7795,9 +8040,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7809,7 +8058,7 @@
                 <span class="card-count">10</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroids" data-dismech-node="Corticosteroids" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroids
                 </div>
@@ -7903,7 +8152,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-methotrexate" data-dismech-node="Methotrexate" data-dismech-type="treatment">
                 <div class="item-name">
                     Methotrexate
                 </div>
@@ -7965,7 +8214,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-azathioprine" data-dismech-node="Azathioprine" data-dismech-type="treatment">
                 <div class="item-name">
                     Azathioprine
                 </div>
@@ -8057,7 +8306,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mycophenolate-mofetil" data-dismech-node="Mycophenolate Mofetil" data-dismech-type="treatment">
                 <div class="item-name">
                     Mycophenolate Mofetil
                 </div>
@@ -8149,7 +8398,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hydroxychloroquine" data-dismech-node="Hydroxychloroquine" data-dismech-type="treatment">
                 <div class="item-name">
                     Hydroxychloroquine
                 </div>
@@ -8211,7 +8460,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ivig" data-dismech-node="IVIG" data-dismech-type="treatment">
                 <div class="item-name">
                     IVIG
                 </div>
@@ -8289,7 +8538,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rituximab" data-dismech-node="Rituximab" data-dismech-type="treatment">
                 <div class="item-name">
                     Rituximab
                 </div>
@@ -8382,7 +8631,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-jak-inhibitors" data-dismech-node="JAK Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     JAK Inhibitors
                 </div>
@@ -8516,7 +8765,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-treat-to-target-management-strategy" data-dismech-node="Treat-to-Target Management Strategy" data-dismech-type="treatment">
                 <div class="item-name">
                     Treat-to-Target Management Strategy
                 </div>
@@ -8616,7 +8865,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy-and-exercise-rehabilitation" data-dismech-node="Physical Therapy and Exercise Rehabilitation" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy and Exercise Rehabilitation
                 </div>
@@ -8731,7 +8980,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-creatine-kinase" data-dismech-node="Creatine Kinase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Creatine Kinase
 
@@ -8748,7 +8997,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-aldolase" data-dismech-node="Aldolase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Aldolase
 
@@ -8765,7 +9014,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-mi-2-antibodies" data-dismech-node="Anti-Mi-2 Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Mi-2 Antibodies
 
@@ -8782,7 +9031,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-mda5-antibodies" data-dismech-node="Anti-MDA5 Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-MDA5 Antibodies
 
@@ -8799,7 +9048,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-ferritin" data-dismech-node="Ferritin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Ferritin
 
@@ -8823,6 +9072,181 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    RNA-Seq of CD19+ B-cell, CD14+ monocyte, CD4+ and CD8+ T cell populations from patients with juvenile dermatomyositis and controls
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE221091" target="_blank">geo:GSE221091</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">RNA sequencing was used to compare the transcriptional state of ex-vivo B-cells, moncytes and T-cells from children with Juvenile dermatomyositis (JDM) pre- and on-treatment and age-matched healthy controls. RNA was extracted from blood samples that were taken from juvenile dermatomyositis patients at diagnosis (before they received treatment) and approximately a year into treatment. The treatment included oral prednisolone, methotrexate, azathioprine, cyclophosphamide and other drugs.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=106</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36564154" target="_blank" style="color: var(--secondary);">PMID:36564154</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dermatomyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Analysis of peripheral blood transcript and protein expression across adult systemic lupus erythematosus (SLE) and adult dermatomyositis (DM) patients, each compared to respective healthy matched control subjects.
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE318067" target="_blank">geo:GSE318067</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The study interrogates SLE and DM gene expression measurements across three platforms: Affymetrix transcriptomics, SomaLogic proteomics, and Rules Based Medicine (RBM) proteomics. Patients are matched 1:1 with healthy donor subjects by age, ethnicity, and sex. DM patients are matched 1:3 with SLE patients by the same criteria. All patients have been treated for at least one year, and represent patients receiving standard treatment care for the respective diseases. The data posted contain SLE patients in support of the paper Distinct Interferon and Intracellular Signaling Signatures in Systemic Lupus Erythematosus and Dermatomyositis by Integrative Transcriptomic and Proteomic Analysis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=82</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41870980" target="_blank" style="color: var(--secondary);">PMID:41870980</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dermatomyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Dermatomyositis is characterized by JAK1-mediated monocyte-driven vasculopathy and inflammation
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE303609" target="_blank">geo:GSE303609</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dermatomyositis (DM) is a rare yet devastating autoimmune disease characterized by inflammatory and vasculopathic changes in skin and muscle. DM and systemic lupus erythematosus (lupus) skin lesions have overlapping clinical and histopathological features, yet disparate responses to available therapeutics. DM skin disease is often relapsing and recalcitrant. To investigate DM immunopathogenesis, non-lesional skin, lesional skin, and circulating immune cells from DM patients were analyzed using single-cell RNA-sequencing. Samples were analyzed in parallel with lesional and non-lesional lupus skin, healthy control skin, and peripheral blood.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=34</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41442501" target="_blank" style="color: var(--secondary);">PMID:41442501</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dermatomyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Frequent Genetic Alterations in Myositis Autoantigen Genes in Cancer-Associated Dermatomyositis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000001367" target="_blank">ega:EGAS50000001367</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">One-third of patients diagnosed with dermatomyositis harbor an occult cancer, a rare condition named cancer-associated dermatomyositis (CAD). Emerging evidence suggests that genetic alterations in autoantibody-related genes give rise neoantigens and specific autoantibodies that initiate an autoimmune response characteristic of CAD. This study evaluated the prevalence of such genetic alterations and elucidated molecular mechanisms that may underlie their role in triggering autoimmunity. We detected highly frequent genetic alterations in autoantibody-related genes, supporting their role in the CAD pathogenic mechanisms.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">WES</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Dermatomyositis&#34;); description-level mentions were not accepted. EGA study_type: Exome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -10381,6 +10805,53 @@ references:
 - reference: DOI:10.7759/cureus.88601
   title: &#39;Dermatomyositis: A Narrative Review of Skin as a Window to Muscle and Malignancy&#39;
   findings: []
+datasets:
+- accession: geo:GSE221091
+  title: RNA-Seq of CD19+ B-cell, CD14+ monocyte, CD4+ and CD8+ T cell populations from patients with juvenile dermatomyositis and controls
+  description: RNA sequencing was used to compare the transcriptional state of ex-vivo B-cells, moncytes and T-cells from children with Juvenile dermatomyositis (JDM) pre- and on-treatment and age-matched healthy controls. RNA was extracted from blood samples that were taken from juvenile dermatomyositis patients at diagnosis (before they received treatment) and approximately a year into treatment. The treatment included oral prednisolone, methotrexate, azathioprine, cyclophosphamide and other drugs.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 106
+  publication: PMID:36564154
+  notes: Identified by GEO DataSets index search for Dermatomyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE318067
+  title: Analysis of peripheral blood transcript and protein expression across adult systemic lupus erythematosus (SLE) and adult dermatomyositis (DM) patients, each compared to respective healthy matched control subjects.
+  description: &#39;The study interrogates SLE and DM gene expression measurements across three platforms: Affymetrix transcriptomics, SomaLogic proteomics, and Rules Based Medicine (RBM) proteomics. Patients are matched 1:1 with healthy donor subjects by age, ethnicity, and sex. DM patients are matched 1:3 with SLE patients by the same criteria. All patients have been treated for at least one year, and represent patients receiving standard treatment care for the respective diseases. The data posted contain SLE patients in support of the paper Distinct Interferon and Intracellular Signaling Signatures in Systemic Lupus Erythematosus and Dermatomyositis by Integrative Transcriptomic and Proteomic Analysis.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 82
+  publication: PMID:41870980
+  notes: Identified by GEO DataSets index search for Dermatomyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE303609
+  title: Dermatomyositis is characterized by JAK1-mediated monocyte-driven vasculopathy and inflammation
+  description: Dermatomyositis (DM) is a rare yet devastating autoimmune disease characterized by inflammatory and vasculopathic changes in skin and muscle. DM and systemic lupus erythematosus (lupus) skin lesions have overlapping clinical and histopathological features, yet disparate responses to available therapeutics. DM skin disease is often relapsing and recalcitrant. To investigate DM immunopathogenesis, non-lesional skin, lesional skin, and circulating immune cells from DM patients were analyzed using single-cell RNA-sequencing. Samples were analyzed in parallel with lesional and non-lesional lupus skin, healthy control skin, and peripheral blood.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 34
+  publication: PMID:41442501
+  notes: Identified by GEO DataSets index search for Dermatomyositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS50000001367
+  title: Frequent Genetic Alterations in Myositis Autoantigen Genes in Cancer-Associated Dermatomyositis
+  description: One-third of patients diagnosed with dermatomyositis harbor an occult cancer, a rare condition named cancer-associated dermatomyositis (CAD). Emerging evidence suggests that genetic alterations in autoantibody-related genes give rise neoantigens and specific autoantibodies that initiate an autoimmune response characteristic of CAD. This study evaluated the prevalence of such genetic alterations and elucidated molecular mechanisms that may underlie their role in triggering autoimmunity. We detected highly frequent genetic alterations in autoantibody-related genes, supporting their role in the CAD pathogenic mechanisms.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: WES
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Dermatomyositis&#34;); description-level mentions were not accepted. EGA study_type: Exome Sequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -10918,7 +11389,7 @@ Dermatomyositis is a systemic autoimmune microangiopathy of skin, skeletal muscl
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dermatomyositis", "mondoId": "MONDO:0016367", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatomyositis", "yamlRevision": "7e8b3bfdc22b"};
+        const OS_CONFIG = {"diseaseName": "Dermatomyositis", "mondoId": "MONDO:0016367", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatomyositis", "yamlRevision": "85c7f8878c40"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3331,7 +3560,7 @@
 
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Acute%20Post-Surgical%20Pain"
@@ -3456,6 +3685,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3464,7 +3695,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3493,17 +3724,18 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
 
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3511,6 +3743,22 @@
 
 
 
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#trials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Trials</div>
+            </div>
+            </a>
 
 
 
@@ -3518,7 +3766,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3613,7 +3861,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-surgical-incision-and-nociceptor-activation" data-dismech-node="Surgical Incision and Nociceptor Activation" data-dismech-type="pathophysiology">
@@ -3659,39 +3907,6 @@
 
 
 
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        Nociception (sensory perception of pain)
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019233">GO:0019233</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
 
 
 
@@ -3720,6 +3935,12 @@
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Inflammatory Mediator Release at the Wound</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acute post-surgical pain</span>
 
 
 	                        </div>
@@ -3799,39 +4020,6 @@
 
 
 
-
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        Inflammatory mediator release
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
 
 
 
@@ -3975,7 +4163,7 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Spinal Central Sensitization</span>
+	                            <span class="crosslink-meta">NaV1.8-Mediated Peripheral Nociceptive Signal Propagation</span>
 
 
 	                        </div>
@@ -4008,6 +4196,134 @@
 
 
                 <div class="evidence-explanation">Documents spatially graded threshold changes around the incision consistent with peripheral nociceptor sensitization. Evidence source MODEL_ORGANISM (Brennan rat incision model).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-nav1-8-mediated-peripheral-nociceptive-signal-propagation" data-dismech-node="NaV1.8-Mediated Peripheral Nociceptive Signal Propagation" data-dismech-type="pathophysiology">
+                <div class="item-name">NaV1.8-Mediated Peripheral Nociceptive Signal Propagation</div>
+
+                <div class="item-desc">NaV1.8 voltage-gated sodium channels on peripheral pain-sensing neurons and dorsal-root-ganglion nociceptors sustain action-potential firing and transmit incisional pain signals toward the spinal cord. Human-neuron pharmacology identifies this peripheral signaling step as a tractable, non-opioid therapeutic target.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        Peripheral nociceptor
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000198">CL:0000198</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        NaV1.8 voltage-gated sodium channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005248">GO:0005248</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Spinal Central Sensitization</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39775738" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39775738" target="_blank">PMID:39775738</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This novel allosteric mechanism results in tonic inhibition of NaV1.8 and reduces pain signals in primary human DRG sensory neurons."</div>
+
+
+                <div class="evidence-explanation">Human dorsal-root-ganglion neuron electrophysiology directly supports NaV1.8-dependent peripheral pain-signal propagation and its inhibition by suzetrigine. The evidence source is IN_VITRO because the quoted experiment used primary human sensory neurons outside an intact organism.</div>
 
 
 
@@ -4194,6 +4510,12 @@
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Transition to Chronic Post-Surgical Pain</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Allodynia and secondary hyperalgesia</span>
 
 
 	                        </div>
@@ -4480,13 +4802,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16698416" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:16698416" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16698416" target="_blank">PMID:16698416</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4496,7 +4818,7 @@
                 <div class="evidence-snippet">"Acute postoperative pain is followed by persistent pain in 10-50% of individuals after common operations"</div>
 
 
-                <div class="evidence-explanation">Because persistent pain follows in only 10-50% of individuals, the majority resolve with healing - the basis for this consequence node. Evidence source HUMAN_CLINICAL (human epidemiology in a clinical review).</div>
+                <div class="evidence-explanation">The reported minority progressing to persistent pain implies that most patients do not develop chronic pain, but the quoted text does not directly establish wound healing as the mechanism of resolution; polarity is therefore PARTIAL.</div>
 
 
 
@@ -4529,11 +4851,24 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chronic post-surgical pain</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4604,6 +4939,8 @@
             </div>
 
 
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
 
@@ -4635,7 +4972,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Inflammatory Mediator Release at the Wound\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The molecular amplifier. Incised and injured tissue and infiltrating immune cells release an inflammatory milieu (prostaglandins, bradykinin, protons, ATP, cytokines, and nerve growth factor). Receptors, mediators, and neurotransmitters driving sensitization after incision have been specifically characterized and are in part unique to incisional pain.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Inflammatory mediator release\"], \"role\": \"amplifier\", \"locations\": [\"Skin and soft tissue at the surgical wound\"]}}, {\"id\": \"NMDA-Antagonist Adjuvant (Ketamine)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Perioperative low-dose ketamine, an NMDA-receptor antagonist, acts on the spinal central-sensitization node (the NMDA/glutamatergic \\\"wind-up\\\" component), reducing postoperative pain and opioid consumption and contributing preventive analgesia.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ketamine\"]}}, {\"id\": \"Peripheral Nociceptor Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular amplifier. The inflammatory milieu lowers nociceptor activation threshold and raises excitability, producing primary hyperalgesia at and immediately around the wound. In the incision model, distinct areas around the wound show altered withdrawal thresholds reflecting this peripheral sensitization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sensitized nociceptor (A-delta / C-fiber primary afferent)\"], \"role\": \"amplifier\", \"locations\": [\"Skin and soft tissue at the surgical wound\"]}}, {\"id\": \"Resolution with Wound Healing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expected consequence. In most patients the sensitized state resolves as the surgical wound heals over days to weeks; only a minority progress to persistent pain.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Spinal Central Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central effector. Sustained nociceptor barrage into the spinal dorsal horn triggers activity-dependent synaptic plasticity - a prolonged, reversible increase in the excitability and synaptic efficacy of central nociceptive neurons (central sensitization), with a major NMDA-receptor/glutamatergic component (\\\"wind-up\\\") and a contribution from activated dorsal-horn microglia. Clinically it manifests as pain hypersensitivity beyond the wound: dynamic tactile allodynia and secondary hyperalgesia. Post-surgical pain is one of the conditions in which central sensitization is an established contributor.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Spinal dorsal horn microglia\"], \"biological_processes\": [\"Activity-dependent synaptic potentiation (central sensitization)\", \"NMDA/glutamatergic signaling in the dorsal horn\", \"Dorsal-horn microglial activation\"], \"role\": \"central_effector\", \"locations\": [\"Spinal cord dorsal horn\"]}}, {\"id\": \"Spinal Microglial Gating of Opioid Antinociception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A preclinical therapeutic vulnerability at the same spinal dorsal-horn / microglial substrate as the central-sensitization node (its inbound edge). In the paw-incision (post-surgical) pain model, spinal Hsp90 inhibition activates microglial Src kinase signaling that enhances mu-opioid-receptor antinociception, enabling an opioid dose-reduction strategy; better acute analgesia via this route is hypothesized to blunt the acute-to-chronic transition (its downstream edge). This node conforms to the `spinal_hsp90_opioid_enhancement` module. IMPORTANT: the evidence is preclinical (mouse, intrathecal/isoform-selective dosing) and spinal-compartment-specific - brain/systemic non-selective Hsp90 inhibition blocks opioid antinociception - so this is a research target, not established human therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Spinal dorsal horn microglia\"], \"biological_processes\": [\"Microglial modulation of spinal opioid antinociceptive signaling\"], \"role\": \"therapeutic_vulnerability\", \"locations\": [\"Spinal cord dorsal horn\"]}}, {\"id\": \"Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A preclinical opioid-adjuvant strategy: spinal-cord-directed Hsp90 inhibition (intrathecal 17-AAG/tanespimycin, or spinal-selective Hsp90-beta/Grp94 inhibitors) enhances mu-opioid antinociception in the paw-incision (post-surgical) pain model via microglial Src signaling, enabling opioid dose reduction and tolerance rescue. NOT an established human therapy - effect is spinal-compartment-specific and demonstrated only in rodents.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"17-AAG (tanespimycin)\"]}}, {\"id\": \"Surgical Incision and Nociceptor Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger. A surgical incision through skin, fascia, and muscle directly activates high-threshold A-delta and C-fiber nociceptors at the wound. In the Brennan rat plantar-incision model - the standard preclinical analogue of human post-surgical pain - a hindpaw incision produces reliable, quantifiable mechanical hyperalgesia lasting several days, with input carried by the sural and tibial nerves.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Nociceptor (A-delta / C-fiber primary afferent)\"], \"biological_processes\": [\"Nociception (sensory perception of pain)\"], \"role\": \"trigger\", \"locations\": [\"Skin and soft tissue at the surgical wound\"]}}, {\"id\": \"Transition to Chronic Post-Surgical Pain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The adverse consequence. In a substantial minority the sensitized state persists as chronic post-surgical pain (CPSP) - reported in 10-50% of individuals after common operations, severe in ~2-10% - often with a neuropathic component from intraoperative nerve injury. The intensity of the acute pain is a key predictor of this transition, the rationale for aggressive, opioid-sparing acute pain control.\", \"meta\": {\"evidence_count\": 3, \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Surgical Incision and Nociceptor Activation\", \"target\": \"Inflammatory Mediator Release at the Wound\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Inflammatory Mediator Release at the Wound\", \"target\": \"Peripheral Nociceptor Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral Nociceptor Sensitization\", \"target\": \"Spinal Central Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Spinal Microglial Gating of Opioid Antinociception\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Resolution with Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Transition to Chronic Post-Surgical Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Microglial Gating of Opioid Antinociception\", \"target\": \"Transition to Chronic Post-Surgical Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NMDA-Antagonist Adjuvant (Ketamine)\", \"target\": \"Spinal Central Sensitization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)\", \"target\": \"Spinal Microglial Gating of Opioid Antinociception\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute post-surgical pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Acute nociceptive pain at and around the surgical wound. Moderate or severe pain affects nearly half of adults undergoing surgery despite contemporary peri-operative care.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012531\"}}, {\"id\": \"Allodynia and secondary hyperalgesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain from normally non-painful stimuli (tactile allodynia) and heightened pain in uninjured tissue surrounding the wound (secondary hyperalgesia), reflecting central sensitization.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012533\"}}, {\"id\": \"Chronic post-surgical pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent pain lasting beyond normal healing (\u003e3 months) in a subset of surgical patients, often with a neuropathic component.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012532\"}}, {\"id\": \"Inflammatory Mediator Release at the Wound\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The molecular amplifier. Incised and injured tissue and infiltrating immune cells release an inflammatory milieu (prostaglandins, bradykinin, protons, ATP, cytokines, and nerve growth factor). Receptors, mediators, and neurotransmitters driving sensitization after incision have been specifically characterized and are in part unique to incisional pain.\", \"meta\": {\"evidence_count\": 1, \"role\": \"amplifier\", \"locations\": [\"Skin and soft tissue at the surgical wound\"]}}, {\"id\": \"NMDA-Antagonist Adjuvant (Ketamine)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Perioperative low-dose ketamine, an NMDA-receptor antagonist, acts on the spinal central-sensitization node (the NMDA/glutamatergic \\\"wind-up\\\" component), reducing postoperative pain and opioid consumption and contributing preventive analgesia.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ketamine\"]}}, {\"id\": \"NaV1.8-Mediated Peripheral Nociceptive Signal Propagation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NaV1.8 voltage-gated sodium channels on peripheral pain-sensing neurons and dorsal-root-ganglion nociceptors sustain action-potential firing and transmit incisional pain signals toward the spinal cord. Human-neuron pharmacology identifies this peripheral signaling step as a tractable, non-opioid therapeutic target.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Peripheral nociceptor\"], \"molecular_functions\": [\"NaV1.8 voltage-gated sodium channel activity\"], \"role\": \"signal_transmission\"}}, {\"id\": \"Peripheral Nociceptor Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular amplifier. The inflammatory milieu lowers nociceptor activation threshold and raises excitability, producing primary hyperalgesia at and immediately around the wound. In the incision model, distinct areas around the wound show altered withdrawal thresholds reflecting this peripheral sensitization.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sensitized nociceptor (A-delta / C-fiber primary afferent)\"], \"role\": \"amplifier\", \"locations\": [\"Skin and soft tissue at the surgical wound\"]}}, {\"id\": \"Resolution with Wound Healing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expected consequence. In most patients the sensitized state resolves as the surgical wound heals over days to weeks; only a minority progress to persistent pain.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Spinal Central Sensitization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central effector. Sustained nociceptor barrage into the spinal dorsal horn triggers activity-dependent synaptic plasticity - a prolonged, reversible increase in the excitability and synaptic efficacy of central nociceptive neurons (central sensitization), with a major NMDA-receptor/glutamatergic component (\\\"wind-up\\\") and a contribution from activated dorsal-horn microglia. Clinically it manifests as pain hypersensitivity beyond the wound: dynamic tactile allodynia and secondary hyperalgesia. Post-surgical pain is one of the conditions in which central sensitization is an established contributor.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Spinal dorsal horn microglia\"], \"biological_processes\": [\"Activity-dependent synaptic potentiation (central sensitization)\", \"NMDA/glutamatergic signaling in the dorsal horn\", \"Dorsal-horn microglial activation\"], \"role\": \"central_effector\", \"locations\": [\"Spinal cord dorsal horn\"]}}, {\"id\": \"Spinal Microglial Gating of Opioid Antinociception\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A preclinical therapeutic vulnerability at the same spinal dorsal-horn / microglial substrate as the central-sensitization node (its inbound edge). In the paw-incision (post-surgical) pain model, spinal Hsp90 inhibition activates microglial Src kinase signaling that enhances mu-opioid-receptor antinociception, enabling an opioid dose-reduction strategy; better acute analgesia via this route is hypothesized to blunt the acute-to-chronic transition (its downstream edge). This node conforms to the `spinal_hsp90_opioid_enhancement` module. IMPORTANT: the evidence is preclinical (mouse, intrathecal/isoform-selective dosing) and spinal-compartment-specific - brain/systemic non-selective Hsp90 inhibition blocks opioid antinociception - so this is a research target, not established human therapy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Spinal dorsal horn microglia\"], \"biological_processes\": [\"Microglial modulation of spinal opioid antinociceptive signaling\"], \"role\": \"therapeutic_vulnerability\", \"locations\": [\"Spinal cord dorsal horn\"]}}, {\"id\": \"Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A preclinical opioid-adjuvant strategy: spinal-cord-directed Hsp90 inhibition (intrathecal 17-AAG/tanespimycin, or spinal-selective Hsp90-beta/Grp94 inhibitors) enhances mu-opioid antinociception in the paw-incision (post-surgical) pain model via microglial Src signaling, enabling opioid dose reduction and tolerance rescue. NOT an established human therapy - effect is spinal-compartment-specific and demonstrated only in rodents.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"17-AAG (tanespimycin)\"]}}, {\"id\": \"Surgical Incision and Nociceptor Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger. A surgical incision through skin, fascia, and muscle directly activates high-threshold A-delta and C-fiber nociceptors at the wound. In the Brennan rat plantar-incision model - the standard preclinical analogue of human post-surgical pain - a hindpaw incision produces reliable, quantifiable mechanical hyperalgesia lasting several days, with input carried by the sural and tibial nerves.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Nociceptor (A-delta / C-fiber primary afferent)\"], \"role\": \"trigger\", \"locations\": [\"Skin and soft tissue at the surgical wound\"]}}, {\"id\": \"Suzetrigine (NaV1.8 Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Suzetrigine is an oral, first-in-class non-opioid analgesic for moderate-to-severe acute pain. It selectively inhibits peripheral NaV1.8 channels; two large phase III postoperative trials after abdominoplasty and bunionectomy showed clinically meaningful pain reduction versus placebo and pain reduction similar to hydrocodone/acetaminophen over 48 hours.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"suzetrigine\"]}}, {\"id\": \"Transition to Chronic Post-Surgical Pain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The adverse consequence. In a substantial minority the sensitized state persists as chronic post-surgical pain (CPSP) - reported in 10-50% of individuals after common operations, severe in ~2-10% - often with a neuropathic component from intraoperative nerve injury. The intensity of the acute pain is a key predictor of this transition, the rationale for aggressive, opioid-sparing acute pain control.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Surgical Incision and Nociceptor Activation\", \"target\": \"Inflammatory Mediator Release at the Wound\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Surgical Incision and Nociceptor Activation\", \"target\": \"Acute post-surgical pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Inflammatory Mediator Release at the Wound\", \"target\": \"Peripheral Nociceptor Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Peripheral Nociceptor Sensitization\", \"target\": \"NaV1.8-Mediated Peripheral Nociceptive Signal Propagation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NaV1.8-Mediated Peripheral Nociceptive Signal Propagation\", \"target\": \"Spinal Central Sensitization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Spinal Microglial Gating of Opioid Antinociception\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Resolution with Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Transition to Chronic Post-Surgical Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Central Sensitization\", \"target\": \"Allodynia and secondary hyperalgesia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spinal Microglial Gating of Opioid Antinociception\", \"target\": \"Transition to Chronic Post-Surgical Pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Transition to Chronic Post-Surgical Pain\", \"target\": \"Chronic post-surgical pain\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NMDA-Antagonist Adjuvant (Ketamine)\", \"target\": \"Spinal Central Sensitization\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Suzetrigine (NaV1.8 Inhibitor)\", \"target\": \"NaV1.8-Mediated Peripheral Nociceptive Signal Propagation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)\", \"target\": \"Spinal Microglial Gating of Opioid Antinociception\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4669,7 +5006,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-post-surgical-pain" data-dismech-node="Acute post-surgical pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Acute post-surgical pain
 
@@ -4714,10 +5051,10 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16698416" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39319373" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16698416" target="_blank">PMID:16698416</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39319373" target="_blank">PMID:39319373</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -4727,10 +5064,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Acute postoperative pain is followed by persistent pain in 10-50% of individuals after common operations"</div>
+                <div class="evidence-snippet">"Nearly half of adult patients undergoing surgery experience moderate or severe postoperative pain."</div>
 
 
-                <div class="evidence-explanation">Establishes acute postoperative pain as the near-universal antecedent state. Evidence source HUMAN_CLINICAL (human epidemiology in a clinical review).</div>
+                <div class="evidence-explanation">Provides a contemporary consensus-review estimate for clinically important acute postoperative pain in adults.</div>
 
 
 
@@ -4746,7 +5083,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-post-surgical-pain" data-dismech-node="Chronic post-surgical pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic post-surgical pain
 
@@ -4787,7 +5124,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4813,6 +5150,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:38809229" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38809229" target="_blank">PMID:38809229</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CPSP was defined as chronic pain that developed or increased in intensity after the surgical procedure and is localized to the surgical field or within the innervation territory of a nerve in the surgical field, and has persisted for 3 months post-surgery, with the exclusion of other causes of pain."</div>
+
+
+                <div class="evidence-explanation">Supports the three-month duration, surgical-field localization, and exclusion-of-other-causes scope of the chronic sequela.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4832,7 +5191,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-allodynia-and-secondary-hyperalgesia" data-dismech-node="Allodynia and secondary hyperalgesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Allodynia and secondary hyperalgesia
 
@@ -4924,29 +5283,32 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multimodal-opioid-sparing-analgesia" data-dismech-node="Multimodal (Opioid-Sparing) Analgesia" data-dismech-type="treatment">
                 <div class="item-name">
                     Multimodal (Opioid-Sparing) Analgesia
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
                     <span class="tag tag-treatment">Multimodal analgesia (pain management)</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pain Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15180" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15180">NCIT:C15180</a>
 
 
 
@@ -4978,7 +5340,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5004,6 +5366,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:39319373" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39319373" target="_blank">PMID:39319373</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"use of multimodal analgesia, including regional anaesthesia; non-pharmacological strategies; safe use of opioids"</div>
+
+
+                <div class="evidence-explanation">A contemporary multidisciplinary consensus endorses multimodal analgesia, regional techniques, non-pharmacological strategies, and safe opioid use. Evidence source is OTHER because the quoted claim is a Delphi consensus.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5011,7 +5395,85 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-local-and-regional-analgesia" data-dismech-node="Local and Regional Analgesia" data-dismech-type="treatment">
+                <div class="item-name">
+                    Local and Regional Analgesia
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Regional anesthesia procedure</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Regional Anesthesia Procedure</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C64381" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C64381">NCIT:C64381</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Regional techniques such as fascial-plane blocks can reduce early postoperative pain and opioid requirements for selected procedures. Technique selection is procedure-specific and requires trained staff and safety protocols.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41363869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41363869" target="_blank">PMID:41363869</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For adults, the American Society of Anesthesiologists (Schaumburg, Illinois) Task Force on Perioperative Pain Management strongly recommends fascial plane blocks to reduce pain and/or opioid requirements in the first 24 h postoperatively for open cardiothoracic, abdominal, retroperitoneal, and..."</div>
+
+
+                <div class="evidence-explanation">The current ASA practice guideline directly supports regional fascial-plane blocks for early postoperative pain and opioid reduction. Evidence source is OTHER because the quoted statement is a guideline recommendation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-opioid-analgesic-therapy" data-dismech-node="Opioid Analgesic Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Opioid Analgesic Therapy
                 </div>
@@ -5064,7 +5526,7 @@
 
 
 
-                <div class="item-desc">Mu-opioid agonists (e.g., morphine) remain central for moderate-to-severe acute post-surgical pain, but their tolerance, respiratory depression, ileus/constipation, and persistent-use risk motivate opioid-sparing strategies and, in preclinical research, opioid adjuvants.</div>
+                <div class="item-desc">Mu-opioid agonists (e.g., morphine) can be used within multimodal care for moderate-to-severe acute post-surgical pain, but their adverse effects and persistent-use risk motivate safe-use and opioid-sparing strategies and, in preclinical research, opioid adjuvants.</div>
 
 
 
@@ -5077,23 +5539,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16698416" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:39319373" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16698416" target="_blank">PMID:16698416</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39319373" target="_blank">PMID:39319373</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"the effect of aggressive, early therapy for postoperative pain should be investigated, since the intensity of acute postoperative pain correlates with the risk of developing a persistent pain state"</div>
+                <div class="evidence-snippet">"use of multimodal analgesia, including regional anaesthesia; non-pharmacological strategies; safe use of opioids"</div>
 
 
-                <div class="evidence-explanation">Supports aggressive early acute analgesia (including opioids within a multimodal plan) to blunt the acute-to-chronic transition. Evidence source HUMAN_CLINICAL.</div>
+                <div class="evidence-explanation">The multidisciplinary consensus explicitly places safe opioid use within a multimodal peri-operative pain strategy. Evidence source is OTHER because the quoted claim is a Delphi consensus.</div>
 
 
 
@@ -5106,7 +5568,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nmda-antagonist-adjuvant-ketamine" data-dismech-node="NMDA-Antagonist Adjuvant (Ketamine)" data-dismech-type="treatment">
                 <div class="item-name">
                     NMDA-Antagonist Adjuvant (Ketamine)
                 </div>
@@ -5218,7 +5680,151 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-suzetrigine-nav1-8-inhibitor" data-dismech-node="Suzetrigine (NaV1.8 Inhibitor)" data-dismech-type="treatment">
+                <div class="item-name">
+                    Suzetrigine (NaV1.8 Inhibitor)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+                    <span class="tag tag-treatment">
+                        suzetrigine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C199115" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C199115">NCIT:C199115</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Suzetrigine is an oral, first-in-class non-opioid analgesic for moderate-to-severe acute pain. It selectively inhibits peripheral NaV1.8 channels; two large phase III postoperative trials after abdominoplasty and bunionectomy showed clinically meaningful pain reduction versus placebo and pain reduction similar to hydrocodone/acetaminophen over 48 hours.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">NaV1.8-Mediated Peripheral Nociceptive Signal Propagation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Selective NaV1.8 inhibition reduces action-potential firing and pain-signal transmission in peripheral human dorsal-root-ganglion sensory neurons.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39775738" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39775738" target="_blank">PMID:39775738</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This novel allosteric mechanism results in tonic inhibition of NaV1.8 and reduces pain signals in primary human DRG sensory neurons."</div>
+
+
+                <div class="evidence-explanation">Human sensory-neuron electrophysiology directly supports the modeled mechanism target and inhibitory treatment effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40117446" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40117446" target="_blank">PMID:40117446</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"As compared with placebo, suzetrigine reduced moderate-to-severe acute pain over 48 h after abdominoplasty or bunionectomy. Pain reduction with suzetrigine was similar to that with hydrocodone bitartrate/acetaminophen."</div>
+
+
+                <div class="evidence-explanation">Two randomized, placebo- and active-controlled phase III postoperative-pain trials directly support clinical efficacy and appropriately limit the claim to the studied procedures and 48-hour endpoint.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-spinal-selective-hsp90-inhibitor-preclinical-opioid-adjuvant" data-dismech-node="Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)" data-dismech-type="treatment">
                 <div class="item-name">
                     Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)
                 </div>
@@ -5335,6 +5941,105 @@
 
         <!-- Environmental Factors -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
+                <h2 class="card-title">Environmental Factors</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-pre-existing-pain-and-heightened-pain-sensitivity" data-dismech-node="Pre-existing pain and heightened pain sensitivity" data-dismech-type="environmental">
+                <div class="item-name">Pre-existing pain and heightened pain sensitivity</div>
+
+
+
+                <div class="item-desc">Preoperative pain history and greater pain sensitivity are candidate risk-stratification domains for moderate-to-severe acute postsurgical pain.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38799277" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38799277" target="_blank">PMID:38799277</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This review investigates the risk factors for APSP, including gender, age, obesity, smoking history, preoperative pain history, pain sensitivity, preoperative anxiety, depression, pain catastrophizing, expected postoperative pain, surgical fear, and genetic polymorphisms."</div>
+
+
+                <div class="evidence-explanation">The narrative review enumerates preoperative pain and pain sensitivity in its APSP risk-factor scope, but this abstract sentence does not quantify or independently confirm either association; polarity is therefore PARTIAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-psychological-vulnerability-before-surgery" data-dismech-node="Psychological vulnerability before surgery" data-dismech-type="environmental">
+                <div class="item-name">Psychological vulnerability before surgery</div>
+
+
+
+                <div class="item-desc">Preoperative anxiety, depression, pain catastrophizing, fear of surgery, and high expected postoperative pain are candidate psychological risk-stratification domains for acute postsurgical pain.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38799277" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38799277" target="_blank">PMID:38799277</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This review investigates the risk factors for APSP, including gender, age, obesity, smoking history, preoperative pain history, pain sensitivity, preoperative anxiety, depression, pain catastrophizing, expected postoperative pain, surgical fear, and genetic polymorphisms."</div>
+
+
+                <div class="evidence-explanation">The narrative review enumerates these psychological variables in its APSP risk-factor scope, but this abstract sentence does not quantify or independently confirm each association; polarity is therefore PARTIAL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Biochemical Markers -->
 
@@ -5344,8 +6049,248 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A mouse model of acute post-surgical pain
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE125076" target="_blank">geo:GSE125076</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Pain is the leading cause of disability in the developed world but remains a poorly treated condition. Specifically, post-surgical pain continues to be a frequent and undermanaged condition. Here, we investigate the analgesic potential of pharmacological NaV1.7 inhibition in a mouse model of acute post-surgical pain, based on incision of the plantar skin and underlying muscle of the hind paw. We demonstrate that local and systemic treatment with the selective NaV1.7 inhibitor μ-theraphotoxin-Pn3a is effectively anti-allodynic in this model and completely reverses mechanical hypersensitivity in the absence of motor adverse effects.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31335646" target="_blank" style="color: var(--secondary);">PMID:31335646</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Acute Post-Surgical Pain (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Human birth tissue products as a regenerative medicine for post-surgical pain through multi-modal action
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE242389" target="_blank">geo:GSE242389</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Post-surgical pain causes significant suffering. Extracts of the human amniotic membrane (AM) may be novel regenerative matrices, but little is known about their use in pain treatment. Locally applying FLO (particulates of AM) in mice acutely attenuated post-surgical pain hypersensitivity and inhibited its transition to a prolonged state after plantar-incision. Mechanistically, this was achieved through direct nociceptive neuronal inhibition via CD44-dependent mechanisms and indirect anti-pain effect by attenuating immune cell recruitment and promoting wound healing.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39594635" target="_blank" style="color: var(--secondary);">PMID:39594635</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Acute Post-Surgical Pain (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
+
+        <div class="card" id="trials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #a855f7;">🔬</div>
+                <h2 class="card-title">Clinical Trials</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT05558410
+
+                    <span class="tag tag-phase">PHASE_III</span>
+
+
+                    <span class="tag tag-status">COMPLETED</span>
+
+                </div>
+
+                <div class="item-desc">Randomized, double-blind, placebo-controlled pivotal trial of suzetrigine for moderate-to-severe acute pain after abdominoplasty.</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Acute pain
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05558410" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05558410" target="_blank">clinicaltrials:NCT05558410</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The purpose of this study was to evaluate the efficacy and safety of Suzetrigine (SUZ) in treating acute pain after an abdominoplasty."</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov identifies this pivotal phase III postoperative-pain trial and its disease-relevant intervention and surgical setting.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box clinical-trial-box">
+                <div class="item-name">
+                    NCT05553366
+
+                    <span class="tag tag-phase">PHASE_III</span>
+
+
+                    <span class="tag tag-status">COMPLETED</span>
+
+                </div>
+
+                <div class="item-desc">Randomized, double-blind, placebo-controlled pivotal trial of suzetrigine for moderate-to-severe acute pain after bunionectomy.</div>
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+                        Acute pain
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT05553366" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT05553366" target="_blank">clinicaltrials:NCT05553366</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The purpose of this study is to evaluate the efficacy and safety of suzetrigine for acute pain after a bunionectomy."</div>
+
+
+                <div class="evidence-explanation">ClinicalTrials.gov identifies this pivotal phase III postoperative-pain trial and its disease-relevant intervention and surgical setting.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Experimental Models -->
@@ -5371,7 +6316,7 @@ category: Iatrogenic
 disease_term:
   preferred_term: Acute post-surgical pain
   # No MONDO term: MONDO has no human &#34;acute post-surgical pain&#34; disease entity
-  # (only the veterinary MONDO:1014066 &#34;post-operative pain, non-human animal&#34;).
+  # and obsolete or non-human postoperative-pain mappings are not appropriate.
   # Left intentionally unbound per curation decision; the closest human MONDO
   # relative is MONDO:0024317 (chronic pain syndrome) and the chronic sequela is
   # recognized in ICD-11 as MG30.21 chronic postsurgical pain. A disease-level
@@ -5383,7 +6328,7 @@ parents:
 notes: &gt;-
   Acute post-surgical (post-operative) pain is the nociceptive/inflammatory pain
   arising directly from surgical tissue injury, normally resolving as the wound
-  heals (days to weeks). It is near-universal after surgery and clinically
+  heals (days to weeks). It is common after surgery and clinically
   important out of proportion to its transience because its intensity is a
   leading predictor of the transition to chronic post-surgical pain (CPSP; ICD-11
   MG30.21). The pathophysiology chain here (incision -&gt; inflammatory mediator
@@ -5395,15 +6340,11 @@ notes: &gt;-
   rat/mouse paw-incision (Brennan) model, the standard preclinical analogue of
   acute post-surgical pain.
 
-  SCOPING NOTE. This entry is curated primarily to model the mechanistic
-  pathograph and to host the spinal-Hsp90 opioid-adjuvant module conformance;
-  deep-research providers were unavailable in the curation environment (see the
-  history record), so it was built from targeted PubMed literature. Coverage of
-  `diagnosis`, `comorbidities`, `clinical_trials`, structured risk factors, and
-  an exhaustive treatment list is deliberately deferred to a later pass; the
-  treatments modeled here are the mechanistically load-bearing ones (opioid,
-  NMDA-antagonist, and the preclinical Hsp90 adjuvant) plus the multimodal
-  umbrella.
+  Publication review in 2026 expanded the original targeted-literature curation
+  with contemporary prevalence and risk-factor evidence, functional pain
+  assessment, regional analgesia guidance, and the pivotal postoperative trials
+  of suzetrigine. The entry remains mechanism-first rather than a prescriptive
+  peri-operative care protocol, consistent with DisMech scope.
 pathophysiology:
 - name: Surgical Incision and Nociceptor Activation
   description: &gt;-
@@ -5420,12 +6361,6 @@ pathophysiology:
     term:
       id: CL:0000198
       label: pain receptor cell
-  biological_processes:
-  - preferred_term: Nociception (sensory perception of pain)
-    term:
-      id: GO:0019233
-      label: sensory perception of pain
-    modifier: INCREASED
   locations:
   - preferred_term: Skin and soft tissue at the surgical wound
     term:
@@ -5433,6 +6368,7 @@ pathophysiology:
       label: skin of body
   evidence:
   - reference: PMID:8783314
+    reference_title: Characterization of a rat model of incisional pain.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5444,6 +6380,7 @@ pathophysiology:
       rat plantar-incision model, the standard preclinical analogue of acute
       post-surgical pain.
   - reference: PMID:8783314
+    reference_title: Characterization of a rat model of incisional pain.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5455,6 +6392,7 @@ pathophysiology:
       throughout this entry.
   downstream:
   - target: Inflammatory Mediator Release at the Wound
+  - target: Acute post-surgical pain
 - name: Inflammatory Mediator Release at the Wound
   description: &gt;-
     The molecular amplifier. Incised and injured tissue and infiltrating immune
@@ -5464,12 +6402,6 @@ pathophysiology:
     characterized and are in part unique to incisional pain.
   role: amplifier
   biological_scale: MOLECULAR
-  biological_processes:
-  - preferred_term: Inflammatory mediator release
-    term:
-      id: GO:0006954
-      label: inflammatory response
-    modifier: INCREASED
   locations:
   - preferred_term: Skin and soft tissue at the surgical wound
     term:
@@ -5477,6 +6409,7 @@ pathophysiology:
       label: skin of body
   evidence:
   - reference: PMID:29392204
+    reference_title: Postoperative pain-from mechanisms to treatment.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5509,6 +6442,7 @@ pathophysiology:
       label: skin of body
   evidence:
   - reference: PMID:8783314
+    reference_title: Characterization of a rat model of incisional pain.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5518,6 +6452,40 @@ pathophysiology:
       Documents spatially graded threshold changes around the incision consistent
       with peripheral nociceptor sensitization. Evidence source MODEL_ORGANISM
       (Brennan rat incision model).
+  downstream:
+  - target: NaV1.8-Mediated Peripheral Nociceptive Signal Propagation
+- name: NaV1.8-Mediated Peripheral Nociceptive Signal Propagation
+  description: &gt;-
+    NaV1.8 voltage-gated sodium channels on peripheral pain-sensing neurons and
+    dorsal-root-ganglion nociceptors sustain action-potential firing and transmit
+    incisional pain signals toward the spinal cord. Human-neuron pharmacology
+    identifies this peripheral signaling step as a tractable, non-opioid
+    therapeutic target.
+  role: signal_transmission
+  biological_scale: CELLULAR
+  cell_types:
+  - preferred_term: Peripheral nociceptor
+    term:
+      id: CL:0000198
+      label: pain receptor cell
+  molecular_functions:
+  - preferred_term: NaV1.8 voltage-gated sodium channel activity
+    term:
+      id: GO:0005248
+      label: voltage-gated sodium channel activity
+  evidence:
+  - reference: PMID:39775738
+    reference_title: Pharmacology and Mechanism of Action of Suzetrigine, a Potent and Selective NaV1.8 Pain Signal Inhibitor for the Treatment of Moderate to Severe Pain.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      This novel allosteric mechanism results in tonic inhibition of NaV1.8 and
+      reduces pain signals in primary human DRG sensory neurons.
+    explanation: &gt;-
+      Human dorsal-root-ganglion neuron electrophysiology directly supports
+      NaV1.8-dependent peripheral pain-signal propagation and its inhibition by
+      suzetrigine. The evidence source is IN_VITRO because the quoted experiment
+      used primary human sensory neurons outside an intact organism.
   downstream:
   - target: Spinal Central Sensitization
 - name: Spinal Central Sensitization
@@ -5560,6 +6528,7 @@ pathophysiology:
       label: dorsal horn of spinal cord
   evidence:
   - reference: PMID:20961685
+    reference_title: &#34;Central sensitization: implications for the diagnosis and treatment of pain.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5571,6 +6540,7 @@ pathophysiology:
       central pathways. Evidence source HUMAN_CLINICAL because the review grounds
       central sensitization in human volunteer studies and clinical cohorts.
   - reference: PMID:20961685
+    reference_title: &#34;Central sensitization: implications for the diagnosis and treatment of pain.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5580,6 +6550,7 @@ pathophysiology:
       Links central sensitization to allodynia and secondary hyperalgesia, the
       spread of pain beyond the wound seen after surgery.
   - reference: PMID:29392204
+    reference_title: Postoperative pain-from mechanisms to treatment.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5594,6 +6565,7 @@ pathophysiology:
   - target: Spinal Microglial Gating of Opioid Antinociception
   - target: Resolution with Wound Healing
   - target: Transition to Chronic Post-Surgical Pain
+  - target: Allodynia and secondary hyperalgesia
 - name: Spinal Microglial Gating of Opioid Antinociception
   description: &gt;-
     A preclinical therapeutic vulnerability at the same spinal dorsal-horn /
@@ -5629,6 +6601,7 @@ pathophysiology:
       label: dorsal horn of spinal cord
   evidence:
   - reference: PMID:41031962
+    reference_title: Hsp90 inhibition in mouse spinal cord enhances Src kinase signaling in microglia to increase opioid antinociception.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5638,6 +6611,7 @@ pathophysiology:
       Ties the module&#39;s opioid-enhancement mechanism directly to the paw-incision
       (post-surgical) pain model. Evidence source is MODEL_ORGANISM (mouse).
   - reference: PMID:41031962
+    reference_title: Hsp90 inhibition in mouse spinal cord enhances Src kinase signaling in microglia to increase opioid antinociception.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5656,15 +6630,17 @@ pathophysiology:
   biological_scale: ORGANISM
   evidence:
   - reference: PMID:16698416
-    supports: SUPPORT
+    reference_title: &#34;Persistent postsurgical pain: risk factors and prevention.&#34;
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Acute postoperative pain is followed by persistent pain in 10-50% of
       individuals after common operations
     explanation: &gt;-
-      Because persistent pain follows in only 10-50% of individuals, the majority
-      resolve with healing - the basis for this consequence node. Evidence source
-      HUMAN_CLINICAL (human epidemiology in a clinical review).
+      The reported minority progressing to persistent pain implies that most
+      patients do not develop chronic pain, but the quoted text does not directly
+      establish wound healing as the mechanism of resolution; polarity is
+      therefore PARTIAL.
 - name: Transition to Chronic Post-Surgical Pain
   description: &gt;-
     The adverse consequence. In a substantial minority the sensitized state
@@ -5677,6 +6653,7 @@ pathophysiology:
   biological_scale: ORGANISM
   evidence:
   - reference: PMID:16698416
+    reference_title: &#34;Persistent postsurgical pain: risk factors and prevention.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5687,6 +6664,7 @@ pathophysiology:
       Quantifies the acute-to-chronic transition across common operations.
       Evidence source HUMAN_CLINICAL (human epidemiology in a clinical review).
   - reference: PMID:16698416
+    reference_title: &#34;Persistent postsurgical pain: risk factors and prevention.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5696,6 +6674,7 @@ pathophysiology:
       States the central clinical link modeled by this node: acute pain intensity
       predicts CPSP, motivating aggressive acute analgesia.
   - reference: PMID:16698416
+    reference_title: &#34;Persistent postsurgical pain: risk factors and prevention.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5704,12 +6683,26 @@ pathophysiology:
     explanation: &gt;-
       Attributes much long-term CPSP to iatrogenic neuropathic injury, the
       neuropathic component noted in this node.
+  - reference: PMID:38809229
+    reference_title: A prospective cohort study of chronic postsurgical pain after ambulatory surgeries.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Every unit increase in pain over the first 24 h was significantly associated
+      with increased odds of moderate-to-severe CPSP at 3 months; odds ratio =
+      1.28, 95% CI = 1.04-1.58.
+    explanation: &gt;-
+      A contemporary prospective ambulatory-surgery cohort quantifies the
+      association between early acute pain intensity and moderate-to-severe CPSP.
+  downstream:
+  - target: Chronic post-surgical pain
 phenotypes:
 - name: Acute post-surgical pain
   category: Phenotype
   description: &gt;-
-    Acute nociceptive pain at and around the surgical wound, near-universal after
-    surgery.
+    Acute nociceptive pain at and around the surgical wound. Moderate or severe
+    pain affects nearly half of adults undergoing surgery despite contemporary
+    peri-operative care.
   phenotype_term:
     preferred_term: Pain
     term:
@@ -5717,15 +6710,16 @@ phenotypes:
       label: Pain
     temporality: ACUTE
   evidence:
-  - reference: PMID:16698416
+  - reference: PMID:39319373
+    reference_title: &#34;Peri-operative pain management in adults: a multidisciplinary consensus statement from the Association of Anaesthetists and the British Pain Society.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Acute postoperative pain is followed by persistent pain in 10-50% of
-      individuals after common operations
+      Nearly half of adult patients undergoing surgery experience moderate or
+      severe postoperative pain.
     explanation: &gt;-
-      Establishes acute postoperative pain as the near-universal antecedent state.
-      Evidence source HUMAN_CLINICAL (human epidemiology in a clinical review).
+      Provides a contemporary consensus-review estimate for clinically important
+      acute postoperative pain in adults.
 - name: Allodynia and secondary hyperalgesia
   category: Phenotype
   description: &gt;-
@@ -5739,6 +6733,7 @@ phenotypes:
       label: Allodynia
   evidence:
   - reference: PMID:20961685
+    reference_title: &#34;Central sensitization: implications for the diagnosis and treatment of pain.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5761,6 +6756,7 @@ phenotypes:
     temporality: CHRONIC
   evidence:
   - reference: PMID:16698416
+    reference_title: &#34;Persistent postsurgical pain: risk factors and prevention.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5770,24 +6766,111 @@ phenotypes:
       Supports chronic post-surgical pain as a sequela in a substantial subset
       (10-50% across common operations). Frequency band omitted because the source
       reports a wide range rather than a single enum-mappable band.
-prevalence:
-- population: Surgical patients worldwide
-  measure_type: UNKNOWN
-  prevalence_class: COMMON
-  notes: &gt;-
-    Acute pain is a near-universal consequence of surgery; &gt;230 million operations
-    are performed worldwide each year. Occurrence is conditional on undergoing
-    surgery rather than a population point prevalence.
-  evidence:
-  - reference: PMID:29392204
+  - reference: PMID:38809229
+    reference_title: A prospective cohort study of chronic postsurgical pain after ambulatory surgeries.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Many patients suffer from severe pain after surgery
+      CPSP was defined as chronic pain that developed or increased in intensity
+      after the surgical procedure and is localized to the surgical field or
+      within the innervation territory of a nerve in the surgical field, and has
+      persisted for 3 months post-surgery, with the exclusion of other causes of
+      pain.
     explanation: &gt;-
-      Supports the high frequency of clinically significant acute post-surgical
-      pain. Evidence source HUMAN_CLINICAL (clinical claim about surgical
-      patients).
+      Supports the three-month duration, surgical-field localization, and
+      exclusion-of-other-causes scope of the chronic sequela.
+prevalence:
+- population: Post-discharge surgical cohorts
+  measure_type: PERIOD_PREVALENCE
+  prevalence_class: COMMON
+  rate_per_100000: 44500.0
+  rate_low: 31000.0
+  rate_high: 58000.0
+  notes: &gt;-
+    Conditional prevalence among people who underwent surgery, measured during
+    the first 1-14 days after hospital discharge; this is not general-population
+    prevalence.
+  evidence:
+  - reference: PMID:37181639
+    reference_title: &#34;Prevalence of postoperative pain after hospital discharge: systematic review and meta-analysis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Meta-analyses of combinable studies provided estimates of pooled prevalence
+      rates of moderate-to-severe postoperative pain ranging from 31% 1 day after
+      discharge to 58% 1 to 2 weeks after discharge.
+    explanation: &gt;-
+      Quantifies the common conditional prevalence of moderate-to-severe pain
+      after discharge across 27 studies and 22,108 surgical participants.
+environmental:
+- name: Pre-existing pain and heightened pain sensitivity
+  description: &gt;-
+    Preoperative pain history and greater pain sensitivity are candidate
+    risk-stratification domains for moderate-to-severe acute postsurgical pain.
+  presence: Positive
+  evidence:
+  - reference: PMID:38799277
+    reference_title: &#34;Risk Factors for Acute Postsurgical Pain: A Narrative Review.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This review investigates the risk factors for APSP, including gender, age,
+      obesity, smoking history, preoperative pain history, pain sensitivity,
+      preoperative anxiety, depression, pain catastrophizing, expected
+      postoperative pain, surgical fear, and genetic polymorphisms.
+    explanation: &gt;-
+      The narrative review enumerates preoperative pain and pain sensitivity in
+      its APSP risk-factor scope, but this abstract sentence does not quantify or
+      independently confirm either association; polarity is therefore PARTIAL.
+- name: Psychological vulnerability before surgery
+  description: &gt;-
+    Preoperative anxiety, depression, pain catastrophizing, fear of surgery, and
+    high expected postoperative pain are candidate psychological
+    risk-stratification domains for acute postsurgical pain.
+  presence: Positive
+  evidence:
+  - reference: PMID:38799277
+    reference_title: &#34;Risk Factors for Acute Postsurgical Pain: A Narrative Review.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This review investigates the risk factors for APSP, including gender, age,
+      obesity, smoking history, preoperative pain history, pain sensitivity,
+      preoperative anxiety, depression, pain catastrophizing, expected
+      postoperative pain, surgical fear, and genetic polymorphisms.
+    explanation: &gt;-
+      The narrative review enumerates these psychological variables in its APSP
+      risk-factor scope, but this abstract sentence does not quantify or
+      independently confirm each association; polarity is therefore PARTIAL.
+diagnosis:
+- name: Function-guided peri-operative pain assessment
+  description: &gt;-
+    Repeated pain assessment across the peri-operative pathway should evaluate
+    functional interference as well as pain intensity, guiding reassessment of
+    analgesia rather than treating a unidimensional score alone.
+  diagnosis_term:
+    preferred_term: Pain assessment
+    term:
+      id: NCIT:C20992
+      label: Pain Assessment
+  results: &gt;-
+    Moderate or severe pain and pain that impairs recovery functions indicate
+    inadequately controlled postoperative pain and the need to reassess the
+    analgesic plan.
+  evidence:
+  - reference: PMID:39319373
+    reference_title: &#34;Peri-operative pain management in adults: a multidisciplinary consensus statement from the Association of Anaesthetists and the British Pain Society.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      assessing pain to facilitate function; use of multimodal analgesia,
+      including regional anaesthesia; non-pharmacological strategies; safe use of
+      opioids; and use of protocols and training for staff in caring for patients
+      with postoperative pain.
+    explanation: &gt;-
+      The multidisciplinary consensus explicitly makes function-facilitating pain
+      assessment a generic principle. Evidence source is OTHER because the claim
+      is a Delphi consensus recommendation rather than a patient-level study.
 treatments:
 - name: Multimodal (Opioid-Sparing) Analgesia
   description: &gt;-
@@ -5799,10 +6882,11 @@ treatments:
   treatment_term:
     preferred_term: Multimodal analgesia (pain management)
     term:
-      id: NCIT:C15747
-      label: Supportive Care
+      id: NCIT:C15180
+      label: Pain Therapy
   evidence:
   - reference: PMID:29392204
+    reference_title: Postoperative pain-from mechanisms to treatment.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5812,12 +6896,49 @@ treatments:
     explanation: &gt;-
       Supports multimodal, opioid-sparing analgesia as the evidence-based approach.
       Evidence source HUMAN_CLINICAL (guideline/clinical-evidence synthesis).
+  - reference: PMID:39319373
+    reference_title: &#34;Peri-operative pain management in adults: a multidisciplinary consensus statement from the Association of Anaesthetists and the British Pain Society.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      use of multimodal analgesia, including regional anaesthesia;
+      non-pharmacological strategies; safe use of opioids
+    explanation: &gt;-
+      A contemporary multidisciplinary consensus endorses multimodal analgesia,
+      regional techniques, non-pharmacological strategies, and safe opioid use.
+      Evidence source is OTHER because the quoted claim is a Delphi consensus.
+- name: Local and Regional Analgesia
+  description: &gt;-
+    Regional techniques such as fascial-plane blocks can reduce early
+    postoperative pain and opioid requirements for selected procedures.
+    Technique selection is procedure-specific and requires trained staff and
+    safety protocols.
+  treatment_term:
+    preferred_term: Regional anesthesia procedure
+    term:
+      id: NCIT:C64381
+      label: Regional Anesthesia Procedure
+  evidence:
+  - reference: PMID:41363869
+    reference_title: 2026 American Society of Anesthesiologists Practice Guideline on Perioperative Pain Management Using Local and Regional Analgesia for Cardiothoracic Surgeries, Mastectomy, and Abdominal Surgeries.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      For adults, the American Society of Anesthesiologists (Schaumburg, Illinois)
+      Task Force on Perioperative Pain Management strongly recommends fascial
+      plane blocks to reduce pain and/or opioid requirements in the first 24 h
+      postoperatively for open cardiothoracic, abdominal, retroperitoneal, and
+      pelvic surgeries and mastectomy.
+    explanation: &gt;-
+      The current ASA practice guideline directly supports regional fascial-plane
+      blocks for early postoperative pain and opioid reduction. Evidence source is
+      OTHER because the quoted statement is a guideline recommendation.
 - name: Opioid Analgesic Therapy
   description: &gt;-
-    Mu-opioid agonists (e.g., morphine) remain central for moderate-to-severe
-    acute post-surgical pain, but their tolerance, respiratory depression,
-    ileus/constipation, and persistent-use risk motivate opioid-sparing strategies
-    and, in preclinical research, opioid adjuvants.
+    Mu-opioid agonists (e.g., morphine) can be used within multimodal care for
+    moderate-to-severe acute post-surgical pain, but their adverse effects and
+    persistent-use risk motivate safe-use and opioid-sparing strategies and, in
+    preclinical research, opioid adjuvants.
   therapeutic_modality: SMALL_MOLECULE
   treatment_term:
     preferred_term: opioid analgesic agent therapy
@@ -5830,17 +6951,17 @@ treatments:
         id: CHEBI:17303
         label: morphine
   evidence:
-  - reference: PMID:16698416
+  - reference: PMID:39319373
+    reference_title: &#34;Peri-operative pain management in adults: a multidisciplinary consensus statement from the Association of Anaesthetists and the British Pain Society.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
     snippet: &gt;-
-      the effect of aggressive, early therapy for postoperative pain should be
-      investigated, since the intensity of acute postoperative pain correlates
-      with the risk of developing a persistent pain state
+      use of multimodal analgesia, including regional anaesthesia;
+      non-pharmacological strategies; safe use of opioids
     explanation: &gt;-
-      Supports aggressive early acute analgesia (including opioids within a
-      multimodal plan) to blunt the acute-to-chronic transition. Evidence source
-      HUMAN_CLINICAL.
+      The multidisciplinary consensus explicitly places safe opioid use within a
+      multimodal peri-operative pain strategy. Evidence source is OTHER because
+      the quoted claim is a Delphi consensus.
 - name: NMDA-Antagonist Adjuvant (Ketamine)
   description: &gt;-
     Perioperative low-dose ketamine, an NMDA-receptor antagonist, acts on the
@@ -5866,6 +6987,7 @@ treatments:
       spinal central sensitization, reducing pain and opioid requirement.
   evidence:
   - reference: PMID:15105220
+    reference_title: A qualitative systematic review of the role of N-methyl-D-aspartate receptor antagonists in preventive analgesia.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5875,6 +6997,54 @@ treatments:
       Supports ketamine (NMDA antagonist) reducing postoperative pain/analgesic
       consumption. Evidence source HUMAN_CLINICAL (qualitative systematic review
       of perioperative randomized trials).
+- name: Suzetrigine (NaV1.8 Inhibitor)
+  description: &gt;-
+    Suzetrigine is an oral, first-in-class non-opioid analgesic for
+    moderate-to-severe acute pain. It selectively inhibits peripheral NaV1.8
+    channels; two large phase III postoperative trials after abdominoplasty and
+    bunionectomy showed clinically meaningful pain reduction versus placebo and
+    pain reduction similar to hydrocodone/acetaminophen over 48 hours.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: suzetrigine
+      term:
+        id: NCIT:C199115
+        label: Suzetrigine
+  target_mechanisms:
+  - target: NaV1.8-Mediated Peripheral Nociceptive Signal Propagation
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Selective NaV1.8 inhibition reduces action-potential firing and pain-signal
+      transmission in peripheral human dorsal-root-ganglion sensory neurons.
+    evidence:
+    - reference: PMID:39775738
+      reference_title: Pharmacology and Mechanism of Action of Suzetrigine, a Potent and Selective NaV1.8 Pain Signal Inhibitor for the Treatment of Moderate to Severe Pain.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        This novel allosteric mechanism results in tonic inhibition of NaV1.8 and
+        reduces pain signals in primary human DRG sensory neurons.
+      explanation: &gt;-
+        Human sensory-neuron electrophysiology directly supports the modeled
+        mechanism target and inhibitory treatment effect.
+  evidence:
+  - reference: PMID:40117446
+    reference_title: &#34;Suzetrigine, a Nonopioid NaV1.8 Inhibitor for Treatment of Moderate-to-severe Acute Pain: Two Phase 3 Randomized Clinical Trials.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      As compared with placebo, suzetrigine reduced moderate-to-severe acute pain
+      over 48 h after abdominoplasty or bunionectomy. Pain reduction with
+      suzetrigine was similar to that with hydrocodone bitartrate/acetaminophen.
+    explanation: &gt;-
+      Two randomized, placebo- and active-controlled phase III postoperative-pain
+      trials directly support clinical efficacy and appropriately limit the claim
+      to the studied procedures and 48-hour endpoint.
 - name: Spinal-Selective Hsp90 Inhibitor (Preclinical Opioid Adjuvant)
   description: &gt;-
     A preclinical opioid-adjuvant strategy: spinal-cord-directed Hsp90 inhibition
@@ -5904,6 +7074,7 @@ treatments:
       spinal_hsp90_opioid_enhancement module).
   evidence:
   - reference: PMID:41031962
+    reference_title: Hsp90 inhibition in mouse spinal cord enhances Src kinase signaling in microglia to increase opioid antinociception.
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
@@ -5913,6 +7084,53 @@ treatments:
       Supports the adjuvant mechanism specifically in the paw-incision
       (post-surgical) model. Evidence source MODEL_ORGANISM (mouse); this is a
       preclinical research target, not established therapy.
+clinical_trials:
+- name: NCT05558410
+  phase: PHASE_III
+  status: COMPLETED
+  description: &gt;-
+    Randomized, double-blind, placebo-controlled pivotal trial of suzetrigine for
+    moderate-to-severe acute pain after abdominoplasty.
+  target_phenotypes:
+  - preferred_term: Acute pain
+    term:
+      id: HP:0012531
+      label: Pain
+    temporality: ACUTE
+  evidence:
+  - reference: clinicaltrials:NCT05558410
+    reference_title: A Phase 3, Randomized, Double-blind, Placebo-controlled Study Evaluating the Efficacy and Safety of Suzetrigine for Acute Pain After an Abdominoplasty
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The purpose of this study was to evaluate the efficacy and safety of
+      Suzetrigine (SUZ) in treating acute pain after an abdominoplasty.
+    explanation: &gt;-
+      ClinicalTrials.gov identifies this pivotal phase III postoperative-pain
+      trial and its disease-relevant intervention and surgical setting.
+- name: NCT05553366
+  phase: PHASE_III
+  status: COMPLETED
+  description: &gt;-
+    Randomized, double-blind, placebo-controlled pivotal trial of suzetrigine for
+    moderate-to-severe acute pain after bunionectomy.
+  target_phenotypes:
+  - preferred_term: Acute pain
+    term:
+      id: HP:0012531
+      label: Pain
+    temporality: ACUTE
+  evidence:
+  - reference: clinicaltrials:NCT05553366
+    reference_title: A Phase 3, Randomized, Double-blind, Placebo-controlled Study Evaluating the Efficacy and Safety of VX-548 for Acute Pain After a Bunionectomy
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The purpose of this study is to evaluate the efficacy and safety of
+      suzetrigine for acute pain after a bunionectomy.
+    explanation: &gt;-
+      ClinicalTrials.gov identifies this pivotal phase III postoperative-pain
+      trial and its disease-relevant intervention and surgical setting.
 discussions:
 - discussion_id: gap_apsp_hsp90_adjuvant_translation
   prompt: &gt;-
@@ -5942,6 +7160,45 @@ references:
   title: A qualitative systematic review of the role of N-methyl-D-aspartate receptor antagonists in preventive analgesia.
 - reference: PMID:41031962
   title: Hsp90 inhibition in mouse spinal cord enhances Src kinase signaling in microglia to increase opioid antinociception.
+- reference: PMID:37181639
+  title: &#34;Prevalence of postoperative pain after hospital discharge: systematic review and meta-analysis.&#34;
+- reference: PMID:38799277
+  title: &#34;Risk Factors for Acute Postsurgical Pain: A Narrative Review.&#34;
+- reference: PMID:38809229
+  title: A prospective cohort study of chronic postsurgical pain after ambulatory surgeries.
+- reference: PMID:39319373
+  title: &#34;Peri-operative pain management in adults: a multidisciplinary consensus statement from the Association of Anaesthetists and the British Pain Society.&#34;
+- reference: PMID:39775738
+  title: Pharmacology and Mechanism of Action of Suzetrigine, a Potent and Selective Na(V)1.8 Pain Signal Inhibitor for the Treatment of Moderate to Severe Pain.
+- reference: PMID:40117446
+  title: &#34;Suzetrigine, a Nonopioid Na V 1.8 Inhibitor for Treatment of Moderate-to-severe Acute Pain: Two Phase 3 Randomized Clinical Trials.&#34;
+- reference: PMID:41363869
+  title: 2026 American Society of Anesthesiologists Practice Guideline on Perioperative Pain Management Using Local and Regional Analgesia for Cardiothoracic Surgeries, Mastectomy, and Abdominal Surgeries.
+datasets:
+- accession: geo:GSE125076
+  title: A mouse model of acute post-surgical pain
+  description: Pain is the leading cause of disability in the developed world but remains a poorly treated condition. Specifically, post-surgical pain continues to be a frequent and undermanaged condition. Here, we investigate the analgesic potential of pharmacological NaV1.7 inhibition in a mouse model of acute post-surgical pain, based on incision of the plantar skin and underlying muscle of the hind paw. We demonstrate that local and systemic treatment with the selective NaV1.7 inhibitor μ-theraphotoxin-Pn3a is effectively anti-allodynic in this model and completely reverses mechanical hypersensitivity in the absence of motor adverse effects.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:31335646
+  notes: Identified by GEO DataSets index search for Acute Post-Surgical Pain (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE242389
+  title: Human birth tissue products as a regenerative medicine for post-surgical pain through multi-modal action
+  description: Post-surgical pain causes significant suffering. Extracts of the human amniotic membrane (AM) may be novel regenerative matrices, but little is known about their use in pain treatment. Locally applying FLO (particulates of AM) in mice acutely attenuated post-surgical pain hypersensitivity and inhibited its transition to a prolonged state after plantar-incision. Mechanistically, this was achieved through direct nociceptive neuronal inhibition via CD44-dependent mechanisms and indirect anti-pain effect by attenuating immune cell recruitment and promoting wound healing.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:39594635
+  notes: Identified by GEO DataSets index search for Acute Post-Surgical Pain (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -5957,7 +7214,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">6</span>
+                    <span class="card-count">13</span>
                 </div>
 
                 <div class="reference-entry">
@@ -6062,6 +7319,125 @@ references:
 
                 </div>
 
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37181639" target="_blank">PMID:37181639</a>
+                            </div>
+
+                            <div class="reference-title">Prevalence of postoperative pain after hospital discharge: systematic review and meta-analysis.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38799277" target="_blank">PMID:38799277</a>
+                            </div>
+
+                            <div class="reference-title">Risk Factors for Acute Postsurgical Pain: A Narrative Review.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38809229" target="_blank">PMID:38809229</a>
+                            </div>
+
+                            <div class="reference-title">A prospective cohort study of chronic postsurgical pain after ambulatory surgeries.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39319373" target="_blank">PMID:39319373</a>
+                            </div>
+
+                            <div class="reference-title">Peri-operative pain management in adults: a multidisciplinary consensus statement from the Association of Anaesthetists and the British Pain Society.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39775738" target="_blank">PMID:39775738</a>
+                            </div>
+
+                            <div class="reference-title">Pharmacology and Mechanism of Action of Suzetrigine, a Potent and Selective Na(V)1.8 Pain Signal Inhibitor for the Treatment of Moderate to Severe Pain.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/40117446" target="_blank">PMID:40117446</a>
+                            </div>
+
+                            <div class="reference-title">Suzetrigine, a Nonopioid Na V 1.8 Inhibitor for Treatment of Moderate-to-severe Acute Pain: Two Phase 3 Randomized Clinical Trials.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41363869" target="_blank">PMID:41363869</a>
+                            </div>
+
+                            <div class="reference-title">2026 American Society of Anesthesiologists Practice Guideline on Perioperative Pain Management Using Local and Regional Analgesia for Cardiothoracic Surgeries, Mastectomy, and Abdominal Surgeries.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
             </div>
 
 
@@ -6121,7 +7497,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acute Post-Surgical Pain", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Post-Surgical_Pain", "yamlRevision": "f2de6d163e76"};
+        const OS_CONFIG = {"diseaseName": "Acute Post-Surgical Pain", "mondoId": "", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acute_Post-Surgical_Pain", "yamlRevision": "1c6548764adb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

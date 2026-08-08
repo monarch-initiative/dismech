@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3463,6 +3692,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3499,6 +3730,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3517,6 +3749,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -4581,7 +4821,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oliguria" data-dismech-node="Oliguria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Oliguria
 
@@ -4640,7 +4880,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proteinuria
 
@@ -4708,7 +4948,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-creatinine" data-dismech-node="Elevated Serum Creatinine" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Serum Creatinine
 
@@ -4767,7 +5007,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-acidosis" data-dismech-node="Metabolic Acidosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Metabolic Acidosis
 
@@ -4826,7 +5066,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkalemia" data-dismech-node="Hyperkalemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperkalemia
 
@@ -4885,7 +5125,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fluid-overload" data-dismech-node="Fluid Overload" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fluid Overload
 
@@ -4944,7 +5184,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-azotemia" data-dismech-node="Azotemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Azotemia
 
@@ -5042,7 +5282,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-fto" data-dismech-node="FTO" data-dismech-type="genetic">
                 <div class="item-name">
                     FTO
 
@@ -5086,9 +5326,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-shroom3" data-dismech-node="SHROOM3" data-dismech-type="genetic">
                 <div class="item-name">
                     SHROOM3
 
@@ -5132,9 +5373,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-apoe" data-dismech-node="APOE" data-dismech-type="genetic">
                 <div class="item-name">
                     APOE
 
@@ -5178,9 +5420,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nr5a2" data-dismech-node="NR5A2" data-dismech-type="genetic">
                 <div class="item-name">
                     NR5A2
 
@@ -5224,9 +5467,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chrna7" data-dismech-node="CHRNA7" data-dismech-type="genetic">
                 <div class="item-name">
                     CHRNA7
 
@@ -5270,9 +5514,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5284,7 +5532,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-fluid-resuscitation" data-dismech-node="Fluid Resuscitation" data-dismech-type="treatment">
                 <div class="item-name">
                     Fluid Resuscitation
                 </div>
@@ -5363,7 +5611,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nephrotoxin-avoidance" data-dismech-node="Nephrotoxin Avoidance" data-dismech-type="treatment">
                 <div class="item-name">
                     Nephrotoxin Avoidance
                 </div>
@@ -5464,7 +5712,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-renal-replacement-therapy" data-dismech-node="Renal Replacement Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Renal Replacement Therapy
                 </div>
@@ -5543,7 +5791,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-aki-care-bundles" data-dismech-node="AKI Care Bundles" data-dismech-type="treatment">
                 <div class="item-name">
                     AKI Care Bundles
                 </div>
@@ -5634,7 +5882,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-nephrotoxic-drug-exposure" data-dismech-node="Nephrotoxic Drug Exposure" data-dismech-type="environmental">
                 <div class="item-name">Nephrotoxic Drug Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -5717,9 +5965,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-contrast-media-exposure" data-dismech-node="Contrast Media Exposure" data-dismech-type="environmental">
                 <div class="item-name">Contrast Media Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -5780,9 +6029,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-sepsis" data-dismech-node="Sepsis" data-dismech-type="environmental">
                 <div class="item-name">Sepsis</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -5843,9 +6093,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-major-surgery" data-dismech-node="Major Surgery" data-dismech-type="environmental">
                 <div class="item-name">Major Surgery</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -5906,6 +6157,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -5918,6 +6170,97 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Elevated FTO alleviates sepsis-induced acute kidney injury by regulating macrophage inflammatory phenotypes [MeRIP-seq]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE297679" target="_blank">geo:GSE297679</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Recent studies have linked the dysregulation of N6-methyladenosine (m6A) to sepsis-induced acute kidney injury (SAKI), highlighting the persistent challenge of managing excessive proinflammatory cytokine production and subsequent organ dysfunction. In this study, we analyzed the dataset GSE32707 and GSE69063, fat mass and obesity-associated protein (FTO) was identified as the sole gene exhibiting significant downregulation within the transcriptome of peripheral blood samples from sepsis patients among m6A-related proteins.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41235650" target="_blank" style="color: var(--secondary);">PMID:41235650</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Spatial profiling of hypoxic injury in human kidney organoids
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE307588" target="_blank">geo:GSE307588</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This dataset relates to a spatial transcriptomic experiment investigating potential reparative and inflammatory roles for macrophages in human iPSC-derived kidney organoids exposed to hypoxic injury, linked to a broader study of ischaemic kidney injury and repair in this model (https://doi.org/10.1101/2023.10.04.558359). Acute kidney injury (AKI) is a common clinical disorder linked to high rates of illness and death. Ischaemia is a leading cause of AKI, where reduced blood flow to the kidney triggers hypoxia and cell death in the nephron epithelium, impairing essential fluid handling and waste removal functions.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SPATIAL TRANSCRIPTOMICS</span>
+
+
+                    <span class="tag tag-dataset">n=25</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6825,6 +7168,30 @@ clinical_trials:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Among critically ill patients with acute kidney injury, an accelerated renal-replacement strategy was not associated with a lower risk of death at 90 days than a standard strategy.&#34;
     explanation: This landmark trial of 2927 critically ill AKI patients demonstrated no mortality benefit of accelerated vs standard RRT initiation, with 43.9% vs 43.7% 90-day mortality respectively.
+datasets:
+- accession: geo:GSE297679
+  title: Elevated FTO alleviates sepsis-induced acute kidney injury by regulating macrophage inflammatory phenotypes [MeRIP-seq]
+  description: Recent studies have linked the dysregulation of N6-methyladenosine (m6A) to sepsis-induced acute kidney injury (SAKI), highlighting the persistent challenge of managing excessive proinflammatory cytokine production and subsequent organ dysfunction. In this study, we analyzed the dataset GSE32707 and GSE69063, fat mass and obesity-associated protein (FTO) was identified as the sole gene exhibiting significant downregulation within the transcriptome of peripheral blood samples from sepsis patients among m6A-related proteins.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:41235650
+  notes: Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE307588
+  title: Spatial profiling of hypoxic injury in human kidney organoids
+  data_type: SPATIAL_TRANSCRIPTOMICS
+  description: This dataset relates to a spatial transcriptomic experiment investigating potential reparative and inflammatory roles for macrophages in human iPSC-derived kidney organoids exposed to hypoxic injury, linked to a broader study of ischaemic kidney injury and repair in this model (https://doi.org/10.1101/2023.10.04.558359). Acute kidney injury (AKI) is a common clinical disorder linked to high rates of illness and death. Ischaemia is a leading cause of AKI, where reduced blood flow to the kidney triggers hypoxia and cell death in the nephron epithelium, impairing essential fluid handling and waste removal functions.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 25
+  notes: Identified by GEO DataSets index search for Hospital-Acquired Acute Kidney Injury (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7342,7 +7709,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "13c57be04f89"};
+        const OS_CONFIG = {"diseaseName": "Hospital-Acquired Acute Kidney Injury", "mondoId": "MONDO:0002492", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hospital-Acquired_Acute_Kidney_Injury", "yamlRevision": "5c1bafec73d4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

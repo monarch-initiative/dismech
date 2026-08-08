@@ -1,12 +1,17 @@
 """Data validation tests for dismech KB."""
 
 import glob
+import sys
 import warnings
 from pathlib import Path
 
 import pytest
 import yaml
 from linkml.validator import Validator
+
+# scripts/ is not a package; make its modules importable for tests that reuse
+# validation logic shared with the CLI tools.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from dismech.yaml_io import safe_load
 
@@ -915,6 +920,41 @@ def test_computational_model_mechanism_targets(filepath):
 
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_environmental_mechanism_targets(filepath):
+    """Environmental factor links should reference declared pathograph nodes."""
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Pathophysiology is the preferred target, but phenotype targets are
+    # allowed for exposures acting directly on a manifestation.
+    valid_targets = {
+        item["name"]
+        for section in ("pathophysiology", "phenotypes")
+        for item in data.get(section, []) or []
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, factor in enumerate(data.get("environmental", []) or []):
+        if not isinstance(factor, dict):
+            continue
+        for j, link in enumerate(factor.get("influences_mechanisms", []) or []):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"environmental[{i}].influences_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Environmental mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
 def test_subtypes_have_disease_term(filepath):
     """Test that has_subtypes items have a subtype_term with an ontology grounding.
 
@@ -1480,3 +1520,56 @@ def test_grouping_evaluation_runs(filepath):
     index = load_disease_index()
     for ev in evaluate_grouping(grouping, index):
         assert isinstance(ev.result, Satisfaction)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", DISORDER_FILES)
+def test_dataset_accession_prefix_and_shape(filepath):
+    """Dataset accessions must use a known prefix whose shape they match.
+
+    This is the offline half of the dataset-accession guard: it catches a
+    typo'd or mis-prefixed accession (e.g. ``sra:PRJNA290729``, which is really
+    a BioProject ID) without touching the network. The online half --
+    confirming the record actually exists -- is
+    ``scripts/verify_dataset_accessions.py`` / ``just verify-datasets``.
+    """
+    from verify_dataset_accessions import SHAPE, UNSUPPORTED_PREFIXES, split_accession
+
+    with open(filepath) as f:
+        data = yaml.safe_load(f)
+
+    # Dataset records also hang off proposed experiments, which the verifier
+    # walks; keep the offline guard's scope identical so nothing is checked by
+    # one and not the other.
+    records = list(data.get("datasets") or [])
+    for disc in data.get("discussions") or []:
+        for exp in (disc or {}).get("proposed_experiments") or []:
+            records.extend((exp or {}).get("datasets") or [])
+
+    errors = []
+    for ds in records:
+        if not isinstance(ds, dict):
+            continue
+        accession = ds.get("accession")
+        if not accession:
+            errors.append("dataset record with no accession")
+            continue
+        prefix, local_id = split_accession(str(accession))
+        if not prefix:
+            errors.append(f"{accession}: no repository prefix and shape not recognized")
+            continue
+        if prefix in UNSUPPORTED_PREFIXES:
+            # PMID/DOI/cellxgene-style entries are tolerated for now; they are
+            # reported as UNSUPPORTED by the verifier rather than failed.
+            continue
+        shape = SHAPE.get(prefix)
+        if shape is None:
+            errors.append(f"{accession}: unknown repository prefix '{prefix}'")
+        elif not shape.match(local_id):
+            actual = [p for p, pat in SHAPE.items() if pat.match(local_id)]
+            hint = f" (looks like a '{actual[0]}' accession)" if actual else ""
+            errors.append(f"{accession}: '{local_id}' does not match the {prefix} pattern{hint}")
+
+    assert not errors, f"{Path(filepath).name} has malformed dataset accessions:\n" + "\n".join(
+        f"  - {e}" for e in errors
+    )

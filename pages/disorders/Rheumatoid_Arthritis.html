@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3526,6 +3757,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3552,6 +3784,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">9</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -8141,7 +8381,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anemia-of-chronic-disease" data-dismech-node="Anemia of Chronic Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anemia of Chronic Disease
 
@@ -8231,7 +8471,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sicca-syndrome" data-dismech-node="Sicca Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sicca Syndrome
 
@@ -8312,7 +8552,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pericarditis" data-dismech-node="Pericarditis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pericarditis
 
@@ -8393,7 +8633,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vasculitis" data-dismech-node="Vasculitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Vasculitis
 
@@ -8454,7 +8694,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-raynaud-phenomenon" data-dismech-node="Raynaud Phenomenon" data-dismech-type="phenotype">
                     <div class="item-name">
                         Raynaud Phenomenon
 
@@ -8485,7 +8725,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lymphadenopathy
 
@@ -8516,7 +8756,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-infarction" data-dismech-node="Myocardial infarction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myocardial infarction
 
@@ -8584,7 +8824,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scleritis" data-dismech-node="Scleritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scleritis
 
@@ -8687,7 +8927,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episcleritis" data-dismech-node="Episcleritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Episcleritis
 
@@ -8727,7 +8967,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint Swelling" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Swelling
 
@@ -8758,7 +8998,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pleural-effusion" data-dismech-node="Pleural Effusion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pleural Effusion
 
@@ -8828,7 +9068,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-symmetric-polyarthritis" data-dismech-node="Symmetric Polyarthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Symmetric Polyarthritis
 
@@ -8936,7 +9176,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-morning-stiffness" data-dismech-node="Morning Stiffness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Morning Stiffness
 
@@ -9017,7 +9257,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-deformity" data-dismech-node="Joint Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Deformity
 
@@ -9046,7 +9286,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-erosive-arthritis" data-dismech-node="Erosive Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Erosive Arthritis
 
@@ -9077,7 +9317,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flexion-contracture" data-dismech-node="Flexion Contracture" data-dismech-type="phenotype">
                     <div class="item-name">
                         Flexion Contracture
 
@@ -9108,7 +9348,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-spine-instability" data-dismech-node="Cervical Spine Instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cervical Spine Instability
 
@@ -9189,7 +9429,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Muscle Weakness
 
@@ -9220,7 +9460,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteoporosis" data-dismech-node="Osteoporosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteoporosis
 
@@ -9290,7 +9530,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-mobility" data-dismech-node="Reduced Mobility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Mobility
 
@@ -9319,7 +9559,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Neuropathy
 
@@ -9409,7 +9649,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-lung-disease" data-dismech-node="Interstitial Lung Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Interstitial Lung Disease
 
@@ -9508,7 +9748,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pleuritis" data-dismech-node="Pleuritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pleuritis
 
@@ -9576,7 +9816,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -9686,7 +9926,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rheumatoid-nodules" data-dismech-node="Rheumatoid Nodules" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rheumatoid Nodules
 
@@ -9787,7 +10027,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-boutonniere-deformity" data-dismech-node="Boutonniere Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Boutonniere Deformity
 
@@ -9878,7 +10118,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-swan-neck-deformity" data-dismech-node="Swan-neck Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Swan-neck Deformity
 
@@ -9939,7 +10179,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-felty-s-syndrome" data-dismech-node="Felty&#39;s Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Felty&#39;s Syndrome
 
@@ -10030,7 +10270,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tenosynovitis" data-dismech-node="Tenosynovitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tenosynovitis
 
@@ -10091,7 +10331,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-carpal-tunnel-syndrome" data-dismech-node="Carpal Tunnel Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Carpal Tunnel Syndrome
 
@@ -10152,7 +10392,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-accelerated-atherosclerosis" data-dismech-node="Accelerated Atherosclerosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Accelerated Atherosclerosis
 
@@ -10213,7 +10453,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-pneumonitis" data-dismech-node="Interstitial pneumonitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Interstitial pneumonitis
 
@@ -10311,7 +10551,7 @@
                 <span class="card-count">23</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1" data-dismech-node="HLA-DRB1" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1
 
@@ -10395,9 +10635,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
                 <div class="item-name">
                     PTPN22
 
@@ -10479,9 +10720,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stat4" data-dismech-node="STAT4" data-dismech-type="genetic">
                 <div class="item-name">
                     STAT4
 
@@ -10543,9 +10785,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ctla4" data-dismech-node="CTLA4" data-dismech-type="genetic">
                 <div class="item-name">
                     CTLA4
 
@@ -10627,9 +10870,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-padi4" data-dismech-node="PADI4" data-dismech-type="genetic">
                 <div class="item-name">
                     PADI4
 
@@ -10671,9 +10915,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-padi2" data-dismech-node="PADI2" data-dismech-type="genetic">
                 <div class="item-name">
                     PADI2
 
@@ -10685,9 +10930,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnf" data-dismech-node="TNF" data-dismech-type="genetic">
                 <div class="item-name">
                     TNF
 
@@ -10699,9 +10945,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il6r" data-dismech-node="IL6R" data-dismech-type="genetic">
                 <div class="item-name">
                     IL6R
 
@@ -10713,9 +10960,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tyk2" data-dismech-node="TYK2" data-dismech-type="genetic">
                 <div class="item-name">
                     TYK2
 
@@ -10727,9 +10975,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
                 <div class="item-name">
                     BACH2
 
@@ -10741,9 +10990,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnfaip3" data-dismech-node="TNFAIP3" data-dismech-type="genetic">
                 <div class="item-name">
                     TNFAIP3
 
@@ -10755,9 +11005,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stat3" data-dismech-node="STAT3" data-dismech-type="genetic">
                 <div class="item-name">
                     STAT3
 
@@ -10769,9 +11020,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il10" data-dismech-node="IL10" data-dismech-type="genetic">
                 <div class="item-name">
                     IL10
 
@@ -10783,9 +11035,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
                 <div class="item-name">
                     CD28
 
@@ -10797,9 +11050,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-egr2" data-dismech-node="EGR2" data-dismech-type="genetic">
                 <div class="item-name">
                     EGR2
 
@@ -10811,9 +11065,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
                 <div class="item-name">
                     ETS1
 
@@ -10825,9 +11080,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-irf4" data-dismech-node="IRF4" data-dismech-type="genetic">
                 <div class="item-name">
                     IRF4
 
@@ -10839,9 +11095,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-irf8" data-dismech-node="IRF8" data-dismech-type="genetic">
                 <div class="item-name">
                     IRF8
 
@@ -10853,9 +11110,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-satb1" data-dismech-node="SATB1" data-dismech-type="genetic">
                 <div class="item-name">
                     SATB1
 
@@ -10867,9 +11125,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ikzf1" data-dismech-node="IKZF1" data-dismech-type="genetic">
                 <div class="item-name">
                     IKZF1
 
@@ -10881,9 +11140,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-rel" data-dismech-node="REL" data-dismech-type="genetic">
                 <div class="item-name">
                     REL
 
@@ -10895,9 +11155,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prdm1" data-dismech-node="PRDM1" data-dismech-type="genetic">
                 <div class="item-name">
                     PRDM1
 
@@ -10909,9 +11170,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il21r" data-dismech-node="IL21R" data-dismech-type="genetic">
                 <div class="item-name">
                     IL21R
 
@@ -10923,9 +11185,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -10937,7 +11203,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-non-steroidal-anti-inflammatory-drugs-nsaids" data-dismech-node="Non-Steroidal Anti-Inflammatory Drugs (NSAIDs)" data-dismech-type="treatment">
                 <div class="item-name">
                     Non-Steroidal Anti-Inflammatory Drugs (NSAIDs)
                 </div>
@@ -11054,7 +11320,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-disease-modifying-antirheumatic-drugs-dmards" data-dismech-node="Disease-Modifying Antirheumatic Drugs (DMARDs)" data-dismech-type="treatment">
                 <div class="item-name">
                     Disease-Modifying Antirheumatic Drugs (DMARDs)
                 </div>
@@ -11171,7 +11437,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-biologics" data-dismech-node="Biologics" data-dismech-type="treatment">
                 <div class="item-name">
                     Biologics
                 </div>
@@ -11287,7 +11553,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-jak-inhibitors" data-dismech-node="JAK Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     JAK Inhibitors
                 </div>
@@ -11453,7 +11719,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-glucocorticoids" data-dismech-node="Glucocorticoids" data-dismech-type="treatment">
                 <div class="item-name">
                     Glucocorticoids
                 </div>
@@ -11569,7 +11835,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy" data-dismech-node="Physical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy
                 </div>
@@ -11696,7 +11962,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11794,9 +12060,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-infections" data-dismech-node="Infections" data-dismech-type="environmental">
                 <div class="item-name">Infections</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11894,6 +12161,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -11908,7 +12176,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-rheumatoid-factor-rf" data-dismech-node="Rheumatoid Factor (RF)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Rheumatoid Factor (RF)
 
@@ -11993,7 +12261,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-cyclic-citrullinated-peptide-anti-ccp-antibodies" data-dismech-node="Anti-Cyclic Citrullinated Peptide (anti-CCP) Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Cyclic Citrullinated Peptide (anti-CCP) Antibodies
 
@@ -12082,7 +12350,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-erythrocyte-sedimentation-rate-esr" data-dismech-node="Erythrocyte Sedimentation Rate (ESR)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Erythrocyte Sedimentation Rate (ESR)
 
@@ -12169,7 +12437,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-c-reactive-protein-crp" data-dismech-node="C-Reactive Protein (CRP)" data-dismech-type="biochemical">
                 <div class="item-name">
                     C-Reactive Protein (CRP)
 
@@ -12356,6 +12624,346 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">9</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Blood-Based Gene Signatures Associated with Therapeutic Response to Anti-TNF Therapy in Rheumatoid Arthritis: A Combined Meta-Analytical and Machine Learning Approach
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE309430" target="_blank">geo:GSE309430</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Objective Tumor necrosis factor alpha (TNF-α) inhibitors have significantly improved outcomes in rheumatoid arthritis (RA); however, up to 30–40% of patients show inadequate response. This highlights the need for predictive biomarkers to guide personalized therapy. Blood transcriptome profiling is a promising strategy for identifying gene signatures linked to treatment response, though prior studies have shown inconsistent results due to technical and biological heterogeneity. Methods We performed a comprehensive meta-analysis of baseline blood transcriptome datasets from eight independent RA cohorts to identify genes consistently upregulated in patients who responded to TNF-α inhibitors.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=8</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42370093" target="_blank" style="color: var(--secondary);">PMID:42370093</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Rheumatoid Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single-cell RNA sequencing of stem cell–like memory T (Tscm) cells from rheumatoid arthritis patients and healthy controls
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE309906" target="_blank">geo:GSE309906</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Stem cell–like memory T (Tscm) cells are a subset of T cells with self-renewal capacity and multipotent differentiation potential upon antigen stimulation. Tscm cells have been implicated in the pathogenesis of autoimmune diseases. In this study, we performed single-cell RNA sequencing using the 10x Genomics platform on Tscm cells enriched by fluorescence-activated cell sorting (FACS). Our objective was to characterize the transcriptomic signatures of Tscm cells in patients with rheumatoid arthritis (RA) and to identify disease-specific features that may contribute to RA pathogenesis and progression.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=11</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42309459" target="_blank" style="color: var(--secondary);">PMID:42309459</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Rheumatoid Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    RNA-Seq Analysis of Fibroblast-Like Synoviocytes Treated With Lutein in a Rheumatoid Arthritis Context
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE301891" target="_blank">geo:GSE301891</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Rheumatoid arthritis (RA) is a chronic autoimmune disease characterized by synovial inflammation and progressive joint destruction. Although lutein is known for its antioxidant and anti-inflammatory properties, its effects on gene expression in RA-associated synoviocytes remain unclear. In this study, we performed RNA sequencing to investigate transcriptomic changes in fibroblast-like synoviocytes (FLS) treated with lutein. Differentially expressed genes were identified and analyzed using Gene Set Enrichment Analysis (GSEA) and Ingenuity Pathway Analysis (IPA) to explore relevant biological processes and molecular networks.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/42328127" target="_blank" style="color: var(--secondary);">PMID:42328127</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Rheumatoid Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Rheumatoid Arthritis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000011" target="_blank">ega:EGAS00000000011</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Rheumatoid Arthritis (RA) using the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Rheumatoid Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    WTCCC case-control study for Rheumatoid Arthritis - Combined Controls
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00000000012" target="_blank">ega:EGAS00000000012</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">WTCCC genome-wide case-control association study for Rheumatoid Arthritis (RA) using six disease collections together with the 1958 British Birth Cohort and the UK National Blood Service collections as controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Rheumatoid Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    DNA Methylation and its Relation to Anti-citrullinated Protein Antibody Positivity and Rheumatoid Arthritis from a General Population-based Sample
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002904" target="_blank">ega:EGAS00001002904</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Objective: To compare DNA methylation in subjects positive vs. negative for anti-citrullinated protein antibodies (ACPA), a key serological marker of rheumatoid arthritis (RA) risk.Methods: Using banked serum from a random subset (N=3,600) of a large general population cohort (N=20,000), we identified subjects who were ACPA positive, and compared these to age and sex matched ACPA negative controls. We used a custom-designed methylome panel to conduct targeted bisulphite sequencing based investigation of 5M CpGs located in regulatory or hypomethylated regions of circulating blood cells.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Rheumatoid Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Plasma Metabolome Normalization in Rheumatoid Arthritis following initiation of Methotrexate and the Identification of Metabolic Biomarkers of Efficacy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST001949" target="_blank">metabolomics_workbench:ST001949</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Rheumatoid Arthritis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A proteome analysis by LC-MS/MS of human colon mucosal biopsies from gastrointestinal healthy rheumatoid arthritis patients
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000080861" target="_blank">massive:MSV000080861</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The joint disease rheumatoid arthritis (RA) is characterized by persistent synovitis, leading to cartilage damage, bone erosion, and ultimately impaired joint function. The disease affects 0.5 to 1.0% of adults in developed countries, and is three times more frequent in women than in men. A number of autoantibodies can be detected in RA patient’s serum targeting the patient’s own proteins. Several of these proteins, including rheumatoid factor, can also be detected in patients suffering from other autoimmune diseases, including the inflammatory bowel diseases (IBD).</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Rheumatoid Arthritis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Proteomics analysis of Rheumatoid arthritis
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000097902" target="_blank">massive:MSV000097902</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The study aimed to identify proteins associated with rheumatoid arthritis. Dysregulated proteins were linked to inflammation, immune response and oxidative stress.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Rheumatoid Arthritis&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -14367,6 +14975,81 @@ classifications:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Rheumatoid arthritis (RA) is an autoimmune disease characterized by joint inflammation.&#34;
       explanation: Peer-reviewed review explicitly characterises RA as an autoimmune joint disease, supporting the Harrison&#39;s Immune-Mediated, Inflammatory, and Rheumatologic classification.
+datasets:
+- accession: geo:GSE309430
+  title: &#39;Blood-Based Gene Signatures Associated with Therapeutic Response to Anti-TNF Therapy in Rheumatoid Arthritis: A Combined Meta-Analytical and Machine Learning Approach&#39;
+  description: Objective Tumor necrosis factor alpha (TNF-α) inhibitors have significantly improved outcomes in rheumatoid arthritis (RA); however, up to 30–40% of patients show inadequate response. This highlights the need for predictive biomarkers to guide personalized therapy. Blood transcriptome profiling is a promising strategy for identifying gene signatures linked to treatment response, though prior studies have shown inconsistent results due to technical and biological heterogeneity. Methods We performed a comprehensive meta-analysis of baseline blood transcriptome datasets from eight independent RA cohorts to identify genes consistently upregulated in patients who responded to TNF-α inhibitors.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 8
+  publication: PMID:42370093
+  notes: Identified by GEO DataSets index search for Rheumatoid Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE309906
+  title: Single-cell RNA sequencing of stem cell–like memory T (Tscm) cells from rheumatoid arthritis patients and healthy controls
+  description: Stem cell–like memory T (Tscm) cells are a subset of T cells with self-renewal capacity and multipotent differentiation potential upon antigen stimulation. Tscm cells have been implicated in the pathogenesis of autoimmune diseases. In this study, we performed single-cell RNA sequencing using the 10x Genomics platform on Tscm cells enriched by fluorescence-activated cell sorting (FACS). Our objective was to characterize the transcriptomic signatures of Tscm cells in patients with rheumatoid arthritis (RA) and to identify disease-specific features that may contribute to RA pathogenesis and progression.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 11
+  publication: PMID:42309459
+  notes: Identified by GEO DataSets index search for Rheumatoid Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE301891
+  title: RNA-Seq Analysis of Fibroblast-Like Synoviocytes Treated With Lutein in a Rheumatoid Arthritis Context
+  description: Rheumatoid arthritis (RA) is a chronic autoimmune disease characterized by synovial inflammation and progressive joint destruction. Although lutein is known for its antioxidant and anti-inflammatory properties, its effects on gene expression in RA-associated synoviocytes remain unclear. In this study, we performed RNA sequencing to investigate transcriptomic changes in fibroblast-like synoviocytes (FLS) treated with lutein. Differentially expressed genes were identified and analyzed using Gene Set Enrichment Analysis (GSEA) and Ingenuity Pathway Analysis (IPA) to explore relevant biological processes and molecular networks.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:42328127
+  notes: Identified by GEO DataSets index search for Rheumatoid Arthritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00000000011
+  title: WTCCC case-control study for Rheumatoid Arthritis
+  description: WTCCC genome-wide case-control association study for Rheumatoid Arthritis (RA) using the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Rheumatoid Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00000000012
+  title: WTCCC case-control study for Rheumatoid Arthritis - Combined Controls
+  description: WTCCC genome-wide case-control association study for Rheumatoid Arthritis (RA) using six disease collections together with the 1958 British Birth Cohort and the UK National Blood Service collections as controls.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Rheumatoid Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002904
+  title: DNA Methylation and its Relation to Anti-citrullinated Protein Antibody Positivity and Rheumatoid Arthritis from a General Population-based Sample
+  description: &#39;Objective: To compare DNA methylation in subjects positive vs. negative for anti-citrullinated protein antibodies (ACPA), a key serological marker of rheumatoid arthritis (RA) risk.Methods: Using banked serum from a random subset (N=3,600) of a large general population cohort (N=20,000), we identified subjects who were ACPA positive, and compared these to age and sex matched ACPA negative controls. We used a custom-designed methylome panel to conduct targeted bisulphite sequencing based investigation of 5M CpGs located in regulatory or hypomethylated regions of circulating blood cells.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Rheumatoid Arthritis&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: metabolomics_workbench:ST001949
+  title: Plasma Metabolome Normalization in Rheumatoid Arthritis following initiation of Methotrexate and the Identification of Metabolic Biomarkers of Efficacy
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Rheumatoid Arthritis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000080861
+  title: A proteome analysis by LC-MS/MS of human colon mucosal biopsies from gastrointestinal healthy rheumatoid arthritis patients
+  description: The joint disease rheumatoid arthritis (RA) is characterized by persistent synovitis, leading to cartilage damage, bone erosion, and ultimately impaired joint function. The disease affects 0.5 to 1.0% of adults in developed countries, and is three times more frequent in women than in men. A number of autoantibodies can be detected in RA patient’s serum targeting the patient’s own proteins. Several of these proteins, including rheumatoid factor, can also be detected in patients suffering from other autoimmune diseases, including the inflammatory bowel diseases (IBD).
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Rheumatoid Arthritis&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000097902
+  title: Proteomics analysis of Rheumatoid arthritis
+  description: The study aimed to identify proteins associated with rheumatoid arthritis. Dysregulated proteins were linked to inflammation, immune response and oxidative stress.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Rheumatoid Arthritis&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -14623,7 +15306,7 @@ Rheumatoid arthritis is a systemic autoimmune disease characterized by a breakdo
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rheumatoid Arthritis", "mondoId": "MONDO:0008383", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rheumatoid_Arthritis", "yamlRevision": "bb9db37bc7eb"};
+        const OS_CONFIG = {"diseaseName": "Rheumatoid Arthritis", "mondoId": "MONDO:0008383", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rheumatoid_Arthritis", "yamlRevision": "df3568478517"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

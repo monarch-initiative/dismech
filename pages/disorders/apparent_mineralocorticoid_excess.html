@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3464,6 +3693,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3516,6 +3747,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3534,7 +3766,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4227,7 +4459,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of renal 11-beta-hydroxysteroid dehydrogenase type 2 activity, encoded by HSD11B2, fails to convert active cortisol to inactive cortisone in mineralocorticoid target tissues, allowing cortisol to accumulate at the mineralocorticoid receptor.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cortisol metabolic process\", \"glucocorticoid metabolic process\"], \"molecular_functions\": [\"11-beta-hydroxysteroid dehydrogenase (NAD+) activity\"], \"genes\": [\"HSD11B2\"], \"gene_terms\": [{\"label\": \"HSD11B2\", \"id\": \"hgnc:5209\"}]}}, {\"id\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the mineralocorticoid receptor binds cortisol and aldosterone with similar affinity, unmetabolized cortisol illicitly activates the receptor, reproducing a mineralocorticoid-excess state despite suppressed aldosterone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Decreased circulating renin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Plasma renin activity is suppressed by chronic volume expansion and hypertension.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003351\"}}, {\"id\": \"Dietary sodium restriction and potassium replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-sodium diet reduces the salt-sensitive component of hypertension, and potassium replacement corrects hypokalemia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Distal nephron sodium retention and volume expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Illicit mineralocorticoid receptor activation increases sodium reabsorption in distal nephron principal cells, expanding extracellular volume and promoting renal potassium and hydrogen ion loss and suppression of the renin-angiotensin-aldosterone axis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney collecting duct principal cell\"], \"biological_processes\": [\"sodium ion transport\"]}}, {\"id\": \"Epithelial sodium channel blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amiloride blocks the downstream epithelial sodium channel (ENaC) and can be used alone or with mineralocorticoid receptor blockade.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"amiloride\"]}}, {\"id\": \"HSD11B2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSD11B2\"], \"gene_terms\": [{\"label\": \"HSD11B2\", \"id\": \"hgnc:5209\"}], \"association\": \"Loss of function mutation\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, often resistant low-renin hypertension is the cardinal feature, typically beginning in infancy or childhood in classic AME.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hypokalemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal potassium wasting from mineralocorticoid receptor overactivation causes marked, often chronic hypokalemia.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002900\"}}, {\"id\": \"Mineralocorticoid receptor antagonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mineralocorticoid receptor antagonists (spironolactone or eplerenone) directly oppose inappropriate cortisol-driven receptor activation, lowering blood pressure and correcting hypokalemia.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"spironolactone\", \"eplerenone\"]}}, {\"id\": \"Reduced placental 11-beta-HSD2 barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced placental 11-beta-HSD2 activity weakens the feto-placental glucocorticoid barrier, a proposed contributor to reduced birth weight in affected infants.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Small for gestational age\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected neonates are frequently small for gestational age with low birth weight, linked to reduced placental 11-beta-HSD2 activity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001518\"}}, {\"id\": \"Urinary cortisol-to-cortisone metabolite ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17650\", \"term_label\": \"cortisol\", \"readouts\": [{\"target\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A high urinary cortisol-to-cortisone metabolite ratio directly reports deficient 11-beta-HSD2 activity.\"}]}}], \"edges\": [{\"source\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"target\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulating cortisol binds and illicitly activates the mineralocorticoid receptor in the distal nephron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"target\": \"Distal nephron sodium retention and volume expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mineralocorticoid receptor activation drives sodium reabsorption and volume expansion in the distal nephron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal nephron sodium retention and volume expansion\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Volume expansion from sodium retention causes hypertension.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal nephron sodium retention and volume expansion\", \"target\": \"Hypokalemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced distal potassium secretion causes hypokalemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal nephron sodium retention and volume expansion\", \"target\": \"Decreased circulating renin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Volume expansion and hypertension suppress plasma renin activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced placental 11-beta-HSD2 barrier\", \"target\": \"Small for gestational age\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired placental glucocorticoid barrier is associated with reduced birth weight.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mineralocorticoid receptor antagonists\", \"target\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mineralocorticoid receptor antagonists\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Epithelial sodium channel blockade\", \"target\": \"Distal nephron sodium retention and volume expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Epithelial sodium channel blockade\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary sodium restriction and potassium replacement\", \"target\": \"Distal nephron sodium retention and volume expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary sodium restriction and potassium replacement\", \"target\": \"Hypokalemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"target\": \"Urinary cortisol-to-cortisone metabolite ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A high urinary cortisol-to-cortisone metabolite ratio directly reports deficient 11-beta-HSD2 activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HSD11B2\", \"target\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of renal 11-beta-hydroxysteroid dehydrogenase type 2 activity, encoded by HSD11B2, fails to convert active cortisol to inactive cortisone in mineralocorticoid target tissues, allowing cortisol to accumulate at the mineralocorticoid receptor.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cortisol metabolic process\", \"glucocorticoid metabolic process\"], \"molecular_functions\": [\"11-beta-hydroxysteroid dehydrogenase (NAD+) activity\"], \"genes\": [\"HSD11B2\"], \"gene_terms\": [{\"label\": \"HSD11B2\", \"id\": \"hgnc:5209\"}]}}, {\"id\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the mineralocorticoid receptor binds cortisol and aldosterone with similar affinity, unmetabolized cortisol illicitly activates the receptor, reproducing a mineralocorticoid-excess state despite suppressed aldosterone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Decreased circulating renin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Plasma renin activity is suppressed by chronic volume expansion and hypertension.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003351\"}}, {\"id\": \"Dietary sodium restriction and potassium replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-sodium diet reduces the salt-sensitive component of hypertension, and potassium replacement corrects hypokalemia.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Distal nephron sodium retention and volume expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Illicit mineralocorticoid receptor activation increases sodium reabsorption in distal nephron principal cells, expanding extracellular volume and promoting renal potassium and hydrogen ion loss and suppression of the renin-angiotensin-aldosterone axis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"kidney collecting duct principal cell\"], \"biological_processes\": [\"sodium ion transport\"]}}, {\"id\": \"Epithelial sodium channel blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Amiloride blocks the downstream epithelial sodium channel (ENaC) and can be used alone or with mineralocorticoid receptor blockade.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"amiloride\"]}}, {\"id\": \"HSD11B2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"HSD11B2\"], \"gene_terms\": [{\"label\": \"HSD11B2\", \"id\": \"hgnc:5209\"}], \"association\": \"Loss of function mutation\"}}, {\"id\": \"Hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe, often resistant low-renin hypertension is the cardinal feature, typically beginning in infancy or childhood in classic AME.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000822\"}}, {\"id\": \"Hypokalemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal potassium wasting from mineralocorticoid receptor overactivation causes marked, often chronic hypokalemia.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0002900\"}}, {\"id\": \"Mineralocorticoid receptor antagonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mineralocorticoid receptor antagonists (spironolactone or eplerenone) directly oppose inappropriate cortisol-driven receptor activation, lowering blood pressure and correcting hypokalemia.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"spironolactone\", \"eplerenone\"]}}, {\"id\": \"Reduced placental 11-beta-HSD2 barrier\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced placental 11-beta-HSD2 activity weakens the feto-placental glucocorticoid barrier, a proposed contributor to reduced birth weight in affected infants.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Small for gestational age\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Affected neonates are frequently small for gestational age with low birth weight, linked to reduced placental 11-beta-HSD2 activity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001518\"}}, {\"id\": \"Urinary cortisol-to-cortisone metabolite ratio\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:17650\", \"term_label\": \"cortisol\", \"readouts\": [{\"target\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A high urinary cortisol-to-cortisone metabolite ratio directly reports deficient 11-beta-HSD2 activity.\"}]}}], \"edges\": [{\"source\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"target\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulating cortisol binds and illicitly activates the mineralocorticoid receptor in the distal nephron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"target\": \"Distal nephron sodium retention and volume expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mineralocorticoid receptor activation drives sodium reabsorption and volume expansion in the distal nephron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal nephron sodium retention and volume expansion\", \"target\": \"Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Volume expansion from sodium retention causes hypertension.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal nephron sodium retention and volume expansion\", \"target\": \"Hypokalemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhanced distal potassium secretion causes hypokalemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal nephron sodium retention and volume expansion\", \"target\": \"Decreased circulating renin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Volume expansion and hypertension suppress plasma renin activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced placental 11-beta-HSD2 barrier\", \"target\": \"Small for gestational age\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired placental glucocorticoid barrier is associated with reduced birth weight.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mineralocorticoid receptor antagonists\", \"target\": \"Cortisol-mediated mineralocorticoid receptor activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mineralocorticoid receptor antagonists\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Epithelial sodium channel blockade\", \"target\": \"Distal nephron sodium retention and volume expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Epithelial sodium channel blockade\", \"target\": \"Hypertension\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dietary sodium restriction and potassium replacement\", \"target\": \"Distal nephron sodium retention and volume expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary sodium restriction and potassium replacement\", \"target\": \"Hypokalemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"target\": \"Urinary cortisol-to-cortisone metabolite ratio\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A high urinary cortisol-to-cortisone metabolite ratio directly reports deficient 11-beta-HSD2 activity.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HSD11B2\", \"target\": \"11-beta-HSD2 deficiency and impaired cortisol inactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4267,7 +4499,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertension" data-dismech-node="Hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertension
 
@@ -4357,7 +4589,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-polyuria" data-dismech-node="Polyuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Polyuria
 
@@ -4425,7 +4657,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypokalemia" data-dismech-node="Hypokalemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypokalemia
 
@@ -4448,7 +4680,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4496,6 +4728,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:42503627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503627" target="_blank">PMID:42503627</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On the second day of admission, the nephrology team was consulted due to persistent hypokalemia requiring repeated potassium chloride (KCl) supplementation."</div>
+
+
+                <div class="evidence-explanation">Documents persistent hypokalemia requiring repeated KCl supplementation in a 2-year-old patient with a homozygous HSD11B2 variant.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4515,7 +4769,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-small-for-gestational-age" data-dismech-node="Small for gestational age" data-dismech-type="phenotype">
                     <div class="item-name">
                         Small for gestational age
 
@@ -4574,7 +4828,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to thrive
 
@@ -4642,7 +4896,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-metabolic-alkalosis" data-dismech-node="Metabolic alkalosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Metabolic alkalosis
 
@@ -4665,7 +4919,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4713,6 +4967,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:42503627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503627" target="_blank">PMID:42503627</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"persistent hypokalemia, metabolic alkalosis, and hypertension, were highly suggestive of AME syndrome."</div>
+
+
+                <div class="evidence-explanation">Pediatric case documents metabolic alkalosis as part of the classic AME phenotype in a 2-year-old with a homozygous HSD11B2 variant.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4723,7 +4999,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-renin" data-dismech-node="Decreased circulating renin" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased circulating renin
 
@@ -4804,7 +5080,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-aldosterone" data-dismech-node="Decreased circulating aldosterone" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased circulating aldosterone
 
@@ -4863,7 +5139,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nephrocalcinosis
 
@@ -4922,7 +5198,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypercalciuria" data-dismech-node="Hypercalciuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypercalciuria
 
@@ -5020,7 +5296,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hsd11b2" data-dismech-node="HSD11B2" data-dismech-type="genetic">
                 <div class="item-name">
                     HSD11B2
 
@@ -5050,7 +5326,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -5121,13 +5397,19 @@
             </div>
 
 
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
+
 
 
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5139,7 +5421,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mineralocorticoid-receptor-antagonists" data-dismech-node="Mineralocorticoid receptor antagonists" data-dismech-type="treatment">
                 <div class="item-name">
                     Mineralocorticoid receptor antagonists
                 </div>
@@ -5279,7 +5561,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5327,6 +5609,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:42503627" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503627" target="_blank">PMID:42503627</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"As spironolactone was gradually increased to 8 mg/kg/day, potassium improved to 3.1 mmol/L"</div>
+
+
+                <div class="evidence-explanation">Ties the mineralocorticoid receptor antagonist specifically to correction of hypokalemia: escalating spironolactone dose produced a graded rise in serum potassium sufficient to withdraw intravenous supplementation, in a 2-year-old with a homozygous HSD11B2 p.Arg208Cys variant.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5334,7 +5638,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-epithelial-sodium-channel-blockade" data-dismech-node="Epithelial sodium channel blockade" data-dismech-type="treatment">
                 <div class="item-name">
                     Epithelial sodium channel blockade
                 </div>
@@ -5495,7 +5799,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-dietary-sodium-restriction-and-potassium-replacement" data-dismech-node="Dietary sodium restriction and potassium replacement" data-dismech-type="treatment">
                 <div class="item-name">
                     Dietary sodium restriction and potassium replacement
                 </div>
@@ -5677,7 +5981,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-urinary-cortisol-to-cortisone-metabolite-ratio" data-dismech-node="Urinary cortisol-to-cortisone metabolite ratio" data-dismech-type="biochemical">
                 <div class="item-name">
                     Urinary cortisol-to-cortisone metabolite ratio
 
@@ -6101,6 +6405,15 @@ phenotypes:
       All three patients were born to non-consanguineous parents, were small for gestational age and exhibited severe hypokalemia, metabolic alkalosis, hypertension, nephrocalcinosis, and hypercalciuria.
     explanation: &gt;-
       Documents severe hypokalemia in all affected children.
+  - reference: PMID:42503627
+    reference_title: &#34;A rare genetically confirmed case of apparent mineralocorticoid excess syndrome due to a homozygous HSD11B2 variant in a 2-year-old child with severe hypertension: response to targeted therapy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      On the second day of admission, the nephrology team was consulted due to persistent hypokalemia requiring repeated potassium chloride (KCl) supplementation.
+    explanation: &gt;-
+      Documents persistent hypokalemia requiring repeated KCl supplementation in a
+      2-year-old patient with a homozygous HSD11B2 variant.
 - name: Metabolic alkalosis
   category: Metabolic
   description: &gt;-
@@ -6128,6 +6441,15 @@ phenotypes:
       Apparent mineralocorticoid excess is an autosomal recessive form of monogenic disease characterized by juvenile resistant low-renin hypertension, marked hypokalemic alkalosis, low aldosterone levels, and high ratios of cortisol to cortisone metabolites.
     explanation: &gt;-
       Review identifies marked hypokalemic alkalosis as a defining feature.
+  - reference: PMID:42503627
+    reference_title: &#34;A rare genetically confirmed case of apparent mineralocorticoid excess syndrome due to a homozygous HSD11B2 variant in a 2-year-old child with severe hypertension: response to targeted therapy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      persistent hypokalemia, metabolic alkalosis, and hypertension, were highly suggestive of AME syndrome.
+    explanation: &gt;-
+      Pediatric case documents metabolic alkalosis as part of the classic AME
+      phenotype in a 2-year-old with a homozygous HSD11B2 variant.
 - name: Decreased circulating renin
   category: Endocrine
   description: &gt;-
@@ -6333,6 +6655,16 @@ genetic:
     explanation: &gt;-
       Documents the allelic heterogeneity of HSD11B2, with over 50 deleterious
       mutations reported worldwide.
+  - reference: PMID:42503627
+    reference_title: &#34;A rare genetically confirmed case of apparent mineralocorticoid excess syndrome due to a homozygous HSD11B2 variant in a 2-year-old child with severe hypertension: response to targeted therapy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      identified a homozygous pathogenic HSD11B2 variant (c.622C&gt;T; p.Arg208Cys), confirming AME syndrome.
+    explanation: &gt;-
+      Pediatric case documents pathogenic homozygous HSD11B2 p.Arg208Cys variant
+      (c.622C&gt;T) confirmed by whole exome sequencing in a 2-year-old with severe
+      AME phenotype.
 diagnosis:
 - name: HSD11B2 molecular genetic testing
   description: &gt;-
@@ -6423,6 +6755,17 @@ treatments:
       Treatment with oral spironolactone and potassium chloride resulted in the normalization of both blood pressure and serum potassium levels in all patients.
     explanation: &gt;-
       Documents spironolactone normalizing blood pressure in affected children.
+  - reference: PMID:42503627
+    reference_title: &#34;A rare genetically confirmed case of apparent mineralocorticoid excess syndrome due to a homozygous HSD11B2 variant in a 2-year-old child with severe hypertension: response to targeted therapy.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      As spironolactone was gradually increased to 8 mg/kg/day, potassium improved to 3.1 mmol/L
+    explanation: &gt;-
+      Ties the mineralocorticoid receptor antagonist specifically to correction of
+      hypokalemia: escalating spironolactone dose produced a graded rise in serum
+      potassium sufficient to withdraw intravenous supplementation, in a 2-year-old
+      with a homozygous HSD11B2 p.Arg208Cys variant.
 - name: Epithelial sodium channel blockade
   description: &gt;-
     Amiloride blocks the downstream epithelial sodium channel (ENaC) and can be
@@ -6520,11 +6863,12 @@ references:
   title: &#34;Apparent mineralocorticoid excess syndrome: an overview.&#34;
 - reference: PMID:39931437
   title: &#34;Case report: Clinical characteristics and Genetical analysis of HSD11B2 in three Chinese children with apparent mineralocorticoid excess: a case series.&#34;
+- reference: PMID:42503627
+  title: &#34;A rare genetically confirmed case of apparent mineralocorticoid excess syndrome due to a homozygous HSD11B2 variant in a 2-year-old child with severe hypertension: response to targeted therapy.&#34;
 - reference: clinicaltrials:NCT00474942
   title: &#34;Apparent Mineralocorticoid Excess Syndrome Natural History Clinical Protocol&#34;
 differential_diagnoses: []
 clinical_trials: []
-datasets: []
 </pre>
             </div>
         </div>
@@ -6540,7 +6884,7 @@ datasets: []
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">5</span>
+                    <span class="card-count">6</span>
                 </div>
 
                 <div class="reference-entry">
@@ -6602,6 +6946,23 @@ datasets: []
                             </div>
 
                             <div class="reference-title">Case report: Clinical characteristics and Genetical analysis of HSD11B2 in three Chinese children with apparent mineralocorticoid excess: a case series.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42503627" target="_blank">PMID:42503627</a>
+                            </div>
+
+                            <div class="reference-title">A rare genetically confirmed case of apparent mineralocorticoid excess syndrome due to a homozygous HSD11B2 variant in a 2-year-old child with severe hypertension: response to targeted therapy.</div>
 
                         </div>
 
@@ -7071,7 +7432,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "apparent mineralocorticoid excess", "mondoId": "MONDO:0009025", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "apparent_mineralocorticoid_excess", "yamlRevision": "f3075f44ca46"};
+        const OS_CONFIG = {"diseaseName": "apparent mineralocorticoid excess", "mondoId": "MONDO:0009025", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "apparent_mineralocorticoid_excess", "yamlRevision": "e356b2a2b74e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

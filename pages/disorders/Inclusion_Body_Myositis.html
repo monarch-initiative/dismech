@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3534,6 +3765,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3552,6 +3784,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -7434,7 +7674,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aspiration-pneumonia" data-dismech-node="Aspiration Pneumonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aspiration Pneumonia
 
@@ -7502,7 +7742,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-serum-creatine-kinase" data-dismech-node="Elevated Serum Creatine Kinase" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Serum Creatine Kinase
 
@@ -7570,7 +7810,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-falls" data-dismech-node="Falls" data-dismech-type="phenotype">
                     <div class="item-name">
                         Falls
 
@@ -7638,7 +7878,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-deep-finger-flexor-weakness" data-dismech-node="Deep Finger Flexor Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Deep Finger Flexor Weakness
 
@@ -7739,7 +7979,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-quadriceps-weakness" data-dismech-node="Quadriceps Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Quadriceps Weakness
 
@@ -7840,7 +8080,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphagia
 
@@ -7963,7 +8203,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of Ambulation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Loss of Ambulation
 
@@ -8062,7 +8302,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-foot-drop" data-dismech-node="Foot Drop" data-dismech-type="phenotype">
                     <div class="item-name">
                         Foot Drop
 
@@ -8123,7 +8363,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rimmed-vacuoles" data-dismech-node="Rimmed Vacuoles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rimmed Vacuoles
 
@@ -8182,7 +8422,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cytochrome-c-oxidase-negative-muscle-fibres" data-dismech-node="Cytochrome c Oxidase-Negative Muscle Fibres" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cytochrome c Oxidase-Negative Muscle Fibres
 
@@ -8280,7 +8520,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1" data-dismech-node="HLA-DRB1" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1
 
@@ -8387,9 +8627,10 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nt5c1a" data-dismech-node="NT5C1A" data-dismech-type="genetic">
                 <div class="item-name">
                     NT5C1A
 
@@ -8450,9 +8691,10 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-vcp-and-sqstm1-rare-proteostasis-variants" data-dismech-node="VCP and SQSTM1 (rare proteostasis variants)" data-dismech-type="genetic">
                 <div class="item-name">
                     VCP and SQSTM1 (rare proteostasis variants)
 
@@ -8524,9 +8766,13 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8538,7 +8784,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-resistance-and-aerobic-exercise-therapy" data-dismech-node="Resistance and Aerobic Exercise Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Resistance and Aerobic Exercise Therapy
                 </div>
@@ -8616,7 +8862,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-dysphagia-management" data-dismech-node="Dysphagia Management" data-dismech-type="treatment">
                 <div class="item-name">
                     Dysphagia Management
                 </div>
@@ -8733,7 +8979,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-occupational-therapy-and-assistive-devices" data-dismech-node="Occupational Therapy and Assistive Devices" data-dismech-type="treatment">
                 <div class="item-name">
                     Occupational Therapy and Assistive Devices
                 </div>
@@ -8833,7 +9079,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-falls-prevention" data-dismech-node="Falls Prevention" data-dismech-type="treatment">
                 <div class="item-name">
                     Falls Prevention
                 </div>
@@ -8928,7 +9174,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-intravenous-immunoglobulin-ivig" data-dismech-node="Intravenous Immunoglobulin (IVIG)" data-dismech-type="treatment">
                 <div class="item-name">
                     Intravenous Immunoglobulin (IVIG)
                 </div>
@@ -9045,7 +9291,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-interventional-dysphagia-procedures" data-dismech-node="Interventional Dysphagia Procedures" data-dismech-type="treatment">
                 <div class="item-name">
                     Interventional Dysphagia Procedures
                 </div>
@@ -9162,7 +9408,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-conventional-immunosuppression-corticosteroids-methotrexate-azathioprine" data-dismech-node="Conventional Immunosuppression (corticosteroids, methotrexate, azathioprine)" data-dismech-type="treatment">
                 <div class="item-name">
                     Conventional Immunosuppression (corticosteroids, methotrexate, azathioprine)
                 </div>
@@ -9280,7 +9526,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sirolimus-rapamycin" data-dismech-node="Sirolimus (rapamycin)" data-dismech-type="treatment">
                 <div class="item-name">
                     Sirolimus (rapamycin)
                 </div>
@@ -9436,7 +9682,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-arimoclomol" data-dismech-node="Arimoclomol" data-dismech-type="treatment">
                 <div class="item-name">
                     Arimoclomol
                 </div>
@@ -9530,7 +9776,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-bimagrumab" data-dismech-node="Bimagrumab" data-dismech-type="treatment">
                 <div class="item-name">
                     Bimagrumab
                 </div>
@@ -9624,7 +9870,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ulviprubart-abc008-anti-klrg1" data-dismech-node="Ulviprubart (ABC008, anti-KLRG1)" data-dismech-type="treatment">
                 <div class="item-name">
                     Ulviprubart (ABC008, anti-KLRG1)
                 </div>
@@ -9773,7 +10019,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-cn1a-nt5c1a-autoantibody" data-dismech-node="Anti-cN1A (NT5C1A) Autoantibody" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-cN1A (NT5C1A) Autoantibody
 
@@ -9864,7 +10110,7 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-tdp-43-cryptic-exon-inclusion-in-muscle" data-dismech-node="TDP-43 Cryptic Exon Inclusion in Muscle" data-dismech-type="biochemical">
                 <div class="item-name">
                     TDP-43 Cryptic Exon Inclusion in Muscle
 
@@ -10208,6 +10454,177 @@ The node is marked HYPOTHETICAL because the evidence does not support it as cura
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Plasma cell infiltrate populating the muscle tissue of patients with inclusion body myositis feature distinct BCR repertoire properties
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227124" target="_blank">geo:GSE227124</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Inclusion body myositis (IBM) is an autoimmune and degenerative disorder of skeletal muscle. The B cell infiltrates in IBM muscle tissue are predominantly fully differentiated antibody-secreting plasma cells, with scarce naïve or memory B cells. The role of this infiltrate in the disease pathology is not well understood. To better define the humoral response in IBM, we used adaptive immune receptor repertoire sequencing to generate large B cell receptor (BCR) repertoire libraries from IBM muscle biopsies and compared them to those generated from dermatomyositis (DM), polymyositis (PM), and circulating CD27+ memory B cells, derived from healthy controls and antibody secreting cells (ASC) coll...</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37171806" target="_blank" style="color: var(--secondary);">PMID:37171806</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Inclusion Body Myositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Plasma Cells in Muscle in Inclusion Body Myositis and Polymyositis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE3112" target="_blank">geo:GSE3112</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Microarray data from muscle biopsy specimens from subjects with inclusion body myositis, polymyositis, and normals Keywords: Research study</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=40</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/16344523" target="_blank" style="color: var(--secondary);">PMID:16344523</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Inclusion Body Myositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptional profiling identifies differential expression of long non-coding RNAs in Jo-1 associated and inclusion body myositis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE102138" target="_blank">geo:GSE102138</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Myositis is characterised by muscle inflammation and weakness. Although generally thought to be driven by a systemic autoimmune response, increasing evidence suggests that intrinsic changes in the muscle might also contribute to the pathogenesis. Long non-coding RNAs (lncRNAs) are a family of novel genes that regulate gene transcription and translation. To determine the potential role of lncRNAs, we employed next generation sequencing to examine the transcriptome in muscle biopsies obtained from two histologically distinct patient populations, inclusion body myositis (IBM) and anti-Jo-1-associated myositis (Jo-1).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28808260" target="_blank" style="color: var(--secondary);">PMID:28808260</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Inclusion Body Myositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Cell type mapping of inflammatory muscle diseases highlights selective myofiber vulnerability in inclusion body myositis
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000000310" target="_blank">ega:EGAS50000000310</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Inclusion body myositis (IBM) is the most prevalent inflammatory muscle disease in older adults with no effective therapy available. In contrast to other inflammatory myopathies like subacute immune-mediated necrotizing myopathy (IMNM), IBM follows a chronic disease course with both inflammatory and degenerative features of pathology. Moreover, causal factors and molecular drivers of IBM progression are largely unknown. Therefore, we paired single-nucleus RNA sequencing with spatial transcriptomics from patient muscle biopsies to map cell type-specific drivers underlying IBM pathogenesis compared to IMNM muscles and non-inflammatory skeletal muscle samples.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Inclusion Body Myositis&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -13517,6 +13934,51 @@ notes: &gt;-
   characteristic weakness distribution of sporadic IBM, and they are monogenic.
   Deep-research reports for this entry were screened for named entity confusion
   against this boundary.
+datasets:
+- accession: geo:GSE227124
+  title: Plasma cell infiltrate populating the muscle tissue of patients with inclusion body myositis feature distinct BCR repertoire properties
+  description: Inclusion body myositis (IBM) is an autoimmune and degenerative disorder of skeletal muscle. The B cell infiltrates in IBM muscle tissue are predominantly fully differentiated antibody-secreting plasma cells, with scarce naïve or memory B cells. The role of this infiltrate in the disease pathology is not well understood. To better define the humoral response in IBM, we used adaptive immune receptor repertoire sequencing to generate large B cell receptor (BCR) repertoire libraries from IBM muscle biopsies and compared them to those generated from dermatomyositis (DM), polymyositis (PM), and circulating CD27+ memory B cells, derived from healthy controls and antibody secreting cells (ASC) coll...
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  sample_count: 10
+  publication: PMID:37171806
+  notes: Identified by GEO DataSets index search for Inclusion Body Myositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE3112
+  title: Plasma Cells in Muscle in Inclusion Body Myositis and Polymyositis
+  description: &#39;Microarray data from muscle biopsy specimens from subjects with inclusion body myositis, polymyositis, and normals Keywords: Research study&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 40
+  publication: PMID:16344523
+  notes: Identified by GEO DataSets index search for Inclusion Body Myositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE102138
+  title: Transcriptional profiling identifies differential expression of long non-coding RNAs in Jo-1 associated and inclusion body myositis
+  description: Myositis is characterised by muscle inflammation and weakness. Although generally thought to be driven by a systemic autoimmune response, increasing evidence suggests that intrinsic changes in the muscle might also contribute to the pathogenesis. Long non-coding RNAs (lncRNAs) are a family of novel genes that regulate gene transcription and translation. To determine the potential role of lncRNAs, we employed next generation sequencing to examine the transcriptome in muscle biopsies obtained from two histologically distinct patient populations, inclusion body myositis (IBM) and anti-Jo-1-associated myositis (Jo-1).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 12
+  publication: PMID:28808260
+  notes: Identified by GEO DataSets index search for Inclusion Body Myositis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS50000000310
+  title: Cell type mapping of inflammatory muscle diseases highlights selective myofiber vulnerability in inclusion body myositis
+  description: Inclusion body myositis (IBM) is the most prevalent inflammatory muscle disease in older adults with no effective therapy available. In contrast to other inflammatory myopathies like subacute immune-mediated necrotizing myopathy (IMNM), IBM follows a chronic disease course with both inflammatory and degenerative features of pathology. Moreover, causal factors and molecular drivers of IBM progression are largely unknown. Therefore, we paired single-nucleus RNA sequencing with spatial transcriptomics from patient muscle biopsies to map cell type-specific drivers underlying IBM pathogenesis compared to IMNM muscles and non-inflammatory skeletal muscle samples.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Inclusion Body Myositis&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -15394,7 +15856,7 @@ This pattern is sufficiently distinctive that whole-body muscle MRI can support 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Inclusion Body Myositis", "mondoId": "MONDO:0007827", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Inclusion_Body_Myositis", "yamlRevision": "464ffdd64045"};
+        const OS_CONFIG = {"diseaseName": "Inclusion Body Myositis", "mondoId": "MONDO:0007827", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Inclusion_Body_Myositis", "yamlRevision": "8fb1681f22a1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3470,6 +3699,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3546,6 +3777,15 @@
             </a>
 
 
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3564,6 +3804,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -7477,7 +7725,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cardiomyopathy" data-dismech-node="Cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cardiomyopathy
 
@@ -7593,7 +7841,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pseudohypertrophy-of-calves" data-dismech-node="Pseudohypertrophy of Calves" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pseudohypertrophy of Calves
 
@@ -7687,7 +7935,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-creatine-kinase" data-dismech-node="Elevated Creatine Kinase" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Creatine Kinase
 
@@ -7781,7 +8029,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-muscle-weakness" data-dismech-node="Progressive Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Muscle Weakness
 
@@ -7866,7 +8114,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gowers-sign" data-dismech-node="Gowers Sign" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gowers Sign
 
@@ -7929,7 +8177,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proximal-muscle-weakness" data-dismech-node="Proximal Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proximal Muscle Weakness
 
@@ -7990,7 +8238,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-atrophy" data-dismech-node="Skeletal Muscle Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skeletal Muscle Atrophy
 
@@ -8051,7 +8299,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flexion-contracture" data-dismech-node="Flexion Contracture" data-dismech-type="phenotype">
                     <div class="item-name">
                         Flexion Contracture
 
@@ -8112,7 +8360,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -8182,7 +8430,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor Delay
 
@@ -8243,7 +8491,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-waddling-gait" data-dismech-node="Waddling Gait" data-dismech-type="phenotype">
                     <div class="item-name">
                         Waddling Gait
 
@@ -8304,7 +8552,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Speech and Language Development
 
@@ -8365,7 +8613,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Developmental Delay
 
@@ -8426,7 +8674,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive Impairment
 
@@ -8496,7 +8744,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Insufficiency
 
@@ -8590,7 +8838,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-loss-of-ambulation" data-dismech-node="Loss of ambulation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Loss of ambulation
 
@@ -8653,7 +8901,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-specific-learning-disability" data-dismech-node="Specific Learning Disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Specific Learning Disability
 
@@ -8753,7 +9001,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-dmd-pathogenic-variants" data-dismech-node="DMD pathogenic variants" data-dismech-type="genetic">
                 <div class="item-name">
                     DMD pathogenic variants
 
@@ -8846,9 +9094,423 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (4)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-out-of-frame-or-truncating-dmd-variants" data-dismech-node="Out-of-frame or truncating DMD variants" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Out-of-frame or truncating DMD variants
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2928">hgnc:2928</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss of function variant</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Duchenne-associated deletions, duplications, nonsense variants, frameshifts, and splice variants commonly disrupt the DMD reading frame and produce prematurely truncated or dysfunctional dystrophin.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Dystrophin production</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss-of-function</span>
+
+
+
             </div>
 
-            <div class="item-box genetic-box">
+
+            <div class="item-desc">Premature truncation or severe loss of functional dystrophin.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16770791" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16770791" target="_blank">PMID:16770791</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In Duchenne patients, mutations induce a shift in the reading frame leading to prematurely truncated, dysfunctional dystrophins."</div>
+
+
+                <div class="evidence-explanation">This mutation-database review directly supports out-of-frame/truncating DMD variants as the severe Duchenne molecular class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-dmd-exon-deletions" data-dismech-node="DMD exon deletions" data-dismech-type="genetic">
+
+    <div class="item-name">
+        DMD exon deletions
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2928">hgnc:2928</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy number loss</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Multiexon or single-exon deletions are the most frequent DMD mutation class and often cause Duchenne disease when they disrupt the reading frame.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Dystrophin open reading frame</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss-of-function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Exon loss can disrupt the open reading frame and abolish functional dystrophin.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23650001" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23650001" target="_blank">PMID:23650001</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 60% of mutations are deletions, 10% are duplications and the remaining 30% are point mutations."</div>
+
+
+                <div class="evidence-explanation">This provides the reported relative frequency of deletions among dystrophinopathy-causing DMD mutations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-dmd-exon-duplications" data-dismech-node="DMD exon duplications" data-dismech-type="genetic">
+
+    <div class="item-name">
+        DMD exon duplications
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2928">hgnc:2928</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">copy number gain</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">DMD exon duplications are a recurrent copy-number class. Their clinical effect depends on transcript structure and whether the duplication disrupts the reading frame.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Dystrophin open reading frame</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss-of-function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Exon gain can disrupt transcript structure or the reading frame.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23650001" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23650001" target="_blank">PMID:23650001</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 60% of mutations are deletions, 10% are duplications and the remaining 30% are point mutations."</div>
+
+
+                <div class="evidence-explanation">This supports duplications as a recurring DMD mutation class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-dmd-point-and-small-sequence-variants" data-dismech-node="DMD point and small sequence variants" data-dismech-type="genetic">
+
+    <div class="item-name">
+        DMD point and small sequence variants
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: DMD
+
+
+    <a href="https://bioregistry.io/hgnc:2928" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2928">hgnc:2928</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">sequence variant</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Nonsense, frameshift, splice-site, and other small sequence variants account for the remaining major DMD mutation class and can cause the Duchenne phenotype when they truncate or destabilize dystrophin.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">Dystrophin protein integrity</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">loss-of-function</span>
+
+
+
+            </div>
+
+
+            <div class="item-desc">Small sequence changes can truncate or severely impair dystrophin.</div>
+
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23650001" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23650001" target="_blank">PMID:23650001</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 60% of mutations are deletions, 10% are duplications and the remaining 30% are point mutations."</div>
+
+
+                <div class="evidence-explanation">This supports point and small sequence variants as a major non-CNV DMD mutation class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-ltbp4-modifier-variants" data-dismech-node="LTBP4 modifier variants" data-dismech-type="genetic">
                 <div class="item-name">
                     LTBP4 modifier variants
 
@@ -8913,9 +9575,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8927,7 +9593,7 @@
                 <span class="card-count">12</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroids" data-dismech-node="Corticosteroids" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroids
                 </div>
@@ -9055,7 +9721,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cardiac-management" data-dismech-node="Cardiac Management" data-dismech-type="treatment">
                 <div class="item-name">
                     Cardiac Management
                 </div>
@@ -9183,7 +9849,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-respiratory-support" data-dismech-node="Respiratory Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Respiratory Support
                 </div>
@@ -9229,7 +9895,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-eteplirsen-exon-51-skipping" data-dismech-node="Eteplirsen (Exon 51 Skipping)" data-dismech-type="treatment">
                 <div class="item-name">
                     Eteplirsen (Exon 51 Skipping)
                 </div>
@@ -9323,7 +9989,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-golodirsen-exon-53-skipping" data-dismech-node="Golodirsen (Exon 53 Skipping)" data-dismech-type="treatment">
                 <div class="item-name">
                     Golodirsen (Exon 53 Skipping)
                 </div>
@@ -9417,7 +10083,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-viltolarsen-exon-53-skipping" data-dismech-node="Viltolarsen (Exon 53 Skipping)" data-dismech-type="treatment">
                 <div class="item-name">
                     Viltolarsen (Exon 53 Skipping)
                 </div>
@@ -9511,7 +10177,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-casimersen-exon-45-skipping" data-dismech-node="Casimersen (Exon 45 Skipping)" data-dismech-type="treatment">
                 <div class="item-name">
                     Casimersen (Exon 45 Skipping)
                 </div>
@@ -9605,7 +10271,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ataluren-stop-codon-readthrough-therapy" data-dismech-node="Ataluren Stop-Codon Readthrough Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Ataluren Stop-Codon Readthrough Therapy
                 </div>
@@ -9699,7 +10365,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-delandistrogene-moxeparvovec" data-dismech-node="Delandistrogene Moxeparvovec" data-dismech-type="treatment">
                 <div class="item-name">
                     Delandistrogene Moxeparvovec
                 </div>
@@ -9871,7 +10537,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sevasemten-edg-5506" data-dismech-node="Sevasemten (EDG-5506)" data-dismech-type="treatment">
                 <div class="item-name">
                     Sevasemten (EDG-5506)
                 </div>
@@ -10045,7 +10711,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-care-considerations-2018-dmd-care-considerations-part-1" data-dismech-node="Multidisciplinary Care Considerations (2018 DMD Care Considerations, Part 1)" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary Care Considerations (2018 DMD Care Considerations, Part 1)
                 </div>
@@ -10167,7 +10833,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-agents-circumstances-to-avoid" data-dismech-node="Agents/Circumstances to Avoid" data-dismech-type="treatment">
                 <div class="item-name">
                     Agents/Circumstances to Avoid
                 </div>
@@ -10260,7 +10926,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-creatine-kinase" data-dismech-node="Creatine Kinase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Creatine Kinase
 
@@ -10339,7 +11005,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-dystrophin" data-dismech-node="Dystrophin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Dystrophin
 
@@ -10418,7 +11084,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-treatment-induced-dystrophin-expression" data-dismech-node="Treatment-Induced Dystrophin Expression" data-dismech-type="biochemical">
                 <div class="item-name">
                     Treatment-Induced Dystrophin Expression
 
@@ -10551,7 +11217,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-micro-dystrophin-expression" data-dismech-node="Micro-dystrophin Expression" data-dismech-type="biochemical">
                 <div class="item-name">
                     Micro-dystrophin Expression
 
@@ -10630,7 +11296,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-n-terminal-titin-fragment" data-dismech-node="N-terminal Titin Fragment" data-dismech-type="biochemical">
                 <div class="item-name">
                     N-terminal Titin Fragment
 
@@ -10760,6 +11426,140 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Inhibiting EZH2 complements steroid effects in Duchenne muscular dystrophy
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE288958" target="_blank">geo:GSE288958</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Duchenne muscular dystrophy (DMD) is a devastating X-linked disorder caused by mutations in the dystrophin gene. Despite recent advances in understanding the disease etiology and applying emerging treatment methodologies, glucocorticoid derivatives remain the only general therapeutic option that can slow disease development. However, the precise molecular mechanism of glucocorticoid action remains unclear, and there is still need for additional remedies to complement the treatment. Here, using single-nucleus RNA-sequencing and spatial transcriptome analyses of human and mouse muscles, we investigated pathogenic features in DMD patients and palliative effects of glucocorticoids.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MULTI OMICS</span>
+
+
+                    <span class="tag tag-dataset">n=11</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40085707" target="_blank" style="color: var(--secondary);">PMID:40085707</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Duchenne Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Gene expression of CD56positive and CD56negative human muscle stem cells from normal and Duchenne Muscular Dystrophy muscles
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE229968" target="_blank">geo:GSE229968</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">In Duchenne Muscular Dystrophy (DMD), the absence of the subsarcolemmal dystrophin protein leads to repeated myofiber damages inducing cycles of muscle regeneration that is driven by muscle stem cells (MuSCs). With time, MuSC regenerative capacities are overwhelmed, leading to fibrosis and muscle atrophy. Whether MuSCs from DMD muscle have intrinsic alterations or are primed by their degenerative/regenerative environment is still debated. We investigated gene expression in human using primary MuSCs derived from DMD or healthy muscles.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39650736" target="_blank" style="color: var(--secondary);">PMID:39650736</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Duchenne Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Microdystrophins Partially Rescue Duchenne Muscular Dystrophy Deficits in iPSC-Cardiomyocytes
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE310327" target="_blank">geo:GSE310327</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Duchenne muscular dystrophy (DMD) is a severe muscle wasting disease caused by the lack of dystrophin. Dilated cardiomyopathy is the leading cause of death in DMD patients. Smaller variants of dystrophin, called microdystrophins, amenable to packaging into adeno-associated virus (AAV), have shown to be effective in improving skeletal muscle function in animal models; however, the functional benefit of these microdystrophins in the DMD heart remains unclear. To determine the efficacy of microdystrophin gene therapy, we compared three microdystrophin variants in DMD cardiomyocytes differentiated from human induced pluripotent stem cells (iPSCs).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=34</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Duchenne Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -13284,6 +14084,42 @@ references:
 - reference: PMID:29395989
   title: &#34;Diagnosis and management of Duchenne muscular dystrophy, part 1: diagnosis, and neuromuscular, rehabilitation, endocrine, and gastrointestinal and nutritional management.&#34;
   findings: []
+datasets:
+- accession: geo:GSE288958
+  title: Inhibiting EZH2 complements steroid effects in Duchenne muscular dystrophy
+  description: Duchenne muscular dystrophy (DMD) is a devastating X-linked disorder caused by mutations in the dystrophin gene. Despite recent advances in understanding the disease etiology and applying emerging treatment methodologies, glucocorticoid derivatives remain the only general therapeutic option that can slow disease development. However, the precise molecular mechanism of glucocorticoid action remains unclear, and there is still need for additional remedies to complement the treatment. Here, using single-nucleus RNA-sequencing and spatial transcriptome analyses of human and mouse muscles, we investigated pathogenic features in DMD patients and palliative effects of glucocorticoids.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MULTI_OMICS
+  sample_count: 11
+  publication: PMID:40085707
+  notes: Identified by GEO DataSets index search for Duchenne Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE229968
+  title: Gene expression of CD56positive and CD56negative human muscle stem cells from normal and Duchenne Muscular Dystrophy muscles
+  description: In Duchenne Muscular Dystrophy (DMD), the absence of the subsarcolemmal dystrophin protein leads to repeated myofiber damages inducing cycles of muscle regeneration that is driven by muscle stem cells (MuSCs). With time, MuSC regenerative capacities are overwhelmed, leading to fibrosis and muscle atrophy. Whether MuSCs from DMD muscle have intrinsic alterations or are primed by their degenerative/regenerative environment is still debated. We investigated gene expression in human using primary MuSCs derived from DMD or healthy muscles.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 12
+  publication: PMID:39650736
+  notes: Identified by GEO DataSets index search for Duchenne Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE310327
+  title: Microdystrophins Partially Rescue Duchenne Muscular Dystrophy Deficits in iPSC-Cardiomyocytes
+  description: Duchenne muscular dystrophy (DMD) is a severe muscle wasting disease caused by the lack of dystrophin. Dilated cardiomyopathy is the leading cause of death in DMD patients. Smaller variants of dystrophin, called microdystrophins, amenable to packaging into adeno-associated virus (AAV), have shown to be effective in improving skeletal muscle function in animal models; however, the functional benefit of these microdystrophins in the DMD heart remains unclear. To determine the efficacy of microdystrophin gene therapy, we compared three microdystrophin variants in DMD cardiomyocytes differentiated from human induced pluripotent stem cells (iPSCs).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 34
+  notes: Identified by GEO DataSets index search for Duchenne Muscular Dystrophy (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -14291,7 +15127,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Duchenne Muscular Dystrophy", "mondoId": "MONDO:0010679", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Duchenne_Muscular_Dystrophy", "yamlRevision": "1e778d6d2f2d"};
+        const OS_CONFIG = {"diseaseName": "Duchenne Muscular Dystrophy", "mondoId": "MONDO:0010679", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Duchenne_Muscular_Dystrophy", "yamlRevision": "1a3abe7a46b1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

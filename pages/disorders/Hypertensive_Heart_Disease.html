@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3502,6 +3733,7 @@
 
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3520,6 +3752,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4905,7 +5145,7 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmias" data-dismech-node="Arrhythmias" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arrhythmias
 
@@ -4993,7 +5233,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmias-2" data-dismech-node="Arrhythmias" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arrhythmias
 
@@ -5083,7 +5323,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-dissection" data-dismech-node="Aortic Dissection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Dissection
 
@@ -5186,7 +5426,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stroke" data-dismech-node="Stroke" data-dismech-type="phenotype">
                     <div class="item-name">
                         Stroke
 
@@ -5289,7 +5529,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Palpitations
 
@@ -5318,7 +5558,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
                     <div class="item-name">
                         Syncope
 
@@ -5347,7 +5587,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-failure-exacerbations" data-dismech-node="Heart Failure Exacerbations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Heart Failure Exacerbations
 
@@ -5376,7 +5616,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-diastolic-dysfunction" data-dismech-node="Left Ventricular Diastolic Dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Left Ventricular Diastolic Dysfunction
 
@@ -5437,7 +5677,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-concentric-left-ventricular-hypertrophy" data-dismech-node="Concentric Left Ventricular Hypertrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Concentric Left Ventricular Hypertrophy
 
@@ -5507,7 +5747,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proteinuria
 
@@ -5619,7 +5859,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnea
 
@@ -5738,7 +5978,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest Pain
 
@@ -5819,7 +6059,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -5878,7 +6118,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain-2" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest Pain
 
@@ -5979,7 +6219,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue-2" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -6080,7 +6320,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-exercise-tolerance" data-dismech-node="Reduced Exercise Tolerance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Exercise Tolerance
 
@@ -6111,7 +6351,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microvascular-angina" data-dismech-node="Microvascular Angina" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microvascular Angina
 
@@ -6151,7 +6391,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-coronary-flow-reserve" data-dismech-node="Reduced Coronary Flow Reserve" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Coronary Flow Reserve
 
@@ -6205,6 +6445,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6214,7 +6457,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antihypertensive-therapy" data-dismech-node="Antihypertensive Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Antihypertensive Therapy
                 </div>
@@ -6329,7 +6572,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ace-inhibitors-or-arbs" data-dismech-node="ACE Inhibitors or ARBs" data-dismech-type="treatment">
                 <div class="item-name">
                     ACE Inhibitors or ARBs
                 </div>
@@ -6464,7 +6707,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-blockers" data-dismech-node="Beta Blockers" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta Blockers
                 </div>
@@ -6599,7 +6842,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-diuretics" data-dismech-node="Diuretics" data-dismech-type="treatment">
                 <div class="item-name">
                     Diuretics
                 </div>
@@ -6716,7 +6959,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mineralocorticoid-receptor-antagonists" data-dismech-node="Mineralocorticoid Receptor Antagonists" data-dismech-type="treatment">
                 <div class="item-name">
                     Mineralocorticoid Receptor Antagonists
                 </div>
@@ -6833,7 +7076,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lifestyle-modifications" data-dismech-node="Lifestyle Modifications" data-dismech-type="treatment">
                 <div class="item-name">
                     Lifestyle Modifications
                 </div>
@@ -6960,7 +7203,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-uncontrolled-hypertension" data-dismech-node="Uncontrolled Hypertension" data-dismech-type="environmental">
                 <div class="item-name">Uncontrolled Hypertension</div>
 
 
@@ -7000,6 +7243,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -7014,7 +7258,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-brain-natriuretic-peptide-bnp" data-dismech-node="Brain Natriuretic Peptide (BNP)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Brain Natriuretic Peptide (BNP)
 
@@ -7101,7 +7345,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-troponin" data-dismech-node="Troponin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Troponin
 
@@ -7195,6 +7439,101 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Multiomics Investigation of the Hypertensive Human Heart
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE282618" target="_blank">geo:GSE282618</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Biobanked, postmortem human heart tissue presents a unique opportunity to understand the pathogenesis of human cardiovascular disease risk factors through detailed multiomic analyses. We hypothesize that hypertension affects the cardiac transcriptome and cellular subtypes in a site-specific manner. We performed bulk and single-nucleus RNA-seq (snRNA-seq) on spatially distinct ventricular and atrial samples of postmortem hearts from donors with hypertension (n=3) and normotensive referents (n=2), using our rigorous cardiac dissection and preservation protocol.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MULTI OMICS</span>
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41036600" target="_blank" style="color: var(--secondary);">PMID:41036600</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hypertensive Heart Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    CD163+ cardiac macrophages attenuate pressure overload-induced left ventricular systolic dysfunction via interleukin-10
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE277624" target="_blank">geo:GSE277624</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background Chronic sustained pressure overload induces cardiac remodeling, which often leads to heart failure. Cardiac macrophages (cMacs) are heterogeneous cell populations, and their elimination has been shown to exacerbate pressure overload-induced heart failure. CD163, a macrophage-specific scavenger receptor expressed in a subset of cMacs, has been linked to cardiovascular events through its serum soluble form. This study aimed to elucidate the functional role of the CD163+ cMacs subset in pressure overload-induced heart failure.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40343453" target="_blank" style="color: var(--secondary);">PMID:40343453</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hypertensive Heart Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -8821,6 +9160,31 @@ references:
 - reference: DOI:10.3390/ph18030313
   title: &#39;Cardiac Fibrosis: Mechanistic Discoveries Linked to SGLT2 Inhibitors&#39;
   findings: []
+datasets:
+- accession: geo:GSE282618
+  title: Multiomics Investigation of the Hypertensive Human Heart
+  description: Biobanked, postmortem human heart tissue presents a unique opportunity to understand the pathogenesis of human cardiovascular disease risk factors through detailed multiomic analyses. We hypothesize that hypertension affects the cardiac transcriptome and cellular subtypes in a site-specific manner. We performed bulk and single-nucleus RNA-seq (snRNA-seq) on spatially distinct ventricular and atrial samples of postmortem hearts from donors with hypertension (n=3) and normotensive referents (n=2), using our rigorous cardiac dissection and preservation protocol.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MULTI_OMICS
+  sample_count: 10
+  publication: PMID:41036600
+  notes: Identified by GEO DataSets index search for Hypertensive Heart Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE277624
+  title: CD163+ cardiac macrophages attenuate pressure overload-induced left ventricular systolic dysfunction via interleukin-10
+  description: Background Chronic sustained pressure overload induces cardiac remodeling, which often leads to heart failure. Cardiac macrophages (cMacs) are heterogeneous cell populations, and their elimination has been shown to exacerbate pressure overload-induced heart failure. CD163, a macrophage-specific scavenger receptor expressed in a subset of cMacs, has been linked to cardiovascular events through its serum soluble form. This study aimed to elucidate the functional role of the CD163+ cMacs subset in pressure overload-induced heart failure.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 10
+  publication: PMID:40343453
+  notes: Identified by GEO DataSets index search for Hypertensive Heart Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -9380,7 +9744,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypertensive Heart Disease", "mondoId": "MONDO:0001302", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertensive_Heart_Disease", "yamlRevision": "ff17c9a370a2"};
+        const OS_CONFIG = {"diseaseName": "Hypertensive Heart Disease", "mondoId": "MONDO:0001302", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertensive_Heart_Disease", "yamlRevision": "b90677270809"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Carotid%20Artery%20Occlusion"
@@ -3464,6 +3693,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3493,7 +3724,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3506,6 +3737,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4067,7 +4299,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atherosclerotic carotid plaque formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endothelial injury, lipid retention, foam-cell accumulation, vascular smooth muscle remodeling, and inflammatory matrix remodeling generate carotid atherosclerotic plaque. Progressive plaque growth narrows the lumen and creates the substrate for later thrombosis or complete occlusion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\", \"foam cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"extracellular matrix organization\"]}}, {\"id\": \"Cerebral and retinal ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced perfusion pressure from carotid occlusion, especially when collateral circulation is inadequate, and embolic obstruction from carotid plaque or thrombus can cause transient or permanent cerebral and retinal ischemic manifestations.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombotic carotid occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced atherosclerotic plaque and associated thrombus can produce non-acute or chronic long-segment occlusion of the internal carotid artery. Occlusion anatomy and plaque location influence recanalization feasibility and re-occlusion risk.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}], \"edges\": [{\"source\": \"Atherosclerotic carotid plaque formation\", \"target\": \"Thrombotic carotid occlusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Plaque growth and vulnerability can progress to flow-limiting stenosis, thrombosis, or complete occlusion.\"}, {\"source\": \"Thrombotic carotid occlusion\", \"target\": \"Cerebral and retinal ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Completed carotid occlusion can reduce downstream blood flow or generate embolic ischemia in cerebral and retinal territories.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Atherosclerotic carotid plaque formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endothelial injury, lipid retention, foam-cell accumulation, vascular smooth muscle remodeling, and inflammatory matrix remodeling generate carotid atherosclerotic plaque. Progressive plaque growth narrows the lumen and creates the substrate for later thrombosis or complete occlusion.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\", \"vascular smooth muscle cell\", \"foam cell\", \"macrophage\"], \"biological_processes\": [\"inflammatory response\", \"extracellular matrix organization\"]}}, {\"id\": \"Cerebral and retinal ischemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced perfusion pressure from carotid occlusion, especially when collateral circulation is inadequate, and embolic obstruction from carotid plaque or thrombus can cause transient or permanent cerebral and retinal ischemic manifestations.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Diabetes mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Hypertension\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Smoking and diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Thrombotic carotid occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Advanced atherosclerotic plaque and associated thrombus can produce non-acute or chronic long-segment occlusion of the internal carotid artery. Occlusion anatomy and plaque location influence recanalization feasibility and re-occlusion risk.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"blood coagulation\"]}}], \"edges\": [{\"source\": \"Atherosclerotic carotid plaque formation\", \"target\": \"Thrombotic carotid occlusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Plaque growth and vulnerability can progress to flow-limiting stenosis, thrombosis, or complete occlusion.\"}, {\"source\": \"Thrombotic carotid occlusion\", \"target\": \"Cerebral and retinal ischemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Completed carotid occlusion can reduce downstream blood flow or generate embolic ischemia in cerebral and retinal territories.\"}, {\"source\": \"Hypertension\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Raised pressure and shear injure the endothelium, and the lipid retention, foam-cell accumulation, and inflammatory remodelling that follow are the steps this node already sets out. Those intermediates are known, which is why the link is indirect rather than direct.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Diabetes mellitus\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Diabetes drives atherogenesis through hyperglycemic endothelial injury and dyslipidemia, reaching carotid plaque by the same intermediates this node describes. The cited case-control study is carotid specific, though the quoted sentence states the determinant relationship for atherosclerosis generally.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Smoking and diet\", \"target\": \"Atherosclerotic carotid plaque formation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Modifiable lifestyle exposures feeding the same endothelial injury and lipid retention sequence as hypertension. Graded identically to the hypertension link in this entry because both rest on the same sentence of the same review.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4101,7 +4333,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ischemic-stroke" data-dismech-node="Ischemic stroke" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ischemic stroke
 
@@ -4191,7 +4423,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-carotid-artery-occlusion" data-dismech-node="Carotid artery occlusion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Carotid artery occlusion
 
@@ -4250,7 +4482,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-carotid-artery-stenosis-or-near-occlusion" data-dismech-node="Carotid artery stenosis or near-occlusion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Carotid artery stenosis or near-occlusion
 
@@ -4309,7 +4541,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-ischemic-attack" data-dismech-node="Transient ischemic attack" data-dismech-type="phenotype">
                     <div class="item-name">
                         Transient ischemic attack
 
@@ -4368,7 +4600,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-amaurosis-fugax" data-dismech-node="Amaurosis fugax" data-dismech-type="phenotype">
                     <div class="item-name">
                         Amaurosis fugax
 
@@ -4427,7 +4659,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-ischemia" data-dismech-node="Cerebral ischemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral ischemia
 
@@ -4525,7 +4757,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-shared-polygenic-cardiovascular-and-cerebrovascular-risk-loci" data-dismech-node="Shared polygenic cardiovascular and cerebrovascular risk loci" data-dismech-type="genetic">
                 <div class="item-name">
                     Shared polygenic cardiovascular and cerebrovascular risk loci
 
@@ -4569,9 +4801,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-diabetes-associated-genetic-markers-and-carotid-plaque" data-dismech-node="Diabetes-associated genetic markers and carotid plaque" data-dismech-type="genetic">
                 <div class="item-name">
                     Diabetes-associated genetic markers and carotid plaque
 
@@ -4615,9 +4848,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4629,7 +4866,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-optimal-medical-therapy-and-risk-factor-modification" data-dismech-node="Optimal medical therapy and risk-factor modification" data-dismech-type="treatment">
                 <div class="item-name">
                     Optimal medical therapy and risk-factor modification
                 </div>
@@ -4728,7 +4965,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-carotid-endarterectomy-or-carotid-artery-stenting-for-selected-severe-stenosis" data-dismech-node="Carotid endarterectomy or carotid artery stenting for selected severe stenosis" data-dismech-type="treatment">
                 <div class="item-name">
                     Carotid endarterectomy or carotid artery stenting for selected severe stenosis
                 </div>
@@ -4828,7 +5065,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-endovascular-or-hybrid-recanalization-for-selected-chronic-carotid-occlusion" data-dismech-node="Endovascular or hybrid recanalization for selected chronic carotid occlusion" data-dismech-type="treatment">
                 <div class="item-name">
                     Endovascular or hybrid recanalization for selected chronic carotid occlusion
                 </div>
@@ -4940,7 +5177,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-hypertension" data-dismech-node="Hypertension" data-dismech-type="environmental">
                 <div class="item-name">Hypertension</div>
 
 
@@ -4982,9 +5219,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic carotid plaque formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Raised pressure and shear injure the endothelium, and the lipid retention, foam-cell accumulation, and inflammatory remodelling that follow are the steps this node already sets out. Those intermediates are known, which is why the link is indirect rather than direct.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37303351" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"comorbid hypertension, diabetes, and chronic kidney disease (CKD), and lifestyle aspects, including smoking and diet, played the most salient role in plaque development."</div>
+
+
+                <div class="evidence-explanation">Review naming comorbid hypertension among the factors that played the most salient role in plaque development, connecting the exposure to this node&#39;s own process rather than to the disease in general.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-diabetes-mellitus" data-dismech-node="Diabetes mellitus" data-dismech-type="environmental">
                 <div class="item-name">Diabetes mellitus</div>
 
 
@@ -5026,9 +5316,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic carotid plaque formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Diabetes drives atherogenesis through hyperglycemic endothelial injury and dyslipidemia, reaching carotid plaque by the same intermediates this node describes. The cited case-control study is carotid specific, though the quoted sentence states the determinant relationship for atherosclerosis generally.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36894991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36894991" target="_blank">PMID:36894991</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diabetes mellitus (DM) is a well-established determinant of atherosclerosis and cardiovascular diseases (CVD)."</div>
+
+
+                <div class="evidence-explanation">States that diabetes is a well-established determinant of atherosclerosis, the process this node carries, in a study whose subject is carotid atherosclerosis specifically.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-smoking-and-diet" data-dismech-node="Smoking and diet" data-dismech-type="environmental">
                 <div class="item-name">Smoking and diet</div>
 
 
@@ -5069,6 +5412,59 @@
         </div>
     </details>
 
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Atherosclerotic carotid plaque formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Modifiable lifestyle exposures feeding the same endothelial injury and lipid retention sequence as hypertension. Graded identically to the hypertension link in this entry because both rest on the same sentence of the same review.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37303351" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37303351" target="_blank">PMID:37303351</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"lifestyle aspects, including smoking and diet, played the most salient role in plaque development."</div>
+
+
+                <div class="evidence-explanation">The same review names smoking and diet as the lifestyle aspects playing the most salient role in plaque development, which is the process at this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -5593,6 +5989,25 @@ genetic:
     explanation: This human community case-control study links diabetes-associated SNPs with carotid plaque.
 environmental:
 - name: Hypertension
+  influences_mechanisms:
+  - target: Atherosclerotic carotid plaque formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Raised pressure and shear injure the endothelium, and the lipid
+      retention, foam-cell accumulation, and inflammatory remodelling that
+      follow are the steps this node already sets out. Those intermediates are
+      known, which is why the link is indirect rather than direct.
+    evidence:
+    - reference: PMID:37303351
+      reference_title: &#34;Carotid Artery Stenosis: A Look Into the Diagnostic and Management Strategies, and Related Complications.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;comorbid hypertension, diabetes, and chronic kidney disease (CKD), and lifestyle aspects, including smoking and diet, played the most salient role in plaque development.&#34;
+      explanation: &gt;-
+        Review naming comorbid hypertension among the factors that played the
+        most salient role in plaque development, connecting the exposure to
+        this node&#39;s own process rather than to the disease in general.
   presence: Positive
   notes: Major atherosclerotic and stroke risk factor associated with carotid plaque development.
   evidence:
@@ -5604,6 +6019,26 @@ environmental:
       comorbid hypertension, diabetes, and chronic kidney disease (CKD), and lifestyle aspects, including smoking and diet, played the most salient role in plaque development.
     explanation: The review explicitly identifies hypertension among the salient factors in carotid plaque development.
 - name: Diabetes mellitus
+  influences_mechanisms:
+  - target: Atherosclerotic carotid plaque formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Diabetes drives atherogenesis through hyperglycemic endothelial injury
+      and dyslipidemia, reaching carotid plaque by the same intermediates this
+      node describes. The cited case-control study is carotid specific, though
+      the quoted sentence states the determinant relationship for
+      atherosclerosis generally.
+    evidence:
+    - reference: PMID:36894991
+      reference_title: &#34;Associations of genetic markers of diabetes mellitus with carotid atherosclerosis: a community-based case-control study.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Diabetes mellitus (DM) is a well-established determinant of atherosclerosis and cardiovascular diseases (CVD).&#34;
+      explanation: &gt;-
+        States that diabetes is a well-established determinant of
+        atherosclerosis, the process this node carries, in a study whose
+        subject is carotid atherosclerosis specifically.
   presence: Positive
   notes: Diabetes is a cardiometabolic risk factor for carotid plaque and atherosclerotic disease.
   evidence:
@@ -5615,6 +6050,25 @@ environmental:
       Diabetes mellitus (DM) is a well-established determinant of atherosclerosis and cardiovascular diseases (CVD).
     explanation: This supports diabetes as a determinant of atherosclerosis relevant to carotid plaque formation.
 - name: Smoking and diet
+  influences_mechanisms:
+  - target: Atherosclerotic carotid plaque formation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Modifiable lifestyle exposures feeding the same endothelial injury and
+      lipid retention sequence as hypertension. Graded identically to the
+      hypertension link in this entry because both rest on the same sentence
+      of the same review.
+    evidence:
+    - reference: PMID:37303351
+      reference_title: &#34;Carotid Artery Stenosis: A Look Into the Diagnostic and Management Strategies, and Related Complications.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;lifestyle aspects, including smoking and diet, played the most salient role in plaque development.&#34;
+      explanation: &gt;-
+        The same review names smoking and diet as the lifestyle aspects
+        playing the most salient role in plaque development, which is the
+        process at this node.
   presence: Positive
   notes: Smoking and diet are modifiable lifestyle factors contributing to carotid plaque development.
   evidence:
@@ -6359,7 +6813,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Carotid Artery Occlusion", "mondoId": "MONDO:0004450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carotid_Artery_Occlusion", "yamlRevision": "3fc81b279391"};
+        const OS_CONFIG = {"diseaseName": "Carotid Artery Occlusion", "mondoId": "MONDO:0004450", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carotid_Artery_Occlusion", "yamlRevision": "33524ad27b45"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
