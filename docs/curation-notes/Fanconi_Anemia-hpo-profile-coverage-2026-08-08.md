@@ -2,6 +2,7 @@
 
 **Date:** 2026-08-08
 **Entry:** `kb/disorders/Fanconi_Anemia.yaml`
+**Feedback to profile authors / schema issue:** [monarch-initiative/dismech#8179](https://github.com/monarch-initiative/dismech/issues/8179)
 **Trigger:** Connelly *et al.*, *A custom phenotypic profile for Fanconi anemia: Addressing
 gaps in existing disease annotations* (manuscript; profile published at
 <https://github.com/ehurwitz/FA-custom-profile>).
