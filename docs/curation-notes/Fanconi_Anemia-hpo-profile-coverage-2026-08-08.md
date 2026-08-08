@@ -31,11 +31,14 @@ specifically), or nothing at all.
 
 ```
                      before   after
-exact match             78     118
-parent-only             56      52
-child-only              21      21
-not represented        109      73
+exact match             78     116
+parent-only             56      50
+child-only              21      22
+not represented        109      76
 ```
+
+(Initial figures were 118/52/21/73; the four-term difference is the review pass
+described under "Corrections after review" below.)
 
 ## Evidence policy for this pass
 
@@ -45,7 +48,7 @@ verified against the cached PubMed abstract (`just count-verified-snippets`: 388
 Where the literature would only support a treatment sequela rather than a disease
 phenotype, the term was left uncurated (see "Deliberately not added").
 
-## What was added (43 phenotype blocks)
+## What was added (41 phenotype blocks)
 
 | Domain | Terms | Key sources |
 |---|---|---|
@@ -79,6 +82,36 @@ scapular hypoplasia with winging), and `HP:0012178` is obsolete in current HPO.
 - **Frequency bands** were assigned only where a cited percentage maps cleanly onto a
   `FrequencyEnum` band, per `docs/frequency-evidence-guidelines.md`. Osteoporosis carries
   no band because the 92% figure applies only to patients aged ≥18.
+
+## Corrections after review (PR #8190)
+
+The automated reviewer raised eight items on the first pass; all were accepted, four of
+them changing what is asserted:
+
+- **`HP:0045025` Narrow palpebral fissure — block removed.** The supporting sentence
+  measures palpebral fissure *length*, which is `HP:0012745` Short palpebral fissure
+  (already asserted in this entry), not fissure *height*. The two terms are not
+  ontologically related, so this was a straight term error. `HP:0045025` returns to the
+  unevidenced list.
+- **`HP:0011107` Recurrent aphthous stomatitis — block removed.** The quoted sentence
+  (ulcer healing after transfusion) supports neither recurrence nor stomatitis, and the
+  block was redundant with `Oral Ulceration` from the same source.
+- **`HP:0011834` Moyamoya phenomenon — evidence replaced.** The original citation
+  (PMID:35978939) is an alpha-thalassemia case report naming FA only in a background
+  list, which fails this pass's own evidence policy. Replaced with two FA-specific cases
+  (PMID:38510908, PMID:25719591), and the category corrected from Cardiac to Neurologic.
+- **`HP:0000482` Microcornea — evidence replaced.** The original snippet was truncated to
+  dodge a bracket-stripping interaction in the validator and fell below the minimum
+  snippet length. Replaced with the NCI ophthalmic cohort (PMID:20022637, microcornea in
+  55% of 22 patients) and an independent series (PMID:23648176).
+
+Three further items were term-precision fixes that preserve profile coverage by closure:
+`HP:0000782` → `HP:0000882` Hypoplastic scapulae (exact match to the quoted finding), and
+`HP:0010442` → `HP:0001177` Preaxial hand polydactyly (a descendant, so `HP:0010442`
+stays covered). Two were name collisions with pre-existing blocks, resolved by renaming
+rather than deleting (`Reduced Circulating Growth Hormone Concentration`,
+`Early-Onset Osteoporosis`, `Radial Ray Anomaly Spectrum`), with the osteoporosis block
+also re-quoted so it no longer reuses a snippet already carried elsewhere in the entry.
 
 ## Remaining worklist
 
