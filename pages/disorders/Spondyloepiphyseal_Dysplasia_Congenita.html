@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3467,6 +3696,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3515,6 +3746,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -3928,6 +4168,22 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cleft Palate</span>
+
+	                            <span class="crosslink-desc">Palatal clefting follows failed fusion of the palatal shelves in a type-II-collagen-deficient craniofacial matrix. It is attached to the primary collagen defect rather than to growth-plate disorganization, because palatal shelf fusion is not an endochondral bone-formation process.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Flat Face</span>
+
+	                            <span class="crosslink-desc">Midface flattening reflects abnormal type II collagen in the chondrocranium and nasal/septal cartilage, which are not growth-plate derivatives.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4017,7 +4273,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-stress-and-unfolded-protein-response-in-chondrocytes" data-dismech-node="ER Stress and Unfolded Protein Response in Chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Stress and Unfolded Protein Response in Chondrocytes</div>
 
-                <div class="item-desc">Misfolded mutant procollagen II is retained in dilated endoplasmic reticulum cisternae of growth plate chondrocytes. In some mouse models (e.g., Col2a1 p.Gly1170Ser), this activates the endoplasmic reticulum stress (ERS)-unfolded protein response (UPR)-apoptosis cascade: chondrocyte apoptosis occurs prior to hypertrophy, preventing formation of a normal hypertrophic zone, disrupting chondrogenic signaling pathways including Ihh, Fgfr3, and Runx2, and impairing endochondral ossification. However, human iPSC-derived cartilage models suggest that ER retention can occur without robust canonical UPR activation, consistent with an ER procollagen storage disorder rather than a classical UPR-driven apoptosis pathway. The degree of UPR engagement appears to be allele-, dosage-, and context-dependent.
+                <div class="item-desc">Misfolded mutant procollagen II is retained in dilated endoplasmic reticulum cisternae of growth plate chondrocytes. In some mouse models (e.g., Col2a1 p.Gly1170Ser), this activates the endoplasmic reticulum stress (ERS)-unfolded protein response (UPR)-apoptosis cascade: chondrocyte apoptosis occurs prior to hypertrophy, preventing formation of a normal hypertrophic zone, disrupting chondrogenic signaling pathways including Ihh, Fgfr3, and Runx2, and impairing endochondral ossification. Patient-derived type II collagenopathy iPSC chondrocytes likewise show ER stress marker induction with apoptosis. However, an iPSC-derived human cartilage model of the milder COL2A1 p.Arg719Cys allele (precocious osteoarthritis with mild spondyloepiphyseal dysplasia, not SEDC) showed ER retention and ER distention without detectable UPR activation, indicating that some alleles behave as an ER procollagen storage problem rather than a classical UPR-driven apoptosis pathway. The degree of UPR engagement therefore appears to be allele-, dosage-, and context-dependent, and has not been resolved for SEDC-causing glycine substitutions specifically.
 </div>
 
 
@@ -4189,7 +4445,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4237,6 +4493,30 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:25187577" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25187577" target="_blank">PMID:25187577</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chondrogenically differentiated COL2pathy-iPS cells showed apoptosis and increased expression of ER stress-markers."</div>
+
+
+                <div class="evidence-explanation">Patient-derived human type II collagenopathy iPSC chondrocytes reproduce the ER stress and apoptosis seen in mouse models, extending the mechanism to human cells.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4403,18 +4683,6 @@
 	                        </div>
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Flat Face</span>
-
-
-	                        </div>
-
-	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Cleft Palate</span>
-
-
-	                        </div>
-
-	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Barrel-Shaped Chest</span>
 
 
@@ -4521,7 +4789,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitreous-collagen-abnormality" data-dismech-node="Vitreous Collagen Abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitreous Collagen Abnormality</div>
 
-                <div class="item-desc">Type II collagen is a major component of the vitreous humor and is critical for vitreous gel structure. Abnormal collagen leads to vitreous liquefaction, vitreous syneresis, and posterior vitreous detachment, increasing the risk of retinal detachment. Myopia is reported in approximately 45% of SEDC patients, while retinal detachment occurs in about 12%.
+                <div class="item-desc">Type II collagen is a major component of the vitreous humor and is critical for vitreous gel structure. Abnormal collagen leads to vitreous liquefaction, vitreous syneresis, and posterior vitreous detachment, increasing the risk of retinal detachment. In a 93-patient cohort of COL2A1 mutation carriers with SEDC or a related phenotype, myopia was reported in 45% and retinal detachment in 12%; these figures come from that mixed COL2A1 cohort rather than from a SEDC-only series.
 </div>
 
 
@@ -4591,7 +4859,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4634,6 +4902,28 @@
 
 
                 <div class="evidence-explanation">This study documents that vitreous humor abnormalities are a feature of COL2A1-related chondrodysplasias due to type II collagen being a major component of the vitreous.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25604898" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25604898" target="_blank">PMID:25604898</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Myopia was found in 45% (95% CI 35-56), and retinal detachment had occurred in 12% (95% CI 6-21; median age 14 years; youngest age 3.5 years)."</div>
+
+
+                <div class="evidence-explanation">Source for the 45% myopia and 12% retinal detachment figures quoted in this node. The denominator is a 93-patient COL2A1 cohort with SEDC or a related phenotype, not a SEDC-only series.</div>
 
 
 
@@ -4889,7 +5179,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arginine-to-cysteine substitutions in Gly-X-Y repeats\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Less common non-glycine missense class in COL2A1 that can cause SEDC or related type II collagenopathy phenotypes, with severity depending on position and protein-level effects on secretion, stability, ER retention, and cell survival.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atlantoaxial Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pathological C1-C2 motion may accompany odontoid hypoplasia or os odontoideum and can be occult unless flexion-extension imaging is obtained.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003467\"}}, {\"id\": \"Barrel-Shaped Chest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Barrel-shaped thorax is part of the characteristic skeletal habitus in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001552\"}}, {\"id\": \"COL2A1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overt and submucous cleft palate are both reported in SEDC.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coxa Vara\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip deformity with reduced femoral neck angle contributes to gait abnormality and progressive hip morbidity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002812\"}}, {\"id\": \"Delayed Epiphyseal Ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ossification delay particularly affects the pubic bones and proximal femoral epiphyses; femoral heads may remain radiographically inapparent until early childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002663\"}}, {\"id\": \"Disproportionate Short-Trunk Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with a shortened trunk is a cardinal manifestation of SEDC and is typically evident at birth.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003521\"}}, {\"id\": \"Dominant-Negative Collagen Misfolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most common COL2A1 mutations in SEDC are missense substitutions affecting glycine residues in the Gly-X-Y triple-helical repeat (over 70% of pathogenic variants). The mutant alpha-1 chains are incorporated into procollagen trimers but disrupt triple-helix folding, producing a dominant-negative effect. The structurally abnormal procollagen has reduced thermal stability, slower secretion, and altered electrophoretic mobility. Fibrils that are secreted self-assemble abnormally and cannot properly interact with other extracellular matrix components such as proteoglycans, compromising the mechanical integrity of cartilage. Arginine-to-cysteine substitutions toward the C-terminus of the triple helix are particularly deleterious, causing reduced thermal stability, protease susceptibility, and cleavage by matrix metalloproteinases.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Collagen Fibril Organization\", \"Extracellular Matrix Organization\", \"Protein Folding\"], \"molecular_functions\": [\"extracellular matrix structural constituent\"], \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}]}}, {\"id\": \"ER Stress and Unfolded Protein Response in Chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misfolded mutant procollagen II is retained in dilated endoplasmic reticulum cisternae of growth plate chondrocytes. In some mouse models (e.g., Col2a1 p.Gly1170Ser), this activates the endoplasmic reticulum stress (ERS)-unfolded protein response (UPR)-apoptosis cascade: chondrocyte apoptosis occurs prior to hypertrophy, preventing formation of a normal hypertrophic zone, disrupting chondrogenic signaling pathways including Ihh, Fgfr3, and Runx2, and impairing endochondral ossification. However, human iPSC-derived cartilage models suggest that ER retention can occur without robust canonical UPR activation, consistent with an ER procollagen storage disorder rather than a classical UPR-driven apoptosis pathway. The degree of UPR engagement appears to be allele-, dosage-, and context-dependent.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth Plate Chondrocyte\", \"Hypertrophic Chondrocyte\"], \"biological_processes\": [\"Response to ER Stress\", \"Unfolded Protein Response\", \"Chondrocyte Apoptosis\"]}}, {\"id\": \"Flat Face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midface hypoplasia with a flattened facial profile has been reported as part of the craniofacial phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012368\"}}, {\"id\": \"Genu Valgum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Angular lower-limb deformity including genu valgum has been reported in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002857\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is a recurrent extraskeletal manifestation; older reports emphasized a sensorineural component, but conductive loss has also been documented.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired Growth Plate Organization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combined effects of abnormal extracellular collagen fibrils and ER stress-driven chondrocyte apoptosis lead to severe disorganization of growth plate architecture. Proliferative and hypertrophic zones become shortened or indistinguishable, columnar arrangement of chondrocytes is disrupted, and deposition of cartilage matrix is impaired. Collagen fibrils are fewer and less elaborate, and expression of chondrocyte differentiation markers (Ihh, Fgfr3, Col10a1, Runx2) is markedly reduced. This disrupted endochondral ossification accounts for the disproportionate short stature, platyspondyly, and epiphyseal dysplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth Plate Chondrocyte\"], \"biological_processes\": [\"Endochondral Ossification\", \"Cartilage Development\"]}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thoracic kyphosis and scoliosis can progress with growth and contribute to substantial spinal deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002751\"}}, {\"id\": \"Lumbar Hyperlordosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked lumbar lordosis is characteristic and often accompanies hip flexion contractures and other spinal deformities.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002938\"}}, {\"id\": \"Myelopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical instability can produce progressive spinal cord compression with myelopathic symptoms and neurologic decline.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002196\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate-to-high myopia is a common ophthalmologic manifestation of SEDC.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000545\"}}, {\"id\": \"Odontoid Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the odontoid process is a major cervical-spine complication and predisposes to atlantoaxial instability and cord compression.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003311\"}}, {\"id\": \"Platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattened vertebral bodies are a characteristic radiographic hallmark and become increasingly evident during infancy and childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000926\"}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density has been reported in molecularly confirmed SEDC probands, suggesting that skeletal fragility may extend beyond the classic epiphyseal and vertebral dysplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal presentations can include respiratory distress; concomitant cervical instability should be considered when pulmonary compromise is present.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002098\"}}, {\"id\": \"Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal detachment occurs in a subset of patients and may begin in childhood because of vitreoretinal degeneration and retinal traction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000541\"}}, {\"id\": \"SEDC glycine-substitution examples G474V, G543E, G567S, G594R, and G1170R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Patient-level examples from a Japanese SEDC cohort, all novel missense variants producing glycine substitutions in COL2A1.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Triple-helical glycine substitutions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The predominant SEDC variant class, replacing obligatory glycine residues in the COL2A1 triple-helical Gly-X-Y repeat and acting primarily through a dominant-negative collagen-folding mechanism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vitreous Collagen Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type II collagen is a major component of the vitreous humor and is critical for vitreous gel structure. Abnormal collagen leads to vitreous liquefaction, vitreous syneresis, and posterior vitreous detachment, increasing the risk of retinal detachment. Myopia is reported in approximately 45% of SEDC patients, while retinal detachment occurs in about 12%.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Vitreous Collagen Fibril Organization\"]}}, {\"id\": \"Waddling Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic gait abnormality resulting from hip dysplasia and coxa vara.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002515\"}}], \"edges\": [{\"source\": \"Dominant-Negative Collagen Misfolding\", \"target\": \"ER Stress and Unfolded Protein Response in Chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-Negative Collagen Misfolding\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response in Chondrocytes\", \"target\": \"Impaired Growth Plate Organization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Disproportionate Short-Trunk Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Delayed Epiphyseal Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Odontoid Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Atlantoaxial Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Myelopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Flat Face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Barrel-Shaped Chest\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Coxa Vara\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Lumbar Hyperlordosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Waddling Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Genu Valgum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitreous Collagen Abnormality\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitreous Collagen Abnormality\", \"target\": \"Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL2A1 Mutations\", \"target\": \"Dominant-Negative Collagen Misfolding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Triple-helical glycine substitutions\", \"target\": \"COL2A1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SEDC glycine-substitution examples G474V, G543E, G567S, G594R, and G1170R\", \"target\": \"COL2A1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Arginine-to-cysteine substitutions in Gly-X-Y repeats\", \"target\": \"COL2A1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arginine-to-cysteine substitutions in Gly-X-Y repeats\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Less common non-glycine missense class in COL2A1 that can cause SEDC or related type II collagenopathy phenotypes, with severity depending on position and protein-level effects on secretion, stability, ER retention, and cell survival.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atlantoaxial Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pathological C1-C2 motion may accompany odontoid hypoplasia or os odontoideum and can be occult unless flexion-extension imaging is obtained.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003467\"}}, {\"id\": \"Barrel-Shaped Chest\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Barrel-shaped thorax is part of the characteristic skeletal habitus in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001552\"}}, {\"id\": \"COL2A1 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}], \"association\": \"Causative\", \"variant_count\": 3}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Overt and submucous cleft palate are both reported in SEDC.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coxa Vara\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip deformity with reduced femoral neck angle contributes to gait abnormality and progressive hip morbidity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002812\"}}, {\"id\": \"Delayed Epiphyseal Ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ossification delay particularly affects the pubic bones and proximal femoral epiphyses; femoral heads may remain radiographically inapparent until early childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002663\"}}, {\"id\": \"Disproportionate Short-Trunk Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Disproportionate short stature with a shortened trunk is a cardinal manifestation of SEDC and is typically evident at birth.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003521\"}}, {\"id\": \"Dominant-Negative Collagen Misfolding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The most common COL2A1 mutations in SEDC are missense substitutions affecting glycine residues in the Gly-X-Y triple-helical repeat (over 70% of pathogenic variants). The mutant alpha-1 chains are incorporated into procollagen trimers but disrupt triple-helix folding, producing a dominant-negative effect. The structurally abnormal procollagen has reduced thermal stability, slower secretion, and altered electrophoretic mobility. Fibrils that are secreted self-assemble abnormally and cannot properly interact with other extracellular matrix components such as proteoglycans, compromising the mechanical integrity of cartilage. Arginine-to-cysteine substitutions toward the C-terminus of the triple helix are particularly deleterious, causing reduced thermal stability, protease susceptibility, and cleavage by matrix metalloproteinases.\\n\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"Chondrocyte\"], \"biological_processes\": [\"Collagen Fibril Organization\", \"Extracellular Matrix Organization\", \"Protein Folding\"], \"molecular_functions\": [\"extracellular matrix structural constituent\"], \"genes\": [\"COL2A1\"], \"gene_terms\": [{\"label\": \"COL2A1\", \"id\": \"hgnc:2200\"}]}}, {\"id\": \"ER Stress and Unfolded Protein Response in Chondrocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misfolded mutant procollagen II is retained in dilated endoplasmic reticulum cisternae of growth plate chondrocytes. In some mouse models (e.g., Col2a1 p.Gly1170Ser), this activates the endoplasmic reticulum stress (ERS)-unfolded protein response (UPR)-apoptosis cascade: chondrocyte apoptosis occurs prior to hypertrophy, preventing formation of a normal hypertrophic zone, disrupting chondrogenic signaling pathways including Ihh, Fgfr3, and Runx2, and impairing endochondral ossification. Patient-derived type II collagenopathy iPSC chondrocytes likewise show ER stress marker induction with apoptosis. However, an iPSC-derived human cartilage model of the milder COL2A1 p.Arg719Cys allele (precocious osteoarthritis with mild spondyloepiphyseal dysplasia, not SEDC) showed ER retention and ER distention without detectable UPR activation, indicating that some alleles behave as an ER procollagen storage problem rather than a classical UPR-driven apoptosis pathway. The degree of UPR engagement therefore appears to be allele-, dosage-, and context-dependent, and has not been resolved for SEDC-causing glycine substitutions specifically.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Growth Plate Chondrocyte\", \"Hypertrophic Chondrocyte\"], \"biological_processes\": [\"Response to ER Stress\", \"Unfolded Protein Response\", \"Chondrocyte Apoptosis\"]}}, {\"id\": \"Flat Face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Midface hypoplasia with a flattened facial profile has been reported as part of the craniofacial phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012368\"}}, {\"id\": \"Genu Valgum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Angular lower-limb deformity including genu valgum has been reported in affected children.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002857\"}}, {\"id\": \"Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is a recurrent extraskeletal manifestation; older reports emphasized a sensorineural component, but conductive loss has also been documented.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000365\"}}, {\"id\": \"Impaired Growth Plate Organization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combined effects of abnormal extracellular collagen fibrils and ER stress-driven chondrocyte apoptosis lead to severe disorganization of growth plate architecture. Proliferative and hypertrophic zones become shortened or indistinguishable, columnar arrangement of chondrocytes is disrupted, and deposition of cartilage matrix is impaired. Collagen fibrils are fewer and less elaborate, and expression of chondrocyte differentiation markers (Ihh, Fgfr3, Col10a1, Runx2) is markedly reduced. This disrupted endochondral ossification accounts for the disproportionate short stature, platyspondyly, and epiphyseal dysplasia.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Growth Plate Chondrocyte\"], \"biological_processes\": [\"Endochondral Ossification\", \"Cartilage Development\"]}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thoracic kyphosis and scoliosis can progress with growth and contribute to substantial spinal deformity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002751\"}}, {\"id\": \"Lumbar Hyperlordosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked lumbar lordosis is characteristic and often accompanies hip flexion contractures and other spinal deformities.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002938\"}}, {\"id\": \"Myelopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cervical instability can produce progressive spinal cord compression with myelopathic symptoms and neurologic decline.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002196\"}}, {\"id\": \"Myopia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Moderate-to-high myopia is a common ophthalmologic manifestation of SEDC.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000545\"}}, {\"id\": \"Odontoid Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Underdevelopment of the odontoid process is a major cervical-spine complication and predisposes to atlantoaxial instability and cord compression.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0003311\"}}, {\"id\": \"Platyspondyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattened vertebral bodies are a characteristic radiographic hallmark and become increasingly evident during infancy and childhood.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000926\"}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mineral density has been reported in molecularly confirmed SEDC probands, suggesting that skeletal fragility may extend beyond the classic epiphyseal and vertebral dysplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Respiratory Distress\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe neonatal presentations can include respiratory distress; concomitant cervical instability should be considered when pulmonary compromise is present.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002098\"}}, {\"id\": \"Retinal Detachment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retinal detachment occurs in a subset of patients and may begin in childhood because of vitreoretinal degeneration and retinal traction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000541\"}}, {\"id\": \"SEDC glycine-substitution examples G474V, G543E, G567S, G594R, and G1170R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Patient-level examples from a Japanese SEDC cohort, all novel missense variants producing glycine substitutions in COL2A1.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Triple-helical glycine substitutions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The predominant SEDC variant class, replacing obligatory glycine residues in the COL2A1 triple-helical Gly-X-Y repeat and acting primarily through a dominant-negative collagen-folding mechanism.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Vitreous Collagen Abnormality\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type II collagen is a major component of the vitreous humor and is critical for vitreous gel structure. Abnormal collagen leads to vitreous liquefaction, vitreous syneresis, and posterior vitreous detachment, increasing the risk of retinal detachment. In a 93-patient cohort of COL2A1 mutation carriers with SEDC or a related phenotype, myopia was reported in 45% and retinal detachment in 12%; these figures come from that mixed COL2A1 cohort rather than from a SEDC-only series.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Vitreous Collagen Fibril Organization\"]}}, {\"id\": \"Waddling Gait\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Characteristic gait abnormality resulting from hip dysplasia and coxa vara.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002515\"}}], \"edges\": [{\"source\": \"Dominant-Negative Collagen Misfolding\", \"target\": \"ER Stress and Unfolded Protein Response in Chondrocytes\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dominant-Negative Collagen Misfolding\", \"target\": \"Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dominant-Negative Collagen Misfolding\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal clefting follows failed fusion of the palatal shelves in a type-II-collagen-deficient craniofacial matrix. It is attached to the primary collagen defect rather than to growth-plate disorganization, because palatal shelf fusion is not an endochondral bone-formation process.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dominant-Negative Collagen Misfolding\", \"target\": \"Flat Face\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Midface flattening reflects abnormal type II collagen in the chondrocranium and nasal/septal cartilage, which are not growth-plate derivatives.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ER Stress and Unfolded Protein Response in Chondrocytes\", \"target\": \"Impaired Growth Plate Organization\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Disproportionate Short-Trunk Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Platyspondyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Delayed Epiphyseal Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Odontoid Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Atlantoaxial Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Myelopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Barrel-Shaped Chest\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Coxa Vara\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Lumbar Hyperlordosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Waddling Gait\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Genu Valgum\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Growth Plate Organization\", \"target\": \"Respiratory Distress\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitreous Collagen Abnormality\", \"target\": \"Myopia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Vitreous Collagen Abnormality\", \"target\": \"Retinal Detachment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL2A1 Mutations\", \"target\": \"Dominant-Negative Collagen Misfolding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Triple-helical glycine substitutions\", \"target\": \"COL2A1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"SEDC glycine-substitution examples G474V, G543E, G567S, G594R, and G1170R\", \"target\": \"COL2A1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Arginine-to-cysteine substitutions in Gly-X-Y repeats\", \"target\": \"COL2A1 Mutations\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4935,7 +5225,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-impairment" data-dismech-node="Hearing Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hearing Impairment
 
@@ -5072,7 +5362,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myopia
 
@@ -5220,7 +5510,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-detachment" data-dismech-node="Retinal Detachment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinal Detachment
 
@@ -5363,7 +5653,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-face" data-dismech-node="Flat Face" data-dismech-type="phenotype">
                     <div class="item-name">
                         Flat Face
 
@@ -5422,7 +5712,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Palate
 
@@ -5512,7 +5802,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coxa-vara" data-dismech-node="Coxa Vara" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coxa Vara
 
@@ -5571,7 +5861,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-genu-valgum" data-dismech-node="Genu Valgum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Genu Valgum
 
@@ -5639,7 +5929,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-platyspondyly" data-dismech-node="Platyspondyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Platyspondyly
 
@@ -5720,7 +6010,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-epiphyseal-ossification" data-dismech-node="Delayed Epiphyseal Ossification" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Epiphyseal Ossification
 
@@ -5801,7 +6091,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-bone-mineral-density" data-dismech-node="Reduced Bone Mineral Density" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Bone Mineral Density
 
@@ -5860,7 +6150,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-odontoid-hypoplasia" data-dismech-node="Odontoid Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Odontoid Hypoplasia
 
@@ -6008,7 +6298,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atlantoaxial-instability" data-dismech-node="Atlantoaxial Instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atlantoaxial Instability
 
@@ -6156,7 +6446,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-barrel-shaped-chest" data-dismech-node="Barrel-Shaped Chest" data-dismech-type="phenotype">
                     <div class="item-name">
                         Barrel-Shaped Chest
 
@@ -6215,7 +6505,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Kyphoscoliosis
 
@@ -6274,7 +6564,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lumbar-hyperlordosis" data-dismech-node="Lumbar Hyperlordosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lumbar Hyperlordosis
 
@@ -6364,7 +6654,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myelopathy" data-dismech-node="Myelopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myelopathy
 
@@ -6512,7 +6802,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-waddling-gait" data-dismech-node="Waddling Gait" data-dismech-type="phenotype">
                     <div class="item-name">
                         Waddling Gait
 
@@ -6580,7 +6870,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-distress" data-dismech-node="Respiratory Distress" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Distress
 
@@ -6670,7 +6960,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disproportionate-short-trunk-short-stature" data-dismech-node="Disproportionate Short-Trunk Short Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Disproportionate Short-Trunk Short Stature
 
@@ -6859,7 +7149,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-col2a1-mutations" data-dismech-node="COL2A1 Mutations" data-dismech-type="genetic">
                 <div class="item-name">
                     COL2A1 Mutations
 
@@ -6966,9 +7256,183 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-triple-helical-glycine-substitutions" data-dismech-node="Triple-helical glycine substitutions" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Triple-helical glycine substitutions
+
+    </div>
+
+
+    <div class="item-desc">The predominant SEDC variant class, replacing obligatory glycine residues in the COL2A1 triple-helical Gly-X-Y repeat and acting primarily through a dominant-negative collagen-folding mechanism.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31824186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31824186" target="_blank">PMID:31824186</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In spondyloephyseal dysplasia congenita over 100 COL2A1 mutations have been described. Most common are in the triple helix (74% glycine substitutions and 10% Arg-to-Cys changes) and are dominantly inherited while only few mutations have been found involving C-peptide region."</div>
+
+
+                <div class="evidence-explanation">Review-level SEDC-specific evidence identifies triple-helical glycine substitutions as the dominant molecular class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-sedc-glycine-substitution-examples-g474v-g543e-g567s-g594r-and-g1170r" data-dismech-node="SEDC glycine-substitution examples G474V, G543E, G567S, G594R, and G1170R" data-dismech-type="genetic">
+
+    <div class="item-name">
+        SEDC glycine-substitution examples G474V, G543E, G567S, G594R, and G1170R
+
+    </div>
+
+
+    <div class="item-desc">Patient-level examples from a Japanese SEDC cohort, all novel missense variants producing glycine substitutions in COL2A1.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35581182" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35581182" target="_blank">PMID:35581182</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All five patients had novel missense variants resulting in glycine substitutions (G474V, G543E, G567S, G594R, and G1170R)."</div>
+
+
+                <div class="evidence-explanation">Cohort-level SEDC evidence documents five disease-specific glycine-substitution examples.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-arginine-to-cysteine-substitutions-in-gly-x-y-repeats" data-dismech-node="Arginine-to-cysteine substitutions in Gly-X-Y repeats" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Arginine-to-cysteine substitutions in Gly-X-Y repeats
+
+    </div>
+
+
+    <div class="item-desc">Less common non-glycine missense class in COL2A1 that can cause SEDC or related type II collagenopathy phenotypes, with severity depending on position and protein-level effects on secretion, stability, ER retention, and cell survival.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29439465" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29439465" target="_blank">PMID:29439465</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Arginine to cysteine substitutions that occur at either the X or Y position within the Gly-X-Y cause different phenotypes like Stickler syndrome and congenital spondyloepiphyseal dysplasia (SEDC)."</div>
+
+
+                <div class="evidence-explanation">Functional collagen II study links Arg-to-Cys substitutions in Gly-X-Y repeats to SEDC and related phenotypes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6980,7 +7444,7 @@
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cervical-spine-stabilization" data-dismech-node="Cervical Spine Stabilization" data-dismech-type="treatment">
                 <div class="item-name">
                     Cervical Spine Stabilization
                 </div>
@@ -7081,7 +7545,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-perioperative-anesthesia-precautions" data-dismech-node="Perioperative Anesthesia Precautions" data-dismech-type="treatment">
                 <div class="item-name">
                     Perioperative Anesthesia Precautions
                 </div>
@@ -7160,7 +7624,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-orthopedic-management" data-dismech-node="Orthopedic Management" data-dismech-type="treatment">
                 <div class="item-name">
                     Orthopedic Management
                 </div>
@@ -7239,7 +7703,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ophthalmologic-surveillance" data-dismech-node="Ophthalmologic Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Ophthalmologic Surveillance
                 </div>
@@ -7340,7 +7804,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-audiologic-monitoring" data-dismech-node="Audiologic Monitoring" data-dismech-type="treatment">
                 <div class="item-name">
                     Audiologic Monitoring
                 </div>
@@ -7419,7 +7883,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
@@ -7520,7 +7984,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-respiratory-support" data-dismech-node="Respiratory Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Respiratory Support
                 </div>
@@ -7599,7 +8063,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-growth-hormone-therapy" data-dismech-node="Growth Hormone Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Growth Hormone Therapy
                 </div>
@@ -7778,9 +8242,12 @@ prevalence:
   rate_per_100000: 0.34
   percentage: 3.4 per million
   notes: &gt;-
-    PubMed abstracts rarely separate congenita from tarda epidemiology, but
-    this review article reports the commonly cited prevalence figure for
-    spondyloepiphyseal dysplasia as 3.4 per million.
+    PubMed abstracts rarely separate congenita from tarda epidemiology. The
+    3.4-per-million figure is quoted for spondyloepiphyseal dysplasia (SED)
+    overall, i.e. congenita and tarda combined, and is recorded here as the best
+    available proxy for SEDC alone rather than as a SEDC-specific measurement.
+    The citing publication is a case report quoting the figure secondhand, not a
+    primary epidemiological study.
   evidence:
   - reference: PMID:31523532
     reference_title: &#34;Spondyloepiphyseal Dysplasia Congenita: A Rare Cause of Respiratory Distress.&#34;
@@ -7789,8 +8256,9 @@ prevalence:
     snippet: &gt;-
       Spondyloepiphysal dysplasia (SED) is an inheritable dysplasia of the bone due to a defect in collagen. It has a prevalence of 3.4 per million. It has two important types, congenita and tarda, which are differentiated by the age presentation and heritage mode.
     explanation: &gt;-
-      This review explicitly gives the commonly cited prevalence figure and
-      contextualizes congenita as one of the two major clinical forms.
+      This case report quotes the commonly cited prevalence figure and
+      contextualizes congenita as one of the two major clinical forms. Note the
+      figure is stated for SED overall, not for the congenita form alone.
 pathophysiology:
 - name: Dominant-Negative Collagen Misfolding
   description: &gt;
@@ -7882,6 +8350,20 @@ pathophysiology:
   - target: ER Stress and Unfolded Protein Response in Chondrocytes
   - target: Hearing Impairment
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+  - target: Cleft Palate
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Palatal clefting follows failed fusion of the palatal shelves in a
+      type-II-collagen-deficient craniofacial matrix. It is attached to the
+      primary collagen defect rather than to growth-plate disorganization,
+      because palatal shelf fusion is not an endochondral bone-formation
+      process.
+  - target: Flat Face
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Midface flattening reflects abnormal type II collagen in the
+      chondrocranium and nasal/septal cartilage, which are not growth-plate
+      derivatives.
 - name: ER Stress and Unfolded Protein Response in Chondrocytes
   description: &gt;
     Misfolded mutant procollagen II is retained in dilated endoplasmic reticulum
@@ -7890,11 +8372,16 @@ pathophysiology:
     protein response (UPR)-apoptosis cascade: chondrocyte apoptosis occurs prior
     to hypertrophy, preventing formation of a normal hypertrophic zone, disrupting
     chondrogenic signaling pathways including Ihh, Fgfr3, and Runx2, and
-    impairing endochondral ossification. However, human iPSC-derived cartilage
-    models suggest that ER retention can occur without robust canonical UPR
-    activation, consistent with an ER procollagen storage disorder rather than
-    a classical UPR-driven apoptosis pathway. The degree of UPR engagement
-    appears to be allele-, dosage-, and context-dependent.
+    impairing endochondral ossification. Patient-derived type II collagenopathy
+    iPSC chondrocytes likewise show ER stress marker induction with apoptosis.
+    However, an iPSC-derived human cartilage model of the milder COL2A1
+    p.Arg719Cys allele (precocious osteoarthritis with mild spondyloepiphyseal
+    dysplasia, not SEDC) showed ER retention and ER distention without
+    detectable UPR activation, indicating that some alleles behave as an ER
+    procollagen storage problem rather than a classical UPR-driven apoptosis
+    pathway. The degree of UPR engagement therefore appears to be allele-,
+    dosage-, and context-dependent, and has not been resolved for
+    SEDC-causing glycine substitutions specifically.
   cell_types:
   - preferred_term: Growth Plate Chondrocyte
     term:
@@ -7931,6 +8418,30 @@ pathophysiology:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;chondrocytes show greatly extended cisternae of rough endoplasmic reticulum with a retention of procollagen and other molecules (eg, fibronectin). This retention hence causes endoplasmic reticulum stress sufficient to reduce proliferation rate at the growth plates.&#34;
     explanation: Review summarizing that transgenic mouse models show ER retention of procollagen leading to ER stress and reduced proliferation in growth plates.
+  - reference: PMID:25187577
+    reference_title: Modeling type II collagenopathy skeletal dysplasia by directed conversion and induced pluripotent stem cells.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Chondrogenically differentiated COL2pathy-iPS cells showed apoptosis and
+      increased expression of ER stress-markers.
+    explanation: &gt;-
+      Patient-derived human type II collagenopathy iPSC chondrocytes reproduce
+      the ER stress and apoptosis seen in mouse models, extending the mechanism
+      to human cells.
+  - reference: PMID:40602718
+    reference_title: Failed cellular surveillance enables pathogenic matrix deposition in a COL2A1-related osteoarthritis.
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The resulting inability to mount a quality control response, including
+      absent activation of the unfolded protein response, indicates a failure in
+      cellular surveillance.
+    explanation: &gt;-
+      Source for the allele-dependence caveat in this node: an iPSC cartilage
+      model shows ER retention without UPR activation. Marked PARTIAL because
+      the modeled allele (p.Arg719Cys) causes precocious osteoarthritis with
+      mild spondyloepiphyseal dysplasia, not SEDC.
   downstream:
   - target: Impaired Growth Plate Organization
 - name: Impaired Growth Plate Organization
@@ -7988,10 +8499,6 @@ pathophysiology:
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
   - target: Myelopathy
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
-  - target: Flat Face
-    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
-  - target: Cleft Palate
-    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
   - target: Barrel-Shaped Chest
     causal_link_type: DIRECT
   - target: Coxa Vara
@@ -8011,8 +8518,10 @@ pathophysiology:
     Type II collagen is a major component of the vitreous humor and is critical for
     vitreous gel structure. Abnormal collagen leads to vitreous liquefaction,
     vitreous syneresis, and posterior vitreous detachment, increasing the risk of
-    retinal detachment. Myopia is reported in approximately 45% of SEDC patients,
-    while retinal detachment occurs in about 12%.
+    retinal detachment. In a 93-patient cohort of COL2A1 mutation carriers with
+    SEDC or a related phenotype, myopia was reported in 45% and retinal
+    detachment in 12%; these figures come from that mixed COL2A1 cohort rather
+    than from a SEDC-only series.
   biological_processes:
   - preferred_term: Vitreous Collagen Fibril Organization
     term:
@@ -8031,6 +8540,19 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals affected with these disorders exhibit abnormalities of the growth plate, nucleus pulposus, and vitreous humor, which are tissues that contain type II collagen.&#34;
     explanation: This study documents that vitreous humor abnormalities are a feature of COL2A1-related chondrodysplasias due to type II collagen being a major component of the vitreous.
+  - reference: PMID:25604898
+    reference_title: &gt;-
+      A study of the clinical and radiological features in a cohort of 93
+      patients with a COL2A1 mutation causing spondyloepiphyseal dysplasia
+      congenita or a related phenotype.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Myopia was found in 45% (95% CI 35-56), and retinal detachment had occurred in 12% (95% CI 6-21; median age 14 years; youngest age 3.5 years).
+    explanation: &gt;-
+      Source for the 45% myopia and 12% retinal detachment figures quoted in this
+      node. The denominator is a 93-patient COL2A1 cohort with SEDC or a related
+      phenotype, not a SEDC-only series.
   downstream:
   - target: Myopia
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
@@ -10367,7 +10889,7 @@ A 2023 functional case-based analysis of a COL2A1 glycine substitution links gly
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spondyloepiphyseal Dysplasia Congenita", "mondoId": "MONDO:0008471", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepiphyseal_Dysplasia_Congenita", "yamlRevision": "8d4ae04d8997"};
+        const OS_CONFIG = {"diseaseName": "Spondyloepiphyseal Dysplasia Congenita", "mondoId": "MONDO:0008471", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spondyloepiphyseal_Dysplasia_Congenita", "yamlRevision": "06b1d087a9c0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

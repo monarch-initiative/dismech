@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 23</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Arboleda-Tham%20Syndrome"
@@ -3370,7 +3599,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Arboleda-Tham syndrome (KAT6A syndrome) is an autosomal dominant neurodevelopmental disorder caused by heterozygous, usually de novo, pathogenic variants in KAT6A, a MYST-family lysine acetyltransferase that acetylates histone H3 (notably H3K9 and H3K18) within a multi-subunit complex with BRPF1/2/3, ING5, and hEAF6 to drive developmental transcriptional programs. The core phenotype comprises global developmental delay with near-universal intellectual disability and marked expressive speech delay, neonatal hypotonia, early feeding and oromotor difficulties, recognizable craniofacial dysmorphism (broad nasal tip and thin, tented upper lip), and congenital cardiac defects, most often septal defects. Gastrointestinal dysmotility (reflux, constipation, and an increased risk of intestinal obstruction), microcephaly, ophthalmologic anomalies (notably strabismus), recurrent infections, and variable behavioral features complete the spectrum. A genotype-phenotype correlation is recognized: early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay and haploinsufficiency and are associated with milder disease, whereas late-truncating variants (exons 16-17) escape nonsense-mediated decay and are associated with more severe developmental delay and a higher frequency of several syndromic features.
+                Arboleda-Tham syndrome (KAT6A syndrome) is an autosomal dominant neurodevelopmental disorder caused by heterozygous, usually de novo, pathogenic variants in KAT6A, a MYST-family lysine acetyltransferase that acetylates histone H3 (notably H3K9 and H3K18) within a multi-subunit complex with BRPF1/2/3, ING5, and hEAF6 to drive developmental transcriptional programs. The core phenotype comprises global developmental delay with usually co-occurring intellectual disability and marked expressive speech delay, neonatal hypotonia, early feeding and oromotor difficulties, recognizable craniofacial dysmorphism (broad nasal tip and thin, tented upper lip), and congenital cardiac defects, most often septal defects. Gastrointestinal dysmotility (reflux, constipation, and an increased risk of intestinal obstruction), microcephaly, ophthalmologic anomalies (notably strabismus), recurrent infections, and variable behavioral features complete the spectrum. A genotype-phenotype correlation is recognized: early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay and haploinsufficiency and are associated with milder disease, whereas late-truncating variants (exons 16-17) escape nonsense-mediated decay and are associated with more severe developmental delay and a higher frequency of several syndromic features.
             </p>
 
         </header>
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3482,7 +3713,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3492,7 +3723,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">27</div>
+                <div class="stat-value">32</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3507,11 +3738,19 @@
             </a>
 
 
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">23</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3526,16 +3765,33 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
 
 
 
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3544,7 +3800,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3603,8 +3859,6 @@
         </span>
 
 
-        <span class="tag tag-classification">Penetrance: COMPLETE</span>
-
 
 
         <span class="tag tag-classification">Expressivity: VARIABLE</span>
@@ -3618,7 +3872,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -3639,6 +3893,28 @@
 
 
                 <div class="evidence-explanation">The founding series establishes heterozygous, de novo KAT6A variants as the cause, consistent with autosomal dominant inheritance.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39740728" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39740728" target="_blank">PMID:39740728</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a Danish family, where an inherited KAT6A frameshift variant c.2710dup (p.(Glu904Glyfs∗12)) show clinical variability in disease phenotype expression among three family members."</div>
+
+
+                <div class="evidence-explanation">This family demonstrates that vertical transmission of a constitutional frameshift allele can occur and that expression is variable; de novo occurrence is usual rather than universal.</div>
 
 
 
@@ -3919,7 +4195,7 @@
 
                             <span class="crosslink-desc">-&gt;</span>
 
-                            <a href="#pathograph">Global Developmental Delay and Intellectual Disability</a>
+                            <a href="#pathograph">Intellectual Disability</a>
 
 
                             <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
@@ -3974,6 +4250,180 @@
 
         <!-- Discussions / Knowledge Gaps -->
 
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_kat6a_preclinical_translation">
+                <div class="item-name">Do the neural-progenitor, hippocampal RSPO2-Wnt, and histone-acetylation abnormalities found in Kat6a mouse models reproduce human neural pathology, and can acetyl-L-carnitine safely improve clinically meaningful outcomes?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_kat6a_preclinical_translation</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-neural-progenitor-proliferation-and-differentiation">pathophysiology#Impaired Neural Progenitor Proliferation and Differentiation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-kat6a-rspo2-wnt-hippocampal-signaling-deficit">pathophysiology#KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit</a>
+
+
+
+
+
+
+    <span class="entity-ref-chip">treatments#Acetyl-L-Carnitine</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The mechanistic and intervention results are from mouse neural cells or whole animals. Patient fibroblasts establish chromatin abnormalities but do not validate the neural circuit mechanisms, clinical endpoints, dose, or variant-specific treatment response in people.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41702672" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41702672" target="_blank">PMID:41702672</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment with the acetyl-donor, acetyl-L-carnitine (ALCAR) resulted in the rescue of H3K23ac levels in mouse brain and amelioration of the hyperactivity and learning impairments."</div>
+
+
+                <div class="evidence-explanation">Mouse rescue motivates translation but cannot establish human benefit.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_kat6a_hematologic_natural_history">
+                <div class="item-name">What are the incidence, age-specific natural history, predictors, and evidence-based surveillance thresholds for neutropenia, marrow failure, and other hematologic abnormalities in Arboleda-Tham syndrome?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_kat6a_hematologic_natural_history</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">phenotypes#Neutropenia</span>
+
+
+
+
+
+
+    <span class="entity-ref-chip">phenotypes#Aplastic Anemia</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The first quantified cohort reports a broad severity range in only three affected participants. It does not define longitudinal risk or justify a uniform blood-count schedule or intervention threshold.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, 3 of 11 patients (27%) exhibited hematologic abnormalities, ranging from transient neonatal neutropenia to severe aplastic anemia requiring hematopoietic stem cell transplantation."</div>
+
+
+                <div class="evidence-explanation">This small retrospective denominator establishes the signal while leaving prevalence, trajectory, predictors, and surveillance unresolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Pathophysiology -->
 
@@ -3981,7 +4431,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-kat6a-pathogenic-variation" data-dismech-node="Heterozygous KAT6A Pathogenic Variation" data-dismech-type="pathophysiology">
@@ -4418,6 +4868,18 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Posterior HOXC Cluster Overexpression</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Neural Progenitor Proliferation and Differentiation</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4425,7 +4887,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4468,6 +4930,279 @@
 
 
                 <div class="evidence-explanation">Establishes the KAT6A histone-acetyltransferase complex through which the enzyme acts on histone H3.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37861717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37861717" target="_blank">PMID:37861717</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Finally, we used unbiased proteomic mass spectrometry and identified two new histone post-translational modifications (PTMs) that are disrupted in ARTHS: H2A and H3K56 acetylation."</div>
+
+
+                <div class="evidence-explanation">Patient-derived fibroblast multi-omics extends the established acetylation defect beyond H3K9/H3K18 to H2A and H3K56 marks.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-hoxc-cluster-overexpression" data-dismech-node="Posterior HOXC Cluster Overexpression" data-dismech-type="pathophysiology">
+                <div class="item-name">Posterior HOXC Cluster Overexpression</div>
+
+                <div class="item-desc">Multi-omic profiling of eight patient-derived dermal fibroblast lines found increased chromatin accessibility, H3K23 acetylation, gene-body DNA methylation, and overexpression across a posterior HOXC gene cluster. This is a reproducible human-cell molecular readout; fibroblasts do not establish which developmental tissues carry the same signature or whether HOXC overexpression causes particular clinical features.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        gene expression
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010467">GO:0010467</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37861717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37861717" target="_blank">PMID:37861717</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The genomic loci harboring HOXC genes are epigenetically regulated with increased chromatin accessibility, high levels of H3K23ac, and increased gene-body DNA methylation compared to controls, all of which are consistent with transcriptomic overexpression."</div>
+
+
+                <div class="evidence-explanation">This directly supports the coupled chromatin and transcriptional HOXC phenotype in patient fibroblasts while not assigning an unproven organ-level consequence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-progenitor-proliferation-and-differentiation" data-dismech-node="Impaired Neural Progenitor Proliferation and Differentiation" data-dismech-type="pathophysiology">
+                <div class="item-name">Impaired Neural Progenitor Proliferation and Differentiation</div>
+
+                <div class="item-desc">In mouse neural stem and progenitor cells, loss of one or both Kat6a alleles disrupts H3K23 acetylation and MLL1 recruitment at developmental genes, impairing normal proliferation and neuronal differentiation. The result strengthens the developmental-neurobiology bridge but has not yet been demonstrated in patient-derived neural progenitors or human brain tissue.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        neural stem cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000047">CL:0000047</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        neural precursor cell proliferation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061351" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061351">GO:0061351</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        neuron differentiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030182">GO:0030182</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global Developmental Delay</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42081590" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42081590" target="_blank">PMID:42081590</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data suggests two modes of action for KAT6A: (1) acetylation of histone H3 on lysine 23 at promoters and enhancers and (2) recruitment of the trithorax group protein MLL1 (KMT2A) to promote the expression of developmental genes, including SOX and homeodomain genes."</div>
+
+
+                <div class="evidence-explanation">The mouse study identifies the two chromatin functions upstream of the neural-progenitor proliferation and differentiation defect.</div>
 
 
 
@@ -4668,7 +5403,13 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Global Developmental Delay and Intellectual Disability</span>
+	                            <span class="crosslink-meta">Global Developmental Delay</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual Disability</span>
 
 
 	                        </div>
@@ -4934,7 +5675,7 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Global Developmental Delay and Intellectual Disability</span>
+	                            <span class="crosslink-meta">Intellectual Disability</span>
 
 
                                 <span class="tag-list" style="margin-top: 4px;">
@@ -5072,7 +5813,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Altered Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted KAT6A-dependent histone acetylation alters the transcriptional programs that pattern the developing brain, craniofacial skeleton, heart, and other organs, producing the multisystem congenital and neurodevelopmental phenotype. The intervening steps from chromatin dysregulation to each organ-level endpoint are not individually resolved in humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"nervous system development\"]}}, {\"id\": \"Altered p53 Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its direct catalytic effect on histone H3, KAT6A dysfunction perturbs p53-associated transcriptional programs. Patient-derived fibroblasts show altered expression of p53-associated genes, a downstream transcriptional consequence distinct from the direct loss of histone acetylation. The specific disease-level consequences downstream of altered p53 signaling in KAT6A syndrome are not established, so this node is intentionally left as a terminal molecular readout.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"signal transduction by p53 class mediator\"]}}, {\"id\": \"Atrial Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is the most frequent cardiac lesion in KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001631\"}}, {\"id\": \"Cardiac Surgical or Catheter Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A substantial proportion of patients with cardiac malformations require intervention by open-heart surgery or cardiac catheterization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Cardiac Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations, most often septal defects, are present in about half of patients; atrial septal defects are the most frequent, followed by ventricular septal defects and persistence of fetal anatomy (patent foramen ovale, patent ductus arteriosus). Many require intervention.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation affects over half of patients, many requiring long-term laxatives, and is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recognizable craniofacial dysmorphism is a core feature, most consistently a broad nasal tip and a thin, tented upper lip, with additional features including bitemporal narrowing, prominent nasal bridge, and a short, flat philtrum.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Dysregulated Histone H3 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KAT6A (MOZ/MYST3) is a MYST-family histone acetyltransferase that, within a complex containing BRPF1/2/3, ING5, and hEAF6, acetylates lysine residues on histone H3 tails (notably H3K9 and H3K18). Pathogenic variants dysregulate H3K9 and H3K18 acetylation, altering the chromatin state that governs developmental gene expression. (GO lacks a current, non-obsolete histone-H3-specific acetylation biological-process term; the H3 specificity is carried by the H3K9 and H3K18 molecular-function annotations.)\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"histone acetyltransferase activity\", \"histone H3K9 acetyltransferase activity\", \"histone H3K18 acetyltransferase activity\"]}}, {\"id\": \"Expressive Speech Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked expressive speech delay is universal and often described as a form of verbal dyspraxia, with receptive language consistently more developed than expressive language.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common, frequently with oromotor dysfunction and difficulty establishing feeding at birth; nasogastric feeding is often required and some patients need gastrostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a significant and prevalent issue, suggestive of dysfunctional intestinal motility, and some patients require fundoplication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay and Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay and intellectual disability are universal, ranging from mild to severe. Level of intellectual disability correlates with variant position, being more severe in late-truncating variants.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Heterozygous KAT6A Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually de novo, pathogenic KAT6A variant. Most established alleles are protein-truncating (nonsense or frameshift), with recurrent hotspots in the arginine-rich acidic domain, and are distributed across the gene with a bias toward the last two exons.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is common, frequently with neonatal onset, and contributes to motor delay; truncal hypotonia is often combined with limb hypertonia in the neonatal period. Neonatal hypotonia is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"KAT6A Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a mouse model, KAT6A deficiency lowers transcription of the CA3-enriched Wnt activator R-spondin 2 (RSPO2), impairing canonical Wnt signaling and synaptic structure and plasticity in hippocampal CA3 pyramidal neurons and producing memory deficits. Restoring RSPO2 in CA3 neurons rescues Wnt signaling and learning behaviors, nominating this axis as a candidate therapeutic target. This mechanism is currently established only in mice; its fidelity to human KAT6A-syndrome cognition is unproven.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal CA3 pyramidal neuron\"], \"biological_processes\": [\"canonical Wnt signaling pathway\", \"regulation of synaptic plasticity\", \"learning or memory\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is present in roughly a quarter of patients and is not always present at birth; earlier smaller series reported a higher rate. Microcephaly is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial and Bioenergetic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived fibroblasts carrying KAT6A mutations show impaired cellular bioenergetics alongside the histone-acetylation defect. This cellular bioenergetic deficit is the mechanistic rationale for the experimental pantothenate and L-carnitine intervention, which corrects it in vitro. The finding is from patient fibroblast models; its contribution to the clinical phenotype in vivo is not established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multidisciplinary Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is symptomatic and individualized, coordinating developmental, nutritional, gastrointestinal, cardiac, ophthalmologic, and infectious-disease care. Early cardiology assessment with echocardiography is recommended given the high prevalence of cardiac lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late-truncating variants (exons 16-17) escape nonsense-mediated decay and are predicted to produce a translated but dysfunctional protein that may act by gain-of-function or dominant-negative mechanisms. This is the alternative route and is associated with more severe disease. Direct demonstration of mutant protein and its mode of action in patient tissue remains an evidence gap.\"}, {\"id\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay of the mutant transcript, reducing functional KAT6A dosage (haploinsufficiency). This is the canonical route and is associated with milder disease.\"}, {\"id\": \"Pantothenate and L-Carnitine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental, preclinical intervention. In patient-derived fibroblast models of KAT6A syndrome, pantothenate plus L-carnitine increased histone acetylation, partially corrected protein and transcriptomic expression patterns, and improved cell bioenergetics. This is in vitro evidence only and has not been evaluated as a clinical therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"L-carnitine\"]}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy, augmented by sign language and communication aids, addresses the universal expressive speech delay and verbal dyspraxia.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered p53 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Global Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"target\": \"Global Developmental Delay and Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multidisciplinary Supportive Care\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surgical or Catheter Intervention\", \"target\": \"Atrial Septal Defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pantothenate and L-Carnitine Supplementation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"KAT6A Pathogenic Variants\", \"target\": \"Heterozygous KAT6A Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acetyl-L-Carnitine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental mouse intervention, not an established treatment for people with Arboleda-Tham syndrome. Acetyl-L-carnitine restored H3K23 acetylation and improved selected behavioral measures in Kat6a-haploinsufficient mice; efficacy, safety, dose, developmental timing, and variant dependence remain untested clinically.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"acetyl-L-carnitine\"]}}, {\"id\": \"Altered Developmental Transcriptional Programs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted KAT6A-dependent histone acetylation alters the transcriptional programs that pattern the developing brain, craniofacial skeleton, heart, and other organs, producing the multisystem congenital and neurodevelopmental phenotype. The intervening steps from chromatin dysregulation to each organ-level endpoint are not individually resolved in humans.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\", \"nervous system development\"]}}, {\"id\": \"Altered p53 Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond its direct catalytic effect on histone H3, KAT6A dysfunction perturbs p53-associated transcriptional programs. Patient-derived fibroblasts show altered expression of p53-associated genes, a downstream transcriptional consequence distinct from the direct loss of histone acetylation. The specific disease-level consequences downstream of altered p53 signaling in KAT6A syndrome are not established, so this node is intentionally left as a terminal molecular readout.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"signal transduction by p53 class mediator\"]}}, {\"id\": \"Atrial Septal Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial septal defect is the most frequent cardiac lesion in KAT6A syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001631\"}}, {\"id\": \"Cardiac Surgical or Catheter Intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A substantial proportion of patients with cardiac malformations require intervention by open-heart surgery or cardiac catheterization.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Cardiac Defects\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac malformations, most often septal defects, are present in about half of patients; atrial septal defects are the most frequent, followed by ventricular septal defects and persistence of fetal anatomy (patent foramen ovale, patent ductus arteriosus). Many require intervention.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Constipation affects over half of patients, many requiring long-term laxatives, and is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Craniofacial Dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recognizable craniofacial dysmorphism is a core feature, most consistently a broad nasal tip and a thin, tented upper lip, with additional features including bitemporal narrowing, prominent nasal bridge, and a short, flat philtrum. A 2026 cohort enriched for late-truncating variants (13 of 14) nevertheless documented dysmorphism in 79%, supporting a frequent rather than very-frequent syndrome-wide band.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001999\"}}, {\"id\": \"Dysregulated Histone H3 Acetylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"KAT6A (MOZ/MYST3) is a MYST-family histone acetyltransferase that, within a complex containing BRPF1/2/3, ING5, and hEAF6, acetylates lysine residues on histone H3 tails (notably H3K9 and H3K18). Pathogenic variants dysregulate H3K9 and H3K18 acetylation, altering the chromatin state that governs developmental gene expression. (GO lacks a current, non-obsolete histone-H3-specific acetylation biological-process term; the H3 specificity is carried by the H3K9 and H3K18 molecular-function annotations.)\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"chromatin organization\"], \"molecular_functions\": [\"histone acetyltransferase activity\", \"histone H3K9 acetyltransferase activity\", \"histone H3K18 acetyltransferase activity\"]}}, {\"id\": \"Expressive Speech Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked expressive speech delay is very frequent. Many affected people are minimally verbal into adulthood, and verbal participants may have both phonological impairment and speech apraxia; receptive and expressive language are variably but substantially affected.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties are common, frequently with oromotor dysfunction and difficulty establishing feeding at birth; nasogastric feeding is often required and some patients need gastrostomy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011968\"}}, {\"id\": \"Gastroesophageal Reflux\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Gastroesophageal reflux is a significant and prevalent issue, suggestive of dysfunctional intestinal motility, and some patients require fundoplication.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002020\"}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Global developmental delay is a defining early-life feature in clinically ascertained cohorts, affecting motor, language, and adaptive development. Rare inherited-variant relatives may have normal standardized development, so the association is very frequent rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Heterozygous KAT6A Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a heterozygous, usually de novo, pathogenic KAT6A variant. Most established alleles are protein-truncating (nonsense or frameshift), with recurrent hotspots in the arginine-rich acidic domain, and are distributed across the gene with a bias toward the last two exons.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}]}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia is common, frequently with neonatal onset, and contributes to motor delay; truncal hypotonia is often combined with limb hypertonia in the neonatal period. Neonatal hypotonia is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In mouse neural stem and progenitor cells, loss of one or both Kat6a alleles disrupts H3K23 acetylation and MLL1 recruitment at developmental genes, impairing normal proliferation and neuronal differentiation. The result strengthens the developmental-neurobiology bridge but has not yet been demonstrated in patient-derived neural progenitors or human brain tissue.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural stem cell\"], \"biological_processes\": [\"neural precursor cell proliferation\", \"neuron differentiation\"]}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability is very common and ranges from mild to severe, with greater group-level severity among late-truncating variants. It is not universal: normally assessed cognition has now been reported in rare inherited-variant cases.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"KAT6A Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KAT6A\"], \"gene_terms\": [{\"label\": \"KAT6A\", \"id\": \"hgnc:13013\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a mouse model, KAT6A deficiency lowers transcription of the CA3-enriched Wnt activator R-spondin 2 (RSPO2), impairing canonical Wnt signaling and synaptic structure and plasticity in hippocampal CA3 pyramidal neurons and producing memory deficits. Restoring RSPO2 in CA3 neurons rescues Wnt signaling and learning behaviors, nominating this axis as a candidate therapeutic target. This mechanism is currently established only in mice; its fidelity to human KAT6A-syndrome cognition is unproven.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hippocampal CA3 pyramidal neuron\"], \"biological_processes\": [\"canonical Wnt signaling pathway\", \"regulation of synaptic plasticity\", \"learning or memory\"]}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is present in roughly a quarter of patients and is not always present at birth; earlier smaller series reported a higher rate. Microcephaly is one of the features significantly more common in late-truncating variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000252\"}}, {\"id\": \"Mitochondrial and Bioenergetic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived fibroblasts carrying KAT6A mutations show impaired cellular bioenergetics alongside the histone-acetylation defect. This cellular bioenergetic deficit is the mechanistic rationale for the experimental pantothenate and L-carnitine intervention, which corrects it in vitro. The finding is from patient fibroblast models; its contribution to the clinical phenotype in vivo is not established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Multidisciplinary Supportive Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Management is symptomatic and individualized, coordinating developmental, nutritional, gastrointestinal, cardiac, ophthalmologic, and infectious-disease care. Early cardiology assessment with echocardiography is recommended given the high prevalence of cardiac lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late-truncating variants (exons 16-17) escape nonsense-mediated decay and are predicted to produce a translated but dysfunctional protein that may act by gain-of-function or dominant-negative mechanisms. This is the alternative route and is associated with more severe disease. Direct demonstration of mutant protein and its mode of action in patient tissue remains an evidence gap.\"}, {\"id\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early-truncating variants (exons 1-15) are predicted to trigger nonsense-mediated decay of the mutant transcript, reducing functional KAT6A dosage (haploinsufficiency). This is the canonical route and is associated with milder disease.\"}, {\"id\": \"Pantothenate and L-Carnitine Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An experimental, preclinical intervention. In patient-derived fibroblast models of KAT6A syndrome, pantothenate plus L-carnitine increased histone acetylation, partially corrected protein and transcriptomic expression patterns, and improved cell bioenergetics. This is in vitro evidence only and has not been evaluated as a clinical therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pantothenate\", \"L-carnitine\"]}}, {\"id\": \"Posterior HOXC Cluster Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multi-omic profiling of eight patient-derived dermal fibroblast lines found increased chromatin accessibility, H3K23 acetylation, gene-body DNA methylation, and overexpression across a posterior HOXC gene cluster. This is a reproducible human-cell molecular readout; fibroblasts do not establish which developmental tissues carry the same signature or whether HOXC overexpression causes particular clinical features.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gene expression\"]}}, {\"id\": \"Speech and Language Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech and language therapy, augmented by sign language and communication aids, addresses the very frequent expressive speech delay and speech-motor impairment.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Heterozygous KAT6A Pathogenic Variation\", \"target\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Mediated KAT6A Haploinsufficiency\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"early_truncating_nmd_haploinsufficiency\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NMD-Escaping Dysfunctional KAT6A Protein\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"late_truncating_nmd_escape\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered p53 Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Altered Developmental Transcriptional Programs\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Posterior HOXC Cluster Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Histone H3 Acetylation\", \"target\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Progenitor Proliferation and Differentiation\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Craniofacial Dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Gastroesophageal Reflux\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Altered Developmental Transcriptional Programs\", \"target\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"kat6a_rspo2_wnt_hippocampal\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Multidisciplinary Supportive Care\", \"target\": \"Congenital Cardiac Defects\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Speech and Language Therapy\", \"target\": \"Expressive Speech Delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Surgical or Catheter Intervention\", \"target\": \"Atrial Septal Defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pantothenate and L-Carnitine Supplementation\", \"target\": \"Mitochondrial and Bioenergetic Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Acetyl-L-Carnitine\", \"target\": \"Dysregulated Histone H3 Acetylation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"KAT6A Pathogenic Variants\", \"target\": \"Heterozygous KAT6A Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5085,31 +5826,33 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">27</span>
+                <span class="card-count">32</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Head and Neck<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(6)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(6)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5118,11 +5861,103 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neutropenia" data-dismech-node="Neutropenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Neutropenia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-id">
+                        Decreased total neutrophil count
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001875">HP:0001875</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30245513" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30245513" target="_blank">PMID:30245513</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"three individuals report isolated moderate to severe neutropenia5,13."</div>
+
+
+                <div class="evidence-explanation">The 76-person cohort consolidates three reports of isolated moderate-to-severe neutropenia, supporting an occasional frequency band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, 3 of 11 patients (27%) exhibited hematologic abnormalities, ranging from transient neonatal neutropenia to severe aplastic anemia requiring hematopoietic stem cell transplantation."</div>
+
+
+                <div class="evidence-explanation">The molecularly confirmed cohort independently includes transient neonatal neutropenia within an emerging hematologic spectrum. The phenotype remains pathographically unlinked because its causal bridge from KAT6A is unknown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-cardiac-defects" data-dismech-node="Congenital Cardiac Defects" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital Cardiac Defects
 
@@ -5183,7 +6018,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-septal-defect" data-dismech-node="Atrial Septal Defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atrial Septal Defect
 
@@ -5244,7 +6079,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-septal-defect" data-dismech-node="Ventricular Septal Defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ventricular Septal Defect
 
@@ -5305,11 +6140,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent Ductus Arteriosus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Patent Ductus Arteriosus
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -5368,14 +6201,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding Difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
                         Feeding Difficulties
 
@@ -5436,7 +6269,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-constipation" data-dismech-node="Constipation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Constipation
 
@@ -5497,7 +6330,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastroesophageal-reflux" data-dismech-node="Gastroesophageal Reflux" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastroesophageal Reflux
 
@@ -5558,7 +6391,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-obstruction" data-dismech-node="Intestinal Obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intestinal Obstruction
 
@@ -5583,7 +6416,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5609,6 +6442,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:30245513" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30245513" target="_blank">PMID:30245513</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"four patients in this study (patients 6, 22, 42 and 46) had bowel obstruction."</div>
+
+
+                <div class="evidence-explanation">Four of 76 participants (5.3%) had bowel obstruction, supporting the occasional frequency band.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5621,14 +6476,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-set-posteriorly-rotated-ears" data-dismech-node="Low-Set, Posteriorly Rotated Ears" data-dismech-type="phenotype">
                     <div class="item-name">
                         Low-Set, Posteriorly Rotated Ears
 
@@ -5689,7 +6544,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hearing-impairment" data-dismech-node="Hearing Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hearing Impairment
 
@@ -5750,14 +6605,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Strabismus
 
@@ -5820,18 +6675,16 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cryptorchidism
-
-                        <span class="phenotype-freq">VERY_RARE</span>
 
 
                     <span class="phenotype-id">
@@ -5890,18 +6743,18 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-craniofacial-dysmorphism" data-dismech-node="Craniofacial Dysmorphism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Craniofacial Dysmorphism
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
                     <span class="phenotype-id">
@@ -5922,7 +6775,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5948,6 +6801,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Craniofacial dysmorphisms were observed in 11 patients (79%)"</div>
+
+
+                <div class="evidence-explanation">The 2026 cohort quantifies craniofacial dysmorphism at 79%, within the frequent band and below the threshold for a very-frequent assertion.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5958,7 +6833,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-nasal-tip" data-dismech-node="Broad Nasal Tip" data-dismech-type="phenotype">
                     <div class="item-name">
                         Broad Nasal Tip
 
@@ -6019,7 +6894,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
@@ -6080,7 +6955,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-craniosynostosis" data-dismech-node="Craniosynostosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Craniosynostosis
 
@@ -6141,7 +7016,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dental-anomalies" data-dismech-node="Dental Anomalies" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dental Anomalies
 
@@ -6204,18 +7079,16 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-infections" data-dismech-node="Recurrent Infections" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent Infections
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6236,7 +7109,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -6262,28 +7135,6 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30245513" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30245513" target="_blank">PMID:30245513</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"three individuals report isolated moderate to severe neutropenia5,13."</div>
-
-
-                <div class="evidence-explanation">A minority have isolated neutropenia, a distinct immune finding that may contribute to infection susceptibility in some patients.</div>
-
-
-
-            </div>
-
 
         </div>
     </details>
@@ -6296,14 +7147,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotonia
 
@@ -6366,18 +7217,18 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Global Developmental Delay and Intellectual Disability
+                        Intellectual Disability
 
-                        <span class="phenotype-freq">OBLIGATE</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
                     <span class="phenotype-id">
@@ -6386,6 +7237,111 @@
 
 
     <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30245513" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30245513" target="_blank">PMID:30245513</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intellectual disability and developmental delay are universal."</div>
+
+
+                <div class="evidence-explanation">The 2019 cohort found both features in all ascertained participants; the frequency is conservatively downgraded from obligate because later inherited cases include normal cognition.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38741077" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38741077" target="_blank">PMID:38741077</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Findings suggest global cognitive impairment with nonverbal cognition scores similar to those for receptive language"</div>
+
+
+                <div class="evidence-explanation">A dedicated neuropsychological study characterizes the impairment as global, with nonverbal cognition tracking receptive language.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39740728" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39740728" target="_blank">PMID:39740728</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The description includes an affected first child with premature pubarche (the first individual to our knowledge), a mildly affected second child with normal cognitive performance assessment (the third reported individual with normal assessment of cognition and KAT6A syndrome), and a..."</div>
+
+
+                <div class="evidence-explanation">This inherited family establishes rare exceptions to the earlier universal-intellectual-disability framing and supports variable expressivity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global Developmental Delay
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Global developmental delay
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
 
 
                     </span>
@@ -6418,16 +7374,16 @@
                 <div class="evidence-snippet">"Intellectual disability and developmental delay are universal."</div>
 
 
-                <div class="evidence-explanation">The comprehensive cohort documents intellectual disability and developmental delay as universal.</div>
+                <div class="evidence-explanation">The 76-person cohort provides the largest direct clinical anchor for developmental delay, while later inherited cases prevent an obligate syndrome-wide frequency assertion.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38741077" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38741077" target="_blank">PMID:38741077</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -6437,10 +7393,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"Findings suggest global cognitive impairment with nonverbal cognition scores similar to those for receptive language"</div>
+                <div class="evidence-snippet">"Global developmental delay was universal, with marked speech impairment; most patients remained minimally verbal beyond age 5."</div>
 
 
-                <div class="evidence-explanation">A dedicated neuropsychological study characterizes the impairment as global, with nonverbal cognition tracking receptive language.</div>
+                <div class="evidence-explanation">The 2026 molecularly confirmed cohort found global developmental delay in all 14 participants; rare inherited cases prevent an obligate syndrome-wide assertion.</div>
 
 
 
@@ -6456,11 +7412,11 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-expressive-speech-delay" data-dismech-node="Expressive Speech Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Expressive Speech Delay
 
-                        <span class="phenotype-freq">OBLIGATE</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
                     <span class="phenotype-id">
@@ -6481,7 +7437,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6501,7 +7457,29 @@
                 <div class="evidence-snippet">"Marked expressive speech delay is universal."</div>
 
 
-                <div class="evidence-explanation">The cohort documents marked expressive speech delay as universal.</div>
+                <div class="evidence-explanation">The 2019 cohort documents marked expressive speech delay as universal in that sample; the syndrome-wide band is kept conservative.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35892268" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35892268" target="_blank">PMID:35892268</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Seventy-three percent (36/49) were minimally-verbal, relying on nonverbal behaviors to communicate."</div>
+
+
+                <div class="evidence-explanation">Standardized survey and telehealth assessment quantify the severe communication phenotype in a dedicated 49-person cohort.</div>
 
 
 
@@ -6517,7 +7495,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sleep Disturbance
 
@@ -6578,7 +7556,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autistic Behavior
 
@@ -6661,7 +7639,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
@@ -6724,14 +7702,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-tented-upper-lip" data-dismech-node="Thin, Tented Upper Lip" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin, Tented Upper Lip
 
@@ -6792,11 +7770,214 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aplastic-anemia" data-dismech-node="Aplastic Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Patent Foramen Ovale
+                        Aplastic Anemia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-id">
+                        Aplastic anemia
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001915" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001915">HP:0001915</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Notably, 3 of 11 patients (27%) exhibited hematologic abnormalities, ranging from transient neonatal neutropenia to severe aplastic anemia requiring hematopoietic stem cell transplantation."</div>
+
+
+                <div class="evidence-explanation">This establishes aplastic anemia as a specifically observed severe manifestation while leaving its individual prevalence unresolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chiari-malformation" data-dismech-node="Chiari Malformation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chiari Malformation
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-id">
+                        Chiari malformation
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002308" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002308">HP:0002308</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging revealed type 1 Chiari malformation and white matter hyperintensities in 2 of the 10 assessed (20%), suggesting a broader neuroanatomic involvement."</div>
+
+
+                <div class="evidence-explanation">The molecularly confirmed cohort quantifies the combined neuroimaging observations in the occasional frequency band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30245513" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30245513" target="_blank">PMID:30245513</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hydrocephalus and a Chiari malformation in patient 33"</div>
+
+
+                <div class="evidence-explanation">The earlier large cohort independently corroborates Chiari malformation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-white-matter-hyperintensities" data-dismech-node="Cerebral White Matter Hyperintensities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral White Matter Hyperintensities
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+                    <span class="phenotype-id">
+                        Multifocal hyperintensity of cerebral white matter on MRI
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040329" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040329">HP:0040329</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42040242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain imaging revealed type 1 Chiari malformation and white matter hyperintensities in 2 of the 10 assessed (20%), suggesting a broader neuroanatomic involvement."</div>
+
+
+                <div class="evidence-explanation">This quantified imaging cohort supports an occasional band while the grouped wording prevents a phenotype-specific estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent Foramen Ovale" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Patent Foramen Ovale
 
 
                     <span class="phenotype-id">
@@ -6853,11 +8034,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-amblyopia" data-dismech-node="Amblyopia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Amblyopia
-
-                        <span class="phenotype-freq">VERY_RARE</span>
 
 
                     <span class="phenotype-id">
@@ -6953,7 +8132,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-kat6a-pathogenic-variants" data-dismech-node="KAT6A Pathogenic Variants" data-dismech-type="genetic">
                 <div class="item-name">
                     KAT6A Pathogenic Variants
 
@@ -7046,9 +8225,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7057,10 +8240,10 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-supportive-care" data-dismech-node="Multidisciplinary Supportive Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary Supportive Care
                 </div>
@@ -7157,7 +8340,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-speech-and-language-therapy" data-dismech-node="Speech and Language Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Speech and Language Therapy
                 </div>
@@ -7195,7 +8378,7 @@
 
 
 
-                <div class="item-desc">Speech and language therapy, augmented by sign language and communication aids, addresses the universal expressive speech delay and verbal dyspraxia.</div>
+                <div class="item-desc">Speech and language therapy, augmented by sign language and communication aids, addresses the very frequent expressive speech delay and speech-motor impairment.</div>
 
 
 
@@ -7254,7 +8437,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cardiac-surgical-or-catheter-intervention" data-dismech-node="Cardiac Surgical or Catheter Intervention" data-dismech-type="treatment">
                 <div class="item-name">
                     Cardiac Surgical or Catheter Intervention
                 </div>
@@ -7351,7 +8534,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pantothenate-and-l-carnitine-supplementation" data-dismech-node="Pantothenate and L-Carnitine Supplementation" data-dismech-type="treatment">
                 <div class="item-name">
                     Pantothenate and L-Carnitine Supplementation
                 </div>
@@ -7434,6 +8617,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36553567" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36553567" target="_blank">PMID:36553567</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the cell bioenergetics of mutant cells was significantly improved"</div>
+
+
+                <div class="evidence-explanation">The patient-fibroblast experiment directly supports restoration of the nominated bioenergetic mechanism, but not clinical benefit.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                     </div>
 
@@ -7478,6 +8693,152 @@
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-acetyl-l-carnitine" data-dismech-node="Acetyl-L-Carnitine" data-dismech-type="treatment">
+                <div class="item-name">
+                    Acetyl-L-Carnitine
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
+                    <span class="tag tag-treatment">Therapeutic</span>
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+                    <span class="tag tag-treatment">
+                        acetyl-L-carnitine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_57589" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:57589">CHEBI:57589</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">An experimental mouse intervention, not an established treatment for people with Arboleda-Tham syndrome. Acetyl-L-carnitine restored H3K23 acetylation and improved selected behavioral measures in Kat6a-haploinsufficient mice; efficacy, safety, dose, developmental timing, and variant dependence remain untested clinically.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            RESTORES
+                        </span>
+                        <strong style="color: #5b21b6;">Dysregulated Histone H3 Acetylation</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Acetyl-L-carnitine serves as an acetyl donor and restored brain H3K23 acetylation in a Kat6a-haploinsufficient mouse model.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41702672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41702672" target="_blank">PMID:41702672</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment with the acetyl-donor, acetyl-L-carnitine (ALCAR) resulted in the rescue of H3K23ac levels in mouse brain and amelioration of the hyperactivity and learning impairments."</div>
+
+
+                <div class="evidence-explanation">The mouse experiment directly supports restoration of the nominated chromatin mark and selected behavioral outcomes, not human efficacy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41702672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41702672" target="_blank">PMID:41702672</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment with the acetyl-donor, acetyl-L-carnitine (ALCAR) resulted in the rescue of H3K23ac levels in mouse brain and amelioration of the hyperactivity and learning impairments."</div>
+
+
+                <div class="evidence-explanation">This is preclinical rescue in Kat6a-haploinsufficient mice and is not evidence of efficacy in affected people.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -7489,8 +8850,203 @@
 
         <!-- Differential Diagnoses -->
 
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">1</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Arboleda-Tham Syndrome:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    KAT6B-related neurodevelopmental disorders
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Genitopatellar and Say-Barber-Biesecker-Young-Simpson syndromes can overlap in developmental delay, hypotonia, feeding difficulty, craniofacial dysmorphism, and congenital anomalies. Gene-specific sequencing identifies KAT6A versus KAT6B variants, and their distinct DNA methylation episignatures can assist classification when molecular findings are ambiguous.
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37249002" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37249002" target="_blank">PMID:37249002</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this study we describe distinct episignatures for KAT6A syndrome, caused by pathogenic variants in the lysine acetyltransferase A gene (KAT6A), and for the two neurodevelopmental disorders associated with lysine acetyl transferase B (KAT6B)."</div>
+
+
+                <div class="evidence-explanation">Distinct molecular signatures support KAT6B-related disorders as a relevant but separable differential diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    DNA methylation profiling of Arboleda-Tham syndrome in primary human fibroblasts
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE210484" target="_blank">geo:GSE210484</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Arboleda-Tham Syndrome is a rare disease caused by de novo mutations in the KAT6A gene. Epigenetic changes to the genome resulting from pathogenic mutations were investigated by DNAme profiling.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">METHYLATION</span>
+
+
+                    <span class="tag tag-dataset">n=25</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/36064314" target="_blank" style="color: var(--secondary);">PMID:36064314</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Arboleda-Tham Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    KAT6A mutations in Arboleda-Tham syndrome affect regulation and expression of HOXC genes [RNA-seq]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE237022" target="_blank">geo:GSE237022</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Arboleda-Tham Syndrome (ARTHS) is a rare genetic disorder caused by heterozygous, de novo truncating mutations in the gene KAT6A (Lysine(K) acetyltransferase 6A). ARTHS is clinically heterogeneous but characterized by several common features including intellectual disability, developmental and speech delay, hypotonia, congenital heart defects and gastrointestinal problems. KAT6A mRNA is highly expressed throughout early development and the levels of expression are lower levels in differentiated tissues, suggesting a key role maintenance of the stem cell characteristics.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=15</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Arboleda-Tham Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    KAT6A mutations in Arboleda-Tham syndrome affect regulation and expression of HOXC genes [ChIP-seq]
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE237021" target="_blank">geo:GSE237021</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Arboleda-Tham Syndrome (ARTHS) is a rare genetic disorder caused by heterozygous, de novo truncating mutations in the gene KAT6A (Lysine(K) acetyltransferase 6A). ARTHS is clinically heterogeneous but characterized by several common features including intellectual disability, developmental and speech delay, hypotonia, congenital heart defects and gastrointestinal problems. KAT6A mRNA is highly expressed throughout early development and the levels of expression are lower levels in differentiated tissues, suggesting a key role maintenance of the stem cell characteristics.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">CHIP SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=14</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Arboleda-Tham Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -7527,7 +9083,7 @@ description: &gt;-
   acetylates histone H3 (notably H3K9 and H3K18) within a multi-subunit complex
   with BRPF1/2/3, ING5, and hEAF6 to drive developmental transcriptional
   programs. The core phenotype comprises global developmental delay with
-  near-universal intellectual disability and marked expressive speech delay,
+  usually co-occurring intellectual disability and marked expressive speech delay,
   neonatal hypotonia, early feeding and oromotor difficulties, recognizable
   craniofacial dysmorphism (broad nasal tip and thin, tented upper lip), and
   congenital cardiac defects, most often septal defects. Gastrointestinal
@@ -7572,7 +9128,18 @@ inheritance:
     explanation: &gt;-
       The founding series establishes heterozygous, de novo KAT6A variants as
       the cause, consistent with autosomal dominant inheritance.
-  penetrance: COMPLETE
+  - reference: PMID:39740728
+    reference_title: Phenotypic variability in a family with an inherited KAT6A frameshift variant.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Here, we report a Danish family, where an inherited KAT6A frameshift
+      variant c.2710dup (p.(Glu904Glyfs∗12)) show clinical variability in
+      disease phenotype expression among three family members.
+    explanation: &gt;-
+      This family demonstrates that vertical transmission of a constitutional
+      frameshift allele can occur and that expression is variable; de novo
+      occurrence is usual rather than universal.
   expressivity: VARIABLE
 
 references:
@@ -7588,6 +9155,20 @@ references:
   title: &#34;KAT6A deficiency impairs cognitive functions through suppressing RSPO2/Wnt signaling in hippocampal CA3.&#34;
 - reference: PMID:36553567
   title: &#34;Pantothenate and L-Carnitine Supplementation Improves Pathological Alterations in Cellular Models of KAT6A Syndrome.&#34;
+- reference: PMID:35892268
+  title: &#34;Speech and language development and genotype-phenotype correlation in 49 individuals with KAT6A syndrome.&#34;
+- reference: PMID:37249002
+  title: DNA methylation episignatures are sensitive and specific biomarkers for detection of patients with KAT6A/KAT6B variants.
+- reference: PMID:37861717
+  title: KAT6A mutations in Arboleda-Tham syndrome drive epigenetic regulation of posterior HOXC cluster.
+- reference: PMID:39740728
+  title: Phenotypic variability in a family with an inherited KAT6A frameshift variant.
+- reference: PMID:41702672
+  title: Acetyl-carnitine improves hyperactivity and learning deficits in KAT6A haploinsufficient mice.
+- reference: PMID:42040242
+  title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+- reference: PMID:42081590
+  title: KAT6A is essential for developmental control gene expression in neural stem and progenitor cells.
 
 mechanistic_hypotheses:
 - hypothesis_group_id: early_truncating_nmd_haploinsufficiency
@@ -7846,6 +9427,17 @@ pathophysiology:
     explanation: &gt;-
       Establishes the KAT6A histone-acetyltransferase complex through which the
       enzyme acts on histone H3.
+  - reference: PMID:37861717
+    reference_title: KAT6A mutations in Arboleda-Tham syndrome drive epigenetic regulation of posterior HOXC cluster.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Finally, we used unbiased proteomic mass spectrometry and identified two
+      new histone post-translational modifications (PTMs) that are disrupted in
+      ARTHS: H2A and H3K56 acetylation.
+    explanation: &gt;-
+      Patient-derived fibroblast multi-omics extends the established
+      acetylation defect beyond H3K9/H3K18 to H2A and H3K56 marks.
   downstream:
   - target: Altered p53 Signaling
     causal_link_type: DIRECT
@@ -7873,6 +9465,119 @@ pathophysiology:
       explanation: &gt;-
         Links KAT6A-mediated histone H3 acetylation to the developmental
         transcriptional programs disrupted in the disorder.
+  - target: Posterior HOXC Cluster Overexpression
+    causal_link_type: DIRECT
+    evidence:
+    - reference: PMID:37861717
+      reference_title: KAT6A mutations in Arboleda-Tham syndrome drive epigenetic regulation of posterior HOXC cluster.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Within fibroblasts, we show a distinct set of genes from the posterior
+        HOXC gene cluster (HOXC10, HOXC11, HOXC-AS3, HOXC-AS2, and HOTAIR) that
+        are overexpressed in ARTHS and are transcription factors critical for
+        early development body segment patterning.
+      explanation: &gt;-
+        Patient-fibroblast epigenome and transcriptome profiling directly links
+        KAT6A-associated chromatin dysregulation to posterior HOXC overexpression.
+  - target: Impaired Neural Progenitor Proliferation and Differentiation
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:42081590
+      reference_title: KAT6A is essential for developmental control gene expression in neural stem and progenitor cells.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Together, these two functions appear to be required for normal gene
+        expression in neural progenitors and essential for proliferation and
+        neuronal differentiation.
+      explanation: &gt;-
+        Mouse neural-system and progenitor-cell experiments connect KAT6A&#39;s
+        chromatin functions to progenitor proliferation and neuronal differentiation.
+
+- name: Posterior HOXC Cluster Overexpression
+  description: &gt;-
+    Multi-omic profiling of eight patient-derived dermal fibroblast lines found
+    increased chromatin accessibility, H3K23 acetylation, gene-body DNA
+    methylation, and overexpression across a posterior HOXC gene cluster. This
+    is a reproducible human-cell molecular readout; fibroblasts do not establish
+    which developmental tissues carry the same signature or whether HOXC
+    overexpression causes particular clinical features.
+  biological_scale: MOLECULAR
+  mechanism_confidence: PROVISIONAL
+  biological_processes:
+  - preferred_term: gene expression
+    term:
+      id: GO:0010467
+      label: gene expression
+    modifier: INCREASED
+  evidence:
+  - reference: PMID:37861717
+    reference_title: KAT6A mutations in Arboleda-Tham syndrome drive epigenetic regulation of posterior HOXC cluster.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      The genomic loci harboring HOXC genes are epigenetically regulated with
+      increased chromatin accessibility, high levels of H3K23ac, and increased
+      gene-body DNA methylation compared to controls, all of which are
+      consistent with transcriptomic overexpression.
+    explanation: &gt;-
+      This directly supports the coupled chromatin and transcriptional HOXC
+      phenotype in patient fibroblasts while not assigning an unproven organ-level consequence.
+
+- name: Impaired Neural Progenitor Proliferation and Differentiation
+  description: &gt;-
+    In mouse neural stem and progenitor cells, loss of one or both Kat6a alleles
+    disrupts H3K23 acetylation and MLL1 recruitment at developmental genes,
+    impairing normal proliferation and neuronal differentiation. The result
+    strengthens the developmental-neurobiology bridge but has not yet been
+    demonstrated in patient-derived neural progenitors or human brain tissue.
+  biological_scale: CELLULAR
+  mechanism_confidence: PROVISIONAL
+  cell_types:
+  - preferred_term: neural stem cell
+    term:
+      id: CL:0000047
+      label: neural stem cell
+  biological_processes:
+  - preferred_term: neural precursor cell proliferation
+    term:
+      id: GO:0061351
+      label: neural precursor cell proliferation
+    modifier: DECREASED
+  - preferred_term: neuron differentiation
+    term:
+      id: GO:0030182
+      label: neuron differentiation
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:42081590
+    reference_title: KAT6A is essential for developmental control gene expression in neural stem and progenitor cells.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Our data suggests two modes of action for KAT6A: (1) acetylation of
+      histone H3 on lysine 23 at promoters and enhancers and (2) recruitment of
+      the trithorax group protein MLL1 (KMT2A) to promote the expression of
+      developmental genes, including SOX and homeodomain genes.
+    explanation: &gt;-
+      The mouse study identifies the two chromatin functions upstream of the
+      neural-progenitor proliferation and differentiation defect.
+  downstream:
+  - target: Global Developmental Delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:42081590
+      reference_title: KAT6A is essential for developmental control gene expression in neural stem and progenitor cells.
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Together, these two functions appear to be required for normal gene
+        expression in neural progenitors and essential for proliferation and
+        neuronal differentiation.
+      explanation: &gt;-
+        The model supplies a plausible developmental bridge to human delay, but
+        the clinical endpoint is an extrapolation and is therefore only partially supported.
 
 - name: Altered p53 Signaling
   description: &gt;-
@@ -7934,7 +9639,7 @@ pathophysiology:
       Supports the link between the KAT6A acetyltransferase complex and broad
       developmental transcriptional programs.
   downstream:
-  - target: Global Developmental Delay and Intellectual Disability
+  - target: Global Developmental Delay
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: PMID:25728775
@@ -7948,6 +9653,17 @@ pathophysiology:
         feeding difficulties, cardiac defects, and ocular anomalies.
       explanation: &gt;-
         Links KAT6A dysfunction to the core neurodevelopmental phenotype.
+  - target: Intellectual Disability
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:30245513
+      reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Intellectual disability and developmental delay are universal.&#34;
+      explanation: &gt;-
+        The large clinical cohort links KAT6A syndrome to intellectual disability;
+        later inherited cases show that the association is not obligate.
   - target: Expressive Speech Delay
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
@@ -8119,7 +9835,7 @@ pathophysiology:
       The mouse model localizes the KAT6A cognitive mechanism to CA3 synaptic
       structure and plasticity.
   downstream:
-  - target: Global Developmental Delay and Intellectual Disability
+  - target: Intellectual Disability
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     hypothesis_groups:
     - kat6a_rspo2_wnt_hippocampal
@@ -8157,18 +9873,19 @@ pathophysiology:
       fibroblasts.
 
 phenotypes:
-- category: Neurologic
-  name: Global Developmental Delay and Intellectual Disability
+- category: Neurodevelopmental
+  name: Intellectual Disability
   description: &gt;-
-    Global developmental delay and intellectual disability are universal,
-    ranging from mild to severe. Level of intellectual disability correlates
-    with variant position, being more severe in late-truncating variants.
+    Intellectual disability is very common and ranges from mild to severe, with
+    greater group-level severity among late-truncating variants. It is not
+    universal: normally assessed cognition has now been reported in rare
+    inherited-variant cases.
   phenotype_term:
     preferred_term: Intellectual disability
     term:
       id: HP:0001249
       label: Intellectual disability
-  frequency: OBLIGATE
+  frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8176,8 +9893,8 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Intellectual disability and developmental delay are universal.&#34;
     explanation: &gt;-
-      The comprehensive cohort documents intellectual disability and
-      developmental delay as universal.
+      The 2019 cohort found both features in all ascertained participants; the
+      frequency is conservatively downgraded from obligate because later inherited cases include normal cognition.
   - reference: PMID:38741077
     reference_title: &#34;Neuropsychological profile associated with KAT6A syndrome: Emergent genotype-phenotype trends.&#34;
     supports: SUPPORT
@@ -8188,18 +9905,65 @@ phenotypes:
     explanation: &gt;-
       A dedicated neuropsychological study characterizes the impairment as
       global, with nonverbal cognition tracking receptive language.
+  - reference: PMID:39740728
+    reference_title: Phenotypic variability in a family with an inherited KAT6A frameshift variant.
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The description includes an affected first child with premature pubarche
+      (the first individual to our knowledge), a mildly affected second child
+      with normal cognitive performance assessment (the third reported
+      individual with normal assessment of cognition and KAT6A syndrome), and a
+      self-sufficient adult family member.
+    explanation: &gt;-
+      This inherited family establishes rare exceptions to the earlier
+      universal-intellectual-disability framing and supports variable expressivity.
+- category: Neurodevelopmental
+  name: Global Developmental Delay
+  description: &gt;-
+    Global developmental delay is a defining early-life feature in clinically
+    ascertained cohorts, affecting motor, language, and adaptive development.
+    Rare inherited-variant relatives may have normal standardized development,
+    so the association is very frequent rather than obligate.
+  phenotype_term:
+    preferred_term: Global developmental delay
+    term:
+      id: HP:0001263
+      label: Global developmental delay
+  frequency: VERY_FREQUENT
+  evidence:
+  - reference: PMID:30245513
+    reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Intellectual disability and developmental delay are universal.&#34;
+    explanation: &gt;-
+      The 76-person cohort provides the largest direct clinical anchor for
+      developmental delay, while later inherited cases prevent an obligate
+      syndrome-wide frequency assertion.
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Global developmental delay was universal, with marked speech impairment;
+      most patients remained minimally verbal beyond age 5.
+    explanation: &gt;-
+      The 2026 molecularly confirmed cohort found global developmental delay in
+      all 14 participants; rare inherited cases prevent an obligate syndrome-wide assertion.
 - category: Neurodevelopmental
   name: Expressive Speech Delay
   description: &gt;-
-    Marked expressive speech delay is universal and often described as a form of
-    verbal dyspraxia, with receptive language consistently more developed than
-    expressive language.
+    Marked expressive speech delay is very frequent. Many affected people are
+    minimally verbal into adulthood, and verbal participants may have both
+    phonological impairment and speech apraxia; receptive and expressive
+    language are variably but substantially affected.
   phenotype_term:
     preferred_term: Delayed speech and language development
     term:
       id: HP:0000750
       label: Delayed speech and language development
-  frequency: OBLIGATE
+  frequency: VERY_FREQUENT
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8207,7 +9971,18 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Marked expressive speech delay is universal.&#34;
     explanation: &gt;-
-      The cohort documents marked expressive speech delay as universal.
+      The 2019 cohort documents marked expressive speech delay as universal in
+      that sample; the syndrome-wide band is kept conservative.
+  - reference: PMID:35892268
+    reference_title: &#34;Speech and language development and genotype-phenotype correlation in 49 individuals with KAT6A syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Seventy-three percent (36/49) were minimally-verbal, relying on nonverbal
+      behaviors to communicate.
+    explanation: &gt;-
+      Standardized survey and telehealth assessment quantify the severe
+      communication phenotype in a dedicated 49-person cohort.
 - category: Neurologic
   name: Hypotonia
   description: &gt;-
@@ -8321,13 +10096,15 @@ phenotypes:
     Recognizable craniofacial dysmorphism is a core feature, most consistently a
     broad nasal tip and a thin, tented upper lip, with additional features
     including bitemporal narrowing, prominent nasal bridge, and a short, flat
-    philtrum.
+    philtrum. A 2026 cohort enriched for late-truncating variants (13 of 14)
+    nevertheless documented dysmorphism in 79%, supporting a frequent rather
+    than very-frequent syndrome-wide band.
   phenotype_term:
     preferred_term: Craniofacial dysmorphism
     term:
       id: HP:0001999
       label: Abnormal facial shape
-  frequency: VERY_FREQUENT
+  frequency: FREQUENT
   evidence:
   - reference: PMID:25728775
     reference_title: &#34;De novo nonsense mutations in KAT6A, a lysine acetyl-transferase gene, cause a syndrome including microcephaly and global developmental delay.&#34;
@@ -8340,6 +10117,14 @@ phenotypes:
     explanation: &gt;-
       The founding series lists craniofacial dysmorphism among the common
       features shared by all probands.
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Craniofacial dysmorphisms were observed in 11 patients (79%)&#34;
+    explanation: &gt;-
+      The 2026 cohort quantifies craniofacial dysmorphism at 79%, within the
+      frequent band and below the threshold for a very-frequent assertion.
 - category: Craniofacial
   name: Broad Nasal Tip
   description: &gt;-
@@ -8493,6 +10278,16 @@ phenotypes:
     explanation: &gt;-
       The cohort identifies an increased risk of gastrointestinal obstruction as
       a novel association.
+  - reference: PMID:30245513
+    reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      four patients in this study (patients 6, 22, 42 and 46) had bowel
+      obstruction.
+    explanation: &gt;-
+      Four of 76 participants (5.3%) had bowel obstruction, supporting the
+      occasional frequency band.
 - category: Neurologic
   name: Sleep Disturbance
   description: &gt;-
@@ -8554,13 +10349,13 @@ phenotypes:
     Frequent infections are reported in a subset of patients, most commonly
     common childhood illnesses (otitis media, respiratory tract infections);
     frequent infections are significantly more common in late-truncating
-    variants. A minority have isolated neutropenia or other immune findings.
+    variants. Neutropenia is represented separately because it is a distinct
+    hematologic phenotype and is not established as the cause of infections.
   phenotype_term:
     preferred_term: Recurrent infections
     term:
       id: HP:0002719
       label: Recurrent infections
-  frequency: OCCASIONAL
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8572,14 +10367,122 @@ phenotypes:
     explanation: &gt;-
       The cohort documents recurrent common childhood infections in the subset
       of patients reporting frequent infections.
+- category: Hematologic
+  name: Neutropenia
+  description: &gt;-
+    Transient neonatal and isolated moderate-to-severe neutropenia have been
+    reported across independent cohorts. The 2026 retrospective cohort grouped
+    neutropenia with other hematologic abnormalities in 3 of 11 assessed
+    patients, so phenotype-specific prevalence, natural history, and surveillance
+    thresholds remain unresolved.
+  phenotype_term:
+    preferred_term: Neutropenia
+    term:
+      id: HP:0001875
+      label: Decreased total neutrophil count
+  frequency: OCCASIONAL
+  evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;three individuals report isolated moderate to severe neutropenia5,13.&#34;
     explanation: &gt;-
-      A minority have isolated neutropenia, a distinct immune finding that may
-      contribute to infection susceptibility in some patients.
+      The 76-person cohort consolidates three reports of isolated
+      moderate-to-severe neutropenia, supporting an occasional frequency band.
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Notably, 3 of 11 patients (27%) exhibited hematologic abnormalities,
+      ranging from transient neonatal neutropenia to severe aplastic anemia
+      requiring hematopoietic stem cell transplantation.
+    explanation: &gt;-
+      The molecularly confirmed cohort independently includes transient neonatal
+      neutropenia within an emerging hematologic spectrum. The phenotype remains
+      pathographically unlinked because its causal bridge from KAT6A is unknown.
+- category: Hematologic
+  name: Aplastic Anemia
+  description: &gt;-
+    Severe aplastic anemia requiring hematopoietic stem cell transplantation was
+    reported within the emerging hematologic spectrum in a 2026 retrospective
+    cohort. The combined hematologic denominator was 3 of 11, but the
+    phenotype-specific frequency and surveillance implications require replication.
+  phenotype_term:
+    preferred_term: Aplastic anemia
+    term:
+      id: HP:0001915
+      label: Aplastic anemia
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Notably, 3 of 11 patients (27%) exhibited hematologic abnormalities,
+      ranging from transient neonatal neutropenia to severe aplastic anemia
+      requiring hematopoietic stem cell transplantation.
+    explanation: &gt;-
+      This establishes aplastic anemia as a specifically observed severe
+      manifestation while leaving its individual prevalence unresolved.
+- category: Neurologic
+  name: Chiari Malformation
+  description: &gt;-
+    Type 1 Chiari malformation is an uncommon neuroimaging finding, observed in
+    a 2026 cohort and independently reported in the earlier 76-person series.
+    The newer study grouped Chiari malformation and white-matter
+    hyperintensities in 2 of 10 imaged participants.
+  phenotype_term:
+    preferred_term: Chiari malformation
+    term:
+      id: HP:0002308
+      label: Chiari malformation
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Brain imaging revealed type 1 Chiari malformation and white matter
+      hyperintensities in 2 of the 10 assessed (20%), suggesting a broader
+      neuroanatomic involvement.
+    explanation: &gt;-
+      The molecularly confirmed cohort quantifies the combined neuroimaging
+      observations in the occasional frequency band.
+  - reference: PMID:30245513
+    reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;hydrocephalus and a Chiari malformation in patient 33&#34;
+    explanation: &gt;-
+      The earlier large cohort independently corroborates Chiari malformation.
+- category: Neurologic
+  name: Cerebral White Matter Hyperintensities
+  description: &gt;-
+    Cerebral white-matter hyperintensities are an emerging neuroimaging finding.
+    They were grouped with type 1 Chiari malformation in 2 of 10 imaged
+    participants in a 2026 retrospective cohort, and replication is needed.
+  phenotype_term:
+    preferred_term: Multifocal hyperintensity of cerebral white matter on MRI
+    term:
+      id: HP:0040329
+      label: Multifocal hyperintensity of cerebral white matter on MRI
+  frequency: OCCASIONAL
+  evidence:
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Brain imaging revealed type 1 Chiari malformation and white matter
+      hyperintensities in 2 of the 10 assessed (20%), suggesting a broader
+      neuroanatomic involvement.
+    explanation: &gt;-
+      This quantified imaging cohort supports an occasional band while the
+      grouped wording prevents a phenotype-specific estimate.
 - category: Neurologic
   name: Seizures
   description: &gt;-
@@ -8694,7 +10597,6 @@ phenotypes:
     term:
       id: HP:0001643
       label: Patent ductus arteriosus
-  frequency: OCCASIONAL
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8718,7 +10620,6 @@ phenotypes:
     term:
       id: HP:0001655
       label: Patent foramen ovale
-  frequency: OCCASIONAL
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8741,7 +10642,6 @@ phenotypes:
     term:
       id: HP:0000646
       label: Amblyopia
-  frequency: VERY_RARE
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8760,7 +10660,6 @@ phenotypes:
     term:
       id: HP:0000028
       label: Cryptorchidism
-  frequency: VERY_RARE
   evidence:
   - reference: PMID:30245513
     reference_title: &#34;KAT6A Syndrome: genotype-phenotype correlation in 76 patients with pathogenic KAT6A variants.&#34;
@@ -8894,6 +10793,55 @@ diagnosis:
     explanation: &gt;-
       The cohort recommends early cardiology assessment given the cardiac-lesion
       prevalence.
+- name: DNA methylation episignature analysis
+  description: &gt;-
+    Genome-wide DNA methylation analysis can provide an adjunctive molecular
+    classifier when a KAT6A variant is uncertain or when KAT6A- and KAT6B-related
+    disorders are difficult to distinguish. It does not replace sequence-based
+    diagnosis and was validated as a biomarker rather than as a screening test.
+  diagnosis_term:
+    preferred_term: DNA methylation analysis
+    term:
+      id: NCIT:C63328
+      label: DNA Methylation Analysis
+  results: &gt;-
+    A KAT6A-associated episignature supports classification of the molecular
+    finding and is distinct from the episignatures reported for KAT6B disorders.
+  evidence:
+  - reference: PMID:37249002
+    reference_title: DNA methylation episignatures are sensitive and specific biomarkers for detection of patients with KAT6A/KAT6B variants.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In this study we describe distinct episignatures for KAT6A syndrome,
+      caused by pathogenic variants in the lysine acetyltransferase A gene
+      (KAT6A), and for the two neurodevelopmental disorders associated with
+      lysine acetyl transferase B (KAT6B).
+    explanation: &gt;-
+      The clinical methylome study establishes separable KAT6A and KAT6B
+      episignatures as adjunctive diagnostic classifiers.
+
+differential_diagnoses:
+- name: KAT6B-related neurodevelopmental disorders
+  description: &gt;-
+    Genitopatellar and Say-Barber-Biesecker-Young-Simpson syndromes can overlap
+    in developmental delay, hypotonia, feeding difficulty, craniofacial
+    dysmorphism, and congenital anomalies. Gene-specific sequencing identifies
+    KAT6A versus KAT6B variants, and their distinct DNA methylation
+    episignatures can assist classification when molecular findings are ambiguous.
+  evidence:
+  - reference: PMID:37249002
+    reference_title: DNA methylation episignatures are sensitive and specific biomarkers for detection of patients with KAT6A/KAT6B variants.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In this study we describe distinct episignatures for KAT6A syndrome,
+      caused by pathogenic variants in the lysine acetyltransferase A gene
+      (KAT6A), and for the two neurodevelopmental disorders associated with
+      lysine acetyl transferase B (KAT6B).
+    explanation: &gt;-
+      Distinct molecular signatures support KAT6B-related disorders as a
+      relevant but separable differential diagnosis.
 
 treatments:
 - name: Multidisciplinary Supportive Care
@@ -8928,7 +10876,8 @@ treatments:
 - name: Speech and Language Therapy
   description: &gt;-
     Speech and language therapy, augmented by sign language and communication
-    aids, addresses the universal expressive speech delay and verbal dyspraxia.
+    aids, addresses the very frequent expressive speech delay and speech-motor
+    impairment.
   action_category: THERAPEUTIC
   treatment_term:
     preferred_term: speech therapy
@@ -9008,6 +10957,15 @@ treatments:
       boosting agents that improve the impaired cell bioenergetics of
       KAT6A-mutant fibroblasts in vitro; this is the mechanistic rationale for
       the intervention.
+    evidence:
+    - reference: PMID:36553567
+      reference_title: &#34;Pantothenate and L-Carnitine Supplementation Improves Pathological Alterations in Cellular Models of KAT6A Syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;the cell bioenergetics of mutant cells was significantly improved&#34;
+      explanation: &gt;-
+        The patient-fibroblast experiment directly supports restoration of the
+        nominated bioenergetic mechanism, but not clinical benefit.
   evidence:
   - reference: PMID:36553567
     reference_title: &#34;Pantothenate and L-Carnitine Supplementation Improves Pathological Alterations in Cellular Models of KAT6A Syndrome.&#34;
@@ -9021,6 +10979,161 @@ treatments:
       Patient-derived fibroblast models show that pantothenate and L-carnitine
       partially correct KAT6A-associated cellular abnormalities, an experimental
       preclinical lead.
+- name: Acetyl-L-Carnitine
+  description: &gt;-
+    An experimental mouse intervention, not an established treatment for people
+    with Arboleda-Tham syndrome. Acetyl-L-carnitine restored H3K23 acetylation
+    and improved selected behavioral measures in Kat6a-haploinsufficient mice;
+    efficacy, safety, dose, developmental timing, and variant dependence remain
+    untested clinically.
+  action_category: THERAPEUTIC
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: acetyl-L-carnitine
+      term:
+        id: CHEBI:57589
+        label: O-acetyl-L-carnitine
+  therapeutic_modality: SMALL_MOLECULE
+  target_mechanisms:
+  - target: Dysregulated Histone H3 Acetylation
+    treatment_effect: RESTORES
+    description: &gt;-
+      Acetyl-L-carnitine serves as an acetyl donor and restored brain H3K23
+      acetylation in a Kat6a-haploinsufficient mouse model.
+    evidence:
+    - reference: PMID:41702672
+      reference_title: Acetyl-carnitine improves hyperactivity and learning deficits in KAT6A haploinsufficient mice.
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Treatment with the acetyl-donor, acetyl-L-carnitine (ALCAR) resulted in
+        the rescue of H3K23ac levels in mouse brain and amelioration of the
+        hyperactivity and learning impairments.
+      explanation: &gt;-
+        The mouse experiment directly supports restoration of the nominated
+        chromatin mark and selected behavioral outcomes, not human efficacy.
+  evidence:
+  - reference: PMID:41702672
+    reference_title: Acetyl-carnitine improves hyperactivity and learning deficits in KAT6A haploinsufficient mice.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Treatment with the acetyl-donor, acetyl-L-carnitine (ALCAR) resulted in
+      the rescue of H3K23ac levels in mouse brain and amelioration of the
+      hyperactivity and learning impairments.
+    explanation: &gt;-
+      This is preclinical rescue in Kat6a-haploinsufficient mice and is not
+      evidence of efficacy in affected people.
+
+discussions:
+- discussion_id: gap_kat6a_preclinical_translation
+  prompt: &gt;-
+    Do the neural-progenitor, hippocampal RSPO2-Wnt, and histone-acetylation
+    abnormalities found in Kat6a mouse models reproduce human neural pathology,
+    and can acetyl-L-carnitine safely improve clinically meaningful outcomes?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Impaired Neural Progenitor Proliferation and Differentiation
+  - pathophysiology#KAT6A-RSPO2-Wnt Hippocampal Signaling Deficit
+  - treatments#Acetyl-L-Carnitine
+  rationale: &gt;-
+    The mechanistic and intervention results are from mouse neural cells or
+    whole animals. Patient fibroblasts establish chromatin abnormalities but do
+    not validate the neural circuit mechanisms, clinical endpoints, dose, or
+    variant-specific treatment response in people.
+  evidence:
+  - reference: PMID:41702672
+    reference_title: Acetyl-carnitine improves hyperactivity and learning deficits in KAT6A haploinsufficient mice.
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Treatment with the acetyl-donor, acetyl-L-carnitine (ALCAR) resulted in
+      the rescue of H3K23ac levels in mouse brain and amelioration of the
+      hyperactivity and learning impairments.
+    explanation: &gt;-
+      Mouse rescue motivates translation but cannot establish human benefit.
+- discussion_id: gap_kat6a_hematologic_natural_history
+  prompt: &gt;-
+    What are the incidence, age-specific natural history, predictors, and
+    evidence-based surveillance thresholds for neutropenia, marrow failure, and
+    other hematologic abnormalities in Arboleda-Tham syndrome?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - phenotypes#Neutropenia
+  - phenotypes#Aplastic Anemia
+  rationale: &gt;-
+    The first quantified cohort reports a broad severity range in only three
+    affected participants. It does not define longitudinal risk or justify a
+    uniform blood-count schedule or intervention threshold.
+  evidence:
+  - reference: PMID:42040242
+    reference_title: &#34;Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Notably, 3 of 11 patients (27%) exhibited hematologic abnormalities,
+      ranging from transient neonatal neutropenia to severe aplastic anemia
+      requiring hematopoietic stem cell transplantation.
+    explanation: &gt;-
+      This small retrospective denominator establishes the signal while leaving
+      prevalence, trajectory, predictors, and surveillance unresolved.
+
+review_notes: &gt;-
+  Publication-readiness review completed through 2026-08-05. No population-based
+  prevalence or incidence estimate, disease-specific clinical trial, controlled
+  treatment study, formal practice guideline, or established disease-modifying
+  therapy was found. Adult natural history, life expectancy, quality of life,
+  hematologic surveillance, and variant-specific prognosis remain sparse. The
+  quantified Chiari-malformation and cerebral-white-matter observations are
+  represented as emerging phenotypes; the single radioulnar-synostosis
+  observation was not promoted. The D2P audit produced 117 suggestions/issues;
+  high-value current evidence was incorporated, while small-series source-only
+  dysmorphology, narrow duplicates of represented phenotypes, and unsupported
+  causal links were explicitly deferred. Unlinked phenotypes were not given
+  speculative pathograph edges merely to raise connectivity. ClinicalTrials.gov
+  returned no disease-specific study for the exact disorder query, and no
+  KAT6A-specific GeneReviews chapter was found.
+datasets:
+- accession: geo:GSE210484
+  title: DNA methylation profiling of Arboleda-Tham syndrome in primary human fibroblasts
+  description: Arboleda-Tham Syndrome is a rare disease caused by de novo mutations in the KAT6A gene. Epigenetic changes to the genome resulting from pathogenic mutations were investigated by DNAme profiling.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: METHYLATION
+  sample_count: 25
+  publication: PMID:36064314
+  notes: Identified by GEO DataSets index search for Arboleda-Tham Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE237022
+  title: KAT6A mutations in Arboleda-Tham syndrome affect regulation and expression of HOXC genes [RNA-seq]
+  description: Arboleda-Tham Syndrome (ARTHS) is a rare genetic disorder caused by heterozygous, de novo truncating mutations in the gene KAT6A (Lysine(K) acetyltransferase 6A). ARTHS is clinically heterogeneous but characterized by several common features including intellectual disability, developmental and speech delay, hypotonia, congenital heart defects and gastrointestinal problems. KAT6A mRNA is highly expressed throughout early development and the levels of expression are lower levels in differentiated tissues, suggesting a key role maintenance of the stem cell characteristics.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 15
+  notes: Identified by GEO DataSets index search for Arboleda-Tham Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE237021
+  title: KAT6A mutations in Arboleda-Tham syndrome affect regulation and expression of HOXC genes [ChIP-seq]
+  description: Arboleda-Tham Syndrome (ARTHS) is a rare genetic disorder caused by heterozygous, de novo truncating mutations in the gene KAT6A (Lysine(K) acetyltransferase 6A). ARTHS is clinically heterogeneous but characterized by several common features including intellectual disability, developmental and speech delay, hypotonia, congenital heart defects and gastrointestinal problems. KAT6A mRNA is highly expressed throughout early development and the levels of expression are lower levels in differentiated tissues, suggesting a key role maintenance of the stem cell characteristics.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: CHIP_SEQ
+  sample_count: 14
+  notes: Identified by GEO DataSets index search for Arboleda-Tham Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -9036,7 +11149,7 @@ treatments:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">6</span>
+                    <span class="card-count">13</span>
                 </div>
 
                 <div class="reference-entry">
@@ -9132,6 +11245,125 @@ treatments:
                             </div>
 
                             <div class="reference-title">Pantothenate and L-Carnitine Supplementation Improves Pathological Alterations in Cellular Models of KAT6A Syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35892268" target="_blank">PMID:35892268</a>
+                            </div>
+
+                            <div class="reference-title">Speech and language development and genotype-phenotype correlation in 49 individuals with KAT6A syndrome.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37249002" target="_blank">PMID:37249002</a>
+                            </div>
+
+                            <div class="reference-title">DNA methylation episignatures are sensitive and specific biomarkers for detection of patients with KAT6A/KAT6B variants.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37861717" target="_blank">PMID:37861717</a>
+                            </div>
+
+                            <div class="reference-title">KAT6A mutations in Arboleda-Tham syndrome drive epigenetic regulation of posterior HOXC cluster.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/39740728" target="_blank">PMID:39740728</a>
+                            </div>
+
+                            <div class="reference-title">Phenotypic variability in a family with an inherited KAT6A frameshift variant.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41702672" target="_blank">PMID:41702672</a>
+                            </div>
+
+                            <div class="reference-title">Acetyl-carnitine improves hyperactivity and learning deficits in KAT6A haploinsufficient mice.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42040242" target="_blank">PMID:42040242</a>
+                            </div>
+
+                            <div class="reference-title">Expanding the Clinical Spectrum of Arboleda-Tham Syndrome: Neuroimaging Findings and Hematologic Manifestations.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42081590" target="_blank">PMID:42081590</a>
+                            </div>
+
+                            <div class="reference-title">KAT6A is essential for developmental control gene expression in neural stem and progenitor cells.</div>
 
                         </div>
 
@@ -9748,7 +11980,7 @@ treatments:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Arboleda-Tham Syndrome", "mondoId": "MONDO:0014558", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arboleda-Tham_Syndrome", "yamlRevision": "fced9ff526ba"};
+        const OS_CONFIG = {"diseaseName": "Arboleda-Tham Syndrome", "mondoId": "MONDO:0014558", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Arboleda-Tham_Syndrome", "yamlRevision": "16d9dc9ce008"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

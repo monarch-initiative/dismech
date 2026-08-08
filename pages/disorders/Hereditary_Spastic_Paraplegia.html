@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3463,6 +3692,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3515,6 +3746,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3533,6 +3765,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -5398,7 +5638,7 @@ cells."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-urinary-urgency" data-dismech-node="Urinary Urgency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Urinary Urgency
 
@@ -5469,7 +5709,7 @@ common."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-cavus" data-dismech-node="Pes Cavus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Cavus
 
@@ -5539,7 +5779,7 @@ common."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-paraplegia" data-dismech-node="Spastic Paraplegia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spastic Paraplegia
 
@@ -5629,7 +5869,7 @@ spasticity."</div>
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperreflexia
 
@@ -5690,7 +5930,7 @@ spasticity."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive Impairment
 
@@ -5752,7 +5992,7 @@ childhood and/or progressive cognitive decline"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Neuropathy
 
@@ -5813,7 +6053,7 @@ childhood and/or progressive cognitive decline"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-ataxia" data-dismech-node="Cerebellar Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebellar Ataxia
 
@@ -5883,7 +6123,7 @@ childhood and/or progressive cognitive decline"</div>
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower Limb Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lower Limb Spasticity
 
@@ -5946,7 +6186,7 @@ weakness of the lower extremities."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-weakness" data-dismech-node="Lower Limb Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lower Limb Weakness
 
@@ -6008,7 +6248,7 @@ than 50% of affected individuals have some weakness in the legs"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extensor-plantar-responses" data-dismech-node="Extensor Plantar Responses" data-dismech-type="phenotype">
                     <div class="item-name">
                         Extensor Plantar Responses
 
@@ -6069,7 +6309,7 @@ than 50% of affected individuals have some weakness in the legs"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-vibration-sense" data-dismech-node="Impaired Vibration Sense" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impaired Vibration Sense
 
@@ -6131,7 +6371,7 @@ than 50% of affected individuals have some weakness in the legs and impaired vib
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin Corpus Callosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin Corpus Callosum
 
@@ -6192,7 +6432,7 @@ than 50% of affected individuals have some weakness in the legs and impaired vib
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-amyotrophy" data-dismech-node="Distal Amyotrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Distal Amyotrophy
 
@@ -6292,7 +6532,7 @@ than 50% of affected individuals have some weakness in the legs and impaired vib
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-spast" data-dismech-node="SPAST" data-dismech-type="genetic">
                 <div class="item-name">
                     SPAST
 
@@ -6357,9 +6597,10 @@ than 50% of affected individuals have some weakness in the legs and impaired vib
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atl1" data-dismech-node="ATL1" data-dismech-type="genetic">
                 <div class="item-name">
                     ATL1
 
@@ -6426,9 +6667,10 @@ ATL1 identified by molecular genetic testing."</div>
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-spg7" data-dismech-node="SPG7" data-dismech-type="genetic">
                 <div class="item-name">
                     SPG7
 
@@ -6494,9 +6736,10 @@ were found in a complicated and in a pure form of HSP."</div>
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-spg11" data-dismech-node="SPG11" data-dismech-type="genetic">
                 <div class="item-name">
                     SPG11
 
@@ -6563,9 +6806,13 @@ SPG11 identified on molecular genetic testing."</div>
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6577,7 +6824,7 @@ SPG11 identified on molecular genetic testing."</div>
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antispastic-pharmacotherapy-baclofen-tizanidine" data-dismech-node="Antispastic Pharmacotherapy (Baclofen / Tizanidine)" data-dismech-type="treatment">
                 <div class="item-name">
                     Antispastic Pharmacotherapy (Baclofen / Tizanidine)
                 </div>
@@ -6724,7 +6971,7 @@ treatment of spasticity may begin with oral baclofen or tizanidine"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-botulinum-toxin-and-intrathecal-baclofen" data-dismech-node="Botulinum Toxin and Intrathecal Baclofen" data-dismech-type="treatment">
                 <div class="item-name">
                     Botulinum Toxin and Intrathecal Baclofen
                 </div>
@@ -6850,7 +7097,7 @@ severe and disabling."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy" data-dismech-node="Physical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy
                 </div>
@@ -6929,7 +7176,7 @@ to stretch spastic muscles and prevent contractures."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anticholinergic-therapy-for-urinary-urgency" data-dismech-node="Anticholinergic Therapy for Urinary Urgency" data-dismech-type="treatment">
                 <div class="item-name">
                     Anticholinergic Therapy for Urinary Urgency
                 </div>
@@ -7054,6 +7301,153 @@ to stretch spastic muscles and prevent contractures."</div>
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Neuromics / RD-Connect - hereditary spastic paraplegia
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000697" target="_blank">ega:EGAS00001000697</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study contains omics datasets from the Neuromics project (www.rd-neuromics.eu) on rare neuromuscular and neurodegenerative disorders. Data includes BAM and VCF files from whole-exome sequencing and standardised phenotypic data mapped to the human phenotype ontology (HPO). In some cases proteomic, transcriptomic and metabolomic data may also be available. This study groups together datasets from individuals with a hereditary spastic paraplegia phenotype, and also includes some unaffected family members. Search under the Neuromics name to find related studies for other neuromuscular and neurodegenerative disorders.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole-genome sequencing of two probands with hereditary spastic paraplegia reveals novel splice-donor region mutation and known pathogenic mutation in SPG11
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001001849" target="_blank">ega:EGAS00001001849</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Hereditary spastic paraplegias (SPG) are a group of heterogeneous neurodegenerative disorders, which are often presented with overlapping phenotypes such as progressive paraparesis and spasticity. To assist the diagnosis of SPG subtypes, next-generation sequencing is often used to provide supporting evidence. In this study, we report the case of two probands from the same family with SPG symptoms, including bilateral lower limbs weakness, unsteady gait, cognitive decline, dysarthria and slurring of speech since age of 14.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    HipSci HumanExome BeadChip analysis - Hereditary Spastic Paraplegia
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002006" target="_blank">ega:EGAS00001002006</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Genotyping analysis using the Infinium HumanExome BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Hereditary Spastic Paraplegia.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genome Studies in Hereditary Spastic Paraplegia
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs001080" target="_blank">dbgap:phs001080</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Next-generation sequencing technology is opening up new opportunities to rethink the way we identify disease causing genetic variation. An early application, whole exome sequencing, has now been established by a small number of research labs, including ours. Exome sequencing allows obtaining a near complete set of protein coding genomic variation in single individuals for less than $5,000. Promising targets for exome sequencing studies are Mendelian diseases, such as hereditary spastic paraplegias (HSP).</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -8035,6 +8429,38 @@ notes: &gt;
   recessive disease. Drug-safety note from GeneReviews (SPG3A/ATL1-HSP):
   dantrolene should be avoided as it can induce irreversible weakness adversely
   affecting mobility.
+datasets:
+- accession: ega:EGAS00001000697
+  title: Neuromics / RD-Connect - hereditary spastic paraplegia
+  description: This study contains omics datasets from the Neuromics project (www.rd-neuromics.eu) on rare neuromuscular and neurodegenerative disorders. Data includes BAM and VCF files from whole-exome sequencing and standardised phenotypic data mapped to the human phenotype ontology (HPO). In some cases proteomic, transcriptomic and metabolomic data may also be available. This study groups together datasets from individuals with a hereditary spastic paraplegia phenotype, and also includes some unaffected family members. Search under the Neuromics name to find related studies for other neuromuscular and neurodegenerative disorders.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001001849
+  title: Whole-genome sequencing of two probands with hereditary spastic paraplegia reveals novel splice-donor region mutation and known pathogenic mutation in SPG11
+  description: Hereditary spastic paraplegias (SPG) are a group of heterogeneous neurodegenerative disorders, which are often presented with overlapping phenotypes such as progressive paraparesis and spasticity. To assist the diagnosis of SPG subtypes, next-generation sequencing is often used to provide supporting evidence. In this study, we report the case of two probands from the same family with SPG symptoms, including bilateral lower limbs weakness, unsteady gait, cognitive decline, dysarthria and slurring of speech since age of 14.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002006
+  title: HipSci HumanExome BeadChip analysis - Hereditary Spastic Paraplegia
+  description: The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Genotyping analysis using the Infinium HumanExome BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Hereditary Spastic Paraplegia.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: dbgap:phs001080
+  title: Genome Studies in Hereditary Spastic Paraplegia
+  description:  Next-generation sequencing technology is opening up new opportunities to rethink the way we identify disease causing genetic variation. An early application, whole exome sequencing, has now been established by a small number of research labs, including ours. Exome sequencing allows obtaining a near complete set of protein coding genomic variation in single individuals for less than $5,000. Promising targets for exome sequencing studies are Mendelian diseases, such as hereditary spastic paraplegias (HSP).
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hereditary Spastic Paraplegia&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -9185,7 +9611,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Spastic Paraplegia", "mondoId": "MONDO:0019064", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Spastic_Paraplegia", "yamlRevision": "8a38b2b524c8"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Spastic Paraplegia", "mondoId": "MONDO:0019064", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Spastic_Paraplegia", "yamlRevision": "bd110f6aa66e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

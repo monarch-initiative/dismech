@@ -275,6 +275,7 @@ attributes:
     owner: Discussion
     domain_of:
     - ClinicalTrial
+    - AlgorithmValidationStatus
     - MechanisticHypothesis
     - Discussion
     range: DiscussionStatusEnum
@@ -291,6 +292,7 @@ attributes:
     alias: attaches_to
     owner: Discussion
     domain_of:
+    - Definition
     - Discussion
     range: string
     multivalued: true
@@ -302,6 +304,8 @@ attributes:
     alias: rationale
     owner: Discussion
     domain_of:
+    - ClinicalBurden
+    - AlgorithmValidationStatus
     - Discussion
     range: string
   proposed_experiments:
@@ -343,17 +347,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -369,6 +377,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -455,12 +464,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease

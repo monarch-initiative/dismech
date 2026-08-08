@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3462,6 +3691,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3514,6 +3745,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3532,6 +3764,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4211,7 +4451,7 @@
 
 
 
-            <div class="item-box phenotype-box">
+            <div class="item-box phenotype-box anchor-target" id="phenotype-uveal-melanoma" data-dismech-node="Uveal Melanoma" data-dismech-type="phenotype">
                 <div class="item-name">
                     Uveal Melanoma
 
@@ -4242,7 +4482,7 @@
 
             </div>
 
-            <div class="item-box phenotype-box">
+            <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-visual-acuity" data-dismech-node="Decreased Visual Acuity" data-dismech-type="phenotype">
                 <div class="item-name">
                     Decreased Visual Acuity
 
@@ -4273,7 +4513,7 @@
 
             </div>
 
-            <div class="item-box phenotype-box">
+            <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-defect" data-dismech-node="Visual Field Defect" data-dismech-type="phenotype">
                 <div class="item-name">
                     Visual Field Defect
 
@@ -4317,7 +4557,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gnaq-q209" data-dismech-node="GNAQ Q209" data-dismech-type="genetic">
                 <div class="item-name">
                     GNAQ Q209
 
@@ -4329,9 +4569,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gna11-q209" data-dismech-node="GNA11 Q209" data-dismech-type="genetic">
                 <div class="item-name">
                     GNA11 Q209
 
@@ -4343,9 +4584,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-bap1" data-dismech-node="BAP1" data-dismech-type="genetic">
                 <div class="item-name">
                     BAP1
 
@@ -4357,9 +4599,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sf3b1" data-dismech-node="SF3B1" data-dismech-type="genetic">
                 <div class="item-name">
                     SF3B1
 
@@ -4371,9 +4614,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-eif1ax" data-dismech-node="EIF1AX" data-dismech-type="genetic">
                 <div class="item-name">
                     EIF1AX
 
@@ -4385,9 +4629,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4399,7 +4647,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tebentafusp" data-dismech-node="Tebentafusp" data-dismech-type="treatment">
                 <div class="item-name">
                     Tebentafusp
                 </div>
@@ -4461,7 +4709,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-plaque-brachytherapy" data-dismech-node="Plaque Brachytherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Plaque Brachytherapy
                 </div>
@@ -4507,7 +4755,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-enucleation" data-dismech-node="Enucleation" data-dismech-type="treatment">
                 <div class="item-name">
                     Enucleation
                 </div>
@@ -4553,7 +4801,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-immune-checkpoint-inhibitors" data-dismech-node="Immune Checkpoint Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     Immune Checkpoint Inhibitors
                 </div>
@@ -4641,6 +4889,227 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A GWAS in uveal melanoma identifies risk polymorphisms in the CLPTM1L locus.
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002334" target="_blank">ega:EGAS00001002334</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Uveal melanoma, a rare malignant tumor of the eye, is predominantly observed in populations of European ancestry. A genome-wide association study of 259 uveal melanoma patients compared to 401 controls all of European ancestry revealed a candidate locus at chromosome 5p15.33 (region rs421284: OR = 1.7, CI 1.43-2.05). This locus was replicated in an independent set of 276 cases and 184 controls. In addition, risk variants from this region were positively associated with higher expression of CLPTM1L. In conclusion, the CLPTM1L region contains risk alleles for uveal melanoma susceptibility, suggesting that CLPTM1L could play a role in uveal melanoma oncogenesis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28781888" target="_blank" style="color: var(--secondary);">PMID:28781888</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Uveal Melanoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    A GWAS in uveal melanoma identifies risk polymorphisms in the CLPTM1L locus.
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002365" target="_blank">ega:EGAS00001002365</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Uveal melanoma, a rare malignant tumor of the eye, is predominantly observed in populations of European ancestry. A genome-wide association study of 259 uveal melanoma patients compared to 401 controls all of European ancestry revealed a candidate locus at chromosome 5p15.33 (region rs421284: OR = 1.7, CI 1.43-2.05). This locus was replicated in an independent set of 276 cases and 184 controls. In addition, risk variants from this region were positively associated with higher expression of CLPTM1L. In conclusion, the CLPTM1L region contains risk alleles for uveal melanoma susceptibility, suggesting that CLPTM1L could play a role in uveal melanoma oncogenesis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Uveal Melanoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Comprehensive genetic analysis of uveal melanoma heterogeneity during metastatic progression
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002761" target="_blank">ega:EGAS00001002761</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Uveal melanoma (UM) is the most common primary intraocular malignancy in adults. Despite improvement of diagnosis and treatment of the primary tumor, there is no effective treatment of metastatic disease and approximately half of patients will die within one year or less following metastases detection. Tumor heterogeneity has been proposed as a key factor of drug resistance. However, it has been scarcely studied in UM. The present project aims searching for specific drivers of the metastatic progression, describing the genomic and transcriptomic landscape of metastatic UM, exploring tumor heterogeneity and investigating its role in drug resistance.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/29760383" target="_blank" style="color: var(--secondary);">PMID:29760383</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Uveal Melanoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Proteomics of Primary Uveal Melanoma:Insights to Metastasis and Protein Biomarkers
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000087437" target="_blank">massive:MSV000087437</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Uveal melanoma metastases are lethal and remain incurable. Quantitative proteomic analysis of 53 metastasizing and 47 non-metastasizing primary uveal melanoma (pUM) was pursued for insights into UM metastasis and protein biomarkers. The metastatic status of the pUM specimens was defined based on clinical data, survival histories, prognostic analyses, and liver histopathology.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Uveal Melanoma&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Oncogenic pathways in uveal melanoma identified by phosphoproteomic analysis
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000090700" target="_blank">massive:MSV000090700</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The uveal melanoma cell lines MP41 and MP46 driven by oncogenic G11 (Q209L) and Gq (Q209L), respectively, and a control cell line OCM-1A driven by oncogenic BRAF (V600E) were treated for 24 hours with FR900359, a highly specific inhibitor of Gq/11. Protein extracts were collected and TMT labeled prior to LC-MS analysis. The enrichment of phosphopeptides from fractions of each sample was performed using IMAC prior to LC-MS. Proteomic and phospho-proteomic data analyses were performed to identify changes in post-translational modification in signaling pathways regulated by Gq/11 in these cells.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Uveal Melanoma&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Whole Exome Sequencing of Uveal Melanoma
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs001370" target="_blank">dbgap:phs001370</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Uveal melanoma is a rare form of melanoma that occurs in the eye and has no effective treatment once metastatic. To further characterize the genomic events driving uveal melanoma, whole exome sequencing was performed on 61 primary tumors derived from enucleations, 3 liver metasases, and paired normal DNA. Recurrent somatic genetic alterations including point mutations, small insertions and deletions, as well as copy number variations were identified.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Uveal Melanoma&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -5278,6 +5747,48 @@ references:
       evidence_source: OTHER
       snippet: Ocular melanoma is a rare but clinically significant malignancy, primarily comprising uveal and conjunctival subtypes.
       explanation: Deep research cited this publication as relevant literature for Uveal Melanoma.
+datasets:
+- accession: ega:EGAS00001002334
+  title: A GWAS in uveal melanoma identifies risk polymorphisms in the CLPTM1L locus.
+  description: &#39;Uveal melanoma, a rare malignant tumor of the eye, is predominantly observed in populations of European ancestry. A genome-wide association study of 259 uveal melanoma patients compared to 401 controls all of European ancestry revealed a candidate locus at chromosome 5p15.33 (region rs421284: OR = 1.7, CI 1.43-2.05). This locus was replicated in an independent set of 276 cases and 184 controls. In addition, risk variants from this region were positively associated with higher expression of CLPTM1L. In conclusion, the CLPTM1L region contains risk alleles for uveal melanoma susceptibility, suggesting that CLPTM1L could play a role in uveal melanoma oncogenesis.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:28781888
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Uveal Melanoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002365
+  title: A GWAS in uveal melanoma identifies risk polymorphisms in the CLPTM1L locus.
+  description: &#39;Uveal melanoma, a rare malignant tumor of the eye, is predominantly observed in populations of European ancestry. A genome-wide association study of 259 uveal melanoma patients compared to 401 controls all of European ancestry revealed a candidate locus at chromosome 5p15.33 (region rs421284: OR = 1.7, CI 1.43-2.05). This locus was replicated in an independent set of 276 cases and 184 controls. In addition, risk variants from this region were positively associated with higher expression of CLPTM1L. In conclusion, the CLPTM1L region contains risk alleles for uveal melanoma susceptibility, suggesting that CLPTM1L could play a role in uveal melanoma oncogenesis.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Uveal Melanoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002761
+  title: Comprehensive genetic analysis of uveal melanoma heterogeneity during metastatic progression
+  description: Uveal melanoma (UM) is the most common primary intraocular malignancy in adults. Despite improvement of diagnosis and treatment of the primary tumor, there is no effective treatment of metastatic disease and approximately half of patients will die within one year or less following metastases detection. Tumor heterogeneity has been proposed as a key factor of drug resistance. However, it has been scarcely studied in UM. The present project aims searching for specific drivers of the metastatic progression, describing the genomic and transcriptomic landscape of metastatic UM, exploring tumor heterogeneity and investigating its role in drug resistance.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:29760383
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Uveal Melanoma&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: massive:MSV000087437
+  title: Proteomics of Primary Uveal Melanoma:Insights to Metastasis and Protein Biomarkers
+  description: Uveal melanoma metastases are lethal and remain incurable. Quantitative proteomic analysis of 53 metastasizing and 47 non-metastasizing primary uveal melanoma (pUM) was pursued for insights into UM metastasis and protein biomarkers. The metastatic status of the pUM specimens was defined based on clinical data, survival histories, prognostic analyses, and liver histopathology.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Uveal Melanoma&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000090700
+  title: Oncogenic pathways in uveal melanoma identified by phosphoproteomic analysis
+  description: The uveal melanoma cell lines MP41 and MP46 driven by oncogenic G11 (Q209L) and Gq (Q209L), respectively, and a control cell line OCM-1A driven by oncogenic BRAF (V600E) were treated for 24 hours with FR900359, a highly specific inhibitor of Gq/11. Protein extracts were collected and TMT labeled prior to LC-MS analysis. The enrichment of phosphopeptides from fractions of each sample was performed using IMAC prior to LC-MS. Proteomic and phospho-proteomic data analyses were performed to identify changes in post-translational modification in signaling pathways regulated by Gq/11 in these cells.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Uveal Melanoma&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs001370
+  title: Whole Exome Sequencing of Uveal Melanoma
+  description:  Uveal melanoma is a rare form of melanoma that occurs in the eye and has no effective treatment once metastatic. To further characterize the genomic events driving uveal melanoma, whole exome sequencing was performed on 61 primary tumors derived from enucleations, 3 liver metasases, and paired normal DNA. Recurrent somatic genetic alterations including point mutations, small insertions and deletions, as well as copy number variations were identified.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Uveal Melanoma&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -8106,7 +8617,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Uveal Melanoma", "mondoId": "MONDO:0006486", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Uveal_Melanoma", "yamlRevision": "e85e650c55f4"};
+        const OS_CONFIG = {"diseaseName": "Uveal Melanoma", "mondoId": "MONDO:0006486", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Uveal_Melanoma", "yamlRevision": "768c80b6aa7b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
