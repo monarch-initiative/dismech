@@ -47,6 +47,7 @@ Figures below are measured, not estimated.
 |---|---|---|---|
 | **EGA** | `discover_ega.py` | 10,453 studies | Controlled-access human cohorts GEO cannot index |
 | **GEO** | `discover_datasets.py` | — | Common/complex disease. Poor for rare disease (see below) |
+| **dbGaP + ImmPort** | `discover_dbgap_immport.py` | 3,582 + 1,502 studies | The only repositories with **coded disease indexing** — see below |
 | **ArrayExpress** | `discover_arrayexpress.py` | 21,319 native of 80,697 | **73.6% are GEO re-imports** — native submissions only |
 | **OmicsDI** | `discover_omicsdi.py` | aggregator | **89% duplicates other sources** — used only as a router to Metabolomics Workbench / MassIVE / dbGaP |
 
@@ -58,6 +59,46 @@ both resolve, which no verifier can detect.
 
 **Never curate OmicsDI hits from GEO/ArrayExpress/PRIDE/MetaboLights/EGA.** Same
 duplication problem, one aggregation layer further out.
+
+### dbGaP and ImmPort: the coded-disease route
+
+Every other source here matches on free text, because a GEO series and an EGA
+study carry no coded disease. dbGaP and ImmPort do — dbGaP publishes MeSH
+descriptors in a searchable FHIR `condition` field, ImmPort a
+`condition_or_disease` field — so discovery can key on the entry's own
+MONDO→MeSH cross-reference rather than on its name:
+
+```bash
+just discover-dbgap-immport Sjogrens_Syndrome
+```
+
+Two things follow from the coding, and both are reflected in the tool's output.
+
+**Coded is not the same as *about*.** A broad cohort is legitimately indexed for
+every condition it measures, so eMERGE and the Bogalusa Heart Study are coded
+for asthma. Hits are therefore tiered: `TITLE_MATCH` (the disease is named in
+the study's own title — auto-approved), `SUBJECT_ONLY` (coded but not named:
+the incidental-mega-cohort class, proposed only under
+`--include-subject-only` and never auto-approved), and `CONFLICT` (a sibling
+disease, vetoed).
+
+**Rare disease is capped by MeSH, not by the tool.** dbGaP indexes with MeSH
+*descriptors* only. An entry whose MONDO maps solely to a Supplementary Concept
+Record (`MESH:C######`) gets no coded query, and the script says so explicitly
+rather than reporting a bare zero. Measured over 60 uncurated entries with a
+MeSH mapping: 58% yield for descriptors, 0% for SCRs. The zero is a
+data-availability fact — dbGaP's own text search finds nothing for those
+diseases either.
+
+These two repositories overlap nothing else here, so unlike ArrayExpress or
+OmicsDI nothing they return can duplicate an accession already in the KB.
+
+> **Not the NIH Dataset Catalog.** `datasetcatalog.nlm.nih.gov` indexes the same
+> dbGaP and ImmPort records with the same MeSH coding — derived from dbGaP's own
+> metadata — but returns strictly more per query, and the surplus is exactly the
+> `SUBJECT_ONLY` noise. It also supplies no PMID, organism, or sample count for
+> any repository. Full comparison:
+> [`reports/nlm-dataset-catalog-evaluation-2026-08-07.md`](reports/nlm-dataset-catalog-evaluation-2026-08-07.md).
 
 ### Why GEO stops working for rare disease
 
@@ -163,9 +204,15 @@ They are reported rather than failed because fixing them needs a human.
 ## Supported repositories
 
 NCBI GEO / SRA / BioProject / dbGaP, EBI BioStudies (ArrayExpress) / PRIDE /
-MetaboLights / MGnify, EGA, MassIVE, NASA OSDR, and Metabolomics Workbench.
-Adding another means writing a resolver in
+MetaboLights / MGnify, EGA, ImmPort, MassIVE, NASA OSDR, and Metabolomics
+Workbench. Adding another means writing a resolver in
 `scripts/verify_dataset_accessions.py` and registering its accession shape.
+
+dbGaP resolves against the **dbGaP FHIR API**, not E-utilities. NCBI has
+withdrawn the `gap` database (`esearch.fcgi?db=gap` answers `Invalid db name
+specified: gap`), so the previous resolver returned `NOT_FOUND` — i.e. "treat as
+fabricated" — for every real dbGaP accession. If dbGaP verification ever starts
+failing wholesale again, check that before doubting the accessions.
 
 For discovery, the ArrayExpress and EGA study indexes resolve offline against
 committed retrieval metadata. Their bulk archives are gitignored and rebuilt with

@@ -1934,6 +1934,17 @@ discover-omicsdi *args="":
 discover-ebi-omics *args="":
     @uv run python scripts/discover_ebi_omics.py {{args}}
 
+# Find dbGaP and ImmPort studies for a disorder, keyed on the MONDO->MeSH
+# descriptor xref. These are the two repositories with coded disease indexing
+# and no overlap with GEO/ArrayExpress/EGA, queried through their own APIs
+# rather than the NIH Dataset Catalog (which returns the same records with more
+# incidental-mega-cohort noise and fewer fields).
+#   just discover-dbgap-immport Sjogrens_Syndrome
+#   just discover-dbgap-immport Asthma --include-subject-only
+[group('Research')]
+discover-dbgap-immport *args="":
+    @uv run python scripts/discover_dbgap_immport.py {{args}}
+
 # Deep research on a disorder using specified provider
 # Examples:
 #   just research-disorder perplexity Marfan_Syndrome
