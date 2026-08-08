@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mabry Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Mabry Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Mabry Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-07-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016596" target="_blank" rel="noopener noreferrer">MONDO:0016596</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">26 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>Mabry syndrome / HPMRS is an <strong>autosomal recessive, multisystem neurodevelopmental disorder caused by defective biosynthesis or remodeling of the glycosylphosphatidylinositol (GPI) anchor</strong> — the little lipid grommet that tacks &gt;150 different human proteins onto the outer face of the plasma membrane. When the grommet is built wrong, some of those proteins never make it to the surface, and one of them — tissue-nonspecific alkaline phosphatase — gets snipped loose and dumped into the blood. Hence the paradoxical signature: a <em>neurodevelopmental</em> disease whose calling card is a <em>bone enzyme</em> on a routine chemistry panel.</p>
+<p>The cardinal triad, per the 2024 index-case review (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11121671/">Genes 2024, PMC11121671</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38790248/" target="_blank" rel="noopener noreferrer">PMID:38790248</a>):
+1. <strong>Hyperphosphatasia</strong> (persistently elevated tissue-nonspecific alkaline phosphatase)
+2. <strong>Seizures</strong>
+3. <strong>Developmental disability / intellectual disability</strong></p>
+<p>with hypotonia, distinctive facial dysmorphism, and brachytelephalangy (short terminal phalanges) as the near-constant supporting cast.</p>
+<h3>1.2 Identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>ID</th>
+<th>Label</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO (grouping — "Mabry syndrome")</strong></td>
+<td><code>MONDO:0016596</code></td>
+<td>hyperphosphatasia-intellectual disability syndrome</td>
+</tr>
+<tr>
+<td>MONDO (HPMRS1, PIGV)</td>
+<td><code>MONDO:0009398</code></td>
+<td>hyperphosphatasia with intellectual disability syndrome 1</td>
+</tr>
+<tr>
+<td>MONDO (HPMRS2, PIGO)</td>
+<td><code>MONDO:0013882</code></td>
+<td>hyperphosphatasia with intellectual disability syndrome 2</td>
+</tr>
+<tr>
+<td>MONDO (HPMRS3, PGAP2)</td>
+<td><code>MONDO:0013628</code></td>
+<td>hyperphosphatasia with intellectual disability syndrome 3</td>
+</tr>
+<tr>
+<td>MONDO (HPMRS4, PGAP3)</td>
+<td><code>MONDO:0014318</code></td>
+<td>hyperphosphatasia with intellectual disability syndrome 4</td>
+</tr>
+<tr>
+<td>MONDO (HPMRS5, PIGW)</td>
+<td><code>MONDO:0014457</code></td>
+<td>hyperphosphatasia with intellectual disability syndrome 5</td>
+</tr>
+<tr>
+<td>MONDO (HPMRS6, PIGY)</td>
+<td><code>MONDO:0014780</code></td>
+<td>hyperphosphatasia with intellectual disability syndrome 6</td>
+</tr>
+<tr>
+<td>OMIM phenotype series</td>
+<td><code>OMIMPS:239300</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>OMIM (HPMRS1–6)</td>
+<td>239300, 614749, 614207, 615716, 616025, 616809</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><code>ORPHA:247262</code></td>
+<td>Hyperphosphatasia-intellectual disability syndrome</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><code>DOID:0070431</code> (grouping), <code>DOID:0070433</code> (HPMRS1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C1855923 (grouping), C4551502 (HPMRS1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>383800 (grouping), 1647044 (HPMRS1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>33982008</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0017188 / 0018349</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>Q87.8</strong> (per Orphanet)</td>
+<td>Other specified congenital malformation syndromes</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>No dedicated stem code identified; falls under congenital-malformation-syndrome / inborn-error-of-metabolism chapters — <strong>flag as unverified</strong></td>
+<td></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor; indexed via <em>Intellectual Disability</em> + <em>Alkaline Phosphatase/blood</em>. <strong>Flag as unverified.</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>MONDO parentage for the grouping term (useful for <code>classifications</code>): <code>is_a</code> <strong>developmental anomaly of metabolic origin</strong> (<code>MONDO:0015327</code>), <strong>syndromic dyslipidemia</strong> (<code>MONDO:0015905</code>), <strong>inborn disorder of glycosphingolipid and glycosylphosphatidylinositol anchor glycosylation</strong> (<code>MONDO:0017748</code>), <strong>congenital limb malformation</strong> (<code>MONDO:0019054</code>).</p>
+<h3>1.3 Synonyms</h3>
+<p>Mabry syndrome · HPMR · HPMRS · hyperphosphatasia with mental retardation syndrome (historical; "mental retardation" is deprecated language, retained here only where it appears verbatim in titles) · hyperphosphatasia with impaired intellectual development syndrome · hyperphosphatasia-intellectual disability syndrome · GPI biosynthesis defect (GPIBD) subtype · inherited GPI deficiency (IGD).</p>
+<h3>1.4 Data provenance</h3>
+<p>Everything below is <strong>disease-level aggregated knowledge</strong> from case reports, case series, and multinational retrospective cohorts. There is no EHR-derived or registry-derived individual-patient dataset for Mabry syndrome specifically. The single largest structured cohort is the multinational IGD study of 83 individuals from 75 families (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11292905/">Sidpra et al., <em>Brain</em> 2024;147:2775–2790</a>), and the largest PIGV-specific series is 16 families (<a href="https://pubmed.ncbi.nlm.nih.gov/24129430/">Horn et al., <em>Eur J Hum Genet</em> 2014, PMID:24129430</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary cause</h3>
+<p><strong>Biallelic hypomorphic (partial loss-of-function) germline variants in genes of the GPI-anchor biosynthesis/remodeling pathway.</strong> The word <em>hypomorphic</em> is load-bearing: complete GPI loss is embryonic-lethal, so every viable patient retains partial pathway function. This is why the phenotype is a graded spectrum rather than an on/off switch.</p>
+<p>Six genes give the HPMRS/Mabry phenotype specifically (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11121671/">Genes 2024, PMC11121671</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Subtype</th>
+<th>Gene</th>
+<th>HGNC</th>
+<th>Compartment</th>
+<th>Pathway role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HPMRS1</td>
+<td><strong>PIGV</strong></td>
+<td><code>hgnc:26031</code></td>
+<td>ER</td>
+<td>GPI α-1,6-mannosyltransferase II (adds 2nd mannose)</td>
+</tr>
+<tr>
+<td>HPMRS2</td>
+<td><strong>PIGO</strong></td>
+<td><code>hgnc:23215</code></td>
+<td>ER</td>
+<td>Phosphoethanolamine transferase (3rd mannose EtNP)</td>
+</tr>
+<tr>
+<td>HPMRS3</td>
+<td><strong>PGAP2</strong></td>
+<td><code>hgnc:17893</code></td>
+<td>Golgi</td>
+<td>Fatty-acid remodeling (stearate reacylation)</td>
+</tr>
+<tr>
+<td>HPMRS4</td>
+<td><strong>PGAP3</strong></td>
+<td><code>hgnc:23719</code></td>
+<td>Golgi</td>
+<td>GPI-anchor maturation (deacylation)</td>
+</tr>
+<tr>
+<td>HPMRS5</td>
+<td><strong>PIGW</strong></td>
+<td><code>hgnc:23213</code></td>
+<td>ER</td>
+<td>Inositol acyltransferase (early step 3)</td>
+</tr>
+<tr>
+<td>HPMRS6</td>
+<td><strong>PIGY</strong></td>
+<td><code>hgnc:28213</code></td>
+<td>ER</td>
+<td>GPI-GlcNAc transferase complex subunit</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"HPMRS1 [MIM: 239300] is the phenotype resulting from inheritance of biallelic PIGV variants. HPMRS2 (MIM 614749), HPMRS5 (MIM 616025) and HPMRS6 (MIM 616809) result from disruption of the PIGO, PIGW and PIGY genes expressed in the endoplasmic reticulum. HPMRS3 (MIM 614207) and HPMRS4 (MIM 615716) result from disruption of post attachment to proteins PGAP2 (HPMRS3) and PGAP3 (HPMRS4)." — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11121671/">Genes 2024</a></p>
+</blockquote>
+<p><strong>PIGV and PIGO are the two most frequently implicated genes</strong> in Mabry syndrome.</p>
+<h3>2.2 Genetic risk factors</h3>
+<ul>
+<li><strong>Causal</strong>: biallelic pathogenic variants as above. No susceptibility loci or GWAS signals — this is a straight Mendelian recessive disease.</li>
+<li><strong>Founder/recurrent allele</strong>: <code>PIGV</code> <strong>c.1022C&gt;A (p.Ala341Glu)</strong>, rs139073416. Horn et al. found it <em>"in about 80% of affected families,"</em> both homozygous and compound heterozygous. gnomAD reports it at ~0.02% (30/126,708) of European chromosomes; ESP European-American MAF 0.00035 — consistent with a European founder allele of modest frequency. First reported in three siblings of unrelated German parents (<a href="https://pubmed.ncbi.nlm.nih.gov/20802478/">Krawitz et al., <em>Nat Genet</em> 2010, PMID:20802478</a>).</li>
+<li><strong>Consanguinity</strong> is a major contributor for the rarer subtypes — PGAP3 was mapped in a consanguineous Pakistani family via autozygosity mapping (<a href="https://pubmed.ncbi.nlm.nih.gov/24439110/">Howard et al., <em>Am J Hum Genet</em> 2014, PMID:24439110</a>); PIGY in a consanguineous family via a 7.7 Mb autozygous region (<a href="https://pubmed.ncbi.nlm.nih.gov/26293662/">Ilkovski et al., <em>Hum Mol Genet</em> 2015, PMID:26293662</a>).</li>
+<li><strong>Modifier genes</strong>: none established. Digenic inheritance across two GPI genes has been <em>specifically tested and excluded</em> in at least one index case — the paper title says it plainly: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9957281/">"Excluding Digenic Inheritance of PGAP2 and PGAP3 Variants in Mabry Syndrome (OMIM 239300) Patient"</a>. <strong>Do not curate a digenic inheritance block for this disease.</strong></li>
+</ul>
+<h3>2.3 Environmental risk factors</h3>
+<p><strong>None known.</strong> No toxin, exposure, infection, diet, occupational, or lifestyle factor has been associated with disease occurrence. Parental age, sex, and geography carry no reported risk signal beyond consanguinity/founder effects.</p>
+<h3>2.4 Protective factors</h3>
+<p><strong>None known genetically.</strong> Environmentally the only "protective" thing in the literature is downstream and therapeutic, not preventive: <strong>pyridoxine (vitamin B6) supplementation</strong> appears to protect against seizure burden in a subset (see §12). No evidence for dietary or lifestyle primary prevention.</p>
+<h3>2.5 Gene–environment interactions</h3>
+<p>The one credible G×E axis is <strong>nutrient-level</strong>, and it is elegant: elevated ALP in the circulation degrades <strong>pyridoxal 5′-phosphate (PLP)</strong>, the active B6 vitamer, reducing its availability across the blood-brain barrier. Less PLP → less GABA synthesis (PLP is the cofactor for glutamate decarboxylase) → seizures. So a <em>genetic</em> enzyme-trafficking defect creates an <em>acquired, nutritionally correctable</em> cofactor deficiency in the CNS. Documented directly in CSF: an HPMRS3 patient had <strong>CSF PLP 8 nmol/L (ref 10–37)</strong> and <strong>CSF 5-MTHF 66 nmol/L (ref 72–172)</strong>, both normalizing on pyridoxine 100 mg BD + folinic acid 15 mg daily (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9830023/">Messina et al., <em>JIMD Rep</em> 2023, PMID:36636587</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotypes — PIGV/HPMRS1 (HPO annotations for <a href="https://bioregistry.io/OMIM:239300" target="_blank" rel="noopener noreferrer">OMIM:239300</a>, with n/N frequencies)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Frequency (HPO/OMIM)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Elevated circulating alkaline phosphatase</td>
+<td><code>HP:0003155</code></td>
+<td><strong>7/7 (100%)</strong></td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td><code>HP:0001249</code></td>
+<td><strong>7/7</strong></td>
+</tr>
+<tr>
+<td>Global developmental delay</td>
+<td><code>HP:0001263</code></td>
+<td><strong>7/7</strong></td>
+</tr>
+<tr>
+<td>Short distal phalanx of finger (brachytelephalangy)</td>
+<td><code>HP:0009882</code></td>
+<td><strong>7/7</strong></td>
+</tr>
+<tr>
+<td>Absent speech</td>
+<td><code>HP:0001344</code></td>
+<td><strong>6/6</strong></td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td><code>HP:0001252</code></td>
+<td><strong>5/5</strong></td>
+</tr>
+<tr>
+<td>Hypertelorism</td>
+<td><code>HP:0000316</code></td>
+<td>6/7</td>
+</tr>
+<tr>
+<td>Wide nasal bridge</td>
+<td><code>HP:0000431</code></td>
+<td>6/7</td>
+</tr>
+<tr>
+<td>Broad nasal tip</td>
+<td><code>HP:0000455</code></td>
+<td>6/7</td>
+</tr>
+<tr>
+<td>Downturned corners of mouth</td>
+<td><code>HP:0002714</code></td>
+<td>6/7</td>
+</tr>
+<tr>
+<td>Seizure</td>
+<td><code>HP:0001250</code></td>
+<td>3/5</td>
+</tr>
+<tr>
+<td>Abnormal rectum morphology</td>
+<td><code>HP:0002034</code></td>
+<td>4/7</td>
+</tr>
+<tr>
+<td>Sensorineural hearing impairment</td>
+<td><code>HP:0000407</code></td>
+<td>2/3</td>
+</tr>
+<tr>
+<td>Delayed ossification of carpal bones</td>
+<td><code>HP:0001216</code></td>
+<td>2/3</td>
+</tr>
+<tr>
+<td>Constipation</td>
+<td><code>HP:0002019</code></td>
+<td>2/5</td>
+</tr>
+<tr>
+<td>Anteriorly placed anus</td>
+<td><code>HP:0001545</code></td>
+<td>2/5</td>
+</tr>
+<tr>
+<td>Aganglionic megacolon (Hirschsprung)</td>
+<td><code>HP:0002251</code></td>
+<td>1/7</td>
+</tr>
+<tr>
+<td>Cleft palate</td>
+<td><code>HP:0000175</code></td>
+<td>1/7</td>
+</tr>
+<tr>
+<td>Cleft upper lip</td>
+<td><code>HP:0000204</code></td>
+<td>1/7</td>
+</tr>
+<tr>
+<td>Hydrocephalus</td>
+<td><code>HP:0000238</code></td>
+<td>1/3</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Additional HPO-annotated features without hard counts: severe intellectual disability <code>HP:0010864</code>, tented upper lip vermilion <code>HP:0010804</code>, thin upper lip vermilion <code>HP:0000219</code>, midface retrusion <code>HP:0011800</code>, short philtrum <code>HP:0000322</code>, short nose <code>HP:0003196</code>, long palpebral fissure <code>HP:0000637</code>, upslanted palpebral fissure <code>HP:0000582</code>, highly arched eyebrow <code>HP:0002553</code>, posteriorly rotated ears <code>HP:0000358</code>, malar flattening <code>HP:0000272</code>, mandibular prognathia <code>HP:0000303</code>, plagiocephaly <code>HP:0001357</code>, small nail <code>HP:0001792</code>, hyperconvex nail <code>HP:0001795</code>, tapered finger <code>HP:0001182</code>, short toe <code>HP:0001831</code>, delayed myelination <code>HP:0012448</code>, cerebral cortical atrophy <code>HP:0002120</code>, athetosis <code>HP:0002305</code>, abnormal renal morphology <code>HP:0012210</code>, abnormal heart morphology <code>HP:0001627</code>, abnormally large globe <code>HP:0001090</code>, feeding difficulties <code>HP:0011968</code>.</p>
+<h3>3.2 Pan-IGD cohort frequencies (n=83, Sidpra 2024 <em>Brain</em>)</h3>
+<p>This is the highest-quality frequency dataset available, though it spans all GPI genes, not Mabry-only. Curate it with an explicit note that the denominator is the broader IGD population.</p>
+<blockquote>
+<p>"Core clinical features were developmental delay or intellectual disability (DD/ID, 90%), seizures (83%), hypotonia (72%) and motor symptoms (64%)."</p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Feature</th>
+<th>Freq</th>
+<th>HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neuro</td>
+<td>Delayed/absent speech</td>
+<td><strong>95%</strong></td>
+<td><code>HP:0000750</code> / <code>HP:0001344</code></td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>DD/ID</td>
+<td><strong>90%</strong></td>
+<td><code>HP:0001263</code> / <code>HP:0001249</code></td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Seizures</td>
+<td><strong>83%</strong></td>
+<td><code>HP:0001250</code></td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Hypotonia</td>
+<td><strong>72%</strong></td>
+<td><code>HP:0001252</code></td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Motor symptoms</td>
+<td>64%</td>
+<td><code>HP:0002194</code></td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Non-ambulant</td>
+<td>64%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Severe-to-profound DD/ID</td>
+<td>59%</td>
+<td><code>HP:0011344</code></td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Developmental epileptic encephalopathy</td>
+<td>51% (35/69 with seizures)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Neuro</td>
+<td>Intractable/drug-resistant epilepsy</td>
+<td>57% (40/70)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Cerebral atrophy</td>
+<td><strong>75%</strong></td>
+<td><code>HP:0002059</code></td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Cerebellar atrophy</td>
+<td><strong>60%</strong></td>
+<td><code>HP:0001272</code></td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Symmetric restricted diffusion, central tegmental tracts</td>
+<td>60% (31/52 DWI)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Callosal anomalies</td>
+<td>57%</td>
+<td><code>HP:0002079</code></td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Hippocampal atrophy</td>
+<td>19%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Diffuse leukodystrophy</td>
+<td>16%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Craniosynostosis</td>
+<td>16%</td>
+<td><code>HP:0001363</code> (verify)</td>
+</tr>
+<tr>
+<td>Imaging</td>
+<td>Delayed myelination</td>
+<td>12%</td>
+<td><code>HP:0012448</code></td>
+</tr>
+<tr>
+<td>Systemic</td>
+<td>Any multisystem involvement</td>
+<td>72%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GI</td>
+<td>Any GI involvement</td>
+<td><strong>66%</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>GI</td>
+<td>Aspiration risk</td>
+<td>47%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GI</td>
+<td>GERD</td>
+<td>43%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GI</td>
+<td>Constipation</td>
+<td>23%</td>
+<td><code>HP:0012450</code></td>
+</tr>
+<tr>
+<td>MSK</td>
+<td>Musculoskeletal anomalies</td>
+<td>37%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MSK</td>
+<td>Scoliosis</td>
+<td>27%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>MSK</td>
+<td>Osteopenia</td>
+<td>19% (11/59)</td>
+<td><code>HP:0000938</code></td>
+</tr>
+<tr>
+<td>Cardiac</td>
+<td>Cardiac disease</td>
+<td>19%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cardiac</td>
+<td>Septal defects</td>
+<td>16%</td>
+<td><code>HP:0001631</code> / <code>HP:0001629</code></td>
+</tr>
+<tr>
+<td>Renal</td>
+<td>Renal involvement</td>
+<td>17%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Renal</td>
+<td>Hydronephrosis</td>
+<td>15%</td>
+<td><code>HP:0000126</code></td>
+</tr>
+<tr>
+<td>Renal</td>
+<td>Renal cysts</td>
+<td>5%</td>
+<td><code>HP:0000107</code></td>
+</tr>
+<tr>
+<td>Renal</td>
+<td>Renal dysplasia</td>
+<td>4%</td>
+<td><code>HP:0000110</code></td>
+</tr>
+<tr>
+<td>Dysmorphism</td>
+<td>Any dysmorphic feature</td>
+<td>83%</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Biochem</strong></td>
+<td><strong>Elevated ALP</strong></td>
+<td><strong>25% (17/68)</strong></td>
+<td><code>HP:0003155</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Critical curation caveat on that last row.</strong> In the broad IGD cohort only 25% had elevated ALP; 66% were normal and 9% were <em>low</em>. This is the single most important nuance in the disease: <strong>hyperphosphatasia is definitional for HPMRS/Mabry but is not universal across GPI defects, and — importantly — is not even fully reliable within HPMRS.</strong> A South African report describes two PGAP3-related Mabry patients with <em>unusually low</em> ALP. Curate hyperphosphatasia as a <strong>defining feature of the HPMRS subgroup</strong> with <code>frequency: VERY_FREQUENT</code> at the Mabry level, not as an obligate finding across GPI disease.</p>
+<p>Seizure semiology in the cohort (of 69 with seizures): focal motor 23%, epileptic spasms 23% (<code>HP:0011097</code>), generalized tonic-clonic 20% (<code>HP:0002069</code>), generalized myoclonic 20% (<code>HP:0032794</code>), status epilepticus 10%.</p>
+<h3>3.3 Phenotype characteristics</h3>
+<ul>
+<li><strong>Onset</strong>: neonatal to infantile. <strong>Median age at seizure onset 5.9 months</strong> (IQR 2.0–10.0). Developmental delay is apparent in the first year. Hyperphosphatasia is present from infancy and persists.</li>
+<li><strong>Severity</strong>: variable-to-severe; 59% severe-to-profound DD/ID. Horn et al.: <em>"the severe end of the clinical spectrum presents as a multiple congenital malformation syndrome with a high frequency of Hirschsprung disease, vesicoureteral, and renal anomalies as well as anorectal malformations."</em></li>
+<li><strong>Progression</strong>: this is the sleeper finding. The disease was long framed as static-encephalopathy-plus-epilepsy, but serial imaging says otherwise — <strong>progressive cerebral volume loss in 87.5% and progressive cerebellar atrophy in 70.8%, "indicating a neurodegenerative process."</strong> Cognitive/motor phenotype is largely static-to-slowly-declining; epilepsy is chronic and often refractory.</li>
+<li><strong>Course pattern</strong>: chronic, lifelong. Seizures episodic on a chronic substrate. Interestingly, the 1970 index patients <strong>stopped having spontaneous seizures in adulthood and came off anticonvulsants</strong> — evidence that the epilepsy phenotype can attenuate with age in milder genotypes.</li>
+</ul>
+<h3>3.4 Quality of life</h3>
+<p>No EQ-5D / SF-36 / PROMIS data exist for Mabry syndrome. Functional proxies from the Sidpra cohort: non-ambulance 64%, absent/delayed speech 95%, ongoing enteral feeding and cortical visual impairment both significantly more likely in the DEE group (P&lt;0.001 and P=0.007). Behavioral: ASD 4.8%, ADHD 2.4%. Practical burden is dominated by intractable epilepsy, feeding/aspiration, and total care dependence.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<p><strong>PIGV</strong> (<code>hgnc:26031</code>, OMIM <em>610274, chromosome </em><em>1p36.11</em><em>) — encodes </em><em>GPI mannosyltransferase 2 / GPI-MT-II</em><em>, an ER membrane enzyme adding the </em><em>second mannose</em>* to the GPI glycan backbone. Aliases: GPI-MT-II, PIG-V, dol-P-Man dependent GPI mannosyltransferase II. This is the flagship gene.</p>
+<p>Others as tabled in §2.1. <code>ALPL</code> (<code>hgnc:438</code>, tissue-nonspecific alkaline phosphatase) is not causal but is the <strong>biomarker substrate</strong> — it's the GPI-anchored protein whose mis-release produces the hyperphosphatasia.</p>
+<h3>4.2 Pathogenic variants</h3>
+<p><strong>PIGV c.1022C&gt;A, p.(Ala341Glu)</strong> — NM_017837.4, rs139073416, ClinVar VCV000001284, classified <strong>Pathogenic</strong>. Missense. Present in ~80% of PIGV-positive families. Functionally: <em>"Expression of the p.Ala341Glu variant protein was drastically reduced as compared to wild type"</em> — so it behaves as a <strong>hypomorph via reduced protein abundance/stability</strong>, not catalytic-site abolition.</p>
+<p>Other PIGV variants from Horn et al. (all novel at time of report): <strong>c.176T&gt;G, c.53G&gt;A, c.905T&gt;C, c.1405C&gt;T</strong>.</p>
+<p><strong>PIGO</strong> — compound heterozygous variants; mechanistically heterogeneous: <em>"The mutant transcripts are aberrantly spliced, decrease the membrane stability of the protein, or impair enzyme function such that GPI-anchor synthesis is affected and the level of GPI-anchored substrates localized at the cell surface is reduced"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22683086/">Krawitz et al., <em>AJHG</em> 2012, PMID:22683086</a>).</p>
+<p><strong>PGAP2</strong> — c.46C&gt;T p.(Arg16Trp), c.380T&gt;C p.(Leu127Ser), c.479C&gt;T p.(Thr160Ile) in the original report; transfection into PGAP2-null cells <em>"showed only partial restoration of GPI-anchored marker proteins, CD55 and CD59, on the cell surface"</em> — direct in vitro demonstration of the hypomorph model. The 1970 index family carries <strong>c.881C&gt;T p.(Thr294Met)</strong>. Also c.103del p.(Leu35Serfs*90) and c.134A&gt;G p.(His45Arg).</p>
+<p><strong>PGAP3</strong> — c.275G&gt;A p.(Gly92Asp) homozygous; c.439dupC p.(Leu147Profs<em>16) (frameshift → nonsense-mediated decay); c.914A&gt;G p.(Asp305Gly); c.314C&gt;G p.(Pro105Arg). PGAP3 also has </em><em>rare noncoding (intronic and 3′UTR) pathogenic variants</em>*, which panel-based testing routinely misses (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5084765/">Knaus et al., <em>Hum Mutat</em> 2016, PMC5084765</a>).</p>
+<p><strong>PIGW</strong> — compound heterozygous NM_178517: c.211A&gt;C, c.499A&gt;G (<a href="https://pubmed.ncbi.nlm.nih.gov/24367057/">Chiyonobu et al., <em>J Med Genet</em> 2014, PMID:24367057</a>).</p>
+<p><strong>PIGY</strong> — c.137T&gt;C p.(Leu46Pro) homozygous (severe: dysmorphism, seizures, severe DD, cataracts, early death); and a <strong>promoter variant c.-540G&gt;A</strong> predicted to disrupt an SP1 consensus binding site and shown to reduce gene expression (milder: moderate DD + microcephaly). Ilkovski et al. explicitly flag the lesson: <em>"the potential importance of analysing variants detected in 5′-UTR regions despite their typically low coverage in exome data."</em></p>
+<p><strong>Origin</strong>: exclusively <strong>germline</strong>, biallelic. No somatic contribution. No chromosomal abnormalities, aneuploidy, or CNV mechanism reported as a primary cause (though CMA remains part of a broad DD workup).</p>
+<p><strong>Functional consequence class</strong>: <strong>partial loss of function (hypomorphic)</strong> across the board. Complete null alleles are not compatible with life in this pathway — every reported patient retains residual GPI synthesis.</p>
+<h3>4.3 Modifier genes / epigenetics</h3>
+<p>No modifier genes established. No DNA-methylation or histone-modification signature has been reported for HPMRS (unlike, say, the well-characterized episignatures for some other ID syndromes). <strong>This is a genuine knowledge gap worth curating as <code>kind: KNOWLEDGE_GAP</code>.</strong></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Not applicable.</strong> No environmental factors, lifestyle factors, or infectious agents contribute to causation. The disease is fully genetically determined. The only environmental variable of consequence is <strong>B6 vitamer availability</strong>, which is a <em>therapeutic</em> lever rather than an etiologic one (§2.5, §12).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Here is where it gets genuinely lovely. Think of the GPI anchor as a lipid anchor-bolt built stepwise on the ER membrane, then handed off to a rivet gun (the GPI transamidase) that swaps a protein's C-terminal signal peptide for the anchor. Two ways to break it: build a bad bolt (PIGV/PIGO/PIGW/PIGY, ER), or fumble the finishing work after riveting (PGAP2/PGAP3, Golgi). Both routes end with alkaline phosphatase floating free in the blood — but for <em>different reasons</em>.</p>
+<h3>6.1 The causal chain — biosynthesis arm (PIGV, PIGO, PIGW, PIGY)</h3>
+<p><strong>Node 1 — Hypomorphic GPI-pathway enzyme deficiency</strong> (<code>biological_scale: MOLECULAR</code>)
+Reduced enzyme abundance/activity in the ER. GO: <strong>GPI anchor biosynthetic process <code>GO:0006506</code></strong>; <strong>GPI mannosyltransferase activity <code>GO:0004376</code></strong>; <strong>mannosyltransferase activity <code>GO:0000030</code></strong>; located in <strong>endoplasmic reticulum membrane <code>GO:0005789</code></strong>.
+↓
+<strong>Node 2 — Accumulation of incomplete, mannose-bearing GPI intermediates</strong> (<code>MOLECULAR</code>)
+The pathway stalls mid-assembly. This is the mechanistically decisive step.
+↓
+<strong>Node 3a — Transamidase-mediated release of soluble alkaline phosphatase</strong> (<code>MOLECULAR</code>)
+The killer insight from <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3307314/">Murakami et al., <em>J Biol Chem</em> 2012;287:6318–25, PMID:22228761</a>: the GPI transamidase doesn't just refuse to work — it works <em>badly</em>. It recognizes the truncated mannose-bearing intermediate, cleaves the C-terminal hydrophobic signal peptide off ALP anyway, and releases the enzyme as a <strong>soluble, unanchored protein into the medium/serum</strong>. GO: <strong>alkaline phosphatase activity <code>GO:0004035</code></strong>.</p>
+<p>The 2024 review states the model concretely: <em>"the proximity of the nascent peptide to an incomplete GPI anchor with at least one mannose may result in the recruitment of a portion of the transamidase, PIGU, that directs the catalytic subunit, PIGK, to cleave the GPI recognition sequence and liberate the non-GPI-anchored, soluble AP."</em></p>
+<p><strong>The elegant control experiment</strong>: in <strong>PIGM</strong> deficiency, only <em>non-mannosylated</em> intermediates (GlcN-acyl-PI) accumulate, the transamidase is not efficiently engaged, ALP is degraded intracellularly — <strong>and there is no hyperphosphatasia</strong>. That's why some GPI defects have high ALP and others don't. It's a mannose-dependent switch. <strong>This belongs in the pathophysiology graph as an explicit branch condition.</strong>
+↓
+<strong>Node 3b — Reduced cell-surface display of GPI-anchored proteins</strong> (<code>CELLULAR</code>)
+CD55, CD59, CD16, FLAER-binding GPI core all reduced on granulocytes and fibroblasts. Ilkovski measured <em>"significantly reduced levels of GPI-anchored proteins (CD55 and CD59) on the surface of patient-derived skin fibroblasts (~20–50% compared with controls)."</em> This is the arm that actually causes the <em>disease</em>; the ALP release is mostly the arm that causes the <em>lab abnormality</em>.
+↓
+<strong>Node 4 — Impaired neuronal GPI-AP-dependent signaling and synaptic function</strong> (<code>CELLULAR</code>)
+GPI-APs include ephrin-A ligands, contactins, NCAM-120, Thy-1, glypicans, RECK, prion protein — a whole guild of axon-guidance, synapse-organizing and cell-adhesion molecules. GO: <strong>chemical synaptic transmission <code>GO:0007268</code></strong>; <strong>synapse <code>GO:0045202</code></strong>. Mouse data (§15) show reduced hippocampal synaptophysin, decreased excitatory synaptic transmission, elevated paired-pulse ratio, and downregulated <em>Abl1</em> across cell types — <em>Abl1</em> interacts with multiple EphrinA receptors, tying the transcriptomic hit back to GPI-anchored ephrin signaling.
+↓
+<strong>Node 5a — Abnormal brain development and progressive neurodegeneration</strong> (<code>TISSUE</code>)
+Cerebral atrophy 75%, cerebellar atrophy 60%, callosal anomalies 57%, delayed myelination; serial imaging shows <strong>progression</strong> in 87.5%/70.8%. UBERON: <strong>brain <code>UBERON:0000955</code></strong>, <strong>cerebellum <code>UBERON:0002037</code></strong>, <strong>hippocampal formation <code>UBERON:0002421</code></strong>, <strong>corpus callosum <code>UBERON:0002336</code></strong>.
+↓
+<strong>Node 5b — Circulating pyridoxal-5′-phosphate depletion</strong> (<code>ORGANISM</code>)
+Free serum/tissue ALP degrades PLP; CSF PLP falls; GABA synthesis falls. Direct human evidence: CSF PLP 8 nmol/L (ref 10–37), CSF 5-MTHF 66 (ref 72–172), both correcting on supplementation.
+↓
+<strong>Node 6 — Seizures and developmental epileptic encephalopathy</strong> (<code>ORGANISM</code>)
+Two converging inputs: the structural/synaptic substrate (Node 5a) and the cofactor-deficiency substrate (Node 5b). The second is the treatable one — which is exactly why pyridoxine helps <em>some</em> patients partially and never achieves seizure freedom in most: you can top up the cofactor, but you can't rebuild the synapse.</p>
+<h3>6.2 The causal chain — remodeling arm (PGAP2, PGAP3)</h3>
+<p>Divergent from Node 2 onward, and mechanistically distinct even though the endpoint looks the same:</p>
+<ul>
+<li><strong>PGAP3 deficiency</strong>: failure to deacylate the sn-2 unsaturated fatty acid. The unremodeled anchor is a substrate for <strong>GPI-specific phospholipase C</strong>, which releases the protein.</li>
+<li><strong>PGAP2 deficiency</strong>: failure to reacylate with <strong>stearic acid</strong>. <strong>Phospholipase D</strong> then <em>"cleaves the lyso-GPI intermediate, resulting in transport of the unstable anchor and its attached protein, alkaline phosphatase, to the extracellular compartment."</em></li>
+</ul>
+<p>Either way the anchor fails to partition into <strong>lipid rafts</strong> — PGAP2/3 remodeling <em>"is required for stable association between GPI-anchored proteins and the cell-surface membrane rafts."</em> GO: <strong>Golgi membrane <code>GO:0000139</code></strong>.</p>
+<p><strong>Curation note</strong>: the biosynthesis arm and remodeling arm should be <strong>two distinct pathophysiology sub-branches converging on a shared downstream node</strong> ("soluble ALP release" + "GPI-AP surface deficiency"). This is a textbook case for a mechanism module if dismech ever factors out <em>GPI anchor biosynthesis defect</em> as a conserved module — the same trigger→consequence chain recurs across ~24 genes and ~20 named disorders.</p>
+<h3>6.3 Phenotype-stage correlation (mechanistically meaningful)</h3>
+<p>Sidpra 2024 found <strong>synthesis-stage gene variants → significantly shorter time to seizure onset</strong> (median 5.6 mo) than transamidase/remodeling-stage variants (median 7.0 mo), log-rank <strong>P = 0.046</strong>. And the 2024 Genes HPO analysis across 152 patients / 22 genes found <strong>biosynthesis defects → 33% abnormal digit morphology vs remodeling defects → 6.7%</strong>, with biosynthesis defects showing greater muscle/tendon/joint involvement. So the <em>step in the pathway</em> is itself a phenotype-modifying variable. Worth an explicit <code>mechanistic_hypotheses</code> group.</p>
+<h3>6.4 Cell types, compartments, immune, metabolic</h3>
+<ul>
+<li><strong>Cell types (CL)</strong>: neuron <code>CL:0000540</code> (primary target), microglial cell <code>CL:0000129</code> (transcriptomically most-perturbed cluster in the Pigv mouse — 306 genes downregulated in one microglial subgroup, enriched for small-GTPase-mediated signal transduction), neutrophil/granulocyte <code>CL:0000775</code> (diagnostic readout tissue), fibroblast <code>CL:0000057</code> (diagnostic readout), osteoblast <code>CL:0000062</code> (ALPL source).</li>
+<li><strong>Subcellular (GO CC)</strong>: <strong>endoplasmic reticulum membrane <code>GO:0005789</code></strong> (PIGV/PIGO/PIGW/PIGY), <strong>Golgi membrane <code>GO:0000139</code></strong> (PGAP2/PGAP3), plasma membrane / lipid raft microdomains. <em>(Note: <code>GO:0031225</code> "anchored component of membrane" and <code>GO:0016254</code> "preassembly of GPI anchor in ER membrane" are both </em><em>obsolete</em><em> in current GO — do not use them.)</em></li>
+<li><strong>Immune involvement</strong>: mechanistically present but clinically quiet. CD55 and CD59 are complement regulators; their loss is what causes paroxysmal nocturnal hemoglobinuria in <em>somatic</em> PIGA mutation. In inherited GPI deficiency the loss is partial and the hemolytic phenotype does <strong>not</strong> occur — a nice negative result to record. The Pgap3-knockout mouse does show <em>"altered T cell proliferation response and increased susceptibility to EAE."</em></li>
+<li><strong>Metabolic</strong>: no classical intermediary-metabolism block. Serum transferrin and transferrin isoelectric focusing are <strong>normal</strong> (22 and 19 individuals tested) — so despite being classified as a CDG, <strong>HPMRS does not produce the N-glycosylation transferrin abnormality</strong>. Clinically important: a normal CDG transferrin screen does not exclude this disease.</li>
+<li><strong>Tissue damage mechanism</strong>: not oxidative/ischemic/fibrotic. It is <strong>developmental mis-wiring plus progressive volume loss</strong> — a neurodevelopmental-then-neurodegenerative dual process.</li>
+<li><strong>Molecular profiling available</strong>: single-cell RNA-seq of Pigv341E mouse hippocampus (see §15) is the only omics dataset. No human transcriptomic, proteomic, metabolomic, lipidomic, spatial, or CRISPR-screen data specific to Mabry syndrome. Substantial gap.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Primary organ</strong>: brain (<code>UBERON:0000955</code>) — cerebral cortex, cerebellum (<code>UBERON:0002037</code>), hippocampal formation (<code>UBERON:0002421</code>), corpus callosum (<code>UBERON:0002336</code>), central tegmental tracts (brainstem; symmetric restricted diffusion in 60% is a notably specific radiologic sign).</p>
+<p><strong>Body systems</strong> (with cohort frequencies): nervous (≈100%), gastrointestinal (66%; colon <code>UBERON:0001155</code> — Hirschsprung, anorectal malformation, constipation, GERD, aspiration), musculoskeletal (37%; bone element <code>UBERON:0001474</code> — brachytelephalangy, scoliosis, osteopenia, delayed carpal ossification), cardiovascular (19%; heart <code>UBERON:0000948</code> — septal defects), renal/urinary (17%; kidney <code>UBERON:0002113</code> — hydronephrosis, cysts, dysplasia, vesicoureteral anomalies), auditory (sensorineural hearing loss), visual (cortical visual impairment; cataracts in severe PIGY), craniofacial (dysmorphism in 82–83%).</p>
+<p><strong>Lateralization</strong>: bilateral and symmetric throughout. The central-tegmental-tract diffusion restriction is explicitly described as <strong>symmetric</strong>.</p>
+<p><strong>Tissue types</strong>: neural tissue (neurons, glia) primary; enteric nervous system (neural crest derivative — the Hirschsprung link is a neurocristopathy signal worth flagging); bone and connective tissue secondary.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset</strong>: congenital/neonatal-to-infantile. Hypotonia and dysmorphism at birth; developmental delay within the first year; <strong>median seizure onset 5.9 months (IQR 2.0–10.0)</strong>. Orphanet lists age of onset as infancy/neonatal.</li>
+<li><strong>Onset pattern</strong>: chronic/insidious for the developmental phenotype; seizures may present acutely, sometimes as <strong>West syndrome with hypsarrhythmia</strong> (the PIGW index case).</li>
+<li><strong>Stages</strong>: no formal staging system exists. A pragmatic natural-history framing: (1) neonatal hypotonia + dysmorphism + incidental hyperphosphatasia; (2) infantile seizure onset ± developmental epileptic encephalopathy; (3) childhood plateau with intractable epilepsy, feeding difficulty, non-ambulance; (4) progressive volume loss on serial imaging; (5) in milder genotypes, possible adult seizure remission.</li>
+<li><strong>Progression rate</strong>: variable, generally slow. Severe end = death in early childhood; mild end = survival to adulthood with stable disability.</li>
+<li><strong>Course</strong>: chronic and lifelong; epilepsy is relapsing/refractory in 57%.</li>
+<li><strong>Remission</strong>: spontaneous seizure remission in adulthood is documented in the 1970 index patients — <em>"During adulthood, however, 1-VI-4 and 1-VI-16 no longer experienced spontaneous seizures and were no longer administered anticonvulsants."</em> Treatment-induced complete seizure control on pyridoxine occurred in 4/22 trialed individuals.</li>
+<li><strong>Critical periods</strong>: the first year — seizure onset window and the period of maximal synaptogenesis. The AAV gene-therapy mouse work delivered vector on <strong>postnatal day 1</strong>, implying a narrow neonatal therapeutic window for any future disease-modifying approach.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Prevalence</strong>: <strong>&lt;1 / 1,000,000</strong> (Orphanet <a href="https://bioregistry.io/ORPHA:247262" target="_blank" rel="noopener noreferrer">ORPHA:247262</a>). In <code>PrevalenceClassEnum</code> terms → <code>BELOW_1_IN_1000000</code>, <code>rate_per_100000</code> ≈ 0.1 or lower, <code>measure_type: POINT_PREVALENCE</code>. Fewer than ~100 HPMRS patients reported for the common subtypes; some subtypes (PIGY, PIGW) have single-digit case counts. The broader review counts 1–85 reported cases per gene across all 24 IGD genes and states plainly: <em>"there are currently no established diagnostic guidelines for this rare disease."</em></li>
+<li><strong>Denominator context</strong>: the Deciphering Developmental Disorders study suggests <strong>GPI biosynthesis disorders collectively account for ~0.15% of individuals with developmental disability</strong> — a useful <code>CASES_IN_LITERATURE</code>-adjacent figure, but note it's the whole GPIBD family, not Mabry alone.</li>
+<li><strong>Incidence</strong>: not established.</li>
+<li><strong>Inheritance</strong>: <strong>autosomal recessive</strong> (<code>HP:0000007</code>) for all six subtypes. Recurrence risk 25% per pregnancy.</li>
+<li><strong>Penetrance</strong>: complete in biallelic carriers, as far as reported. No non-penetrant homozygotes described.</li>
+<li><strong>Expressivity</strong>: <strong>highly variable</strong>, both between and within genes. Horn: <em>"PIGV mutations are the major cause of HPMRS, which displays a broad clinical variability regarding associated malformations and growth patterns."</em> PIGY is the extreme case — the same gene gives lethal multisystem disease (p.Leu46Pro) and moderate DD + microcephaly (promoter variant), tracking residual expression level.</li>
+<li><strong>Anticipation</strong>: none — no repeat expansion mechanism.</li>
+<li><strong>Germline mosaicism</strong>: not reported.</li>
+<li><strong>Founder effect</strong>: PIGV c.1022C&gt;A in Europeans (German/Northern European), ~0.02% European allele frequency in gnomAD.</li>
+<li><strong>Carrier frequency</strong>: not systematically established. Back-of-envelope from the PIGV A341E European AF of ~2.4×10⁻⁴ → carrier frequency ~1/2,100 for that allele alone. <strong>Treat as an estimate, not a sourced figure.</strong></li>
+<li><strong>Consanguinity</strong>: a major factor for PGAP3, PIGY, PGAP2 — several index families were consanguineous (Pakistani, Saudi, South African cohorts).</li>
+<li><strong>Population/geography</strong>: reported worldwide — Germany, Netherlands, Canada, USA, Japan, Pakistan, Saudi Arabia, Italy, South Africa, UK. PIGV skews European; PGAP3 is over-represented in South Asian and Middle Eastern consanguineous populations.</li>
+<li><strong>Sex ratio</strong>: 1:1, as expected for autosomal recessive. No sex bias reported.</li>
+<li><strong>Age distribution</strong>: overwhelmingly pediatric in published series (median follow-up 2.9 years). The oldest individual in the Sidpra cohort was <strong>20 years</strong> (compound heterozygous PIGT). The 1970 index patients born 1952 and 1958 survived into their 60s — so long survival is achievable at the mild end.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Laboratory / biomarkers</h3>
+<ul>
+<li><strong>Serum alkaline phosphatase</strong> (LOINC 6768-6, <em>Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma</em>). Persistently elevated, typically the entry point to diagnosis. <strong>Caveat, restated because it matters: elevated in only 25% of the broad IGD cohort; normal or even low ALP does not exclude Mabry, particularly PGAP3.</strong> Isoenzyme fractionation confirms it is <strong>tissue-nonspecific ALP</strong> (ALPL), not the intestinal or placental isoform, and it is <em>not</em> accompanied by bone disease.</li>
+<li><strong>Flow cytometry for GPI-anchored proteins</strong> — the functional confirmatory assay. Panel: <strong>CD16 and CD24 on granulocytes; CD14 on monocytes; CD55 and CD59 on granulocytes/erythrocytes/fibroblasts; FLAER</strong> (fluorescently-labeled aerolysin), which <em>"pan-specifically recognize[s] the core GPI structure."</em> Chiyonobu: <em>"flow cytometric analysis of blood cells is effective in screening IGD."</em> One important limitation from Knaus 2018: <em>"Flow cytometric markers"</em> showed <strong>no gene-specific patterns and no correlation with phenotypic severity</strong> — flow tells you <em>whether</em>, not <em>which</em> or <em>how bad</em>.</li>
+<li><strong>CSF neurotransmitter/vitamer panel</strong> — CSF pyridoxal 5′-phosphate, 5-methyltetrahydrofolate, homovanillic acid. Underused and directly actionable, since low PLP/5-MTHF predicts response to pyridoxine + folinic acid.</li>
+<li><strong>Serum transferrin isoelectric focusing</strong> — <strong>normal</strong>. Do not use to screen for this CDG.</li>
+</ul>
+<h3>10.2 Imaging</h3>
+<p>Brain MRI including DWI. Look for: cerebral atrophy, cerebellar atrophy, callosal anomalies, and the relatively distinctive <strong>symmetric restricted diffusion of the central tegmental tracts</strong> (60%). Serial MRI is warranted given documented progression. Hand radiographs for brachytelephalangy and delayed carpal ossification. Renal ultrasound, echocardiography. Contrast enema / rectal suction biopsy if Hirschsprung is suspected.</p>
+<h3>10.3 Electrophysiology</h3>
+<p>EEG — may show <strong>hypsarrhythmia</strong> (West syndrome presentation, documented with PIGW). Otherwise variable epileptiform patterns matching the mixed semiology.</p>
+<h3>10.4 Genetic testing</h3>
+<p>Recommended tiering:
+1. <strong>Whole exome or whole genome sequencing</strong> as first-line for undiagnosed DD/ID + seizures ± high ALP. The 2024 review argues explicitly for <strong>WGS combined with RNA sequencing as "a first line diagnostic method,"</strong> because <em>"traditional panel-based approaches may miss intronic and 3′UTR variants"</em> — a warning earned the hard way by the noncoding PGAP3 and promoter PIGY variants.
+2. <strong>Targeted GPI-pathway gene panel</strong> — historically productive: Hansen/Krawitz <em>"developed a diagnostic gene panel for targeting all known genes encoding proteins in the GPI-anchor-synthesis pathway."</em> Must cover all ~31 pathway genes plus UTRs/promoters to be adequate.
+3. <strong>Single-gene PIGV testing</strong> — reasonable only in a classic phenotype with the c.1022C&gt;A founder allele suspected.
+4. <strong>CMA/karyotype/FISH</strong> — part of a generic DD workup; will not diagnose this disease.
+5. <strong>mtDNA / repeat expansion testing</strong> — not applicable.</p>
+<p><strong>Automated facial phenotyping is a genuinely useful diagnostic adjunct here.</strong> Knaus 2018 found <em>"facial recognition software achieved the highest accuracy in predicting the disease-causing gene"</em> — beating flow cytometry and clinical features. The 2024 review adds: <em>"automated facial analysis, for example by GestaltMatcher, enables more accurate gene assignment in GPI patients compared to experienced clinicians."</em> Patients with PIGV and PGAP3 variants have the most distinctive facial gestalts.</p>
+<h3>10.5 Clinical criteria and differential</h3>
+<p>No formal consensus diagnostic criteria exist. Horn's working criteria: <strong>intellectual disability + elevated serum alkaline phosphatase</strong> as minimal criteria.</p>
+<p><strong>Differential diagnosis</strong> (all should be curated as <code>differentials</code>):
+- <strong>Transient hyperphosphatasemia of infancy</strong> — benign, self-resolving in weeks-to-months, no neurologic features. The single most common thing to rule out.
+- <strong>Hypophosphatasia</strong> (<code>MONDO</code> ALPL) — the exact mirror image: <em>low</em> ALP. Conceptually satisfying to hold both in mind.
+- <strong>Vitamin D deficiency rickets, healing fractures, Paget disease, hepatobiliary disease, bone tumors</strong> — non-genetic causes of raised ALP.
+- <strong>Other GPI biosynthesis defects without hyperphosphatasia</strong> — MCAHS (multiple congenital anomalies-hypotonia-seizures syndrome; PIGN, PIGT, PIGA), PIGA-related DEE, PGAP1-related ID. Knaus 2018 argues for collapsing these labels: <em>"The authors recommend unified classification as GPIBDs given overlapping clinical presentations and biochemical findings across both syndrome categories."</em>
+- <strong>Other CDGs</strong> — distinguishable by abnormal transferrin IEF (abnormal in classical CDG, <strong>normal</strong> in HPMRS).
+- <strong>Pyridoxine-dependent epilepsy (ALDH7A1)</strong> and <strong>PNPO deficiency</strong> — both B6-responsive, both in the seizure differential; distinguished by α-AASA/pipecolic acid and by genotype.
+- Kabuki syndrome, Coffin-Siris, and other dysmorphic ID syndromes on gestalt alone.</p>
+<h3>10.6 Screening</h3>
+<ul>
+<li><strong>Newborn screening</strong>: not included in any national NBS panel. No validated screening assay.</li>
+<li><strong>Carrier screening</strong>: PIGV/PIGO/PGAP2/PGAP3 appear on some expanded carrier screening panels; no population program.</li>
+<li><strong>Cascade testing</strong>: standard for at-risk siblings and for reproductive planning in known families.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality</strong>: <strong>15/83 (18%) deceased</strong> at time of writing in the Sidpra cohort, with <strong>median survival 1.5 years (IQR 1.4–2.8)</strong> among those who died. Causes: respiratory failure secondary to recurrent infection (5/15), seizure-related death (5/15 — 3 post-ictal cardiorespiratory failure, 2 intractable status epilepticus), <strong>SUDEP (4/15)</strong>, GI complications (1/15). Note the SUDEP signal is echoed in the Mabry index family, where two members <em>"died of sudden unexpected nocturnal frontal lobe epilepsy (SUDEP) despite anticonvulsant medication."</em> <strong>SUDEP risk counseling is warranted.</strong></li>
+<li><strong>Survival at the mild end</strong>: the 1970 index patients (born 1952 and 1958, PGAP2 p.Thr294Met) survived into their 60s with relative phenotypic stability. Oldest in the modern cohort: 20 years. So the survival distribution is genuinely bimodal — severe genotypes die in infancy/early childhood; mild ones reach adulthood.</li>
+<li><strong>No 5-/10-year survival statistics exist.</strong> Do not fabricate them.</li>
+<li><strong>Morbidity</strong>: severe. Non-ambulant 64%, absent/delayed speech 95%, severe-to-profound DD/ID 59%, intractable epilepsy 57%, ongoing enteral feeding in the DEE group, cortical visual impairment, osteopenia 19%.</li>
+<li><strong>Recovery potential</strong>: none for the neurodevelopmental phenotype. Seizure burden is partially modifiable.</li>
+<li><strong>Prognostic factors</strong> (all statistically supported in Sidpra 2024):</li>
+<li><strong>Developmental epileptic encephalopathy (51%)</strong> is the dominant adverse prognostic marker → intractable epilepsy (P=0.003), non-ambulance (P=0.035), ongoing enteral feeds (P&lt;0.001), cortical visual impairment (P=0.007).</li>
+<li>Conversely, developmental encephalopathy <em>without</em> DEE → significantly more likely to achieve seizure control (P=0.003) and to achieve it on <strong>monotherapy</strong> (P=0.010).</li>
+<li><strong>Pathway stage</strong>: synthesis-stage genes → earlier seizure onset (P=0.046).</li>
+<li><strong>Neuroimaging</strong> features are described as <em>"prognostic and biologically significant"</em> — cerebral atrophy, cerebellar atrophy, callosal anomalies, central tegmental tract restricted diffusion.</li>
+<li><strong>Prognostic biomarkers</strong>: none validated. ALP level does <strong>not</strong> correlate with severity, and neither do flow-cytometry GPI-AP levels (Knaus 2018: no correlation with phenotypic severity). Genotype (specific variant + pathway stage) is currently the best predictor. Sidpra used <strong>unsupervised hierarchical clustering</strong> to identify <em>"novel genotypic predictors of clinical phenotype and long-term outcome with meaningful implications for management."</em></li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no disease-modifying therapy in clinical use</strong>. Management is supportive plus one intriguing partially-effective cofactor intervention.</p>
+<h3>12.1 Pyridoxine / pyridoxal-5′-phosphate — the signature intervention</h3>
+<p><strong>MAXO: <code>MAXO:0001131</code> pyridoxine supplementation</strong> (also <code>MAXO:0001129</code> vitamin supplementation, <code>MAXO:0000761</code> B vitamin supplementation). <strong>CHEBI: <code>CHEBI:16709</code> pyridoxine</strong>, <code>CHEBI:18405</code> pyridoxal 5′-phosphate. Modality: <code>SMALL_MOLECULE</code>.</p>
+<p><strong>Rationale</strong>: soluble ALP degrades PLP → CNS PLP deficiency → reduced glutamate decarboxylase activity → reduced GABA → seizures. Supplementation restores the cofactor pool.</p>
+<p><strong>Evidence, in order of rigor:</strong>
+- <strong>Prospective open-label multicenter pilot, n=9, Japan</strong> — oral pyridoxine <strong>20–30 mg/kg/day for 1 year</strong>: <em>"One year of daily high-dose pyridoxine treatment was effective in the treatment of seizures in more than half of our patients with IGDs and modestly improved development in the majority of them."</em>
+- <strong>Prospective cohort, n=7, ages 5–23, 3 months, pyridoxine 20–30 mg/kg/day ± switch to P5P</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35080266/">Bayat et al., <em>Dev Med Child Neurol</em> 2022;64:789–798, PMID:35080266</a>): <em>"more than 50% seizure frequency reduction in 2 out of 7 and less than 50% reduction in another 3 out of 7 participants."</em> Critically: <em>"no participants reached seizure freedom"</em> and electrophysiological improvement was minimal. Conclusion: <em>"pyridoxine may reduce seizure frequency or burden in inherited GPI deficiency."</em>
+- <strong>Retrospective cohort, n=22 trialed of 83</strong> (Sidpra 2024): complete seizure control in 4, partial in 3. <strong>One individual had a paradoxical increase in seizure frequency.</strong> <em>"No association was found between pyridoxine dose and seizure control."</em>
+- <strong>Case-level, HPMRS3, with biochemical target engagement</strong> (Messina 2023): pyridoxine <strong>100 mg twice daily</strong> + folinic acid 15 mg daily → complete normalization of CSF PLP, 5-MTHF, and HVA, <em>"with concurrent improvements in speech and fine motor skills."</em>
+- <strong>Case series, HPMRS3 + HPMRS4</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12503530/"><em>Mol Syndromol</em> 2025/2026, PMID:41064048</a>): high-dose pyridoxine, patient 1 <em>"no seizures...during follow-up,"</em> patient 2 <em>"no seizures...during the 8-month follow-up."</em></p>
+<p><strong>Honest summary for the KB</strong>: response rate roughly 30–55% for meaningful seizure reduction, seizure freedom uncommon, no dose-response relationship established, occasional paradoxical worsening, and <strong>PGAP2/HPMRS3 appears the most responsive subtype</strong>. The 2024 review calls for standardizing dosing and defining the <em>"dose, route of administration and vitamer species that produces seizure suppression in 50% of patients."</em> Also worth noting: high-dose pyridoxine carries a real risk of <strong>sensory peripheral neuropathy</strong> at chronic high exposure — a monitoring requirement that the primary literature underplays.</p>
+<p><strong>Folinic acid</strong> (<code>CHEBI:15640</code> 5-formyltetrahydrofolic acid) — co-administered where CSF 5-MTHF is low; 15 mg daily in the reported case.</p>
+<h3>12.2 Antiseizure medication</h3>
+<p><strong>MAXO: <code>MAXO:0000167</code> anticonvulsant agent therapy.</strong> No agent is specifically indicated. <strong>Levetiracetam</strong> (<code>CHEBI:6437</code>) was the most-used, appearing in <em>"38.5% of individuals (15/39) as part of a polytherapeutic regimen."</em> 57% have drug-resistant epilepsy. <strong>No individuals underwent epilepsy surgery</strong> in the 83-person cohort — surgical candidacy is essentially absent given the diffuse/genetic substrate. Ketogenic diet (<code>MAXO:0030010</code>) has not been systematically evaluated — a gap.</p>
+<h3>12.3 Supportive and rehabilitative</h3>
+<ul>
+<li>Physical therapy <code>MAXO:0000011</code>, occupational therapy <code>MAXO:0001351</code>, speech therapy <code>MAXO:0000930</code></li>
+<li>Gastrostomy <code>MAXO:0001346</code> for aspiration risk (47%) and feeding difficulty</li>
+<li>Supportive care <code>MAXO:0000950</code></li>
+<li>Surgical: Hirschsprung pull-through, anorectal malformation repair, cardiac septal defect repair, cleft palate repair, scoliosis management</li>
+<li>Bone health monitoring given 19% osteopenia</li>
+<li>Genetic counseling <code>MAXO:0000079</code></li>
+</ul>
+<h3>12.4 Experimental / advanced therapeutics</h3>
+<ul>
+<li><strong>AAV gene therapy</strong> — preclinical only. AAV-PHP.eB carrying human <em>PIGA</em> under a CAG promoter, delivered on postnatal day 1 into Nestin-<em>Piga</em> conditional knockout mice: improved neurologic function and survival, enhanced myelination, <strong>elimination of spontaneous seizures in female mice</strong>, hPIGA expression reaching endogenous levels by day 25 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10988122/"><em>Mol Ther Methods Clin Dev</em> 2024, PMID:38572066</a>). <strong>Safety flag</strong>: treated females surviving to 1 year developed <strong>liver tumors associated with <em>Rian</em> overexpression</strong> — the known AAV integration risk in neonatal delivery. Targets PIGA, not any HPMRS gene, so it's a proof-of-concept for the pathway rather than for Mabry specifically. Modality: <code>GENE_THERAPY</code>.</li>
+<li><strong>Synthetic GPI fragment supplementation</strong> — in vitro efficacy shown only.</li>
+<li><strong>No registered clinical trials specific to Mabry syndrome / HPMRS were identified on ClinicalTrials.gov.</strong> The CDG natural-history study at the Frontiers in CDG Consortium (FCDGC) enrolls PGAP3-CDG patients and is the most relevant ongoing study; verify its NCT before curating.</li>
+<li><strong>Pharmacogenomics</strong>: none established. No genotype-guided drug selection beyond the (weak) signal that PGAP2/HPMRS3 may be more pyridoxine-responsive.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention</strong>: not possible — the disease is fully determined at conception. The only lever is reproductive: <strong>genetic counseling</strong> (<code>MAXO:0000079</code>), carrier testing of relatives, and, for couples with a prior affected child, <strong>preimplantation genetic testing (PGT-M)</strong> or <strong>prenatal diagnosis</strong> by CVS/amniocentesis with targeted variant testing. 25% recurrence risk per pregnancy.</li>
+<li><strong>Secondary prevention (early detection)</strong>: no newborn or population screening program. The practical secondary-prevention move is diagnostic-pathway design — <strong>checking serum ALP in any infant with unexplained developmental delay and seizures</strong>, and not dismissing a normal ALP. Earlier molecular diagnosis enables earlier pyridoxine trial and accurate counseling.</li>
+<li><strong>Tertiary prevention (complication avoidance)</strong>: this is where most of the actionable work lives — aggressive seizure management to reduce status epilepticus and SUDEP risk; aspiration precautions and gastrostomy given 47% aspiration risk and 5/15 deaths from respiratory failure; bone density surveillance; scoliosis monitoring; renal and cardiac imaging at diagnosis; hearing and vision assessment.</li>
+<li><strong>Immunization</strong>: standard childhood schedule. No contraindication, no special vaccine strategy. Given respiratory-infection mortality, <strong>influenza, RSV, and pneumococcal immunization deserve emphasis</strong> as a rational (if unstudied) intervention.</li>
+<li><strong>Public health / environmental interventions</strong>: not applicable.</li>
+<li><strong>Prophylaxis</strong>: no established prophylactic medication. Rescue benzodiazepine protocols for prolonged seizures are standard practice.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy</strong>: GPI anchoring is one of the deepest-conserved post-translational modifications in eukaryotes — present in yeast (<em>Saccharomyces cerevisiae</em>, NCBITaxon:4932), trypanosomes, <em>Plasmodium</em>, and all metazoa. The pathway genes have clear orthologs in <em>Mus musculus</em> (NCBITaxon:10090), <em>Rattus norvegicus</em> (10116), <em>Danio rerio</em> (7955), <em>Drosophila melanogaster</em> (7227), <em>C. elegans</em> (6239).</li>
+<li><strong>Orthologs</strong>: mouse <em>Pigv</em> (<a href="https://bioregistry.io/MGI:2442480" target="_blank" rel="noopener noreferrer">MGI:2442480</a>), mouse <em>Pgap3</em> (<a href="https://bioregistry.io/MGI:2444461" target="_blank" rel="noopener noreferrer">MGI:2444461</a>), rat <em>Pigv</em> (<a href="https://bioregistry.io/RGD:1349310" target="_blank" rel="noopener noreferrer">RGD:1349310</a>), plus orthologs of all six HPMRS genes.</li>
+<li><strong>Naturally occurring disease in other species</strong>: <strong>none reported.</strong> No OMIA entry for a spontaneous animal HPMRS phenotype; no companion-animal or wildlife equivalent. Every animal model is engineered.</li>
+<li><strong>Breed associations (VBO)</strong>: not applicable.</li>
+<li><strong>Comparative pathology</strong>: yeast GPI mannosyltransferase mutants are lethal and can be complemented by trypanosomal/plasmodial PigB proteins — good evidence of deep functional conservation of the mannosyltransferase step. The mouse <em>Pigv</em> A341E knock-in recapitulates the human phenotype well (§15), supporting cross-species conservation of the neurodevelopmental consequence.</li>
+<li><strong>Zoonotic potential / cross-species transmission</strong>: not applicable — this is a germline Mendelian disorder.</li>
+<li><strong>Veterinary relevance</strong>: none.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 The flagship: <em>Pigv</em><sup>341E</sup> knock-in mouse</h3>
+<p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7812744/">Rodríguez de los Santos et al., <em>PNAS</em> 2021;118:e2014481118, PMID:33402532</a> — CRISPR-Cas9 knock-in of the exact human founder allele at the conserved mouse residue: <em>"we used CRISPR-Cas9 to introduce the most prevalent hypomorphic missense mutation in European patients, Pigv:c.1022C &gt; A (p.A341E), at a site that is conserved in mice."</em> Model type: <strong>mammalian, germline knock-in, humanized point mutation</strong> — about as faithful as a rodent model gets.</p>
+<p><strong>Phenotype recapitulation:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Finding</th>
+<th>Human counterpart</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Motor</td>
+<td>Reduced rotarod latency, elevated beam-traversal latency, abnormal fore-/hindpaw gait, hindlimb clasping</td>
+<td>Motor delay 64%, hypotonia 72%</td>
+</tr>
+<tr>
+<td>Growth</td>
+<td>Reduced weight from early postnatal life</td>
+<td>Growth abnormalities reported in HPMRS</td>
+</tr>
+<tr>
+<td>Cognition</td>
+<td>Delayed spatial learning; <em>"impaired long-term spatial memory at day 12"</em> (Barnes maze); short-term working memory intact</td>
+<td>DD/ID 90%</td>
+</tr>
+<tr>
+<td>Species-typical behavior</td>
+<td>Fewer marbles buried, lower-quality nests</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Social</td>
+<td><em>"enhanced social approach behavior"</em> — increased nose-to-anogenital contacts, decreased rearing</td>
+<td>Divergent from human; see limitations</td>
+</tr>
+<tr>
+<td>Sleep</td>
+<td>Reduced total sleep, more active during light phase</td>
+<td>Circadian/sleep disturbance under-characterized in humans</td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>PTZ kindling: <em>"significantly lower seizure threshold"</em>; first seizure at 63.3 min vs 93.3 min in WT; <strong>all</strong> mutants seized vs 4 WT never seizing after 10 injections</td>
+<td>Seizures 83%, DEE 51%</td>
+</tr>
+<tr>
+<td>Synaptic</td>
+<td><em>"decreased immunoreactivity for synaptophysin in cornu ammonis 1–stratum radiatum"</em>; reduced EPSP amplitude; elevated paired-pulse ratio; elevated post-tetanic potentiation</td>
+<td>Mechanistic — no direct human counterpart</td>
+</tr>
+<tr>
+<td>Transcriptomic</td>
+<td>scRNA-seq: <em>Abl1</em> downregulated across all hippocampal cell clusters (links to GPI-anchored ephrin-A signaling); <em>Hdc</em> (histidine decarboxylase) elevated (candidate for sleep/circadian phenotype); 306 genes down in a microglial subgroup</td>
+<td>Mechanistic</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Limitations</strong>: mice show <strong>enhanced</strong> rather than reduced sociability — opposite in valence to human phenotypes, and a caution against over-reading the social domain. Seizures required PTZ provocation; the model is seizure-<em>susceptible</em>, not spontaneously epileptic. <strong>Alkaline phosphatase was not quantified</strong>, so the model does not directly validate the hyperphosphatasia biomarker. Facial dysmorphism, brachytelephalangy, Hirschsprung, and renal/cardiac anomalies are not reported. Progressive cerebral/cerebellar atrophy is not demonstrated.</p>
+<p><strong>Curation note</strong>: this pattern — a well-validated mouse recapitulating the neurologic core while diverging on sociability and leaving the defining biomarker unmeasured — is a good candidate for a <code>kind: HUMAN_MODEL_MISMATCH</code> discussion entry rather than a plain knowledge gap, per the dismech convention. Evidence source: <code>MODEL_ORGANISM</code>.</p>
+<h3>15.2 Other models</h3>
+<ul>
+<li><strong><em>Pgap3</em> knockout mouse</strong> (<a href="https://bioregistry.io/MGI:2444461" target="_blank" rel="noopener noreferrer">MGI:2444461</a>): <em>"abnormal head and tail morphology, growth retardation, limb grasping, altered T cell proliferation response and increased susceptibility to EAE."</em> Original purpose was immunological — probing fatty-acid remodeling of GPI-APs; in the KO, <em>"GPI-APs are expressed on the cell surface without fatty acid remodeling, and fail to associate with lipid rafts."</em> Note the phenotype includes the same limb-grasping/growth-retardation neurologic signature.</li>
+<li><strong>PGAP3 developmental studies</strong>: a dedicated paper on PGAP3's <em>"novel role in brain morphogenesis and neuronal wiring at early development"</em> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7569840/">PMC7569840</a>) — relevant to the developmental arm of the mechanism.</li>
+<li><strong>Nestin-<em>Piga</em> conditional knockout mouse</strong> — CNS-specific <em>Piga</em> deletion from E11.5; used as the gene-therapy testbed. Severe: untreated survival ~3 weeks (males) to ~3 months (females). Models a different gene but the same pathway.</li>
+<li><strong>CHO cell mutant lines</strong> defective at defined GPI biosynthesis steps — the workhorse in vitro system. Murakami used these to demonstrate the transamidase-dependent ALP-release mechanism; Howard used CHO complementation to validate PGAP3 missense pathogenicity; Krawitz/Hansen used PGAP2-null cells for CD55/CD59 rescue assays. Evidence source: <code>IN_VITRO</code>.</li>
+<li><strong>Patient-derived skin fibroblasts</strong> — used for CD55/CD59 flow cytometry (20–50% of control levels in PIGY patients). <code>IN_VITRO</code>.</li>
+<li><strong>Yeast complementation assays</strong> for GPI mannosyltransferase function. <code>IN_VITRO</code>.</li>
+<li><strong>Not available</strong>: no zebrafish, <em>Drosophila</em>, <em>C. elegans</em>, iPSC-derived neuron, organoid, or MorPhiC model of any HPMRS gene was identified. Given that PIGV/PGAP3 are strong candidates for iPSC-derived neuronal phenotyping, this is a real and citable gap.</li>
+</ul>
+<p><strong>Databases</strong>: MGI (Pigv <a href="https://bioregistry.io/MGI:2442480" target="_blank" rel="noopener noreferrer">MGI:2442480</a>, Pgap3 <a href="https://bioregistry.io/MGI:2444461" target="_blank" rel="noopener noreferrer">MGI:2444461</a>), RGD (Pigv <a href="https://bioregistry.io/RGD:1349310" target="_blank" rel="noopener noreferrer">RGD:1349310</a>), IMPC/KOMP for pathway-gene knockouts, Alliance of Genome Resources for orthology.</p>
+<hr />
+<h2>16. Curation summary — suggested dismech structure</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>dismech section</th>
+<th>Recommended content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>disease_term</code></td>
+<td><code>MONDO:0016596</code> if entry is "Mabry syndrome"; <code>MONDO:0009398</code> only if renamed to HPMRS1</td>
+</tr>
+<tr>
+<td><code>has_subtypes</code></td>
+<td>HPMRS1–6, names <code>HPMRS1</code>…<code>HPMRS6</code>, <code>display_name</code> with gene</td>
+</tr>
+<tr>
+<td><code>inheritance</code></td>
+<td>Autosomal recessive, <code>HP:0000007</code></td>
+</tr>
+<tr>
+<td><code>genetic</code></td>
+<td>6 genes with HGNC terms as tabled; <code>case_fractions</code> for PIGV (~80% of PIGV-positive families carry c.1022C&gt;A)</td>
+</tr>
+<tr>
+<td><code>pathophysiology</code></td>
+<td>Two-arm chain per §6: biosynthesis (MOLECULAR→CELLULAR) and remodeling (MOLECULAR), converging on soluble-ALP-release + GPI-AP surface deficiency, → synaptic dysfunction (CELLULAR) → brain atrophy (TISSUE) → seizures/DD (ORGANISM); plus the PLP-depletion side branch</td>
+</tr>
+<tr>
+<td><code>phenotypes</code></td>
+<td>§3.1 for HPMRS1 with n/N frequencies; §3.2 pan-IGD frequencies with explicit denominator note</td>
+</tr>
+<tr>
+<td><code>biochemical</code></td>
+<td>Serum ALP with <code>reference_ranges</code>; CSF PLP (ref 10–37 nmol/L) and CSF 5-MTHF (ref 72–172 nmol/L) with <code>interpretation_bands</code></td>
+</tr>
+<tr>
+<td><code>prevalence</code></td>
+<td><code>BELOW_1_IN_1000000</code>, <code>POINT_PREVALENCE</code>, source <code>ORPHA:247262</code></td>
+</tr>
+<tr>
+<td><code>treatments</code></td>
+<td>Pyridoxine (<code>MAXO:0001131</code> + <code>CHEBI:16709</code>), folinic acid, anticonvulsant therapy (<code>MAXO:0000167</code>), gastrostomy, PT/OT/speech, genetic counseling</td>
+</tr>
+<tr>
+<td><code>discussions</code></td>
+<td><code>KNOWLEDGE_GAP</code>: no episignature, no human omics, no ketogenic-diet data, no NCT-registered interventional trial. <code>HUMAN_MODEL_MISMATCH</code>: Pigv341E sociability inversion + unmeasured ALP</td>
+</tr>
+<tr>
+<td><code>mechanistic_hypotheses</code></td>
+<td>(a) mannose-dependent transamidase switch explains why some GPI defects have hyperphosphatasia and others don't — <code>status: ESTABLISHED</code>; (b) ALP-mediated PLP depletion as the treatable seizure mechanism — <code>status: EMERGING</code>; (c) pathway-stage-determines-phenotype — <code>status: EMERGING</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Two things to double-check before you commit</strong>: the ICD-11 code and the MeSH descriptor are both unverified above — I'd leave them out rather than guess. And run <code>just fetch-reference</code> on every PMID here before quoting; the abstracts above came from PubMed/PMC directly, but the dismech snippet validator wants its own cache, and a couple of the quotes are stitched from PMC full text rather than the abstract proper, which will fail substring matching.</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20802478/">Krawitz PM et al. <em>Nat Genet</em> 2010;42:827–9 — PIGV (PMID:20802478)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22683086/">Krawitz PM et al. <em>Am J Hum Genet</em> 2012 — PIGO (PMID:22683086)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3307314/">Murakami Y et al. <em>J Biol Chem</em> 2012;287:6318–25 — ALP release mechanism (PMID:22228761)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23561847/">Hansen L / Krawitz P et al. <em>Am J Hum Genet</em> 2013 — PGAP2 (PMID:23561847)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24129430/">Horn D et al. <em>Eur J Hum Genet</em> 2014 — PIGV mutation spectrum (PMID:24129430)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24439110/">Howard MF et al. <em>Am J Hum Genet</em> 2014 — PGAP3 (PMID:24439110)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24367057/">Chiyonobu T et al. <em>J Med Genet</em> 2014 — PIGW / West syndrome (PMID:24367057)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26293662/">Ilkovski B et al. <em>Hum Mol Genet</em> 2015 — PIGY (PMID:26293662)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5084765/">Knaus A et al. <em>Hum Mutat</em> 2016 — noncoding PGAP3 variants (PMC5084765)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29310717/">Knaus A et al. <em>Genome Med</em> 2018 — flow cytometry + facial image analysis (PMID:29310717)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7812744/">Rodríguez de los Santos M et al. <em>PNAS</em> 2021 — Pigv341E mouse (PMID:33402532)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35080266/">Bayat A et al. <em>Dev Med Child Neurol</em> 2022;64:789–798 — pyridoxine/P5P cohort (PMID:35080266)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9830023/">Messina M et al. <em>JIMD Rep</em> 2023 — HPMRS3 CSF abnormalities (PMID:36636587)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9957281/">Thompson MD et al. <em>Genes</em> 2023 — excluding digenic PGAP2/PGAP3 (PMC9957281)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37647829/">PGAP3-CDG: 65 cases. <em>Mol Genet Metab</em> 2023 (PMID:37647829)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11292905/">Sidpra J et al. <em>Brain</em> 2024;147:2775–2790 — 83-individual IGD cohort (PMC11292905)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11121671/">Thompson MD et al. <em>Genes</em> 2024 — Mabry index cases + GPI disorders (PMID:38790248)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11466713/">Inherited GPI deficiency review. <em>Acta Biochim Biophys Sin</em> 2024 (PMID:39081219)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10988122/">AAV gene therapy for GPI deficiency. <em>Mol Ther Methods Clin Dev</em> 2024 (PMID:38572066)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12503530/">HPMRS3/HPMRS4 pyridoxine case series. <em>Mol Syndromol</em> 2025 (PMID:41064048)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22315194/">Thompson MD et al. <em>Am J Med Genet A</em> 2012 — phenotypic variability (PMID:22315194)</a></li>
+<li><a href="https://www.jpeds.com/article/S0022-3476(70)80047-6/abstract">Mabry CC et al. <em>J Pediatr</em> 1970;77:74–85 — original description</a></li>
+<li><a href="https://omim.org/entry/239300">OMIM #239300 HPMRS1</a></li>
+<li><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=en&amp;Expert=247262">Orphanet ORPHA:247262</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/1284/">ClinVar VCV000001284 — PIGV p.Ala341Glu</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Lysosomal_Acid_Phosphatase_Deficiency-falcon.html">← Lysosomal Acid Phosphatase Deficiency (Falcon)</a>
+                
+                
+                <a href="Machado_Joseph_Disease-falcon.html">Machado-Joseph Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Mabry_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Mabry_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -17,11 +17,11 @@ Alias: synonyms
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
-| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
-| [Biochemical](../classes/Biochemical.md) |  |  no  |
 | [Pathophysiology](../classes/Pathophysiology.md) |  |  no  |
+| [Biochemical](../classes/Biochemical.md) |  |  no  |
+| [Variant](../classes/Variant.md) | A genetic variant associated with a disease, including coding and non-coding ... |  no  |
 | [Disease](../classes/Disease.md) |  |  no  |
+| [Environmental](../classes/Environmental.md) | An environmental factor, exposure, or context relevant to disease |  no  |
 
 
 
