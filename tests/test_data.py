@@ -43,6 +43,12 @@ MODULE_FILES = glob.glob(str(MODULES_DIR / "*.yaml"))
 # Groupings are excluded: they reference modules through criteria `module:`
 # slots (checked by test_grouping_module_references), not `conforms_to`.
 CONFORMS_TO_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
+# Modules use the same Disease class and carry the same model sections, so
+# model-link checks span both trees. The two older per-section foreign-key tests
+# above predate this and still cover disorders only.
+MODEL_BEARING_FILES = DISORDER_FILES + MODULE_FILES
+# Model sections whose entries may carry `modeled_mechanisms` links.
+MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
@@ -960,6 +966,174 @@ def test_computational_model_mechanism_targets(filepath):
         f"Computational model mechanism mismatches in {Path(filepath).name}. "
         f"Valid targets: {valid_targets}. Bad refs: {errors}"
     )
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_animal_model_mechanism_targets(filepath):
+    """Animal model links should reference declared pathophysiology nodes."""
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    valid_targets = {
+        item["name"]
+        for item in data.get("pathophysiology", [])
+        if isinstance(item, dict) and item.get("name")
+    }
+    if not valid_targets:
+        return
+
+    errors = []
+    for i, model in enumerate(data.get("animal_models", [])):
+        for j, link in enumerate(model.get("modeled_mechanisms", [])):
+            target = link.get("target")
+            if target and target not in valid_targets:
+                errors.append(
+                    f"animal_models[{i}].modeled_mechanisms[{j}].target={target!r}"
+                )
+
+    assert not errors, (
+        f"Animal model mechanism mismatches in {Path(filepath).name}. "
+        f"Valid targets: {valid_targets}. Bad refs: {errors}"
+    )
+
+
+def _iter_mechanism_links(data):
+    """Yield (section, model_index, link_index, model, link) across model sections."""
+    for section in MODEL_SECTIONS:
+        for i, model in enumerate(data.get(section, []) or []):
+            if not isinstance(model, dict):
+                continue
+            for j, link in enumerate(model.get("modeled_mechanisms", []) or []):
+                if isinstance(link, dict):
+                    yield section, i, j, model, link
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_model_readout_targets_match_link(filepath):
+    """A readout's target must repeat its link's target.
+
+    `target` is required on ExperimentalReadout so a readout stays
+    self-describing once the graph and KGX exporters lift it out of its link.
+    That redundancy only holds if the two agree, so drift is an error.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        link_target = link.get("target")
+        for k, readout in enumerate(link.get("readouts", []) or []):
+            if not isinstance(readout, dict):
+                continue
+            readout_target = readout.get("target")
+            if readout_target != link_target:
+                errors.append(
+                    f"{section}[{i}].modeled_mechanisms[{j}].readouts[{k}]"
+                    f".target={readout_target!r} != link target {link_target!r}"
+                )
+
+    assert not errors, f"Model readout target drift in {Path(filepath).name}: {errors}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_failure_to_recapitulate_links_are_substantiated(filepath):
+    """FAILS_TO_RECAPITULATE is a negative claim and must be substantiated.
+
+    Link evidence is only `recommended` in general, so incremental curation of
+    the existing model entries is not blocked. Asserting that a model does NOT
+    reproduce a human mechanism is a different matter: it is the structural
+    signal behind a HUMAN_MODEL_MISMATCH discussion, so it requires both the
+    caveat (`limitations`) and a citation.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = []
+    for section, i, j, _model, link in _iter_mechanism_links(data):
+        if link.get("relationship") != "FAILS_TO_RECAPITULATE":
+            continue
+        where = f"{section}[{i}].modeled_mechanisms[{j}]"
+        if not (link.get("limitations") or "").strip():
+            errors.append(f"{where} missing limitations")
+        if not link.get("evidence"):
+            errors.append(f"{where} missing evidence")
+
+    assert not errors, (
+        f"Unsubstantiated FAILS_TO_RECAPITULATE links in "
+        f"{Path(filepath).name}: {errors}"
+    )
+
+
+def test_animal_model_mechanism_fk_catches_bad_refs(tmp_path):
+    """An animal-model link pointing at an undeclared node must be caught."""
+    disease = {
+        "name": "Bad Animal Link",
+        "pathophysiology": [{"name": "Real Node"}],
+        "animal_models": [
+            {
+                "name": "Probe mouse",
+                "species": "Mus musculus",
+                "modeled_mechanisms": [{"target": "Node 99 (not declared)"}],
+            }
+        ],
+    }
+    fake_path = tmp_path / "BadAnimalLink.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    with pytest.raises(AssertionError, match="Node 99"):
+        test_animal_model_mechanism_targets(str(fake_path))
+
+
+def test_readout_target_drift_is_caught(tmp_path):
+    """A readout target that disagrees with its link target must be caught."""
+    disease = {
+        "name": "Drifted Readout",
+        "pathophysiology": [{"name": "Real Node"}, {"name": "Other Node"}],
+        "animal_models": [
+            {
+                "name": "Probe mouse",
+                "species": "Mus musculus",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Real Node",
+                        "readouts": [{"name": "R", "target": "Other Node"}],
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "DriftedReadout.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    with pytest.raises(AssertionError, match="Other Node"):
+        test_model_readout_targets_match_link(str(fake_path))
+
+
+def test_unsubstantiated_failure_to_recapitulate_is_caught(tmp_path):
+    """FAILS_TO_RECAPITULATE without limitations or evidence must be caught."""
+    disease = {
+        "name": "Bare Negative Claim",
+        "pathophysiology": [{"name": "Real Node"}],
+        "experimental_models": [
+            {
+                "name": "Probe organoid",
+                "modeled_mechanisms": [
+                    {
+                        "target": "Real Node",
+                        "relationship": "FAILS_TO_RECAPITULATE",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "BareNegative.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    with pytest.raises(AssertionError, match="missing limitations"):
+        test_failure_to_recapitulate_links_are_substantiated(str(fake_path))
 
 
 @pytest.mark.kb_data

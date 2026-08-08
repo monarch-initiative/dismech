@@ -1028,8 +1028,60 @@ def _collect_experimental_model_links(
                 link_data["model_type"] = model["experimental_model_type"]
             if model.get("namo_type"):
                 link_data["namo_type"] = model["namo_type"]
-            if link.get("description"):
-                link_data["description"] = link["description"]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
+            links_by_target[str(target)].append(link_data)
+
+    return links_by_target
+
+
+def animal_model_label(model: dict[str, Any]) -> str | None:
+    """Return a display label for an animal model.
+
+    `name` is optional on AnimalModel, so fall back to a genotype/species
+    label for the 400-odd entries curated before the slot existed. The fallback
+    is not stable across edits and can collide within one file, which is why
+    `name` is recommended once a model carries `modeled_mechanisms`.
+    """
+    name = (model.get("name") or "").strip()
+    if name:
+        return name
+    parts = [
+        str(model[key]).strip()
+        for key in ("genotype", "species")
+        if (model.get(key) or "").strip()
+    ]
+    return " ".join(parts) or None
+
+
+def _collect_animal_model_links(
+    disorder: dict[str, Any],
+) -> dict[str, list[dict[str, Any]]]:
+    """Collect animal model links keyed by target pathophysiology node name."""
+    links_by_target: dict[str, list[dict[str, Any]]] = defaultdict(list)
+
+    for model in disorder.get("animal_models", []) or []:
+        if not isinstance(model, dict):
+            continue
+        model_name = animal_model_label(model)
+        if not model_name:
+            continue
+
+        for link in model.get("modeled_mechanisms", []) or []:
+            if not isinstance(link, dict):
+                continue
+            target = link.get("target")
+            if not target:
+                continue
+
+            link_data: dict[str, Any] = {"name": model_name}
+            for model_key in ("species", "genotype", "background", "category"):
+                if model.get(model_key):
+                    link_data[model_key] = model[model_key]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
             links_by_target[str(target)].append(link_data)
 
     return links_by_target
@@ -1062,8 +1114,9 @@ def _collect_computational_model_links(
                 link_data["model_software"] = model["model_software"]
             if model.get("model_format"):
                 link_data["model_format"] = model["model_format"]
-            if link.get("description"):
-                link_data["description"] = link["description"]
+            for link_key in ("relationship", "fidelity", "description"):
+                if link.get(link_key):
+                    link_data[link_key] = link[link_key]
             links_by_target[str(target)].append(link_data)
 
     return links_by_target
@@ -1175,6 +1228,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         if "name" in variant:
             item_lookup[variant["name"]] = variant
     model_links_by_target = _collect_experimental_model_links(disorder)
+    animal_model_links_by_target = _collect_animal_model_links(disorder)
     computational_model_links_by_target = _collect_computational_model_links(disorder)
     histopathology_links_by_key = _collect_histopathology_links(disorder)
 
@@ -1223,6 +1277,10 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         if name in model_links_by_target:
             node_data.setdefault("meta", {})["experimental_models"] = (
                 model_links_by_target[name]
+            )
+        if name in animal_model_links_by_target:
+            node_data.setdefault("meta", {})["animal_models"] = (
+                animal_model_links_by_target[name]
             )
         if name in computational_model_links_by_target:
             node_data.setdefault("meta", {})["computational_models"] = (

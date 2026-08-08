@@ -3054,6 +3054,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3682,10 +3706,10 @@
     </div>
     {% endmacro %}
 
-    {% macro render_experiment_readout(readout) %}
+    {% macro render_experiment_readout(readout, show_target=true) %}
     <div class="experiment-subitem">
         <div class="experiment-subitem-name">{{ readout.name or 'Readout' }}</div>
-        {% if readout.target %}
+        {% if readout.target and show_target %}
         <div class="entity-ref-list">{{ render_entity_ref(readout.target) }}</div>
         {% endif %}
         {% if readout.description %}
@@ -3707,6 +3731,49 @@
         {% endif %}
         {{ render_evidence(readout.evidence, max_visible=1) }}
     </div>
+    {% endmacro %}
+
+    {#
+      Pathograph links for a model (experimental / animal / computational). All
+      three use the same ModelMechanismLink object, so they share one renderer:
+      what the model does to the node, how faithfully, the caveat, and the
+      outcome measures that ground the claim. A readout's `target` repeats the
+      link's target by design, so it is suppressed here.
+    #}
+    {% macro render_model_mechanism_links(links) %}
+    {% if links %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+            {% for link in links %}
+            <div class="crosslink-item">
+                <a href="#{{ link._target_anchor }}">{{ link.target }}</a>
+                {% if link.relationship %}
+                <span class="crosslink-meta">{{ link.relationship | replace('_', ' ') | lower }}</span>
+                {% endif %}
+                {% if link.fidelity %}
+                <span class="crosslink-meta">fidelity: {{ link.fidelity | lower }}</span>
+                {% endif %}
+                {% if link.description %}
+                <span class="crosslink-desc">{{ link.description }}</span>
+                {% endif %}
+                {% if link.limitations %}
+                <div class="mapping-notes">Limitations: {{ link.limitations }}</div>
+                {% endif %}
+                {% if link.readouts %}
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+                    {% for readout in link.readouts %}
+                    {{ render_experiment_readout(readout, show_target=false) }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {{ render_evidence(link.evidence, max_visible=1) }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     {% endmacro %}
 
     {% macro render_experiment_control(control) %}
@@ -4144,10 +4211,12 @@
         {% set datasets_count = (disorder.datasets or []) | length %}
         {% set trials_count = (disorder.clinical_trials or []) | length %}
         {% set experimental_models = disorder.experimental_models or [] %}
+        {% set animal_models = disorder.animal_models or [] %}
         {% set computational_models = disorder.computational_models or [] %}
         {% set experimental_models_count = experimental_models | length %}
+        {% set animal_models_count = animal_models | length %}
         {% set computational_models_count = computational_models | length %}
-        {% set models_count = experimental_models_count + computational_models_count %}
+        {% set models_count = experimental_models_count + animal_models_count + computational_models_count %}
         {% set references_count = (disorder.references or []) | length %}
         {% set literature_count = (literature_sections or []) | length %}
         {% set reports_count = (report_sections or []) | length %}
@@ -5186,6 +5255,27 @@
                     </div>
                 </div>
                 {% endif %}
+                {% if patho._animal_model_links %}
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Animal models</div>
+                    <div class="crosslink-list">
+                        {% for link in patho._animal_model_links %}
+                        <div class="crosslink-item">
+                            <a href="#{{ link.model_anchor }}">{{ link.model_name }}</a>
+                            {% if link.species %}
+                            <span class="crosslink-meta">{{ link.species }}</span>
+                            {% endif %}
+                            {% if link.relationship %}
+                            <span class="crosslink-meta">{{ link.relationship | replace('_', ' ') | lower }}</span>
+                            {% endif %}
+                            {% if link.description %}
+                            <span class="crosslink-desc">{{ link.description }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
 	                {% if patho._computational_model_links %}
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Computational models</div>
@@ -6202,23 +6292,88 @@
                     {% endif %}
                 </div>
                 {% endif %}
-                {% if model._modeled_mechanisms_resolved %}
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
-                        {% for link in model._modeled_mechanisms_resolved %}
-                        <div class="crosslink-item">
-                            <a href="#{{ link._target_anchor }}">{{ link.target }}</a>
-                            {% if link.description %}
-                            <span class="crosslink-desc">{{ link.description }}</span>
-                            {% endif %}
-                            {{ render_evidence(link.evidence, max_visible=1) }}
-                        </div>
-                        {% endfor %}
-                    </div>
+                {{ render_model_mechanism_links(model._modeled_mechanisms_resolved) }}
+                {{ render_findings(model.findings) }}
+                {% if model.notes %}
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">{{ model.notes }}</div>
+                {% endif %}
+                {{ render_evidence(model.evidence) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Animal Models -->
+        {% if animal_models %}
+        <div id="animal-models"></div>
+        <div class="card"{% if not experimental_models %} id="models"{% endif %}>
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">{{ animal_models | length }}</span>
+            </div>
+            {% for model in animal_models %}
+            {% set model_label = model._display_name or model.name or model.genotype or model.species %}
+            <div class="item-box exp-model-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %} data-dismech-node="{{ model_label | e }}" data-dismech-type="animal_model">
+                <div class="item-name">
+                    {{ model_label }}
+                    {% if model.category %}
+                    <span class="tag tag-exp-model-type">{{ model.category }}</span>
+                    {% endif %}
+                </div>
+                {% if model.description %}
+                <div class="item-desc">{{ model.description }}</div>
+                {% endif %}
+                {% if model.associated_phenotypes %}
+                <div class="tag-list" style="margin-top: 10px;">
+                    {% for phenotype in model.associated_phenotypes %}
+                    <span class="tag tag-phenotype">{{ phenotype }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
-                {{ render_findings(model.findings) }}
+                {% if model.species or model.genotype or model.background or model.alleles or model.genes or model.publication %}
+                <div class="model-detail-list">
+                    {% if model.species %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">{{ model.species }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.genotype %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">{{ model.genotype }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.background %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">{{ model.background }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.alleles %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Alleles</div>
+                        <div class="model-detail-value">{{ model.alleles | join(', ') }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.genes %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">{{ render_descriptor_tags(model.genes, "tag-gene") }}</div>
+                    </div>
+                    {% endif %}
+                    {% if model.publication %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+                            {{ render_curie_link(model.publication) }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {{ render_model_mechanism_links(model._modeled_mechanisms_resolved) }}
                 {% if model.notes %}
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">{{ model.notes }}</div>
                 {% endif %}
@@ -6230,7 +6385,7 @@
 
         <!-- Computational Models -->
         {% if computational_models %}
-        <div class="card"{% if not experimental_models %} id="models"{% endif %}>
+        <div class="card"{% if not experimental_models and not animal_models %} id="models"{% endif %}>
             <div class="card-header">
                 <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
                 <h2 class="card-title">Computational Models</h2>
@@ -6433,22 +6588,7 @@
                     </div>
                 </details>
                 {% endif %}
-                {% if model._modeled_mechanisms_resolved %}
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
-                        {% for link in model._modeled_mechanisms_resolved %}
-                        <div class="crosslink-item">
-                            <a href="#{{ link._target_anchor }}">{{ link.target }}</a>
-                            {% if link.description %}
-                            <span class="crosslink-desc">{{ link.description }}</span>
-                            {% endif %}
-                            {{ render_evidence(link.evidence, max_visible=1) }}
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
+                {{ render_model_mechanism_links(model._modeled_mechanisms_resolved) }}
                 {{ render_findings(model.findings) }}
                 {% if model.notes %}
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">{{ model.notes }}</div>
