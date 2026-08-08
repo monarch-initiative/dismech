@@ -24,7 +24,7 @@ Deficiency of any enzyme in this pathway causes severe neonatal/infantile mitoch
 
 - Curate all three lipoylation pathway disorders with evidence-backed pathophysiology
 - Map phenotypes to HPO terms with frequency data where available
-- Annotate treatments with MAXO terms
+- Annotate treatments with NCIT terms
 - Capture genotype-phenotype distinctions (e.g., LIPT1 spares glycine cleavage)
 - Provide PMID-supported evidence for all mechanistic and clinical claims
 
@@ -86,6 +86,6 @@ For ultra-rare Mendelian disorders, direct PubMed/OMIM-guided curation was the p
 ## Curation Workflow
 
 1. Create YAML file in `kb/disorders/`
-2. Validate with `just validate` and `just validate-references`
-3. Validate terms with `just validate-terms-file`
+2. Validate with `just validate <file>` and `just validate-references <file>`
+3. Validate terms with `just validate-terms <file>`
 4. Run `just qc` before committing

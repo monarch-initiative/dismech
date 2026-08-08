@@ -135,6 +135,10 @@ For comprehensive biomedical literature research, we recommend **Edison Scientif
 
 (The Edison literature tool was originally called Falcon, hence the filenames this makes will be called `*-falcon.md`)
 
+Note that the Edison API key, unlike other keys, should be written as just the plain key, not with the "keyname:" prefix.
+WRONG: EDISON_API_KEY=Edison-for-dismech2:asdfjlkajsdfklasjdf
+RIGHT: EDISON_API_KEY=asdfjlkajsdfklasjdf
+
 Note: if you are affiliated with an academic institution you should be able to request bonus credits with Edison
 
 **Alternative providers:** openscientist, perplexity, openai, cyberian (see `.claude/skills/initiate-new-disorder-creation/` for details).
@@ -231,6 +235,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    only allows an allowlist of package registries and GitHub, which blocks the
    literature/deep-research and structured-source hosts that dismech curation accesses
    (PubMed, ClinicalTrials.gov, Edison, OpenScientist, Orphanet, ClinGen).
+
 4. **Add your deep-research API keys** in the Environment variables field. This field
    uses `.env` format — one `KEY=value` per line, and **do not use quotes** (quotes are stored as part of the value):
    ```text
@@ -238,13 +243,21 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    OPENSCIENTIST_API_KEY=<YOUR_OPENSCIENTIST_KEY>
    ```
 
-  These are the same keys as the local setup — see
+   These are the same keys as the local setup — see
    [Set Up a Deep Research Provider](#3-set-up-a-deep-research-provider-required)
    above for how to obtain them. If you set these up locally, they're in whatever
    shell profile you exported them from (e.g. `~/.zshrc`).
 
    Note: the Environment variables field is plain text, not a secrets store — the values are
    visible to anyone who can open the environment's settings. On a personal account, that's only you.
+   
+5. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
+   ```
+   uv tool install rust-just
+   ```
+   If you don't do this, every session has to re-install `just` before curation can start.
+
+   Note that the "Setup script" is the home for any other one-time bootstraps that you may want to add.
 
 Setting up the cloud configuration is the only hard part. Once the environment exists, curation on the web works the same
 as on the command line — `/curate` a disorder, then create the PR when ready.
@@ -262,6 +275,9 @@ hit the ceiling. Prefer a **new session per disorder or small themed batch**,
 then let it finish; you can archive finished sessions from the sidebar to keep
 the list tidy. The environment config is reused automatically, so a new session
 costs you nothing to set up.
+
+**Tip: how to find (and potentially restart) your archived sessions.** In the sidebar, click the toggle icon next to Recents,
+choose "Status", and change from "Active" to "Archived" or "All".
 
 ## Curation Model: AI-Assisted with Human Oversight
 
@@ -419,7 +435,14 @@ just validate-all
 # Ontology term validation (catches fake/mismatched term IDs)
 just validate-terms
 
-# Reference validation (confirms snippets appear in cited papers)
+# Snippet check against the local reference cache (seconds — use this while you
+# curate; it accepts any number of files)
+just count-verified-snippets kb/disorders/YourFile.yaml
+
+# Before opening the PR: the batched schema + terms + references sweep CI runs
+just validate-disorders kb/disorders/YourFile.yaml
+
+# Reference validation for one file (slow; permits full-text matches)
 just validate-references kb/disorders/YourFile.yaml
 ```
 

@@ -26,14 +26,9 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-import yaml
-
+from dismech.export.utils import slugify
 from dismech.graph import build_causal_graph, graph_to_json
-
-
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug (matches browser_export)."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
+from dismech.yaml_io import safe_load
 
 
 def _disorder_term_id(disorder: dict[str, Any]) -> str | None:
@@ -106,7 +101,7 @@ class PathographExporter:
 
     def load_disorder(self, file_path: Path) -> dict[str, Any]:
         with open(file_path) as f:
-            return yaml.safe_load(f)
+            return safe_load(f)
 
     def export(self, disorder_files: list[Path], output_dir: Path) -> dict[str, int]:
         output_dir.mkdir(parents=True, exist_ok=True)

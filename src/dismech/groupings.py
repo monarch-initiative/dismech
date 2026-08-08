@@ -40,7 +40,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DISORDERS_DIR = ROOT_DIR / "kb" / "disorders"
@@ -248,7 +248,7 @@ def load_disease_index(
         if fp.endswith(".history.yaml"):
             continue
         with open(fp) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             index[data["name"]] = extract_disease_facts(data["name"], data)
     return index
@@ -498,7 +498,7 @@ def load_groupings_by_name(paths: Iterable[str | Path]) -> dict[str, dict]:
     groupings: dict[str, dict] = {}
     for path in paths:
         with open(path) as f:
-            data = yaml.safe_load(f)
+            data = safe_load(f)
         if isinstance(data, dict) and data.get("name"):
             groupings[str(data["name"])] = data
     return groupings
@@ -651,7 +651,7 @@ def _report(paths: list[str], strict: bool) -> int:
     exit_code = 0
     for path in paths:
         with open(path) as f:
-            grouping = yaml.safe_load(f)
+            grouping = safe_load(f)
         name = grouping.get("name", Path(path).stem)
         print(f"\n=== {name} ({Path(path).name}) ===")
 

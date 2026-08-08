@@ -7,6 +7,13 @@ This site covers the curation guides, the conceptual explanations, the data
 model, and the auto-generated schema reference. For the live knowledge base
 itself, head to the main site.
 
+!!! warning "AI-curated resource — not medical advice"
+
+    DisMech content is generated and maintained by AI curation agents under human review,
+    from publicly accessible literature and curated biomedical knowledge resources. It is a
+    research resource and is **not intended to inform medical diagnosis or treatment**.
+    See the [full disclaimer](disclaimer.md).
+
 ## Start here
 
 - **New to the data model?** Read the [Data Model overview](data-model.md) — a curated map of the key schema classes.

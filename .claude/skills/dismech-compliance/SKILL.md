@@ -148,7 +148,7 @@ Address fields in this priority order based on weights:
 1. **disease_term.term** (weight 5.0) - Add MONDO term for the disease
 2. **phenotypes[].phenotype_term.term** (weight 3.0) - Add HPO terms to phenotypes
 3. **pathophysiology[].cell_types[].term** (weight 3.0) - Add CL terms to cell types
-4. **treatments[].treatment_term.term** (weight 2.5) - Add MAXO terms to treatments
+4. **treatments[].treatment_term.term** (weight 2.5) - Add NCIT terms to treatments
 5. **pathophysiology[].evidence** (weight 2.0) - Add PMID-backed evidence
 6. **General descriptions** (weight 0.5) - Add explanatory text
 
@@ -196,11 +196,11 @@ treatments:
   treatment_term:
     preferred_term: corticosteroid therapy
     term:
-      id: MAXO:0000653
-      label: corticosteroid therapy
+      id: NCIT:C15986
+      label: Pharmacotherapy
 ```
 
-Look up: `uv run runoak -i sqlite:obo:maxo search "corticosteroid"`
+Look up: `uv run runoak -i sqlite:obo:ncit search "corticosteroid"`
 
 #### Missing evidence
 ```yaml
@@ -252,7 +252,7 @@ for f in glob.glob("kb/disorders/*.yaml"):
 just validate kb/disorders/MyDisease.yaml
 
 # Term validation (labels match ontology)
-just validate-terms-file kb/disorders/MyDisease.yaml
+just validate-terms kb/disorders/MyDisease.yaml
 
 # Re-check compliance
 just compliance kb/disorders/MyDisease.yaml

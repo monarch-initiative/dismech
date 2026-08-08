@@ -746,7 +746,7 @@ Lawrence Berkeley National Laboratory | Monarch Initiative
 | **GO** | Gene Ontology | Biological processes |
 | **CL** | Cell Ontology | Cell types |
 | **UBERON** | Uberon | Anatomical locations |
-| **MAXO** | Medical Action Ontology | Treatments |
+| **NCIT** | NCI Thesaurus | Treatments / clinical interventions |
 | **CHEBI** | Chemical Entities of Biological Interest | Chemicals/drugs |
 | **GENO** | Genotype Ontology | Inheritance, zygosity |
 | **NCIT** | NCI Thesaurus | Cancer concepts |
@@ -774,7 +774,7 @@ Disease
   |     |     +-- sex, population, onset, frequency, severity
   |     |     +-- excluded (boolean -- phenotype NOT present in this context)
   |     +-- evidence[]
-  +-- treatments[]  (MAXO-grounded, with evidence)
+  +-- treatments[]  (NCIT-grounded, with evidence)
   +-- clinical_trials[]  (NCT-linked, with target phenotypes)
   +-- subtypes[]  (recursive -- subtypes have their own phenotypes)
   +-- comorbidities[], differentials[], datasets[]

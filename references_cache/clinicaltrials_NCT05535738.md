@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT05535738"
+reference_id: clinicaltrials:NCT05535738
 title: Biologics and Blistering - Using a Contact Dermatitis Model With Biologic Medications to Study Skin Inflammation Through Suction Blistering
 content_type: summary
+full_text_attempted: true
 ---
 
 # Biologics and Blistering - Using a Contact Dermatitis Model With Biologic Medications to Study Skin Inflammation Through Suction Blistering

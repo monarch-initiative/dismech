@@ -153,20 +153,20 @@ The two slots are complementary and can both appear on the same subtype:
 If you find that downstream tooling treats a grounded subtype as a missing
 disease entry, that is a tooling bug — fix the comparator, not the curation.
 
-## NCIT vs. MAXO selection in cancer entries
+## NCIT treatment-term selection in cancer entries
 
-NCIT often provides clinically more specific oncology terms than MAXO. Prefer
-NCIT when it materially improves specificity; otherwise stay with the existing
-MAXO conventions documented in `CLAUDE.md`.
+Treatment terms use NCIT clinical-intervention terms (all reachable from
+`NCIT:C25218`). Prefer the most specific NCIT term; pair generic action terms
+with a `therapeutic_agent`, per the conventions documented in `CLAUDE.md`.
 
 | Use case                              | Preferred ontology                       | Notes |
 |---------------------------------------|------------------------------------------|-------|
 | `disease_term`                        | MONDO                                    | Always MONDO-first |
 | Disease-level `mappings`              | MONDO + ICD-10-CM + NCIT                 | All available |
 | `histopathology.finding_term`         | NCIT (or HP for canonical patterns)      | NCIT has tumor-specific morphology terms |
-| Surgical procedures                   | NCIT or MAXO — whichever is more specific | NCIT often wins for oncologic procedures |
-| Chemotherapy action                   | MAXO:0000647 (chemotherapy)              | Generic; pair with `therapeutic_agent` |
-| Radiation therapy                     | MAXO:0000014                             | |
+| Surgical procedures                   | NCIT (most specific available)           | NCIT has tumor-specific oncologic procedures |
+| Chemotherapy action                   | NCIT:C15632 (Chemotherapy)               | Generic; pair with `therapeutic_agent` |
+| Radiation therapy                     | NCIT:C15313 (Radiation Therapy)          | |
 | Specific drug                         | CHEBI (small molecule) or NCIT (biologic / drug class) | Use `therapeutic_agent` slot |
 | Biomarkers / gene products            | NCIT (clinical biomarker) + HGNC (gene)  | `biomarker_term` / `gene_products` |
 | Staging system terms                  | NCIT                                     | NCIT carries COG, SIOP, AJCC codes |
@@ -185,7 +185,7 @@ When in doubt about a new cancer entry, mirror Wilms tumor's structure.
 
 ## Related documents
 
-- `CLAUDE.md` — repo-wide curation conventions (treatment terms, MAXO/NCIT/CHEBI patterns)
+- `CLAUDE.md` — repo-wide curation conventions (treatment terms, NCIT/CHEBI patterns)
 - `.claude/skills/cancer-curator/SKILL.md` — mechanics of cancer pathophysiology, histopathology, and therapeutic agent curation
 - `.claude/skills/disease-classification/SKILL.md` — deeper guidance on classification axes and the `classifications` block
 - [#795](https://github.com/monarch-initiative/dismech/issues/795) — MONDO disposition/susceptibility anchors and `skos:closeMatch` fallback

@@ -130,7 +130,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
-| Treatments / medical actions | MAXO, NCI Thesaurus | `MAXO:`, `NCIT:` |
+| Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
 | Food | FOODON | `FOODON:` |
@@ -143,8 +143,9 @@ of fake identifiers.
 
 **Selection priority when several ontologies could apply:**
 
-- **Treatments**: use whichever of MAXO or NCIT has the *most specific* accurate term.
-  NCIT often has more specific procedure/therapy terms; MAXO for generic medical actions.
+- **Treatments**: use the *most specific* accurate NCIT clinical-intervention term
+  (all reachable from `NCIT:C25218`). When NCIT has no suitable clinical-action term,
+  omit `term:` and keep a free-text `preferred_term` — never invent an identifier.
 - **Therapeutic agents**: prefer **CHEBI** for specific small-molecule drugs; use **NCIT**
   for drug classes and for biologics/newer drugs lacking a CHEBI term.
 - **Disease-like phenotypes** (phenotypes that are also diseases, e.g. osteoporosis,
@@ -162,6 +163,42 @@ of fake identifiers.
 `conf/oak_config.yaml`, ensure the SQLite adapter is available, and re-run term
 validation. **Known gap:** prefixes *not* listed there are silently skipped during
 validation (only a warning), so an unconstrained prefix can pass unchecked — see *Gaps* below.
+
+### 4a. MAXO removed in favour of NCIT (2026-07-31)
+
+**Decision.** The Medical Action Ontology (MAXO) was removed from dismech entirely. All
+4,300+ MAXO `treatment_term` / `diagnosis_term` bindings were remapped to NCI Thesaurus
+clinical-intervention terms, `MAXO:0000001` was dropped from `TreatmentActionTerm`'s
+`source_nodes` (leaving `NCIT:C25218` as the sole root), and the MAXO adapter and term
+cache were deleted. This reverses the earlier decision to treat MAXO and NCIT as co-equal
+treatment vocabularies. See PR #7228 and the frozen crosswalk
+`docs/superpowers/maxo_ncit_final_map.tsv`.
+
+**Rationale.** One treatment vocabulary rather than two removes the recurring "which
+ontology has the better term?" judgement call, and NCIT covers the clinical-action space
+more completely and more specifically.
+
+**What was traded away.** This is a genuine loss of specificity in places, recorded here so
+it is not rediscovered as a bug:
+
+- Some MAXO terms have no exact NCIT counterpart and were mapped to a broader parent
+  (e.g. drug-class "X agent therapy" terms → `NCIT:C15986` Pharmacotherapy). Where a drug
+  class was lost from the action term it is recovered in `therapeutic_agent`; a tail of
+  such bindings still carries no coded agent.
+- Seven MAXO terms have no NCIT equivalent at all (orthotic/hearing-aid/glasses usage,
+  airway management, emollient application, apoptosis assay, transepithelial nasal
+  potential difference). Those entries keep a free-text `preferred_term` with no `term:`.
+- Mapping a route- or method-agnostic source term to a route- or method-specific NCIT term
+  would assert something the source never said, so defaults are deliberately neutral
+  (e.g. corticosteroid therapy → `NCIT:C15370` Steroid Therapy, not the *Systemic* child).
+
+**Cache provenance.** NCIT is served via `ols:ncit` (issue #5160) and the OLS adapter
+cannot compute ancestors, so dynamic-enum membership cannot be re-derived from the
+committed configuration. `cache/enums/treatmentactionterm_*.csv` was therefore generated
+by temporarily pointing the `NCIT:` adapter at a local `sqlite:obo:ncit` build — the same
+build the `ncit-edges` structured source already uses — and `conf/oak_config.yaml` was
+then reverted to `ols:ncit`. Regenerating that cache requires repeating this; the
+committed configuration alone is not sufficient.
 
 
 ## 5. Biolink reuse
@@ -230,6 +267,44 @@ exactly.
 
 **Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
+
+### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
+
+**Decision.** When a disease-level mechanistic hypothesis has been overturned, it is
+curated as a `mechanistic_hypotheses` entry with `status: DEPRECATED` — kept in the entry,
+not removed from it — and the rendered page states explicitly that DisMech does **not**
+assert it as the current mechanism.
+
+- **Retain rather than delete.** An overturned model that is still circulating in reviews,
+  textbooks or older diagnostic criteria is exactly the claim a reader arrives wanting to
+  check. Deleting it leaves them with nothing to check against; recording it with a verdict
+  and cited refutations is the more useful artifact.
+- **Citation volume does not decide standing.** A deprecated hypothesis will often carry
+  *more* supporting than refuting citations, because the supporting literature accumulated
+  for decades before the refutation landed. Where evidence conflicts, DisMech follows the
+  more recent and more direct evidence — a quantitative or orthogonal-method refutation
+  outweighs any number of narrative citations asserting the older view.
+- **Both sides get cited.** The hypothesis's own `evidence` list carries the founding
+  supporting citations (`supports: SUPPORT`) alongside the refutations (`supports: REFUTE`),
+  each with a verified snippet, so the assessment is auditable rather than editorial
+  assertion. Renderers surface the SUPPORT/PARTIAL/REFUTE split as an evidence-balance row.
+- **Disputed nodes are marked, not asserted.** A pathophysiology node that exists only to
+  represent a deprecated model carries `mechanism_confidence: HYPOTHETICAL`, and its causal
+  edges opt into the deprecated `hypothesis_groups` so the disputed chain stays separable
+  from the live models. Hypothesis chips on nodes and edges carry the deprecated status.
+- **No conformance on a disputed claim.** Do not add a `conforms_to` edge to a mechanism
+  module on the strength of a hypothesis curated as DEPRECATED — that would assert as fact
+  precisely what the assessment rejects.
+
+**Rationale.** Mechanism knowledge bases fail readers in two opposite ways: by omitting
+retired models (so a reader meeting the claim in the literature has no recourse), and by
+listing them undifferentiated alongside live ones (so retired models keep accruing
+authority). Recording the model *with* an explicit verdict and a visible evidence balance
+avoids both. The worked example is the beta-amyloid hypothesis of sporadic inclusion body
+myositis (`amyloid_beta_proteotoxicity` in `kb/disorders/Inclusion_Body_Myositis.yaml`),
+whose literature is itself the documented subject of a citation-distortion analysis
+(PMID:19622839) — the clearest available case of citation weight outrunning data. See
+[the exploration report](../reports/ibm-amyloid-beta-hypothesis-2026-08-02.md).
 
 
 ## 7. Curation process & governance
@@ -364,7 +439,7 @@ guarantee (every attached term must be a real NCIT/HP/UBERON term with a matchin
 OLS4** (it lives on BioPortal, which needs the `bioportal:` adapter + an API key), so it is
 not wired into `conf/oak_config.yaml` today. The grounding therefore uses **NCIT (already
 OLS-served) + HP**, which covers modality cleanly and findings adequately; a future
-tightening to RadLex-grade finding granularity is a deferred follow-up (see §11). Because
+tightening to RadLex-grade finding granularity is a deferred follow-up (see §12). Because
 the finding binding is RECOMMENDED, the ontology gap does not block curation.
 
 **Worked example.** `Multiple_Sclerosis` carries two `imaging_findings`: multifocal
@@ -443,7 +518,7 @@ the same convention-over-constraint pattern. The only guardrail that would even 
 "sidecar present ⇒ term under `HP:0002353`/`0003457`/`0003115` *or* term-less (the preclinical
 `preferred_term`-only case)", and that is at most an advisory lint, not a schema rule.
 
-**Deferred (see §11).** Independently of EEG, the `PhenotypeCategoryEnum` already exists but
+**Deferred (see §12).** Independently of EEG, the `PhenotypeCategoryEnum` already exists but
 is not yet wired to the `phenotypes.category` slot (still `range: string`); binding it, or
 deprecating the hand-entered field in favour of the HP-derived value, is a separate cleanup.
 
@@ -483,14 +558,116 @@ otherwise-orphan test-result phenotype a first-class, evidenced pathograph edge.
 (`relationship: READOUT_OF`, `direction: NEGATIVE`, `endpoint_context: DIAGNOSTIC`),
 replacing the previous — semantically incorrect — `downstream` causal edge from the
 mechanism to the ERG. The ~200 `Elevated/Decreased circulating … concentration` lab-readout
-phenotypes are candidate backfills (tracked in §11).
+phenotypes are candidate backfills (tracked in §12).
 
-## 11. Gaps
+## 11. Reader-facing disclaimers (AI curation & not medical advice)
+
+**Decision.** Every reader-facing DisMech page carries a **disclaimer bar** stating two
+things: that the resource is AI-curated and AI-maintained, and that it is not medical advice.
+A single canonical long-form statement lives in [`docs/disclaimer.md`](../disclaimer.md); the
+bar links to it. The bar is shown by default on every page and may be dismissed **for the
+browsing session only** — see the "Dismissible for the browsing session" design point below
+for the scope and its rationale. *(This paragraph originally read "persistent,
+non-dismissible"; revised by
+[#7421](https://github.com/monarch-initiative/dismech/issues/7421).)*
+
+**Why page-level rather than documentation-level.** §7 already records that DisMech is
+agent-forward, and §6 records the evidence policy — but both are *contributor-facing process
+documentation*. The common way a reader encounters DisMech is by landing on a single
+disorder page from a search engine or an external link, never seeing the project
+documentation at all. Provenance and fitness-for-use therefore have to travel with the page.
+
+**Where it is implemented.**
+
+| Surface | Mechanism |
+|---|---|
+| Generated KB pages (disorder, module, grouping, comorbidity, classification, project, research, and their index pages) | `src/dismech/templates/_disclaimer.html.j2` + `_disclaimer.css.j2`, `{% include %}`-ed into every full-page template (the same partial pattern already used for `_palette.css.j2`) |
+| Hand-maintained site pages (`index.html`, `app/`, `details/`) | The same markup inlined, kept in step with the partial |
+| MkDocs documentation site (`elements/`) | `copyright:` footer in `mkdocs.yml`, plus admonitions on `docs/index.md` and `docs/about.md` |
+| Repository | Disclaimer section at the top of `README.md` |
+
+**Design points.**
+
+- **Dismissible for the browsing session.** *(Revised by
+  [#7421](https://github.com/monarch-initiative/dismech/issues/7421); this decision originally
+  read "Not dismissible".)* The bar carries a close button, and the closed state is recorded
+  under the `dismech-disclaimer-dismissed` **sessionStorage** key. sessionStorage is scoped to
+  a single tab and cleared when that tab closes, so moving between DisMech pages in the same
+  tab keeps the bar dismissed, while a fresh tab or a later visit shows it again.
+
+    **Deliberately not localStorage.** Permanent dismissal would let a reader silence the
+    statement once and never see it again. Session scope keeps the escape hatch — the bar is a
+    banner, and a reader working through twenty disorder pages should not have to see it twenty
+    times — without turning "I have read this" into "never tell me again". A test asserts the
+    localStorage API is not used *by the disclaimer script* on any surface, so this cannot
+    regress by accident. Deliberately scoped to that script rather than to whole files:
+    `disorder.html.j2` legitimately uses localStorage elsewhere, for its Q&A answer cache.
+
+    One consequence worth knowing: sessionStorage follows the *tab*, not the page load. A
+    reader who dismisses the bar and then types a DisMech URL into that same tab will not see
+    it again; it takes a new tab (or a later visit) to bring it back.
+
+    Mechanics worth keeping: the control is a real focusable `<button>` with an accessible
+    label and tooltip, not the click-anywhere `.notice-banner` behaviour, which would fight the
+    link inside the bar. It is CSS-hidden by default and revealed by the script, so a reader
+    without JavaScript is never shown a control that cannot work. The script is inline and
+    synchronous directly after the bar, so an already-dismissed bar is hidden before first
+    paint instead of flashing. Every `sessionStorage` access is inside a `try`, because the
+    property getter itself throws when storage is blocked; the bar then simply stays visible.
+    Dismissing moves focus to the page's `main`/`h1` rather than letting it fall back to
+    `<body>`, so a keyboard reader keeps their place.
+
+    Layout: the bar is a flex row and the button sits **in flow**, so it cannot overlap the
+    text however the bar wraps. The button carries a 28px right margin to clear the
+    [Hypothes.is](https://web.hypothes.is/) sidebar, which mounts a toolbar over the right edge
+    of every page that embeds the annotation client (`disorder.html.j2`, `module.html.j2`) and
+    swallows clicks there. This is not cosmetic: measured in headless Chromium, a button at
+    `right: 8px` is unclickable on disorder pages at both 1280px and 375px wide. The clearance
+    is therefore **not** dropped on narrow viewports.
+
+- **A dismissed page still carries the statement.** Because the bar can be closed, generated
+  disorder and module pages also carry `_disclaimer_footer.html.j2` — a one-line,
+  non-dismissible disclaimer in the page footer, worded to match the MkDocs `copyright:`
+  footer. Without it, the reader §11 exists for (one disorder page, arrived from a search
+  engine) could dismiss the bar and be left on a page with no disclaimer at all: the MkDocs
+  `copyright:` footer renders only on `docs/` pages, and `render.py` pages have their own
+  footer. **Known gap:** disorder and module are the only full-page templates with a
+  `<footer>`, so grouping, comorbidity, classification, project and research pages have no
+  footer line; on those, a dismissed bar does leave the page bare until the session ends.
+- **Distinct from `.notice-banner`.** The pre-existing `.notice-banner` (pre-alpha content
+  warning) is also dismissible, but only for the page view — it just removes itself and
+  returns on the next page. The disclaimer is styled neutral grey rather than amber, and holds
+  its dismissal for the session, precisely so the two read as different things when they
+  appear together.
+- **Top of page, not footer.** A reader who leaves after the first screen must still have
+  seen it. (The footer line above is an *addition* for the dismissed case, not a relocation.)
+- **One canonical wording.** `docs/disclaimer.md` is the source of truth; the banner is its
+  summary. `tests/test_disclaimers.py` gates that every full-page template and every
+  hand-maintained site page still carries the disclaimer, so a new template cannot silently
+  ship without one — and, since #7421, that each of them also carries the dismiss control, the
+  shared sessionStorage key (and *not* the localStorage API), and the `[hidden]` rule that
+  makes dismissal actually hide the bar (`display: flex` on the bar outranks the user-agent
+  rule for the `hidden` attribute).
+
+**Scope.** Internal/derived QC surfaces are excluded — they present curation-completeness
+metrics, not disease claims: `dashboard/` (generated by `just gen-dashboard`) and
+`frontpage-candidates/` (a design-candidate gallery). `pages/nih-topics/index.html` is
+*included* despite being a coverage report, because it sits under `pages/` alongside the
+disease surfaces and links out to disease and project pages; it is generated from an inline
+template string in `scripts/gen_nih_topics_summary.py` rather than from
+`src/dismech/templates/`, so it is covered by its own test rather than by the template glob.
+
+**Origin.** [#7182](https://github.com/monarch-initiative/dismech/issues/7182). Revised by
+[#7421](https://github.com/monarch-initiative/dismech/issues/7421) (dismissible for the
+browsing session, plus the non-dismissible footer line).
+
+## 12. Gaps
 
 This section details decisions we have **not yet made or formalized**.
 
 | Area | Status | Tracking |
 |---|---|---|
+| Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
 | Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | Hypothesis-exploration report assessments | **ENACTED (PR #7017).** A focused hypothesis report is a research lead, not disease-level curated evidence. One standalone LinkML-validated YAML sidecar is stored for each `<provider>-assessment-by-<assessor>` pair under `kb/hypotheses/<Disease>/<hypothesis_id>/assessments/`; optional Markdown/PDF files with the same stem are human-readable renderings. The sidecar captures an overall qualitative verdict plus claim-level `RETAINED` / `QUALIFIED` / `REJECTED` / `NEEDS_VERIFICATION` dispositions, each optionally anchored by a verbatim raw-report quote. Validation enforces layout, filename metadata, report-quote anchoring, and artifact links. Literature identifiers in a review are context, not disease-YAML evidence; promotion still requires normal reference-cache and evidence validation. A cross-provider synthesis remains optional and does not replace independent provider-by-assessor reviews. | `src/dismech/schema/hypothesis_assessment.yaml`; `docs/hypothesis-report-assessments.md` |
