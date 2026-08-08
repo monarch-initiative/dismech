@@ -34,6 +34,7 @@ from dismech.graph import (
     build_causal_graph,
     graph_to_json,
     iter_variant_items,
+    model_edge_predicate,
 )
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -1120,7 +1121,10 @@ def _build_edge_detail_lookup(
             add_detail(
                 source_name,
                 str(target_item["target"]),
-                "models",
+                # Must match the predicate the graph edge actually carries, or
+                # edge_detail_lookup misses and this edge silently loses its
+                # description and Evidence. Mirrors the environmental block.
+                model_edge_predicate(target_item.get("relationship")),
                 {
                     "description": target_item.get("description"),
                     # relationship/fidelity/limitations deliberately not passed
@@ -1146,7 +1150,10 @@ def _build_edge_detail_lookup(
             add_detail(
                 source_name,
                 str(target_item["target"]),
-                "models",
+                # Must match the predicate the graph edge actually carries, or
+                # edge_detail_lookup misses and this edge silently loses its
+                # description and Evidence. Mirrors the environmental block.
+                model_edge_predicate(target_item.get("relationship")),
                 {
                     "description": target_item.get("description"),
                     # relationship/fidelity/limitations deliberately not passed

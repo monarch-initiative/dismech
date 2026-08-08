@@ -1119,6 +1119,52 @@ def test_failure_to_recapitulate_links_are_substantiated(filepath):
     )
 
 
+def test_duplicate_linked_animal_model_labels_are_caught(tmp_path):
+    """Two linked models sharing a derived label must be caught.
+
+    Without `name`, both collapse onto the same graph node and the same HTML
+    anchor id. An unlinked duplicate is left alone -- that is the ~400 legacy
+    entries, and flagging them would be noise.
+    """
+    disease = {
+        "name": "Colliding Animal Labels",
+        "pathophysiology": [{"name": "Real Node"}],
+        "animal_models": [
+            {
+                "species": "Mus musculus",
+                "description": "First mouse",
+                "modeled_mechanisms": [{"target": "Real Node"}],
+            },
+            {
+                "species": "Mus musculus",
+                "description": "Second mouse",
+                "modeled_mechanisms": [{"target": "Real Node"}],
+            },
+        ],
+    }
+    fake_path = tmp_path / "CollidingLabels.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    with pytest.raises(AssertionError, match="Mus musculus"):
+        test_linked_animal_model_labels_are_unique(str(fake_path))
+
+
+def test_unlinked_duplicate_animal_model_labels_are_allowed(tmp_path):
+    """The legacy case: same derived label, no mechanism links, no complaint."""
+    disease = {
+        "name": "Legacy Duplicates",
+        "pathophysiology": [{"name": "Real Node"}],
+        "animal_models": [
+            {"species": "Mus musculus", "description": "First"},
+            {"species": "Mus musculus", "description": "Second"},
+        ],
+    }
+    fake_path = tmp_path / "LegacyDuplicates.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    test_linked_animal_model_labels_are_unique(str(fake_path))
+
+
 def test_animal_model_mechanism_fk_catches_bad_refs(tmp_path):
     """An animal-model link pointing at an undeclared node must be caught."""
     disease = {

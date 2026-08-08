@@ -108,18 +108,6 @@ MODEL_RELATIONSHIP_PREDICATES = {
 # the slot existed. Keeps those edges exactly as they were.
 DEFAULT_MODEL_PREDICATE = "models"
 
-# Every predicate a model edge can carry, for consumers reasoning about them as
-# a group (export styling, QC) rather than one at a time.
-MODEL_PREDICATES: frozenset[str] = frozenset(
-    MODEL_RELATIONSHIP_PREDICATES.values()
-) | {DEFAULT_MODEL_PREDICATE}
-
-# The negative claim: the model does NOT reproduce the mechanism. Called out
-# separately so styling can distinguish it rather than treating it as a weaker
-# shade of "models".
-NEGATIVE_MODEL_PREDICATE = "fails_to_model"
-
-
 def model_edge_predicate(relationship: Any) -> str:
     """Map a ModelMechanismLink relationship onto its edge predicate."""
     if isinstance(relationship, str):
