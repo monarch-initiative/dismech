@@ -56,7 +56,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load_path
 
 HPOA_VERSION = "dismech-extended-v1"
 BIOCURATOR = "Monarch:dismech"
@@ -206,7 +206,7 @@ def hpoa_rows_for_disorder(
     yaml_path: Path,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     """Read one disorder YAML and project to (hpoa_rows, comorbidity_rows)."""
-    data = yaml.safe_load(yaml_path.read_text()) or {}
+    data = safe_load_path(yaml_path) or {}
     disease = ((data.get("disease_term") or {}).get("term") or {})
     disease_id = disease.get("id") or ""
     if not disease_id.startswith("MONDO:"):

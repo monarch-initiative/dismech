@@ -46,9 +46,6 @@ class ConfiguredBaseModel(BaseModel):
     )
 
 
-
-
-
 class LinkMLMeta(RootModel):
     root: dict[str, Any] = {}
     model_config = ConfigDict(frozen=True)
@@ -2282,7 +2279,6 @@ class ReferenceTagEnum(str, Enum):
     """
     Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management.
     """
-
 
 
 class CurationEvent(ConfiguredBaseModel):

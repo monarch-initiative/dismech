@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarcoidosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sarcoidosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sarcoidosis</h1>
+                
+                <p class="report-subtitle">Sarcoidosis (MONDO:0019338): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019338" target="_blank" rel="noopener noreferrer">MONDO:0019338</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">39 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Sarcoidosis (<a href="http://purl.obolibrary.org/obo/MONDO_0019338" target="_blank" rel="noopener noreferrer">MONDO:0019338</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Sarcoidosis · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0019338" target="_blank" rel="noopener noreferrer">MONDO:0019338</a> · <strong>Category:</strong> Immune
+<strong>Report date:</strong> 2026-07-26 · Evidence sources: human clinical studies, GWAS, model organisms (mouse), in vitro/omics. PMIDs cited inline.</p>
+<h2>Summary</h2>
+<p>Sarcoidosis is a multisystem, immune-mediated inflammatory disease of unknown cause, defined pathologically by <strong>noncaseating epithelioid-cell granulomas</strong> that most commonly involve the lungs and intrathoracic lymph nodes but can affect virtually any organ (skin, eyes, heart, nervous system, liver, spleen, and kidneys). The prevailing model is that sarcoidosis arises when a <strong>genetically susceptible host</strong> (strongest signals in the HLA class II region plus <em>BTNL2</em>, <em>ANXA11</em>, and <em>NOTCH4</em>) mounts an exaggerated, <strong>HLA-restricted CD4+ Th1/Th17 granulomatous response</strong> to persistent, poorly degradable antigens. The leading candidate antigens are remnant microbial proteins—particularly <em>Mycobacterium tuberculosis</em> catalase-peroxidase (mKatG), ESAT-6, and superoxide dismutase A (SodA)—and environmental/occupational bioaerosols, with a paradoxical inverse association with cigarette smoking.</p>
+<p>The disease course is strikingly <strong>bimodal</strong>: roughly 70% of patients experience near-complete spontaneous or treatment-induced remission within two years (best exemplified by the acute HLA-DRB1<em>03–linked Löfgren syndrome), while approximately 30% (enriched for HLA-DRB1</em>15) develop chronic, progressive disease that can lead to pulmonary fibrosis, cardiac and neurological involvement, and rising, racially disparate mortality. A rare monogenic pediatric form—<strong>Blau syndrome / early-onset sarcoidosis</strong>—is caused by autosomal-dominant gain-of-function mutations in <em>NOD2 (CARD15)</em> and presents with the triad of arthritis, dermatitis, and uveitis.</p>
+<p>Mechanistically, <strong>aberrant mTORC1 activation</strong> in macrophages and fibroblasts has emerged as a causal driver of granuloma formation and a druggable target. Diagnosis remains one of exclusion, requiring compatible clinico-radiologic features plus granuloma histology; <strong>soluble IL-2 receptor (sIL-2R) outperforms serum ACE</strong> as a supporting biomarker. Treatment escalates from corticosteroids to steroid-sparing agents (methotrexate, azathioprine) and anti-TNF therapy (infliximab), with emerging targeted options including the first-in-class neuropilin-2 immunomodulator <strong>efzofitimod</strong>, mTOR inhibitors (sirolimus), and JAK inhibitors.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Sarcoidosis is a chronic, systemic granulomatous disorder of unknown etiology characterized by the formation of noncaseating (non-necrotizing) epithelioid granulomas. It predominantly involves the lungs and thoracic lymph nodes (&gt;90% of cases) but is a true multisystem disease. As the recent review notes, diagnosis relies on "<em>compatible clinico-radiologic features plus biopsy showing noncaseating epithelioid granulomas and exclusion of infection/malignancy</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/41651390/">PMID: 41651390</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0019338" target="_blank" rel="noopener noreferrer">MONDO:0019338</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>D86 (D86.0 pulmonary, D86.2 lung with lymph nodes, D86.3 skin, D86.8 other/neurosarcoidosis, D86.9 unspecified)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>4B20</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D012507 (Sarcoidosis)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:797" target="_blank" rel="noopener noreferrer">ORPHA:797</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>181000 (Sarcoidosis, susceptibility, SS1); 186580/609464 (Blau syndrome / early-onset sarcoidosis, NOD2)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Besnier-Boeck-Schaumann disease; Boeck's sarcoid; Löfgren syndrome (acute form); Blau syndrome / early-onset sarcoidosis (monogenic pediatric form). Organ-specific terms: cardiac sarcoidosis, neurosarcoidosis, ocular/sarcoid uveitis, cutaneous sarcoidosis (e.g., lupus pernio).</p>
+<p><strong>Information source.</strong> Information is derived from a mixture of <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, MeSH) and large <strong>individual-patient / EHR-based cohorts</strong> — e.g., the Swedish national register (n=9,665; <a href="https://pubmed.ncbi.nlm.nih.gov/42498935/">PMID: 42498935</a>), the US TriNetX network (&gt;108 million patients; <a href="https://pubmed.ncbi.nlm.nih.gov/41512253/">PMID: 41512253</a>), and the VHA veteran cohort (n=23,745; <a href="https://pubmed.ncbi.nlm.nih.gov/39521376/">PMID: 39521376</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> Sarcoidosis is best modeled as a <strong>gene–environment disease</strong>: the ACCESS study's central hypothesis was that "<em>sarcoidosis occurs in genetically susceptible individuals through alteration in immune response after exposure to an environmental, occupational, or infectious agent</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/17684288/">PMID: 17684288</a>). No single cause has been identified.</p>
+<p><strong>Genetic risk factors.</strong> A genome-wide association study in African Americans (818 cases/1,088 controls, replicated) and European Americans confirmed associations at <strong>HLA-DRA, HLA-DRB5, HLA-DRB1, BTNL2, and ANXA11</strong>, and identified <strong>NOTCH4</strong> as an independent genome-wide-significant locus (rs715299, P = 6.51×10⁻¹⁰) (<a href="https://pubmed.ncbi.nlm.nih.gov/22952805/">PMID: 22952805</a>). Verbatim: "<em>We identified a novel sarcoidosis-associated locus, NOTCH4, that reached genome-wide significance in the combined AA samples (rs715299, P(AA-meta) = 6.51 × 10(-10))... We replicated previous European GWAS associations within HLA-DRA, HLA-DRB5, HLA-DRB1, BTNL2, and ANXA11 in both our AA and EA datasets.</em>" HLA-C and HLA-B associations were significant in European Americans but not African Americans. The monogenic form (Blau syndrome) is caused by <em>NOD2/CARD15</em> mutations (Section 4).</p>
+<p><strong>Environmental / occupational risk factors.</strong> The <strong>ACCESS case-control study</strong> (706 newly diagnosed cases + matched controls) found positive associations with agricultural employment (OR 1.46, 95% CI 1.13–1.89), occupational insecticide exposure (OR 1.61, CI 1.13–2.28), and musty-odor/mold-mildew (microbial bioaerosol) work environments (OR 1.62, CI 1.24–2.11) (<a href="https://pubmed.ncbi.nlm.nih.gov/15347561/">PMID: 15347561</a>). The World Trade Center disaster demonstrated an occupational trigger: "sarcoid-like" granulomatous pulmonary disease occurred among responders at a 6-year incidence of 192/100,000, nearly double in Black vs White responders (<a href="https://pubmed.ncbi.nlm.nih.gov/21298693/">PMID: 21298693</a>). Additional risk factors: female sex, African ancestry, obesity, and family history.</p>
+<p><strong>Protective factors.</strong> The most robust protective factor is <strong>cigarette smoking</strong>, which is inversely associated with sarcoidosis (ACCESS: ever-smoking OR 0.65, CI 0.51–0.82) (<a href="https://pubmed.ncbi.nlm.nih.gov/15347561/">PMID: 15347561</a>). Verbatim: "<em>we observed elevated ORs for work in areas with musty odors (OR 1.62, CI 1.24-2.11) and with occupational exposure to insecticides (OR 1.61, CI 1.13-2.28), and a decreased OR related to ever smoking cigarettes (OR 0.65, CI 0.51-0.82).</em>" <strong>Genetic protective factors</strong> include HLA-DRB1<em>01:01, HLA-DQA1</em>03:01, and HLA-DQB1<em>03:02 in a Czech cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/37153085/">PMID: 37153085</a>), and the HLA-DRB1</em>03 allele conferring good prognosis. (Note: smoking's inverse epidemiologic association is not a basis for recommending smoking, whose net harms greatly outweigh this signal.)</p>
+<p><strong>Gene–environment interactions.</strong> The HLA class II genotype shapes which antigenic peptides are presented, effectively determining the response to environmental/microbial triggers. The 8.1 ancestral haplotype (HLA-A<em>01:01∼B</em>08:01∼C<em>07:01∼DRB1</em>03:01∼DQA1<em>05:01∼DQB1</em>02:01) associates with the benign Löfgren phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/37153085/">PMID: 37153085</a>), illustrating how a specific HLA context converts an antigen exposure into a self-limited rather than chronic disease.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Sarcoidosis phenotypes span constitutional symptoms, organ-specific manifestations, and laboratory abnormalities.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / notes</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pulmonary involvement / interstitial lung disease</td>
+<td>Clinical sign</td>
+<td>&gt;90%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a> (Pulmonary fibrosis)</td>
+</tr>
+<tr>
+<td>Bilateral hilar lymphadenopathy</td>
+<td>Imaging sign</td>
+<td>Common; CT 82.7% vs CXR 29.5% detection ([<a href="https://pubmed.ncbi.nlm.nih.gov/41651390/" target="_blank" rel="noopener noreferrer">PMID: 41651390</a>])</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" rel="noopener noreferrer">HP:0100721</a> (Hilar lymphadenopathy)</td>
+</tr>
+<tr>
+<td>Cough / dyspnea</td>
+<td>Symptom</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough); <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea)</td>
+</tr>
+<tr>
+<td>Fatigue</td>
+<td>Symptom</td>
+<td>Very common; major QoL driver</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (Fatigue)</td>
+</tr>
+<tr>
+<td>Erythema nodosum (part of Löfgren)</td>
+<td>Physical manifestation</td>
+<td>Acute presentation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012219" target="_blank" rel="noopener noreferrer">HP:0012219</a> (Erythema nodosum)</td>
+</tr>
+<tr>
+<td>Cutaneous sarcoid / lupus pernio</td>
+<td>Physical manifestation</td>
+<td>~25%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" rel="noopener noreferrer">HP:0000951</a> (Abnormal skin morphology)</td>
+</tr>
+<tr>
+<td>Uveitis / ocular sarcoidosis</td>
+<td>Clinical sign</td>
+<td>Frequent; anterior/intermediate/posterior/panuveitis ([<a href="https://pubmed.ncbi.nlm.nih.gov/42364256/" target="_blank" rel="noopener noreferrer">PMID: 42364256</a>])</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" rel="noopener noreferrer">HP:0000554</a> (Uveitis)</td>
+</tr>
+<tr>
+<td>Cardiac involvement (arrhythmia, cardiomyopathy, sudden death)</td>
+<td>Clinical sign</td>
+<td>Underrecognized; can be first manifestation ([<a href="https://pubmed.ncbi.nlm.nih.gov/41410048/" target="_blank" rel="noopener noreferrer">PMID: 41410048</a>])</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" rel="noopener noreferrer">HP:0011675</a> (Arrhythmia)</td>
+</tr>
+<tr>
+<td>Neurosarcoidosis (CNS inflammation)</td>
+<td>Clinical sign</td>
+<td>~5–10%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" rel="noopener noreferrer">HP:0002383</a> (Encephalitis)</td>
+</tr>
+<tr>
+<td>Hypercalcemia / hypercalciuria / nephrolithiasis</td>
+<td>Lab abnormality</td>
+<td>Vitamin D dysregulation; nephrolithiasis OR 1.80 in Black women ([<a href="https://pubmed.ncbi.nlm.nih.gov/41646626/" target="_blank" rel="noopener noreferrer">PMID: 41646626</a>])</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003072" target="_blank" rel="noopener noreferrer">HP:0003072</a> (Hypercalcemia)</td>
+</tr>
+<tr>
+<td>Elevated serum ACE / sIL-2R</td>
+<td>Lab abnormality</td>
+<td>Reflects granuloma burden</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Arthritis (Blau triad)</td>
+<td>Clinical sign</td>
+<td>Early-onset form</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a> (Arthritis)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype characteristics.</strong> Age of onset is predominantly <strong>adult (30–60 years)</strong>, with a second peak in women &gt;50; the monogenic Blau form is <strong>early childhood-onset</strong>. Severity is <strong>highly variable</strong> (mild/self-limited to severe multiorgan). Progression is <strong>episodic or progressive</strong>, with two dominant trajectories (Section 8). Frequency among affected individuals is organ-dependent (lung near-universal; cardiac/CNS minority but high-consequence).</p>
+<p><strong>Quality of life impact.</strong> Ocular sarcoidosis causes major morbidity: one-third of sarcoid uveitis patients develop cataract (35.7%), glaucoma (30.6%), cystoid macular edema (16.1%), and low vision/blindness (10.2%) within 5 years (<a href="https://pubmed.ncbi.nlm.nih.gov/41512253/">PMID: 41512253</a>). Fatigue and dyspnea are the dominant patient-reported QoL burdens; efzofitimod trials measured "<em>clinically meaningful improvements... across several patient-reported outcomes</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/36356657/">PMID: 36356657</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal genes.</strong> For classic multifactorial sarcoidosis there is <strong>no single causal gene</strong>; susceptibility is polygenic. The strongest and best-replicated signals are in the <strong>MHC/HLA class II region</strong> (HLA-DRB1, HLA-DQB1, HLA-DRA, HLA-DRB5), plus <strong>BTNL2</strong> (butyrophilin-like 2), <strong>ANXA11</strong> (annexin A11), and <strong>NOTCH4</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22952805/">PMID: 22952805</a>).</p>
+<p>For the monogenic <strong>Blau syndrome / early-onset sarcoidosis</strong>, the causal gene is <strong>NOD2 (CARD15)</strong> on chromosome 16q12. It is a rare <strong>autosomal-dominant</strong> granulomatous disease: "<em>Blau syndrome is a rare, autosomal dominant granulomatous disease caused by mutations in the NOD2/CARD15 gene. While the classic triad of arthritis, dermatitis, and uveitis is well known</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/40667856/">PMID: 40667856</a>).</p>
+<p><strong>Pathogenic variants (Blau/NOD2).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Domain</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R334W</td>
+<td>Missense</td>
+<td>NBD (nucleotide-binding)</td>
+<td>Gain of function / altered signaling</td>
+</tr>
+<tr>
+<td>R334Q</td>
+<td>Missense</td>
+<td>NBD</td>
+<td>Gain of function</td>
+</tr>
+<tr>
+<td>M513T (de novo reported)</td>
+<td>Missense</td>
+<td>NBD</td>
+<td>Gain of function ([<a href="https://pubmed.ncbi.nlm.nih.gov/36915122/" target="_blank" rel="noopener noreferrer">PMID: 36915122</a>])</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Mechanistically: "<em>Blau NOD2 mutations precipitate a loss of canonical NOD2 signaling</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/36189261/">PMID: 36189261</a>) and result in loss of NOD2 cross-regulatory function. A T-cell–intrinsic role for NOD2 downstream of TCR signaling has also been proposed (<a href="https://pubmed.ncbi.nlm.nih.gov/40824708/">PMID: 40824708</a>). These variants are classified <strong>pathogenic / likely pathogenic</strong> and are germline.</p>
+<p><strong>HGNC IDs (key genes):</strong> HLA-DRB1 (<a href="https://bioregistry.io/HGNC:4948" target="_blank" rel="noopener noreferrer">HGNC:4948</a>), HLA-DQB1 (<a href="https://bioregistry.io/HGNC:4944" target="_blank" rel="noopener noreferrer">HGNC:4944</a>), BTNL2 (<a href="https://bioregistry.io/HGNC:1142" target="_blank" rel="noopener noreferrer">HGNC:1142</a>), ANXA11 (<a href="https://bioregistry.io/HGNC:535" target="_blank" rel="noopener noreferrer">HGNC:535</a>), NOTCH4 (<a href="https://bioregistry.io/HGNC:7884" target="_blank" rel="noopener noreferrer">HGNC:7884</a>), NOD2 (<a href="https://bioregistry.io/HGNC:5331" target="_blank" rel="noopener noreferrer">HGNC:5331</a>).</p>
+<p><strong>Modifier genes / prognostic alleles.</strong> HLA-DRB1 acts as a major disease-modifier: "<em>Human leukocyte antigen (HLA)-DRB1</em>03 is over-represented in LS, and is associated with a good prognosis, whereas HLA-DRB1<em>15-positive patients have a more chronic course of sarcoidosis</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/30585624/">PMID: 30585624</a>). In a Czech cohort, HLA-DRB1<em>11:01 and DQA1</em>05:05 associated with advanced disease, while DRB1<em>03:01/DQA1</em>05:01 associated with remission (<a href="https://pubmed.ncbi.nlm.nih.gov/37153085/">PMID: 37153085</a>). HLA-DRB1*04 correlated with elevated serum ACE and extrapulmonary manifestations (<a href="https://pubmed.ncbi.nlm.nih.gov/39393304/">PMID: 39393304</a>).</p>
+<p><strong>Epigenetic information &amp; chromosomal abnormalities.</strong> No recurrent chromosomal abnormality (aneuploidy, translocation) defines sarcoidosis. Epigenetic contributions (DNA methylation, chromatin changes affecting macrophage polarization) are an active area but were <strong>not available</strong> at high granularity in this review.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental factors.</strong> Microbial bioaerosols and occupational particulate exposures are the best-supported contributors: musty/moldy work environments (OR 1.62) and insecticide exposure (OR 1.61) (<a href="https://pubmed.ncbi.nlm.nih.gov/15347561/">PMID: 15347561</a>); WTC dust produced a documented epidemic of sarcoid-like disease (<a href="https://pubmed.ncbi.nlm.nih.gov/21298693/">PMID: 21298693</a>).</p>
+<p><strong>Lifestyle factors.</strong> Cigarette smoking is <strong>inversely</strong> associated (OR 0.65) (<a href="https://pubmed.ncbi.nlm.nih.gov/15347561/">PMID: 15347561</a>). Obesity is a recognized risk factor (<a href="https://pubmed.ncbi.nlm.nih.gov/40002701/">PMID: 40002701</a>). Tattoo pigments (especially black ink) can trigger localized granulomatous/uveitic reactions (<a href="https://pubmed.ncbi.nlm.nih.gov/41055154/">PMID: 41055154</a>).</p>
+<p><strong>Infectious agents.</strong> <em>Mycobacterium tuberculosis</em> (NCBITaxon:1773) and <em>Cutibacterium/Propionibacterium acnes</em> (NCBITaxon:1747) are the leading candidate microbial triggers. Mycobacterial antigens (mKatG, ESAT-6, SodA) drive the disease-specific T-cell response (Sections 6/10), and <em>P. acnes</em> is used to induce sarcoid-like granulomas in animal models (<a href="https://pubmed.ncbi.nlm.nih.gov/41933939/">PMID: 41933939</a>). Sarcoidosis is <strong>not an active infection</strong> — cultures are negative — but an immune response to <strong>poorly degradable microbial remnants</strong>.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain (upstream → downstream).</strong></p>
+<pre><code>Genetic susceptibility (HLA-DRB1/DQB1, BTNL2, ANXA11, NOTCH4; NOD2 in Blau)
+│
+▼
+Exposure to persistent, poorly degradable antigen
+(mycobacterial mKatG / ESAT-6 / SodA; environmental bioaerosols)
+│
+▼
+APC (dendritic cell/macrophage) presents antigen via HLA class II
+│
+▼
+Antigen-specific CD4+ T-cell activation → Th1 (IFN-γ, IL-2) + Th17 (IL-17) skew
+│
+▼
+Macrophage activation &amp; mTORC1 hyperactivation → M1 polarization
+│
+▼
+Epithelioid transformation + multinucleated giant cell formation
+│
+▼
+NONCASEATING GRANULOMA  ──► resolution (≈70%)
+│
+▼ (persistent antigen / HLA-DRB1*15)
+Chronic inflammation → fibroblast activation → FIBROSIS / organ damage
+</code></pre>
+<p><strong>Molecular pathways.</strong> The central druggable node is <strong>mTORC1</strong>. Conditional deletion of <em>Tsc1</em> or <em>Tsc2</em> in mice "<em>leads to spontaneous formation of sarcoid-like granulomas, driven by hyperactivation of the mTORC1 pathway in fibroblasts and interstitial macrophages</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/42246493/">PMID: 42246493</a>). mTORC1 regulates the <strong>CCL24–CCR3 chemokine axis</strong> controlling granuloma formation/maintenance. Additional pathways: NF-κB (downstream of NOD2/RIP2), STAT1 (M1 polarization), STAT3, and JAK-STAT (IFN-γ signaling; rationale for JAK inhibitors). <strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0032008" target="_blank" rel="noopener noreferrer">GO:0032008</a> (positive regulation of TOR signaling); <a href="http://purl.obolibrary.org/obo/GO_0002548" target="_blank" rel="noopener noreferrer">GO:0002548</a> (monocyte chemotaxis); <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" rel="noopener noreferrer">GO:0042110</a> (T cell activation); <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response).</p>
+<p><strong>Cellular processes.</strong> Chronic granulomatous inflammation; macrophage M1 polarization; impaired autophagic clearance. Sirolimus data show "<em>aberrant mTORC1 activation promotes macrophage-driven inflammation and disrupts autophagic clearance, sustaining granuloma formation. Sirolimus, a selective mTORC1 inhibitor, restores autophagy and macrophage function</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/40996589/">PMID: 40996589</a>). <strong>Legumain (LGMN)</strong> restrains granuloma formation by inhibiting mTORC1/STAT1-driven M1 polarization; genetic <em>Lgmn</em> deletion exacerbates granulomatous inflammation (<a href="https://pubmed.ncbi.nlm.nih.gov/41933939/">PMID: 41933939</a>). <strong>CXCR6</strong> drives Th17 responses; targeting CXCR6 suppresses granuloma formation and pulmonary fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/42143504/">PMID: 42143504</a>).</p>
+<p><strong>Immune system involvement.</strong> Sarcoidosis is a <strong>CD4+ Th1/Th17-driven</strong> disease. The granuloma consists of "<em>monocytes and dendritic cells, macrophages, multinucleated giant cells, and T cells</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/41410048/">PMID: 41410048</a>). Disease-specific CD4+ T cells recognize mycobacterial ESAT-6 and KatG (Section 10). <strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> (CD4+ T cell); <a href="http://purl.obolibrary.org/obo/CL_0000860" target="_blank" rel="noopener noreferrer">CL:0000860</a> (classical/M1 macrophage); <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell).</p>
+<p><strong>Protein dysfunction.</strong> In Blau syndrome, mutant NOD2 exhibits altered NBD-domain conformation causing dysregulated NF-κB signaling and loss of cross-regulatory function (<a href="https://pubmed.ncbi.nlm.nih.gov/36189261/">PMID: 36189261</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42039171/">PMID: 42039171</a>). The candidate antigen mKatG is notably <strong>poorly soluble and protease-resistant</strong>, explaining persistence (<a href="https://pubmed.ncbi.nlm.nih.gov/15753209/">PMID: 15753209</a>).</p>
+<p><strong>Metabolic changes.</strong> Dysregulated <strong>vitamin D metabolism</strong> — granuloma macrophages express 1α-hydroxylase, causing extrarenal 1,25-dihydroxyvitamin D production, hypercalcemia, hypercalciuria, and increased nephrolithiasis risk (OR 1.80 in Black women) (<a href="https://pubmed.ncbi.nlm.nih.gov/41646626/">PMID: 41646626</a>).</p>
+<p><strong>Single-cell / spatial profiling.</strong> Single-cell RNA sequencing and spatial transcriptomics have "<em>increased our understanding of disease pathogenesis</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/41651390/">PMID: 41651390</a>). Direct immune mapping compared "<em>the immunological microenvironments of granulomas from TB and sarcoidosis patients</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/38385142/">PMID: 38385142</a>) — sarcoid granulomas are <strong>non-necrotizing</strong> with a central epithelioid/giant-cell core surrounded by a CD4+ Th1/Th17 cuff, contrasting with the necrotic core of TB granulomas.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong> Primary: <strong>lungs</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>) and <strong>intrathoracic/hilar lymph nodes</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>), affected in &gt;90%. Secondary/other organs: <strong>skin</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), <strong>eye/uvea</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0001769" target="_blank" rel="noopener noreferrer">UBERON:0001769</a>), <strong>heart</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), <strong>CNS/brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), <strong>liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), <strong>spleen</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), <strong>kidney</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>).</p>
+<p><strong>Body systems.</strong> Respiratory (primary), lymphatic/immune, integumentary, cardiovascular, nervous, hepatobiliary, ocular/visual, and musculoskeletal.</p>
+<p><strong>Tissue and cell level.</strong> The affected tissue is the granuloma, composed of epithelioid macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000860" target="_blank" rel="noopener noreferrer">CL:0000860</a>), multinucleated giant cells, dendritic cells (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), and a rim of CD4+ T cells (<a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a>) with Th17 cells; fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>) drive downstream fibrosis. BAL typically shows lymphocytosis with elevated CD4/CD8 ratio; BALF cell subsets carry prognostic significance (<a href="https://pubmed.ncbi.nlm.nih.gov/34198166/">PMID: 34198166</a>).</p>
+<p><strong>Subcellular level.</strong> Key compartments: <strong>lysosome/autophagosome</strong> (impaired autophagic clearance; <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a>, <a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" rel="noopener noreferrer">GO:0005776</a>) and <strong>cytosol</strong> (NOD2 as cytosolic sensor; <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>).</p>
+<p><strong>Localization / lateralization.</strong> Pulmonary/lymph node involvement is characteristically <strong>bilateral</strong> and symmetric (bilateral hilar lymphadenopathy is the radiographic hallmark). Cutaneous and ocular disease may be bilateral or asymmetric.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Typical onset is <strong>adult (30–60)</strong>, with a female second peak after 50; ocular sarcoidosis most commonly affects adults 30–60 (<a href="https://pubmed.ncbi.nlm.nih.gov/42364256/">PMID: 42364256</a>). The monogenic Blau form is <strong>early childhood-onset</strong>. Onset ranges from <strong>acute</strong> (Löfgren: fever, erythema nodosum, bilateral hilar lymphadenopathy, arthralgia) to <strong>insidious/subacute</strong>.</p>
+<p><strong>Progression — disease stages.</strong> Pulmonary sarcoidosis is graded by the <strong>Scadding chest X-ray stages</strong>: 0 (normal), I (bilateral hilar lymphadenopathy), II (lymphadenopathy + parenchymal infiltrates), III (infiltrates alone), IV (fibrosis). Higher stage correlates with worse prognosis and elevated ACE (<a href="https://pubmed.ncbi.nlm.nih.gov/39393304/">PMID: 39393304</a>).</p>
+<p><strong>Disease course.</strong> Population-scale trajectory analysis (Swedish register, n=9,665) identified "<em>two distinct trajectories... a resolving trajectory (71.5%) with near-complete remission of sarcoidosis-related visits within two years, and a chronic trajectory (28.5%) with persistently elevated visit rates over five years</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/42498935/">PMID: 42498935</a>). The strongest predictor of chronicity was immunosuppressive treatment around diagnosis (RR 2.18, CI 2.04–2.33), a severity marker.</p>
+<p><strong>Patterns.</strong> Remission is frequently <strong>spontaneous</strong> (especially Löfgren / HLA-DRB1<em>03). Chronic disease (enriched HLA-DRB1</em>15) can be relapsing-remitting or progressive to fibrosis. The critical intervention window is early, before irreversible fibrotic damage.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Prevalence/incidence vary by geography and ancestry. In TriNetX, among 108,597,869 patients, 146,356 had sarcoidosis, with rising prevalence over 12 years (<a href="https://pubmed.ncbi.nlm.nih.gov/41512253/">PMID: 41512253</a>). Estimated prevalence is ~10–40 per 100,000 in most Western populations, substantially higher in African Americans (~three-fold).</p>
+<p><strong>Inheritance.</strong> Classic sarcoidosis is <strong>multifactorial/polygenic</strong> with familial aggregation but no Mendelian pattern. Blau syndrome is <strong>autosomal dominant</strong> (NOD2), including de novo mutations (e.g., M513T) (<a href="https://pubmed.ncbi.nlm.nih.gov/36915122/">PMID: 36915122</a>). Penetrance and expressivity are <strong>variable</strong>. Genetic anticipation, germline mosaicism, and founder effects are <strong>not established</strong> for sarcoidosis.</p>
+<p><strong>Population demographics.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ancestry</td>
+<td>Higher prevalence and more severe, chronic, multiorgan disease in African-ancestry individuals</td>
+</tr>
+<tr>
+<td>Sex</td>
+<td>Female predominance (56.5–60.4% in sarcoid/sarcoid uveitis cohorts) ([<a href="https://pubmed.ncbi.nlm.nih.gov/41512253/" target="_blank" rel="noopener noreferrer">PMID: 41512253</a>])</td>
+</tr>
+<tr>
+<td>Race (sarcoid uveitis)</td>
+<td>Majority Black/African American (43.68%) despite White majority overall ([<a href="https://pubmed.ncbi.nlm.nih.gov/41512253/" target="_blank" rel="noopener noreferrer">PMID: 41512253</a>])</td>
+</tr>
+<tr>
+<td>Mortality disparity</td>
+<td>All-cause mortality 6.4% higher in Black vs White veterans (MRR 1.064; P=0.02) ([<a href="https://pubmed.ncbi.nlm.nih.gov/39521376/" target="_blank" rel="noopener noreferrer">PMID: 39521376</a>])</td>
+</tr>
+<tr>
+<td>Geographic</td>
+<td>Higher incidence in Northern Europe (Scandinavia) and among US African Americans</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Mortality trend.</strong> In the VHA cohort (n=23,745, 2004–2022), "<em>all-cause mortality increased annually by 4.7% (P &lt; .0001) and was 6.4% higher in Black than White veterans (mortality rate ratio, 1.064; P = .02)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/39521376/">PMID: 39521376</a>).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Diagnostic principle.</strong> Diagnosis is one of <strong>exclusion</strong>, requiring (1) compatible clinico-radiologic features, (2) biopsy demonstrating <strong>noncaseating epithelioid granulomas</strong>, and (3) exclusion of infectious and neoplastic mimics (<a href="https://pubmed.ncbi.nlm.nih.gov/41651390/">PMID: 41651390</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42237759/">PMID: 42237759</a>).</p>
+<p><strong>Laboratory biomarkers — sIL-2R outperforms serum ACE.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Study / cohort</th>
+<th>sIL-2R sensitivity</th>
+<th>ACE sensitivity</th>
+<th>Other</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ocular cohort ([<a href="https://pubmed.ncbi.nlm.nih.gov/33420542/" target="_blank" rel="noopener noreferrer">PMID: 33420542</a>])</td>
+<td>76.4%</td>
+<td>37.7%</td>
+<td>KL-6 26.3%, Ca 11.8%</td>
+</tr>
+<tr>
+<td>Dermatology cohort ([<a href="https://pubmed.ncbi.nlm.nih.gov/28295528/" target="_blank" rel="noopener noreferrer">PMID: 28295528</a>])</td>
+<td>52.8%</td>
+<td>29%</td>
+<td>Lysozyme 26.4%</td>
+</tr>
+<tr>
+<td>Suspected-sarcoidosis cohort ([<a href="https://pubmed.ncbi.nlm.nih.gov/31622413/" target="_blank" rel="noopener noreferrer">PMID: 31622413</a>])</td>
+<td>Sens 88% / Spec 85%</td>
+<td>Sens 62% / Spec 76%</td>
+<td>sIL-2R superior (p&lt;0.0001)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Verbatim: "<em>The sensitivity for sIL-2R (76.4%) was higher than for ACE (37.7%), KL-6 (26.3%), and Ca (11.8%)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/33420542/">PMID: 33420542</a>); "<em>sIL-2R was more sensitive than both ACE and lysozyme in supporting a diagnosis of sarcoidosis (52.8%) compared with ACE (29%) and lysozyme (26.4%)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/28295528/">PMID: 28295528</a>). sIL-2R also predicts EBUS-TBNA diagnostic yield (<a href="https://pubmed.ncbi.nlm.nih.gov/33093764/">PMID: 33093764</a>). Additional labs: hypercalcemia/hypercalciuria, elevated CD4/CD8 ratio on BAL. For neurosarcoidosis, ACE is a poor biomarker; candidate markers include sIL-2R, CD4/CD8 ratio, neopterin, IFN-γ, and CCL2 (<a href="https://pubmed.ncbi.nlm.nih.gov/38875863/">PMID: 38875863</a>).</p>
+<p><strong>Imaging.</strong> Contrast chest CT detects bilateral hilar lymphadenopathy far better than plain radiography (82.7% vs 29.5%) (<a href="https://pubmed.ncbi.nlm.nih.gov/41651390/">PMID: 41651390</a>). ¹⁸F-FDG PET and cardiac MRI are used for cardiac and occult-organ disease.</p>
+<p><strong>Biopsy / histopathology.</strong> Gold standard is tissue showing <strong>noncaseating epithelioid granulomas</strong> with exclusion of infection (special stains/culture negative) and malignancy. EBUS-TBNA combined with transbronchial lung biopsy achieved 100% diagnostic yield in stage I/II disease (<a href="https://pubmed.ncbi.nlm.nih.gov/33093764/">PMID: 33093764</a>).</p>
+<p><strong>Genetic testing.</strong> Not indicated for classic multifactorial sarcoidosis. For suspected <strong>Blau syndrome</strong>, <strong>single-gene or panel sequencing of NOD2 (CARD15)</strong> is diagnostic (<a href="https://pubmed.ncbi.nlm.nih.gov/40667856/">PMID: 40667856</a>). HLA typing has prognostic (not diagnostic) utility.</p>
+<p><strong>Differential diagnosis.</strong> Tuberculosis and other infections, lymphoma/malignancy, hypersensitivity pneumonitis, berylliosis, and <strong>sarcoid-like reactions (SLR)</strong> triggered by drugs (e.g., dupilumab, checkpoint inhibitors), malignancy, or infection (<a href="https://pubmed.ncbi.nlm.nih.gov/42237759/">PMID: 42237759</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42126659/">PMID: 42126659</a>). Immune mapping distinguishes sarcoid from TB granulomas (<a href="https://pubmed.ncbi.nlm.nih.gov/38385142/">PMID: 38385142</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Course &amp; remission.</strong> Prognosis is bimodal: ~<strong>71.5% resolve</strong> within 2 years, ~<strong>28.5% become chronic</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42498935/">PMID: 42498935</a>). Löfgren syndrome (HLA-DRB1<em>03) carries an excellent prognosis; HLA-DRB1</em>15 predicts chronicity (<a href="https://pubmed.ncbi.nlm.nih.gov/30585624/">PMID: 30585624</a>).</p>
+<p><strong>Mortality.</strong> Sarcoidosis mortality is <strong>rising</strong> (annual increase 4.7%) with persistent <strong>Black-vs-White disparity</strong> (MRR 1.064) (<a href="https://pubmed.ncbi.nlm.nih.gov/39521376/">PMID: 39521376</a>). Leading causes of death: progressive pulmonary fibrosis/respiratory failure, cardiac sarcoidosis (arrhythmia, sudden death), and pulmonary hypertension (<a href="https://pubmed.ncbi.nlm.nih.gov/41410048/">PMID: 41410048</a>).</p>
+<p><strong>Morbidity &amp; complications.</strong> Pulmonary fibrosis; cardiac arrhythmia and sudden death (can be the initial manifestation) (<a href="https://pubmed.ncbi.nlm.nih.gov/41410048/">PMID: 41410048</a>); neurosarcoidosis; ocular complications (cataract 35.7%, glaucoma 30.6%, blindness 10.2%) (<a href="https://pubmed.ncbi.nlm.nih.gov/41512253/">PMID: 41512253</a>); nephrolithiasis (<a href="https://pubmed.ncbi.nlm.nih.gov/41646626/">PMID: 41646626</a>); chronic fatigue.</p>
+<p><strong>Prognostic factors.</strong> Favorable: acute Löfgren onset, HLA-DRB1<em>03, low Scadding stage, normal ACE. Unfavorable: HLA-DRB1</em>15/11:01, elevated ACE with extrapulmonary manifestations (<a href="https://pubmed.ncbi.nlm.nih.gov/39393304/">PMID: 39393304</a>), African ancestry, cardiac/CNS involvement, higher BALF lymphocyte/neutrophil/eosinophil counts (<a href="https://pubmed.ncbi.nlm.nih.gov/34198166/">PMID: 34198166</a>), and need for early immunosuppression (RR 2.18 for chronicity) (<a href="https://pubmed.ncbi.nlm.nih.gov/42498935/">PMID: 42498935</a>).</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>Not all patients require treatment — many self-limited cases are observed. For those needing therapy, escalation is stepwise.</p>
+<p><strong>Pharmacotherapy.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Agent(s)</th>
+<th>Class / mechanism</th>
+<th>MAXO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First</td>
+<td>Corticosteroids (prednisone)</td>
+<td>Broad immunosuppression</td>
+<td><a href="https://bioregistry.io/MAXO:0000305" target="_blank" rel="noopener noreferrer">MAXO:0000305</a> (corticosteroid therapy)</td>
+</tr>
+<tr>
+<td>Second (steroid-sparing)</td>
+<td>Methotrexate</td>
+<td>Antimetabolite / antifolate</td>
+<td><a href="https://bioregistry.io/MAXO:0000916" target="_blank" rel="noopener noreferrer">MAXO:0000916</a> (methotrexate therapy)</td>
+</tr>
+<tr>
+<td>Second</td>
+<td>Azathioprine, leflunomide</td>
+<td>Immunosuppressants</td>
+<td>MAXO (immunosuppressant therapy)</td>
+</tr>
+<tr>
+<td>Refractory</td>
+<td>Infliximab (anti-TNF-α mAb)</td>
+<td>TNF-α neutralization</td>
+<td>MAXO (biologic/anti-TNF therapy)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>"<em>Corticosteroids remain the initial drug for most patients... Methotrexate is [the] most commonly used cytotoxic agent used for chronic disease, but azathioprine and leflunomide also have been shown to be useful. The tumor necrosis factor antibody infliximab has proved useful in treating refractory sarcoidosis</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/18539243/">PMID: 18539243</a>).</p>
+<p><strong>Emerging / targeted therapeutics.</strong></p>
+<ul>
+<li><strong>Efzofitimod (ATYR1923)</strong> — first-in-class neuropilin-2–binding immunomodulator. In a randomized, double-blind, placebo-controlled phase 1b/2a trial (n=37, IV q4w × 24 weeks with forced steroid taper), it was well tolerated and produced "<em>a baseline-adjusted relative steroid reduction of 5%, 9%, and 22%, respectively. Clinically meaningful improvements were achieved across several patient-reported outcomes, several of which reached statistical significance in the 5 mg/kg dose arm</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/36356657/">PMID: 36356657</a>). Mechanism: "<em>Efzofitimod (ATYR1923), a novel immunomodulator, selectively binds neuropilin 2, which is upregulated on immune cells in response to lung inflammation.</em>"</li>
+<li><strong>mTOR inhibitors (sirolimus)</strong> — effective in refractory multisystem sarcoidosis by restoring autophagy/macrophage function (<a href="https://pubmed.ncbi.nlm.nih.gov/40996589/">PMID: 40996589</a>).</li>
+<li><strong>JAK inhibitors and IL-6 receptor antagonists</strong> — promising for refractory sarcoid uveitis on top of methotrexate/TNF inhibitors (<a href="https://pubmed.ncbi.nlm.nih.gov/42364256/">PMID: 42364256</a>).</li>
+<li><strong>Preclinical targets:</strong> CXCR6 blockade (<a href="https://pubmed.ncbi.nlm.nih.gov/42143504/">PMID: 42143504</a>); LGMN supplementation (<a href="https://pubmed.ncbi.nlm.nih.gov/41933939/">PMID: 41933939</a>).</li>
+</ul>
+<p><strong>Blau syndrome-specific.</strong> TNF-α inhibitors are effective for ocular/joint disease (<a href="https://pubmed.ncbi.nlm.nih.gov/40667856/">PMID: 40667856</a>).</p>
+<p><strong>Pharmacogenomics.</strong> No sarcoidosis-specific PGx dosing is established; standard TPMT/NUDT15 testing applies before azathioprine.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong> No vaccine or proven primary-prevention strategy exists. Given occupational associations, <strong>reducing bioaerosol/mold and insecticide exposures</strong> is rational but unproven (<a href="https://pubmed.ncbi.nlm.nih.gov/15347561/">PMID: 15347561</a>).</p>
+<p><strong>Secondary prevention.</strong> Early detection of high-consequence organ involvement — particularly <strong>cardiac screening (ECG/echo)</strong> in newly diagnosed patients — can prevent sudden cardiac death (<a href="https://pubmed.ncbi.nlm.nih.gov/41410048/">PMID: 41410048</a>). Pulmonology/sarcoidosis-clinic referral is associated with recommended cardiopulmonary screening, yet sociodemographic disparities exist (Black males and White females less likely to be referred) (<a href="https://pubmed.ncbi.nlm.nih.gov/40890688/">PMID: 40890688</a>).</p>
+<p><strong>Tertiary prevention.</strong> Early steroid-sparing therapy to prevent corticosteroid toxicity and irreversible fibrosis; monitoring for vitamin D/calcium dysregulation and nephrolithiasis, especially with metabolic comorbidities (<a href="https://pubmed.ncbi.nlm.nih.gov/41646626/">PMID: 41646626</a>).</p>
+<p><strong>Counseling.</strong> Genetic counseling is relevant for <strong>Blau syndrome</strong> (autosomal dominant, NOD2). No population carrier screening applies to classic sarcoidosis.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy.</strong> Sarcoidosis is essentially a <strong>human disease</strong> (<em>Homo sapiens</em>, NCBITaxon:9606). No true naturally occurring idiopathic analog is established in companion animals or wildlife; granulomatous diseases in other species (e.g., mycobacterial granulomas) share cellular architecture but are typically infectious.</p>
+<p><strong>Orthologous genes.</strong> Key genes have clear orthologs used in modeling: mouse <em>Nod2</em> (NCBI Gene 257632), <em>Tsc1</em>/<em>Tsc2</em>, <em>Lgmn</em>, <em>Cxcr6</em>. The granuloma is an evolutionarily conserved host-defense structure, leveraged in comparative TB-vs-sarcoidosis immune mapping (<a href="https://pubmed.ncbi.nlm.nih.gov/38385142/">PMID: 38385142</a>).</p>
+<p><strong>Transmission / zoonotic potential.</strong> Sarcoidosis is <strong>not transmissible</strong> and has <strong>no zoonotic potential</strong>; the mycobacterial-antigen hypothesis concerns immune reactivity to microbial remnants, not active/contagious infection.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mammalian genetic models.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Design</th>
+<th>Phenotype recapitulation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Fsp1-Cre; Tsc1^fl/fl</em> or <em>Tsc2^fl/fl</em> mouse</td>
+<td>Conditional deletion in fibroblasts/macrophages</td>
+<td>Spontaneous sarcoid-like granulomas via mTORC1 hyperactivation ([<a href="https://pubmed.ncbi.nlm.nih.gov/42246493/" target="_blank" rel="noopener noreferrer">PMID: 42246493</a>])</td>
+</tr>
+<tr>
+<td><em>Lgmn^-/-</em> mouse (P. acnes-induced)</td>
+<td>Knockout + microbial induction</td>
+<td>Exacerbated granulomatous inflammation, increased M1 polarization ([<a href="https://pubmed.ncbi.nlm.nih.gov/41933939/" target="_blank" rel="noopener noreferrer">PMID: 41933939</a>])</td>
+</tr>
+<tr>
+<td>CXCR6-targeted mouse</td>
+<td>Pathway inhibition</td>
+<td>Reduced granuloma + fibrosis via Th17 suppression ([<a href="https://pubmed.ncbi.nlm.nih.gov/42143504/" target="_blank" rel="noopener noreferrer">PMID: 42143504</a>])</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Induced (non-genetic) models.</strong> <em>Propionibacterium acnes</em>- and trehalose-6,6′-dimycolate (cord factor)-induced pulmonary granuloma models reproduce granuloma formation and are used to test therapeutics (<a href="https://pubmed.ncbi.nlm.nih.gov/41933939/">PMID: 41933939</a>).</p>
+<p><strong>Applications &amp; limitations.</strong> These models recapitulate <strong>granuloma formation, macrophage polarization, and the mTORC1/STAT1 axis</strong>, enabling target validation (mTOR inhibitors, LGMN, CXCR6). Limitations: they do not fully capture the <strong>human HLA-restricted antigen-specific CD4+ response</strong>, the bimodal natural history, or multiorgan heterogeneity. Cellular/in vitro systems (patient BAL T cells, monocyte-derived macrophages) complement in vivo models. <strong>Resources:</strong> MGI (mouse); Alliance of Genome Resources.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Sarcoidosis is best understood as a <strong>three-hit convergence</strong>: (1) a permissive HLA class II genotype, (2) exposure to a persistent, poorly degradable antigen, and (3) a resulting self-amplifying CD4+ Th1/Th17 granulomatous response in which <strong>mTORC1 hyperactivation</strong> locks macrophages into a granuloma-forming, autophagy-impaired state. The <strong>HLA allele determines fate</strong>: DRB1<em>03 contexts (Löfgren) tend to clear the antigen and resolve, whereas DRB1</em>15/11:01 contexts sustain the response toward chronic fibrosis. The "missing antigen" is increasingly resolved toward <strong>mycobacterial remnants (mKatG, ESAT-6, SodA)</strong>, recognized by lung-compartmentalized CD4+ T cells in most patients but rarely controls. This model unifies the genetics (HLA/BTNL2/ANXA11/NOTCH4), the environmental epidemiology (bioaerosols, WTC dust), the monogenic mirror (NOD2/Blau — a pure innate-sensing lesion producing the same granuloma), the therapeutic response (mTOR inhibition, anti-TNF, NRP2 modulation), and prognostic stratification.</p>
+<hr />
+<h2>Evidence Base (Key Literature)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22952805/">22952805</a></td>
+<td>GWAS: HLA-DRA/DRB5/DRB1, BTNL2, ANXA11, independent NOTCH4 susceptibility</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15347561/">15347561</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/17684288/">17684288</a></td>
+<td>ACCESS: environmental/occupational risk and inverse smoking association</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42246493/">42246493</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40996589/">40996589</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41933939/">41933939</a></td>
+<td>mTORC1 as causal, druggable granuloma driver; sirolimus efficacy; LGMN restraint</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30585624/">30585624</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/37153085/">37153085</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/42498935/">42498935</a></td>
+<td>HLA-DRB1 prognostic alleles; bimodal natural history (71.5% resolve)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33420542/">33420542</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/28295528/">28295528</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/31622413/">31622413</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41651390/">41651390</a></td>
+<td>sIL-2R &gt; ACE; diagnosis of exclusion with granuloma histology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40667856/">40667856</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/36189261/">36189261</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/36915122/">36915122</a></td>
+<td>Blau syndrome: AD NOD2 disease, mechanism, variants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38385142/">38385142</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41651390/">41651390</a></td>
+<td>Single-cell/spatial mapping distinguishing sarcoid vs TB granulomas</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36356657/">36356657</a></td>
+<td>Efzofitimod (NRP2 immunomodulator) steroid-sparing phase 1b/2a</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39521376/">39521376</a></td>
+<td>Rising mortality with Black-vs-White disparity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15753209/">15753209</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/19596780/">19596780</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/19050300/">19050300</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/17924974/">17924974</a></td>
+<td>Mycobacterial mKatG/ESAT-6/SodA as candidate pathogenic antigens</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Selected verbatim support for the antigen hypothesis: "<em>Matrix-assisted laser desorption/ionization time of flight mass spectrometry identified Mycobacterium tuberculosis catalase-peroxidase (mKatG) as one of these tissue antigens</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/15753209/">PMID: 15753209</a>); and "<em>the presence of antigen-specific recognition of ESAT-6 and KatG in T cells from BAL fluid of 32/44 sarcoidosis subjects, compared to 1/27 controls (P &lt; 0.0001)</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/19596780/">PMID: 19596780</a>).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Etiology remains formally unproven.</strong> Despite strong immunological evidence for mycobacterial antigens, sarcoidosis is not an active infection, and no single agent satisfies Koch-style criteria. mKatG reactivity is present in ~55–73% of patients — not all.</li>
+<li><strong>Missing data domains.</strong> Detailed epigenetic profiling, comprehensive proteomic/metabolomic/lipidomic signatures, and precise population incidence figures were not resolved at high granularity in this investigation.</li>
+<li><strong>Model organism gap.</strong> Available mouse models capture granuloma biology but not the HLA-restricted antigen-specific human response or the bimodal natural history.</li>
+<li><strong>Biomarker limitations.</strong> sIL-2R and ACE both lack organ specificity (particularly poor for neurosarcoidosis); no validated biomarker reliably predicts chronicity prospectively.</li>
+<li><strong>Therapeutic evidence.</strong> Efzofitimod and sirolimus data derive from small/early-phase or case-series studies; large confirmatory RCTs are pending.</li>
+<li><strong>No primary-data hypothesis tests</strong> were run in this investigation; conclusions rest on literature synthesis of published cohorts.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective HLA + antigen-reactivity stratification:</strong> combine HLA-DRB1 typing with BAL T-cell mKatG/ESAT-6 ELISPOT at diagnosis to predict resolving vs chronic trajectory.</li>
+<li><strong>mTORC1 biomarker + trial:</strong> validate phospho-S6/phospho-STAT1 in granuloma macrophages as a companion biomarker for a randomized sirolimus (or JAK-inhibitor) trial in refractory disease.</li>
+<li><strong>Confirmatory efzofitimod RCT analysis</strong> with organ-specific and QoL endpoints; correlate response with baseline NRP2 expression.</li>
+<li><strong>Single-cell/spatial atlas across trajectories:</strong> contrast resolving vs chronic granulomas to identify fibroblast/macrophage programs driving fibrosis and candidate anti-fibrotic targets (e.g., CXCR6).</li>
+<li><strong>Disparity-focused implementation study:</strong> address referral and mortality disparities in Black patients through targeted care-pathway interventions.</li>
+<li><strong>NOD2/Blau mechanistic bridge:</strong> test whether NOD2 gain-of-function and mycobacterial-driven classic sarcoidosis converge on a shared mTORC1/NF-κB macrophage program, potentially unifying monogenic and multifactorial forms.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 44 reviewed papers and 10 confirmed findings across 5 investigation iterations. Evidence source types span human clinical cohorts (GWAS, registries, case-control), model organism (conditional-knockout mice), in vitro (patient BAL/PBMC T cells), and computational/single-cell profiling.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Sarcoidosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Sarcoidosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sarcoidosis-falcon.html">← Sarcoidosis (Falcon)</a>
+                
+                
+                <a href="Sarcoma_Of_Cervix_Uteri-falcon.html">Sarcoma Of Cervix Uteri (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sarcoidosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sarcoidosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Sarcoidosis-claude_code.html"><span class="provider-pill provider-claude-code">Claude Code</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Sarcoidosis-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

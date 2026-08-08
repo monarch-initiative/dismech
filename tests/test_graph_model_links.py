@@ -438,3 +438,69 @@ def test_graph_to_json_includes_matching_histopathology_terms() -> None:
             "term_label": "Fibrotic Stroma Formation",
         }
     ]
+
+
+def test_build_causal_graph_includes_environmental_mechanism_links() -> None:
+    """Environmental factors linked via influences_mechanisms should enter the pathograph."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Airway Inflammation"},
+            {"name": "Allergic Sensitization"},
+        ],
+        "environmental": [
+            {
+                "name": "Tobacco smoke exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Airway Inflammation",
+                        "environmental_effect": "EXACERBATES",
+                        "causal_link_type": "DIRECT",
+                        "description": "Smoke amplifies ongoing airway inflammation.",
+                    }
+                ],
+            },
+            {
+                "name": "Early-life farm microbial exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Allergic Sensitization",
+                        "environmental_effect": "PROTECTS_AGAINST",
+                    }
+                ],
+            },
+            {
+                "name": "Unlinked contextual exposure",
+            },
+            {
+                "name": "Undirected exposure",
+                "influences_mechanisms": [{"target": "Airway Inflammation"}],
+            },
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    edges = {(edge.source, edge.target, edge.predicate) for edge in graph.edges}
+
+    assert ("Tobacco smoke exposure", "Airway Inflammation", "exacerbates") in edges
+    assert (
+        "Early-life farm microbial exposure",
+        "Allergic Sensitization",
+        "protects_against",
+    ) in edges
+    # An unqualified link must not be asserted as causative.
+    assert ("Undirected exposure", "Airway Inflammation", "influences") in edges
+    assert not graph.integrity_issues
+
+    data = json.loads(graph_to_json(graph, disorder))
+    node_types = {node["id"]: node["node_type"] for node in data["nodes"]}
+    assert node_types["Tobacco smoke exposure"] == "environmental"
+    assert node_types["Early-life farm microbial exposure"] == "environmental"
+    # Environmental entries with no mechanism link stay out of the pathograph.
+    assert "Unlinked contextual exposure" not in node_types
+
+    smoke_edge = next(
+        edge for edge in data["edges"] if edge["source"] == "Tobacco smoke exposure"
+    )
+    assert smoke_edge["causal_link_type"] == "DIRECT"
+    assert smoke_edge["description"] == "Smoke amplifies ongoing airway inflammation."
