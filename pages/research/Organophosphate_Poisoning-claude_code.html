@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -783,8 +945,8 @@
 <hr />
 <h2>12. Treatment</h2>
 <p>Management rests on <strong>decontamination + resuscitation + antidotes (atropine, oxime, benzodiazepine)</strong> — MAXO suggestions noted.</p>
-<p><strong>Immediate / supportive (<a href="http://purl.obolibrary.org/obo/MAXO_0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a> supportive care):</strong> airway protection and <strong>early intubation/mechanical ventilation</strong> for respiratory failure/secretions (MAXO for mechanical ventilation / oxygen administration); IV access, fluids; skin/GI decontamination (remove clothing, wash skin; activated charcoal if early and airway protected). Staff PPE to prevent secondary contamination.</p>
-<p><strong>Antidotes (pharmacotherapy — <a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> / administration of drug):</strong></p>
+<p><strong>Immediate / supportive (<a href="https://bioregistry.io/MAXO:0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a> supportive care):</strong> airway protection and <strong>early intubation/mechanical ventilation</strong> for respiratory failure/secretions (MAXO for mechanical ventilation / oxygen administration); IV access, fluids; skin/GI decontamination (remove clothing, wash skin; activated charcoal if early and airway protected). Staff PPE to prevent secondary contamination.</p>
+<p><strong>Antidotes (pharmacotherapy — <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> / administration of drug):</strong></p>
 <ol>
 <li><strong>Atropine (<a href="http://purl.obolibrary.org/obo/CHEBI_16684" target="_blank" rel="noopener noreferrer">CHEBI:16684</a>)</strong> — competitive muscarinic antagonist; the mainstay, benefit well established. Give by <strong>doubling-dose titration</strong>: "a regimen of doubling doses, with the aim of raising the pulse above 80 beats per minute and systolic blood pressure above 80 mm Hg," continuing "until the heart rate is more than 80 bpm, the systolic BP is more than 80 mm Hg, and the chest is clear" (Eddleston 2008, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/17706760/" target="_blank" rel="noopener noreferrer">PMID:17706760</a></strong>; doubling-dose vs ad hoc comparison <strong><a href="https://pubmed.ncbi.nlm.nih.gov/18784205/" target="_blank" rel="noopener noreferrer">PMID:18784205</a></strong>). Does <strong>not</strong> treat nicotinic (muscle weakness) effects. Watch for atropine toxicity (agitation, hyperthermia, ileus).</li>
 <li><strong>Oximes — pralidoxime (<a href="http://purl.obolibrary.org/obo/CHEBI_8354" target="_blank" rel="noopener noreferrer">CHEBI:8354</a>) / obidoxime</strong> — reactivate phosphorylated AChE <em>before aging</em>. WHO regimen: "pralidoxime chloride 2 g IV over 20–30 min, follow with an infusion of pralidoxime 0.5–1 g/h" (Eddleston 2008). <strong>Efficacy is genuinely uncertain:</strong> a Cochrane review concluded current evidence is insufficient to show benefit or harm and does not support the WHO regimen; a 2020 meta-analysis of RCTs found "the risk of mortality and the need for ventilator support were not significantly different," with "a significant increase in the incidence of intermediate syndrome in the pralidoxime group" — "pralidoxime was not shown to be beneficial" (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32257715/" target="_blank" rel="noopener noreferrer">PMID:32257715</a> / PMC7117609</strong>; earlier systematic review <strong><a href="https://pubmed.ncbi.nlm.nih.gov/11978898/" target="_blank" rel="noopener noreferrer">PMID:11978898</a></strong>). Curate this as a genuine evidence controversy (SUPPORT vs REFUTE evidence items).</li>
@@ -828,7 +990,7 @@
 <li><strong>Key genes:</strong> ACHE (<a href="https://bioregistry.io/HGNC:108" target="_blank" rel="noopener noreferrer">HGNC:108</a>), BCHE (<a href="https://bioregistry.io/HGNC:983" target="_blank" rel="noopener noreferrer">HGNC:983</a>), PON1 (<a href="https://bioregistry.io/HGNC:9204" target="_blank" rel="noopener noreferrer">HGNC:9204</a>), PNPLA6/NTE (<a href="https://bioregistry.io/HGNC:16268" target="_blank" rel="noopener noreferrer">HGNC:16268</a>).</li>
 <li><strong>Key GO:</strong> <a href="http://purl.obolibrary.org/obo/GO_0003990" target="_blank" rel="noopener noreferrer">GO:0003990</a> (acetylcholinesterase activity), <a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" rel="noopener noreferrer">GO:0007271</a> (cholinergic synaptic transmission), <a href="http://purl.obolibrary.org/obo/GO_0007213" target="_blank" rel="noopener noreferrer">GO:0007213</a> (GPCR ACh receptor signaling), <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (oxidative stress response), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammation).</li>
 <li><strong>Key CHEBI:</strong> acetylcholine (<a href="http://purl.obolibrary.org/obo/CHEBI_15355" target="_blank" rel="noopener noreferrer">CHEBI:15355</a>), atropine (<a href="http://purl.obolibrary.org/obo/CHEBI_16684" target="_blank" rel="noopener noreferrer">CHEBI:16684</a>), pralidoxime (<a href="http://purl.obolibrary.org/obo/CHEBI_8354" target="_blank" rel="noopener noreferrer">CHEBI:8354</a>), diazepam (<a href="http://purl.obolibrary.org/obo/CHEBI_49575" target="_blank" rel="noopener noreferrer">CHEBI:49575</a>), chlorpyrifos (<a href="http://purl.obolibrary.org/obo/CHEBI_34631" target="_blank" rel="noopener noreferrer">CHEBI:34631</a>), parathion (<a href="http://purl.obolibrary.org/obo/CHEBI_27928" target="_blank" rel="noopener noreferrer">CHEBI:27928</a>), sarin (<a href="http://purl.obolibrary.org/obo/CHEBI_75701" target="_blank" rel="noopener noreferrer">CHEBI:75701</a>).</li>
-<li><strong>Key MAXO:</strong> supportive care (<a href="http://purl.obolibrary.org/obo/MAXO_0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a>), pharmacotherapy/drug administration, mechanical ventilation, dietary/GI decontamination.</li>
+<li><strong>Key MAXO:</strong> supportive care (<a href="https://bioregistry.io/MAXO:0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a>), pharmacotherapy/drug administration, mechanical ventilation, dietary/GI decontamination.</li>
 <li><strong>Evidence controversy to encode explicitly:</strong> oxime/pralidoxime efficacy — pair a SUPPORT item (mechanistic reactivation rationale) with REFUTE/PARTIAL items from the 2020 RCT meta-analysis (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32257715/" target="_blank" rel="noopener noreferrer">PMID:32257715</a></strong>) and Cochrane review.</li>
 </ul>
 <hr />

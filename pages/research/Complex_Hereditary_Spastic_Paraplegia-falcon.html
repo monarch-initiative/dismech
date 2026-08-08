@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1002,14 +1164,14 @@
 <p>Earlier disease onset correlates with longer diagnostic delay and disease duration but is associated with a lower risk of independent ambulation loss (<a href="#ref-yu2023clinicalfeaturesand-pages-1-2">yu2023clinicalfeaturesand pages 1-2</a>). Disease duration is the strongest predictor of SPRS progression (<a href="#ref-amprosi2026naturalhistoryin-pages-13-14">amprosi2026naturalhistoryin pages 13-14</a>). NfL levels may serve as prognostic biomarkers, showing correlation with disease activity (<a href="#ref-cipriano2025fluidbiomarkersin-pages-12-14">cipriano2025fluidbiomarkersin pages 12-14</a>).</p>
 <hr />
 <h2>12. Treatment</h2>
-<h3>Pharmacotherapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> – pharmacotherapy)</h3>
+<h3>Pharmacotherapy (<a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> – pharmacotherapy)</h3>
 <ul>
 <li><strong>Antispasticity agents:</strong> Baclofen (oral and intrathecal), tizanidine, and oxybutynin (<a href="#ref-meyyazhagan2022hereditaryspasticparaplegia-pages-16-18">meyyazhagan2022hereditaryspasticparaplegia pages 16-18</a>). Intrathecal baclofen (ITB) demonstrated sustained improvement in spasticity for 2–3 years followed by stable ambulatory function for 4–5 years (<a href="#ref-awuah2024hereditaryspasticparaplegia-pages-12-13">awuah2024hereditaryspasticparaplegia pages 12-13</a>).</li>
-<li><strong>Botulinum toxin type A:</strong> Multiple open-label studies demonstrate improvement in motor and non-motor symptoms, with improved gait velocity at follow-up (<a href="#ref-meyyazhagan2022hereditaryspasticparaplegia-pages-25-25">meyyazhagan2022hereditaryspasticparaplegia pages 25-25</a>, <a href="#ref-meyyazhagan2022thepuzzleof-pages-6-9">meyyazhagan2022thepuzzleof pages 6-9</a>). <a href="http://purl.obolibrary.org/obo/MAXO_0000087" target="_blank" rel="noopener noreferrer">MAXO:0000087</a> (botulinum toxin injection).</li>
+<li><strong>Botulinum toxin type A:</strong> Multiple open-label studies demonstrate improvement in motor and non-motor symptoms, with improved gait velocity at follow-up (<a href="#ref-meyyazhagan2022hereditaryspasticparaplegia-pages-25-25">meyyazhagan2022hereditaryspasticparaplegia pages 25-25</a>, <a href="#ref-meyyazhagan2022thepuzzleof-pages-6-9">meyyazhagan2022thepuzzleof pages 6-9</a>). <a href="https://bioregistry.io/MAXO:0000087" target="_blank" rel="noopener noreferrer">MAXO:0000087</a> (botulinum toxin injection).</li>
 <li><strong>Dalfampridine:</strong> A potassium channel blocker explored in a pilot trial (NCT05613114) (<a href="#ref-meyyazhagan2022hereditaryspasticparaplegia-pages-25-25">meyyazhagan2022hereditaryspasticparaplegia pages 25-25</a>).</li>
 <li><strong>Levodopa:</strong> Explored for parkinsonism features, particularly in SPG7 and SPG11, though evidence remains limited (<a href="#ref-awuah2024hereditaryspasticparaplegia-pages-12-13">awuah2024hereditaryspasticparaplegia pages 12-13</a>).</li>
 </ul>
-<h3>Rehabilitation (<a href="http://purl.obolibrary.org/obo/MAXO_0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> – physical therapy)</h3>
+<h3>Rehabilitation (<a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> – physical therapy)</h3>
 <ul>
 <li><strong>Physical therapy:</strong> Core management approach including stretching, balance training, and strengthening exercises (<a href="#ref-meyyazhagan2022thepuzzleof-pages-6-9">meyyazhagan2022thepuzzleof pages 6-9</a>)</li>
 <li><strong>Robot-assisted gait training:</strong> Shows promise for improving gait velocity (<a href="#ref-meyyazhagan2022thepuzzleof-pages-14-15">meyyazhagan2022thepuzzleof pages 14-15</a>)</li>
@@ -1018,7 +1180,7 @@
 </ul>
 <h3>Advanced Therapeutics: Gene Therapy</h3>
 <p>A landmark single-patient phase 1 clinical trial of AAV gene therapy for SPG50 (AP4M1 gene replacement) was reported in 2024. An adeno-associated virus vector carrying the AP4M1 gene was administered intrathecally to a 4-year-old patient, showing good tolerability with no serious adverse events at 12 months and preliminary evidence of disease stabilization (<a href="#ref-dowling2024aavgenetherapy-pages-1-2">dowling2024aavgenetherapy pages 1-2</a>). Preclinical studies in Ap4m1-knockout mice demonstrated age- and dose-dependent therapeutic effects (<a href="#ref-chen2023intrathecalaav9ap4m1gene-pages-1-2">chen2023intrathecalaav9ap4m1gene pages 1-2</a>). Gene replacement therapy for SPG47 (AP4B1) has completed IND-enabling studies with acceptable safety profiles in nonhuman primates (<a href="#ref-wiseman2024preclinicaldevelopmentof-pages-13-15">wiseman2024preclinicaldevelopmentof pages 13-15</a>). Additional experimental approaches include spastin recovery through preventing neddylation-dependent degradation, and mRNA-based therapies for SPG5 (<a href="#ref-awuah2024hereditaryspasticparaplegia-pages-20-20">awuah2024hereditaryspasticparaplegia pages 20-20</a>).</p>
-<h3>Surgical Interventions (<a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> – surgical procedure)</h3>
+<h3>Surgical Interventions (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> – surgical procedure)</h3>
 <ul>
 <li><strong>Selective dorsal rhizotomy:</strong> Explored in children with limited evidence (<a href="#ref-meyyazhagan2022thepuzzleof-pages-6-9">meyyazhagan2022thepuzzleof pages 6-9</a>)</li>
 <li><strong>Spinal cord stimulation:</strong> Under investigation (NCT05196178)</li>
@@ -1138,7 +1300,7 @@
 <h2>13. Prevention</h2>
 <h3>Primary Prevention</h3>
 <p>No primary prevention strategies exist for complex HSP given its monogenic genetic etiology. Risk reduction focuses on genetic counseling and family planning.</p>
-<h3>Genetic Counseling and Screening (<a href="http://purl.obolibrary.org/obo/MAXO_0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> – genetic counseling)</h3>
+<h3>Genetic Counseling and Screening (<a href="https://bioregistry.io/MAXO:0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> – genetic counseling)</h3>
 <ul>
 <li><strong>Carrier screening:</strong> Relevant for AR forms, particularly in consanguineous populations</li>
 <li><strong>Prenatal testing:</strong> Available when the familial variant is known</li>
