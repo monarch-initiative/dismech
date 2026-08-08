@@ -51,6 +51,45 @@ def test_treats_edge_does_not_count_as_causal_connection() -> None:
     assert unconnected == ["Pain"]
 
 
+def test_causal_environmental_edge_connects_phenotype() -> None:
+    """A triggering exposure mechanistically explains a phenotype (#8033)."""
+    data = {
+        "phenotypes": [{"name": "Contact Dermatitis"}],
+        "environmental": [
+            {
+                "name": "Nickel exposure",
+                "influences_mechanisms": [
+                    {
+                        "target": "Contact Dermatitis",
+                        "environmental_effect": "TRIGGERS",
+                    }
+                ],
+            }
+        ],
+    }
+    connected, total, unconnected = causal_inlink_coverage(data)
+    assert (connected, total) == (1, 1)
+    assert unconnected == []
+
+
+def test_noncausal_environmental_edges_do_not_connect_phenotype() -> None:
+    """Protective, predisposing and non-committal exposures do not explain a
+    phenotype, so they must not count toward causal-inlink coverage (#8033)."""
+    for effect in ["PROTECTS_AGAINST", "PREDISPOSES", "MODULATES", None]:
+        link = {"target": "Contact Dermatitis"}
+        if effect:
+            link["environmental_effect"] = effect
+        data = {
+            "phenotypes": [{"name": "Contact Dermatitis"}],
+            "environmental": [
+                {"name": "Some exposure", "influences_mechanisms": [link]}
+            ],
+        }
+        connected, total, unconnected = causal_inlink_coverage(data)
+        assert (connected, total) == (0, 1), f"unexpected wiring for {effect!r}"
+        assert unconnected == ["Contact Dermatitis"]
+
+
 def test_sequelae_chain_connects_downstream_phenotype() -> None:
     data = {
         "pathophysiology": [{"name": "M", "downstream": [{"target": "Pheno A"}]}],
@@ -82,7 +121,9 @@ def test_plugin_emits_graded_aggregated_score() -> None:
 
 
 def test_plugin_returns_no_score_when_no_phenotypes() -> None:
-    assert PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+    assert (
+        PhenotypeConnectivityPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
+    )
 
 
 def _mendelian() -> dict:
@@ -189,6 +230,4 @@ def test_augment_report_folds_in_connectivity_and_recomputes() -> None:
     # Weighted compliance drops: (2*1 + 1*2) / (2*1 + 2*2) = 4/6.
     assert round(base.weighted_compliance, 1) == 66.7
     # 50% < 90% threshold -> a violation is appended.
-    assert any(
-        v.slot_name == "causal_inlink" for v in base.threshold_violations
-    )
+    assert any(v.slot_name == "causal_inlink" for v in base.threshold_violations)
