@@ -23,7 +23,6 @@ term_validator := "scripts/run_term_validator.sh"
 validate-all:
     #!/usr/bin/env bash
     set -u
-    just fix-references-cache
     just check-enum-cache-offline
 
     if command -v rg >/dev/null 2>&1; then
@@ -35,6 +34,8 @@ validate-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+
+    just fix-references-cache "${files[@]}"
 
     exit_code=0
     echo "Validating ${#files[@]} disorder files (batched)..."
@@ -86,7 +87,7 @@ validate file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
@@ -128,7 +129,7 @@ validate-disorders *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache
+    just fix-references-cache "${existing[@]}"
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
@@ -249,7 +250,7 @@ validate-comorbidity file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t ComorbidityAssociation --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -288,7 +289,7 @@ validate-comorbidity-batch *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache || exit_code=1
+    just fix-references-cache "${existing[@]}" || exit_code=1
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class ComorbidityAssociation --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
@@ -308,7 +309,7 @@ validate-comorbidities-all:
         echo "No comorbidity files found in {{comorbidity_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all comorbidity files..."
@@ -380,7 +381,7 @@ validate-modules:
         echo "No module files found in {{modules_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all mechanism module files..."
@@ -435,7 +436,7 @@ validate-module file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -450,7 +451,7 @@ validate-grouping file:
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Grouping --labels -c {{oak_config}}
     echo "Reference validation..."
-    just fix-references-cache
+    just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}}
     echo "✓ All validations passed for {{file}}"
 
@@ -464,7 +465,7 @@ validate-groupings:
         echo "No grouping files found in {{groupings_dir}}"
         exit 0
     fi
-    just fix-references-cache
+    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
     failed_files=()
     echo "Validating all disease grouping files..."
@@ -746,7 +747,7 @@ sync-epic-checkboxes *args:
 # line the wrapper appends for the affirmative count.
 [group('QC')]
 validate-references file:
-    @just fix-references-cache
+    @just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Count reference/snippet pairs and re-verify each against references_cache/,
@@ -761,7 +762,6 @@ count-verified-snippets *args:
 # linkml-reference-validator cache contract before the heavier data validators.
 [group('QC')]
 check-reference-cache-frontmatter:
-    @just fix-references-cache
     uv run python -m dismech.reference_cache_frontmatter references_cache
 
 # Catches the ad-hoc-seeding corruption in #7682: a row built by string
@@ -818,7 +818,6 @@ update-snippet-length-baseline:
 validate-references-all:
     #!/usr/bin/env bash
     set -e
-    just fix-references-cache
     if command -v rg >/dev/null 2>&1; then
         mapfile -t files < <(rg --files -g '*.yaml' -g '!*.history.yaml' --no-ignore {{kb_dir}} | sort)
     else
@@ -828,27 +827,19 @@ validate-references-all:
         echo "No disorder YAML files found in {{kb_dir}} (after excluding *.history.yaml)."
         exit 1
     fi
+    just fix-references-cache "${files[@]}"
     echo "Validating references in ${#files[@]} disorder files (batched)..."
     {{ref_validator}} validate data "${files[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
 
 # Fix YAML quoting issues in references cache (workaround for upstream bug).
-#
-# This is a whole-cache sweep (tens of thousands of files) run before most
-# reference-validation recipes, so it MUST be a no-op on a well-formed cache --
-# otherwise every validation run re-writes thousands of unrelated files and the
-# working tree fills with quoting-only churn a curator then has to avoid staging.
-# The logic lives in `dismech.reference_cache_quote` so it is unit-testable and
-# guarded by a no-op regression test (tests/test_reference_cache_quote.py);
-# `needs_quoting` there records WHY the naive "any colon -> quote" rule was wrong.
-#
-# The committed cache is intentionally left MIXED -- values quoted by past sweeps
-# stay quoted, the fetcher's native unquoted `reference_id:`/`doi:` form stays
-# unquoted, and both parse identically. Do NOT "normalize" that split in either
-# direction: it would be a 10k-26k-file diff and would reintroduce exactly the
-# churn this recipe exists to avoid.
+# With data-file arguments, only normalize caches cited by those files. Omit
+# arguments only for an explicit whole-cache maintenance pass (issues #7844,
+# #8203). The quoting predicate is intentionally a no-op on valid bare CURIEs.
 [group('QC')]
-fix-references-cache:
-    uv run python -m dismech.reference_cache_quote references_cache
+fix-references-cache *files:
+    #!/usr/bin/env bash
+    set -e
+    uv run python -m dismech.reference_cache_quote references_cache "$@"
 
 # Warm the reference cache's full-text-attempt state (stops repeated PDF
 # re-downloads during `just validate`). Idempotent + resumable: only touches
@@ -1680,7 +1671,7 @@ fetch-reference +identifiers:
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
             *)
-                uv run linkml-reference-validator cache reference "$identifier"
+                scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
         esac
     done
