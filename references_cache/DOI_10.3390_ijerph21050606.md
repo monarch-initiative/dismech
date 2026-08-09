@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijerph21050606"
+reference_id: DOI:10.3390/ijerph21050606
 title: "Qualitative Study to Explore the Occupational and Reproductive Health Challenges among Women Tobacco Farm Laborers in Mysore District, India"
 authors:
 - Priyanka Ravi
@@ -18,6 +18,7 @@ journal: International Journal of Environmental Research and Public Health
 year: '2024'
 doi: 10.3390/ijerph21050606
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Qualitative Study to Explore the Occupational and Reproductive Health Challenges among Women Tobacco Farm Laborers in Mysore District, India

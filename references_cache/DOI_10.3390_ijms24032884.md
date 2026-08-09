@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms24032884"
+reference_id: DOI:10.3390/ijms24032884
 title: Immunopathological Mechanisms of Bird-Related Hypersensitivity Pneumonitis
 authors:
 - Silvia Sánchez-Díez
@@ -13,6 +13,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms24032884
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Immunopathological Mechanisms of Bird-Related Hypersensitivity Pneumonitis

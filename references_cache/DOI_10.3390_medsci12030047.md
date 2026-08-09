@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/medsci12030047"
+reference_id: DOI:10.3390/medsci12030047
 title: "Survival Analysis, Clinical Characteristics, and Predictors of Cerebral Metastases in Patients with Colorectal Cancer"
 authors:
 - Antoine Jeri-Yabar
@@ -10,6 +10,7 @@ journal: Medical Sciences
 year: '2024'
 doi: 10.3390/medsci12030047
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Survival Analysis, Clinical Characteristics, and Predictors of Cerebral Metastases in Patients with Colorectal Cancer

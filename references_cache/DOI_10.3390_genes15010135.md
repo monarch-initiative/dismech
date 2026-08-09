@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/genes15010135"
+reference_id: DOI:10.3390/genes15010135
 title: Translational Relevance of Advanced Age and Atherosclerosis in Preclinical Trials of Biotherapies for Peripheral Artery Disease
 authors:
 - Keith Webster
@@ -7,6 +7,7 @@ journal: Genes
 year: '2024'
 doi: 10.3390/genes15010135
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Translational Relevance of Advanced Age and Atherosclerosis in Preclinical Trials of Biotherapies for Peripheral Artery Disease

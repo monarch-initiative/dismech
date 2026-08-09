@@ -1,0 +1,14 @@
+---
+reference_id: "clinicaltrials:NCT02573467"
+title: "Extension of the CBYM338B2203 Phase IIb/III Study to Evaluate the Long-term Efficacy, Safety and Tolerability of Intravenous BYM338 in Patients With Sporadic Inclusion Body Myositis"
+content_type: summary
+full_text_attempted: true
+---
+
+# Extension of the CBYM338B2203 Phase IIb/III Study to Evaluate the Long-term Efficacy, Safety and Tolerability of Intravenous BYM338 in Patients With Sporadic Inclusion Body Myositis
+
+## Content
+
+This extension study will provide data to further evaluate the efficacy, safety, and tolerability of three doses of BYM338 and to assess the long-term effects of BYM338 in patients with sporadic inclusion body myositis. The extension study was planned to consist of a Screening epoch (to assess patient eligibility), followed by a Treatment Period 1 epoch (double-blind and placebo-controlled), and a Treatment Period 2 epoch (open-label). A Post-treatment Follow-up (FUP) epoch was also planned for patients who discontinued prematurely. Patients who complete the core study and qualify for this extension study entered Treatment Period 1 and continued on the study drug to which they were randomized in the core study (either to one of the three bimagrumab doses (1 mg/kg, 3 mg/kg, and 10mg/kg) or placebo) during Treatment Period 1. Thus, Treatment Period 1 was double-blind and placebo-controlled. Participants were to continue in Treatment Period 1 until the dose with the best benefit-risk profile was determined from the core study data and selected (duration of Treatment Period 1 was estimated to be between 6 and 8 months). Once the dose with the best benefit-risk profile was selected, all participants (including those who were receiving placebo) were planned to enter Treatment Period 2 and switch to open-label treatment with bimagrumab at the selected dose. The core study has been completed but since the core study did not meet the primary end point (no bimagrumab dose was identified based on the core study efficacy results) the extension study was terminated as per protocol/sponsor's decision; therefore, no patients had entered Treatment Period 2. Instead, all patients were to return for the End of Treatment Period 1 (EOT1) visit at their next scheduled visit. As per protocol, all patients who discontinued study medication during Treatment Period 1 for any reason, including due to the study having been stopped as per protocol/sponsor's decision, were to have entered and complete the 6-month FUP after their EOT1 visit.
+
+Due to the nature of the design of the core and extension studies and termination of study medication in the extension study, the treatment duration for individual patients varied considerably. Consequently, the number of patients contributing data to the efficacy analyses at Week 104 and later timepoints was decreased.

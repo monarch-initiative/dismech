@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.4103/sjopt.sjopt_175_23"
+reference_id: DOI:10.4103/sjopt.sjopt_175_23
 title: "Gene therapy in bestrophinopathies: Insights from preclinical studies in preparation for clinical trials"
 authors:
 - Alessia Amato
@@ -13,6 +13,7 @@ journal: Saudi Journal of Ophthalmology
 year: '2023'
 doi: 10.4103/sjopt.sjopt_175_23
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Gene therapy in bestrophinopathies: Insights from preclinical studies in preparation for clinical trials

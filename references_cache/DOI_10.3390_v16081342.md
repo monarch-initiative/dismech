@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v16081342"
+reference_id: DOI:10.3390/v16081342
 title: The Effects of Viral Infections on the Molecular and Signaling Pathways Involved in the Development of the PAOs
 authors:
 - Xiaozhou Liu
@@ -11,6 +11,7 @@ journal: Viruses
 year: '2024'
 doi: 10.3390/v16081342
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Effects of Viral Infections on the Molecular and Signaling Pathways Involved in the Development of the PAOs

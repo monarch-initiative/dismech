@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms26167905"
+reference_id: DOI:10.3390/ijms26167905
 title: "Primary Biliary Cholangitis: Immunopathogenesis and the Role of Bile Acid Metabolism in Disease Progression"
 authors:
 - María Del Barrio
@@ -9,6 +9,7 @@ journal: International Journal of Molecular Sciences
 year: '2025'
 doi: 10.3390/ijms26167905
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Primary Biliary Cholangitis: Immunopathogenesis and the Role of Bile Acid Metabolism in Disease Progression

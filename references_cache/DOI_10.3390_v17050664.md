@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/v17050664"
+reference_id: DOI:10.3390/v17050664
 title: "Human T-Lymphotropic Virus (HTLV): Epidemiology, Genetic, Pathogenesis, and Future Challenges"
 authors:
 - Francesco Branda
@@ -27,6 +27,7 @@ journal: Viruses
 year: '2025'
 doi: 10.3390/v17050664
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Human T-Lymphotropic Virus (HTLV): Epidemiology, Genetic, Pathogenesis, and Future Challenges

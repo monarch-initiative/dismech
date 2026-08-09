@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/cancers15020407"
+reference_id: DOI:10.3390/cancers15020407
 title: Diagnostic and Therapeutic Pathway of Advanced Ovarian Cancer with Peritoneal Metastases
 authors:
 - Valentina Ghirardi
@@ -21,6 +21,7 @@ journal: Cancers
 year: '2023'
 doi: 10.3390/cancers15020407
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Diagnostic and Therapeutic Pathway of Advanced Ovarian Cancer with Peritoneal Metastases

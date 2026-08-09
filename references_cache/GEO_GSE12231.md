@@ -1,7 +1,8 @@
 ---
-reference_id: "GEO:GSE12231"
+reference_id: GEO:GSE12231
 title: Neonatal and embyronic CNS of mice with maternal or paternal duplication of proximal chromosomes 7 and 15
 content_type: summary
+full_text_attempted: true
 ---
 
 # Neonatal and embyronic CNS of mice with maternal or paternal duplication of proximal chromosomes 7 and 15

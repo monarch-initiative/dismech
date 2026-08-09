@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kearns-Sayre syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Kearns-Sayre syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Kearns-Sayre syndrome</h1>
+                
+                <p class="report-subtitle">Kearns-Sayre Syndrome (KSS): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010787" target="_blank" rel="noopener noreferrer">MONDO:0010787</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Kearns-Sayre Syndrome (KSS): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Kearns-Sayre syndrome (KSS)
+<strong>Ontology identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009723" target="_blank" rel="noopener noreferrer">MONDO:0009723</a> · OMIM 530000 · Orphanet <a href="https://bioregistry.io/ORPHA:480" target="_blank" rel="noopener noreferrer">ORPHA:480</a> · MeSH D007625 · ICD-10 H49.81 · ICD-11 8C71 (mitochondrial myopathy) category
+<strong>Category:</strong> Mendelian (mitochondrial genome disorder; almost always sporadic/de novo)</p>
+<hr />
+<h2>Summary</h2>
+<p>Kearns-Sayre syndrome (KSS) is a rare, multisystem mitochondrial disorder caused by a <strong>single large-scale, heteroplasmic deletion of mitochondrial DNA (mtDNA)</strong> that removes contiguous oxidative-phosphorylation (OXPHOS) subunit genes and transfer-RNA genes. The loss of tRNA genes cripples intramitochondrial protein translation, and the loss of OXPHOS subunits directly disables the respiratory chain, producing a cellular ATP deficit that is most damaging to high-energy-demand post-mitotic tissues — extraocular muscle, cardiac conduction tissue, brain white matter, retina, cochlea, and endocrine organs. KSS is defined clinically by a <strong>triad</strong> — progressive external ophthalmoplegia/ptosis, pigmentary retinopathy, and onset before age 20 — <strong>plus at least one of</strong>: cardiac conduction block, cerebrospinal fluid (CSF) protein &gt;100 mg/dL, or cerebellar ataxia.</p>
+<p>KSS sits on the <strong>single large-scale mtDNA deletion syndrome (SLSMDS) spectrum</strong> together with Pearson syndrome (infantile, hematologic) and chronic progressive external ophthalmoplegia (CPEO, milder/later). The same molecular lesion can produce all three phenotypes, and patients can evolve along the Pearson → KSS → CPEO continuum over time. The deletion is nearly always <strong>sporadic (de novo)</strong>, arising in the maternal oocyte or early embryo, with a low empiric recurrence risk of ~4% among offspring of affected women — a critical fact for genetic counseling that distinguishes deletions from maternally inherited mtDNA point mutations.</p>
+<p>There is <strong>no cure</strong>; management is supportive, organ-directed, and multidisciplinary. The single most life-saving intervention is <strong>early/prophylactic cardiac pacing</strong>, because progressive atrioventricular conduction block causing sudden cardiac death is the leading cause of mortality. A second high-value, disease-specific intervention is <strong>folinic acid</strong> supplementation, which corrects the cerebral folate deficiency (low CSF 5-methyltetrahydrofolate) that arises from failed ATP-dependent folate transport across the choroid plexus, and can reverse associated white-matter demyelination. Natural history is chronic-progressive: in a large European pediatric-onset cohort, mean onset was 10 years, mean last examination 31 years, and median time from onset to death 11.5 years.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> KSS is a mitochondrial cytopathy on the SLSMDS spectrum. It is defined by the <strong>conventional triad plus one major criterion</strong> (Finding F001): (1) progressive external ophthalmoplegia (PEO)/ptosis, (2) pigmentary ("salt-and-pepper") retinopathy, (3) onset before age 20 years — <strong>plus</strong> at least one of cardiac conduction block, CSF protein &gt;100 mg/dL, or cerebellar syndrome. In a European pediatric cohort of 80 SLSMD patients, KSS spectrum disorder was present in 50%, Pearson syndrome in 21%, and CPEO in 29% (<a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">PMID: 34872991</a>).</p>
+<blockquote>
+<p>"Kearns-Sayre syndrome according to the conventional triad (onset before 20 years of age, ophthalmoplegia, pigmentary degeneration of the retina) with at least one of three other major manifestations (heart block, CSF protein over 100 mg/dl, cerebellar syndrome)" — <a href="https://pubmed.ncbi.nlm.nih.gov/8167995/">PMID: 8167995</a></p>
+</blockquote>
+<p><strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009723" target="_blank" rel="noopener noreferrer">MONDO:0009723</a> · OMIM 530000 · Orphanet <a href="https://bioregistry.io/ORPHA:480" target="_blank" rel="noopener noreferrer">ORPHA:480</a> · MeSH D007625 · ICD-10 H49.81 · UMLS C0022541.</p>
+<p><strong>Synonyms / alternative names:</strong> Kearns-Sayre syndrome; Kearns-Sayre-Daroff syndrome; oculocraniosomatic neuromuscular disorder with ragged-red fibers; ophthalmoplegia-plus syndrome; mitochondrial cytopathy, Kearns-Sayre type; chronic progressive external ophthalmoplegia with myopathy (KSS end of spectrum).</p>
+<p><strong>Source of information:</strong> Predominantly <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, HPO) supplemented by clinical case series and multicentre cohorts (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/34872991/" target="_blank" rel="noopener noreferrer">PMID 34872991</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41074779/" target="_blank" rel="noopener noreferrer">PMID 41074779</a>). Because KSS is rare, much of the phenotype-frequency data derives from pooled cohorts rather than population EHR.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> KSS is caused by a <strong>single large-scale mtDNA deletion</strong> (typically 1.1–10 kb) that removes multiple contiguous genes (Findings F004, F013). It is a primary genetic (not infectious/environmental) disorder of the mitochondrial genome.</p>
+<p><strong>Genetic risk factors.</strong> The lesion is heteroplasmic; <strong>higher blood heteroplasmy correlates with earlier age of onset</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>). Larger deletions correlate with more deleted respiratory-chain complex genes (r=0.516, p=0.012) and more deleted tRNAs (r=0.534, p=0.010); KSS patients had larger deletions and greater tRNA/complex involvement than non-KSS (<a href="https://pubmed.ncbi.nlm.nih.gov/41074779/">PMID: 41074779</a>). The deletion arises via <strong>direct-repeat misannealing</strong> in the single-stranded major arc during replication (Finding F013).</p>
+<p><strong>Environmental risk factors.</strong> No established environmental cause for the primary deletion. In <em>late-onset CPEO</em> (the mild end of the spectrum), acquired mitochondrial toxicity from cigarette use and hepatitis C was noted more often than expected, suggesting acquired mitochondrial stress may modulate the adult phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/21156440/">PMID: 21156440</a>) — but this is not causal for KSS itself.</p>
+<p><strong>Protective factors / gene–environment interactions.</strong> No validated genetic protective alleles or dietary protective factors are established. Because pathology is energy-threshold dependent, tissues with lower deletion heteroplasmy are relatively spared. A notable <strong>negative gene–environment interaction</strong>: endurance exercise <em>worsens</em> muscle pathology in the mtDNA-deletion mouse model (Findings F007/F012), cautioning against intense exercise.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>KSS is multisystem (Finding F005). Phenotype frequencies from a pediatric SLSMD cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">PMID: 34872991</a>) and a KSS-specific endocrine survey (<a href="https://pubmed.ncbi.nlm.nih.gov/1424198/">PMID: 1424198</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Onset/Course</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Progressive external ophthalmoplegia / ptosis</td>
+<td>Clinical sign (muscle)</td>
+<td>Defining (~100% KSS)</td>
+<td>Childhood, progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" rel="noopener noreferrer">HP:0000602</a>, <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a></td>
+</tr>
+<tr>
+<td>Pigmentary retinopathy</td>
+<td>Physical/ophthalmic sign</td>
+<td>46%</td>
+<td>Childhood, progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000580" target="_blank" rel="noopener noreferrer">HP:0000580</a>, <a href="http://purl.obolibrary.org/obo/HP_0007737" target="_blank" rel="noopener noreferrer">HP:0007737</a></td>
+</tr>
+<tr>
+<td>Skeletal muscle involvement / exercise intolerance</td>
+<td>Symptom (muscle)</td>
+<td>65%</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003323" target="_blank" rel="noopener noreferrer">HP:0003323</a>, <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a></td>
+</tr>
+<tr>
+<td>Cerebellar ataxia</td>
+<td>Neurologic sign</td>
+<td>40%</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td>Physical/endocrine</td>
+<td>38–42%</td>
+<td>Childhood</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Hearing impairment (sensorineural)</td>
+<td>Sensory sign</td>
+<td>39%</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+</tr>
+<tr>
+<td>Cardiac conduction disease (AV block)</td>
+<td>Clinical sign (cardiac)</td>
+<td>39%</td>
+<td>Progressive, life-threatening</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001678" target="_blank" rel="noopener noreferrer">HP:0001678</a>, <a href="http://purl.obolibrary.org/obo/HP_0011712" target="_blank" rel="noopener noreferrer">HP:0011712</a></td>
+</tr>
+<tr>
+<td>Cognitive involvement</td>
+<td>Neurologic</td>
+<td>36%</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Diabetes mellitus</td>
+<td>Lab/endocrine</td>
+<td>13–25%</td>
+<td>Later childhood/adult</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" rel="noopener noreferrer">HP:0000819</a></td>
+</tr>
+<tr>
+<td>Gonadal dysfunction / hypogonadism</td>
+<td>Endocrine</td>
+<td>20%</td>
+<td>Peri/post-puberty</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" rel="noopener noreferrer">HP:0000135</a></td>
+</tr>
+<tr>
+<td>Renal disease (proximal tubulopathy/Fanconi)</td>
+<td>Lab/organ</td>
+<td>19%</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000114" target="_blank" rel="noopener noreferrer">HP:0000114</a>, <a href="http://purl.obolibrary.org/obo/HP_0008658" target="_blank" rel="noopener noreferrer">HP:0008658</a></td>
+</tr>
+<tr>
+<td>Elevated CSF protein (&gt;100 mg/dL)</td>
+<td>Lab abnormality</td>
+<td>Major criterion</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002922" target="_blank" rel="noopener noreferrer">HP:0002922</a></td>
+</tr>
+<tr>
+<td>Stroke-like episodes</td>
+<td>Neurologic</td>
+<td>9%</td>
+<td>Episodic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002401" target="_blank" rel="noopener noreferrer">HP:0002401</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics.</strong> Age of onset is typically <strong>childhood/adolescence (&lt;20 y)</strong>, insidious/chronic. Severity is <strong>variable but overall moderate-to-severe</strong>, and progression is <strong>progressive</strong> across organ systems. Endocrine dysfunction can precede neurological manifestations in ~20% of mitochondrial-disease patients (<a href="https://pubmed.ncbi.nlm.nih.gov/40382647/">PMID: 40382647</a>).</p>
+<p><strong>Quality of life.</strong> Fatigue increases and quality of life decreases with advancing age (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>). Ptosis/ophthalmoplegia impair vision and communication; ataxia and myopathy impair mobility; deafness, diabetes, and cardiac disease add cumulative burden.</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Causal lesion.</strong> Single large-scale deletion of the <strong>mitochondrial genome</strong> (not a nuclear gene). The recurrent <strong>"common deletion" m.8470_13446del4977</strong> (4,977 bp) accounts for only a minority of cases — ~14.3% in a Chinese pediatric cohort, with 23 novel deletions identified in 25 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/41074779/">PMID: 41074779</a>) (Finding F004).</p>
+<blockquote>
+<p>"Only 14.3% had the classic 4977 bp deletion, and 23 novel deletions were identified in 25 patients." — <a href="https://pubmed.ncbi.nlm.nih.gov/41074779/">PMID: 41074779</a></p>
+</blockquote>
+<p><strong>Commonly deleted genes.</strong> A recurrent deleted region <strong>involving MT-ND5 (<a href="https://bioregistry.io/HGNC:7641" target="_blank" rel="noopener noreferrer">HGNC:7641</a>) occurs in 96%</strong> of SLSMDS participants regardless of phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>). Deletions in the major arc typically remove OXPHOS-subunit genes (e.g., <strong>MT-ND3, MT-ND4, MT-ND4L, MT-ND5</strong> of complex I; <strong>MT-CO3</strong> of complex IV; <strong>MT-ATP6/8</strong>; <strong>MT-CYB</strong> of complex III) plus multiple tRNA genes.</p>
+<p><strong>Variant classification / type.</strong> Structural (large deletion), heteroplasmic; pathogenic per ACMG for mitochondrial-genome disorders when a single large-scale deletion is detected in the appropriate clinical context.</p>
+<p><strong>Origin.</strong> <strong>Germline-mosaic / sporadic (de novo)</strong> — arising in the oocyte or early embryo, not inherited from an affected parent in the vast majority (Finding F008). Not present in population allele-frequency databases (not a polymorphism).</p>
+<p><strong>Functional consequence.</strong> <strong>Loss of function</strong> — loss of tRNA genes impairs mitochondrial translation of all 13 mtDNA-encoded OXPHOS subunits; loss of subunit genes directly disables complexes I, III, IV, and V. Nuclear-encoded <strong>complex II remains normal</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41086592/">PMID: 41086592</a>).</p>
+<p><strong>Genotype–phenotype.</strong> Larger deletions → more deleted MRC complexes (r=0.516, p=0.0123) and more deleted tRNAs (r=0.534, p=0.0103); higher heteroplasmy → earlier onset (<a href="https://pubmed.ncbi.nlm.nih.gov/41074779/">PMID: 41074779</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>).</p>
+<p><strong>Molecular origin (Finding F013).</strong> Deletions form in the <strong>major arc</strong> (single-stranded during replication) and are flanked by <strong>direct nucleotide repeats</strong>. The common deletion arises between a first repeat arm at 8470–8482 bp and a second at 13,447–13,459 bp. Spatial proximity in a hairpin-like "contact zone" makes these repeats ~3× more likely to cause deletions (<a href="https://pubmed.ncbi.nlm.nih.gov/37158879/">PMID: 37158879</a>); breakpoints occur consistently in regions of sequence homology, consistent with slipped-replication/misannealing followed by clonal expansion (<a href="https://pubmed.ncbi.nlm.nih.gov/29257976/">PMID: 29257976</a>).</p>
+<blockquote>
+<p>"The direct repeats located within the contact zone, such as the well-known common repeat with a first arm at 8470-8482 bp (base pair) and a second arm at 13,447-13,459 bp, are three times more likely to cause deletions compared to direct repeats located outside of the contact zone." — <a href="https://pubmed.ncbi.nlm.nih.gov/37158879/">PMID: 37158879</a></p>
+</blockquote>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities:</strong> No established nuclear modifier genes for the sporadic deletion (nuclear mtDNA-maintenance defects instead cause <em>multiple</em> deletions and are Mendelian — a distinct entity). No epigenetic or nuclear chromosomal abnormality is causal.</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p>KSS has <strong>no established environmental, lifestyle, or infectious cause</strong>; it is a primary mtDNA structural disorder. Relevant modifiers: (a) <strong>intense/endurance exercise</strong> worsens muscle pathology in the mtDNA-deletion mouse model and is a caution in severe disease (<a href="https://pubmed.ncbi.nlm.nih.gov/39956167/">PMID: 39956167</a>); (b) acquired mitochondrial toxins (tobacco, hepatitis C) associate with adult CPEO but are not causal for KSS (<a href="https://pubmed.ncbi.nlm.nih.gov/21156440/">PMID: 21156440</a>); (c) <strong>folic acid</strong> (as opposed to folinic acid/5MTHF) can inhibit 5MTHF transport across the blood–CSF barrier and should be avoided (<a href="https://pubmed.ncbi.nlm.nih.gov/36341171/">PMID: 36341171</a>).</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain.</strong> mtDNA deletion → loss of tRNA + OXPHOS-subunit genes → impaired mitochondrial translation + directly disabled respiratory complexes I/III/IV/V → <strong>electron-transport-chain failure → ATP deficit + increased reactive oxygen species</strong> → energy failure in high-demand post-mitotic tissues → clinical multisystem disease (Findings F004, F006).</p>
+<p><strong>Molecular pathways / biochemical abnormalities.</strong> Oxidative phosphorylation is the central affected pathway (KEGG hsa00190). <strong>Complex IV (cytochrome-c-oxidase) is most frequently impaired</strong>, whereas nuclear-encoded complex II activity remains normal (<a href="https://pubmed.ncbi.nlm.nih.gov/41086592/">PMID: 41086592</a>). Mitochondrial dysfunction can occur even at deletion heteroplasmy <strong>&lt;10%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41086592/">PMID: 41086592</a>).</p>
+<blockquote>
+<p>"Complex IV was most frequently impaired, whereas nuclear-encoded complex II activity remained normal in all samples." — <a href="https://pubmed.ncbi.nlm.nih.gov/41086592/">PMID: 41086592</a></p>
+</blockquote>
+<p><strong>Cellular processes / tissue-damage mechanisms.</strong> Muscle biopsy shows <strong>ragged-red fibers</strong> (subsarcolemmal accumulation of structurally abnormal mitochondria on modified Gomori trichrome), <strong>ragged-blue fibers</strong> (SDH), and <strong>COX-negative fibers</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17541738/">PMID: 17541738</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38018320/">PMID: 38018320</a>). The CNS shows <strong>spongiform (spongy) degeneration and demyelinating leukoencephalopathy</strong> — distinguishing KSS as a white-matter mitochondrial disorder versus the predominantly grey-matter MELAS/MERRF/Leigh disorders (<a href="https://pubmed.ncbi.nlm.nih.gov/17541738/">PMID: 17541738</a>).</p>
+<blockquote>
+<p>"White matter involvement is always seen in Kearns-Sayre syndrome" — <a href="https://pubmed.ncbi.nlm.nih.gov/17541738/">PMID: 17541738</a></p>
+</blockquote>
+<p><strong>Secondary mechanism — cerebral folate deficiency (Finding F003).</strong> ATP failure impairs the ATP-dependent, folate-receptor–mediated transport of 5-methyltetrahydrofolate (5MTHF) across the choroid plexus, producing <strong>low CSF 5MTHF with normal blood folate and a decreased CSF/serum folate ratio</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/18058625/">PMID: 18058625</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/16365882/">PMID: 16365882</a>). This contributes to the leukoencephalopathy and is reversible with folinic acid.</p>
+<blockquote>
+<p>"Failure of ATP production in Kearns-Sayre syndrome ... provides one explanation for the finding of low spinal fluid (CSF) 5-methyltetrahydrofolate (5MTHF) levels in this condition." — <a href="https://pubmed.ncbi.nlm.nih.gov/18058625/">PMID: 18058625</a></p>
+</blockquote>
+<p><strong>Metabolic changes.</strong> Impaired pyruvate oxidation → <strong>lactic acidosis</strong> (elevated blood/CSF lactate; elevated lactate peak on MR spectroscopy). Elevated <strong>CSF protein</strong>.</p>
+<p><strong>Immune involvement:</strong> Not autoimmune; not a primary immune disorder.</p>
+<p><strong>Biomarkers / molecular profiling (Finding F007).</strong> Serum <strong>FGF21</strong> and <strong>GDF15</strong> are elevated. FGF21 was 347 pg/mL in mtDNA-deletion patients vs 66 pg/mL controls (p&lt;0.0001), reproduced in mice (1,163 vs 379 pg/mL, p&lt;0.0001); FGF21 specificity 89.3%, GDF15 sensitivity 76% (<a href="https://pubmed.ncbi.nlm.nih.gov/27794108/">PMID: 27794108</a>). GDF15 was elevated in all SLSMDS participants (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>).</p>
+<p><strong>Suggested GO / CL terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> (oxidative phosphorylation), <a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" rel="noopener noreferrer">GO:0032543</a> (mitochondrial translation), <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress), <a href="http://purl.obolibrary.org/obo/GO_0006754" target="_blank" rel="noopener noreferrer">GO:0006754</a> (ATP biosynthetic process); cell types <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> (cardiac muscle cell / conduction), <a href="http://purl.obolibrary.org/obo/CL_0000187" target="_blank" rel="noopener noreferrer">CL:0000187</a> (muscle cell), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron), <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (retinal rod cell), <a href="http://purl.obolibrary.org/obo/CL_0000209" target="_blank" rel="noopener noreferrer">CL:0000209</a> (auditory hair cell).</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> extraocular muscles (<a href="http://purl.obolibrary.org/obo/UBERON_0001601" target="_blank" rel="noopener noreferrer">UBERON:0001601</a>), skeletal muscle (<a href="http://purl.obolibrary.org/obo/UBERON_0002385" target="_blank" rel="noopener noreferrer">UBERON:0002385</a>), heart conduction system (<a href="http://purl.obolibrary.org/obo/UBERON_0004146" target="_blank" rel="noopener noreferrer">UBERON:0004146</a>), retina (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>), brain white matter (<a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a>), cerebellum (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a>), brainstem (<a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" rel="noopener noreferrer">UBERON:0002298</a>), cochlea/inner ear (<a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a>).</li>
+<li><strong>Secondary/endocrine:</strong> pancreas/islets (<a href="http://purl.obolibrary.org/obo/UBERON_0000006" target="_blank" rel="noopener noreferrer">UBERON:0000006</a>), pituitary (<a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" rel="noopener noreferrer">UBERON:0000007</a>), parathyroid (<a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" rel="noopener noreferrer">UBERON:0001132</a>), adrenal cortex (<a href="http://purl.obolibrary.org/obo/UBERON_0001235" target="_blank" rel="noopener noreferrer">UBERON:0001235</a>), gonads, kidney proximal tubule (<a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" rel="noopener noreferrer">UBERON:0004134</a>).</li>
+<li><strong>Body systems:</strong> nervous, cardiovascular, musculoskeletal, sensory (visual/auditory), endocrine, renal.</li>
+<li><strong>Neuroimaging localization (Findings F005/F011):</strong> symmetrical T2/FLAIR hyperintensities involving <strong>dorsal brainstem (7/7), cerebellum (6/7), and globus pallidus (6/7)</strong> with elevated lactate on MRS (<a href="https://pubmed.ncbi.nlm.nih.gov/40637848/">PMID: 40637848</a>). Lesions are typically <strong>bilateral/symmetric</strong>.</li>
+<li><strong>Subcellular:</strong> <strong>mitochondrion</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>), specifically the <strong>mitochondrial inner membrane / respiratory chain</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a>, <a href="http://purl.obolibrary.org/obo/GO_0005746" target="_blank" rel="noopener noreferrer">GO:0005746</a>).</li>
+<li><strong>Cellular pathology:</strong> ragged-red/COX-negative myofibers; pigmentary retinal changes at the RPE; spongiform white matter.</li>
+</ul>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> typically <strong>pediatric, before age 20</strong> (defining criterion), insidious/chronic. Mean onset ~10 years in the European cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">PMID: 34872991</a>); ~9.6 years in a Chinese KSS subgroup vs ~20 years for CPEO (<a href="https://pubmed.ncbi.nlm.nih.gov/38018320/">PMID: 38018320</a>).</li>
+<li><strong>Progression:</strong> chronic-<strong>progressive</strong>, with multisystem accrual over years. Median time from onset to death <strong>11.5 years</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">PMID: 34872991</a>).</li>
+</ul>
+<blockquote>
+<p>"The average age at disease onset and at last examination was 10 and 31 years, respectively. The median time from disease onset to death was 11.5 years." — <a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">PMID: 34872991</a></p>
+</blockquote>
+<ul>
+<li><strong>Spectrum evolution:</strong> phenotypes evolve along <strong>Pearson → KSS → CPEO</strong> over time; a prior history of Pearson syndrome predicts poorer survival (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>) (Finding F009).</li>
+<li><strong>Critical intervention windows:</strong> early detection of bifascicular block for prophylactic pacing; early folinic acid before irreversible demyelination.</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> the single large-scale deletion is <strong>sporadic/de novo</strong>; empiric recurrence risk <strong>~4%</strong> for offspring of affected women (<a href="https://pubmed.ncbi.nlm.nih.gov/28536827/">PMID: 28536827</a>) (Finding F008). Very low recurrence contrasts with the high/unpredictable recurrence of maternally inherited mtDNA point mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/27450679/">PMID: 27450679</a>).</li>
+</ul>
+<blockquote>
+<p>"The majority of mtDNA rearrangements, such as single large-scale deletions, are sporadic, but there is a small risk of recurrence (~4%) among the offspring of affected women." — <a href="https://pubmed.ncbi.nlm.nih.gov/28536827/">PMID: 28536827</a></p>
+</blockquote>
+<ul>
+<li><strong>Penetrance/expressivity:</strong> heteroplasmy- and tissue-threshold dependent; <strong>variable expressivity</strong>; higher heteroplasmy → earlier/more severe onset.</li>
+<li><strong>Epidemiology:</strong> KSS is rare. Precise population prevalence/incidence figures were <strong>not robustly established in the reviewed literature</strong> (documented knowledge gap); Orphanet lists KSS as a rare disease. Disease-specific incidence remains uncertain and is generally reported only within combined SLSMDS cohorts.</li>
+<li><strong>Sex ratio:</strong> approximately equal; gonadal dysfunction affected both sexes equally (<a href="https://pubmed.ncbi.nlm.nih.gov/1424198/">PMID: 1424198</a>).</li>
+<li><strong>Consanguinity/founder effects:</strong> not applicable to the sporadic deletion.</li>
+</ul>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Definitive molecular diagnosis (Finding F011).</strong> Detection of a <strong>single large-scale mtDNA deletion</strong>, best in <strong>skeletal muscle</strong> (higher heteroplasmy than blood, which frequently tests negative), via <strong>long-range PCR + next-generation sequencing</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41074779/">PMID: 41074779</a>) or <strong>Southern blot</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25539952/">PMID: 25539952</a>).</p>
+<blockquote>
+<p>"The presence of large-scale mtDNA deletions was an objective diagnostic factor for KSS" — <a href="https://pubmed.ncbi.nlm.nih.gov/30450853/">PMID: 30450853</a></p>
+</blockquote>
+<p><strong>Supporting tests:</strong>
+- <strong>Muscle biopsy:</strong> ragged-red, ragged-blue, COX-negative fibers; respiratory-chain enzymology (complex IV most reduced, complex II normal) (<a href="https://pubmed.ncbi.nlm.nih.gov/41086592/">PMID: 41086592</a>).
+- <strong>CSF:</strong> protein &gt;100 mg/dL (major criterion); low 5MTHF; elevated lactate.
+- <strong>Blood:</strong> elevated lactate; <strong>FGF21/GDF15</strong> supportive biomarkers (<a href="https://pubmed.ncbi.nlm.nih.gov/27794108/">PMID: 27794108</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>).
+- <strong>Brain MRI/MRS:</strong> symmetrical dorsal brainstem, cerebellar, globus pallidus T2/FLAIR hyperintensities; lactate peak (<a href="https://pubmed.ncbi.nlm.nih.gov/40637848/">PMID: 40637848</a>).
+- <strong>Cardiac:</strong> ECG/Holter (fascicular/AV block), echocardiography, cardiac MRI (intramural basal inferolateral late-gadolinium enhancement in KSS/CPEO) (<a href="https://pubmed.ncbi.nlm.nih.gov/26001801/">PMID: 26001801</a>).
+- <strong>Ophthalmology:</strong> pigmentary retinopathy, ophthalmoplegia. <strong>Audiometry.</strong> <strong>Endocrine labs</strong> (glucose/HbA1c, GH/IGF-1, PTH, cortisol/ACTH stimulation, thyroid). <strong>Renal tubular function</strong> (Fanconi screen).</p>
+<p><strong>Genetic testing approach:</strong> targeted <strong>mitochondrial DNA testing</strong> (long-range PCR/NGS/Southern blot) on muscle is first-line; blood may be negative. WGS/WES of the nuclear genome is generally not needed unless a mtDNA-maintenance disorder (multiple deletions) is suspected.</p>
+<p><strong>Differential diagnosis:</strong> CPEO and Pearson syndrome (same spectrum), MELAS/MERRF (grey-matter, point mutations), myotonic dystrophy, oculopharyngeal muscular dystrophy, myasthenia gravis, other causes of pigmentary retinopathy.</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival:</strong> chronic-progressive; <strong>median onset-to-death 11.5 years</strong> in the pediatric-onset cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">PMID: 34872991</a>).</li>
+<li><strong>Leading cause of death:</strong> <strong>sudden cardiac death</strong> from progressive conduction block (Finding F002). Prophylactic pacing markedly improves survival.</li>
+<li><strong>Adverse prognostic factors:</strong> prior <strong>Pearson syndrome</strong> history (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>); higher heteroplasmy (earlier onset); profound growth retardation with multisystem dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/40382647/">PMID: 40382647</a>).</li>
+<li><strong>Morbidity:</strong> cumulative disability from ophthalmoplegia, myopathy, ataxia, deafness, endocrinopathy, and renal disease. Quality of life declines with age (<a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">PMID: 39985363</a>).</li>
+<li><strong>Prognostic biomarkers:</strong> GDF15/FGF21 (disease burden); heteroplasmy level.</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>No disease-modifying cure exists; management is supportive and organ-directed (Finding F012).</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Rationale / evidence</th>
+<th>Suggested MAXO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Prophylactic permanent pacemaker / ICD</strong></td>
+<td>Life-saving; indicated for bifascicular block or prolonged HV interval (<a href="https://pubmed.ncbi.nlm.nih.gov/23430846/">PMID: 23430846</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/2707275/">PMID: 2707275</a>)</td>
+<td><a href="https://bioregistry.io/MAXO:0000133" target="_blank" rel="noopener noreferrer">MAXO:0000133</a> (implantation)</td>
+</tr>
+<tr>
+<td><strong>Folinic acid (or 5MTHF)</strong> 1–3 mg/kg/day</td>
+<td>Corrects CSF 5MTHF; reverses demyelination; preferred over folic acid (<a href="https://pubmed.ncbi.nlm.nih.gov/25539952/">PMID: 25539952</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36341171/">PMID: 36341171</a>)</td>
+<td><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (dietary supplementation)</td>
+</tr>
+<tr>
+<td><strong>Coenzyme Q10 (ubiquinone)</strong></td>
+<td>Improved corneal endothelial disease in 2 KSS children; with scavengers reduced seizures (<a href="https://pubmed.ncbi.nlm.nih.gov/27442316/">PMID: 27442316</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/18058625/">PMID: 18058625</a>)</td>
+<td><a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a></td>
+</tr>
+<tr>
+<td><strong>Insulin / oral agents</strong> for diabetes; <strong>hormone replacement</strong> (GH, thyroid, PTH/calcium, corticosteroids)</td>
+<td>Endocrine screening/replacement (<a href="https://pubmed.ncbi.nlm.nih.gov/1424198/">PMID: 1424198</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/37815532/">PMID: 37815532</a>)</td>
+<td><a href="https://bioregistry.io/MAXO:0000242" target="_blank" rel="noopener noreferrer">MAXO:0000242</a> (hormone therapy)</td>
+</tr>
+<tr>
+<td><strong>Hearing aids / cochlear implants</strong></td>
+<td>Sensorineural deafness</td>
+<td><a href="https://bioregistry.io/MAXO:0001028" target="_blank" rel="noopener noreferrer">MAXO:0001028</a></td>
+</tr>
+<tr>
+<td><strong>Ptosis correction</strong> (crutch glasses, sling surgery)</td>
+<td>Visual/functional</td>
+<td><a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> (surgical)</td>
+</tr>
+<tr>
+<td><strong>Physical/occupational/speech therapy</strong>; dysphagia &amp; nutrition management</td>
+<td>Ataxia, myopathy, dysphagia</td>
+<td><a href="https://bioregistry.io/MAXO:0000506" target="_blank" rel="noopener noreferrer">MAXO:0000506</a> (rehabilitation)</td>
+</tr>
+<tr>
+<td><strong>Avoid intense/endurance exercise</strong> in severe disease</td>
+<td>Exercise worsens muscle pathology in mito-miceΔ (<a href="https://pubmed.ncbi.nlm.nih.gov/39956167/">PMID: 39956167</a>)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"We report 2 patients with KSS with corneal lesions involving the endothelium, which improved with Coenzyme Q10 (CoQ10)." — <a href="https://pubmed.ncbi.nlm.nih.gov/27442316/">PMID: 27442316</a></p>
+</blockquote>
+<p><strong>Experimental / emerging:</strong> mitochondrial biogenesis inducers (bezafibrate/PGC-1α axis, resveratrol) (<a href="https://pubmed.ncbi.nlm.nih.gov/24606795/">PMID: 24606795</a>); antioxidant peptides (elamipretide); gene/cell strategies (experimental for mtDNA deletions). <strong>Pharmacogenomics:</strong> avoid mitochondrial-toxic drugs (e.g., aminoglycosides for cochlea, valproate).</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> none (sporadic de novo deletion; cannot be prevented). <strong>Genetic counseling</strong> for the ~4% recurrence risk in offspring of affected women (<a href="https://pubmed.ncbi.nlm.nih.gov/28536827/">PMID: 28536827</a>).</li>
+<li><strong>Secondary prevention (surveillance in diagnosed patients):</strong> <strong>periodic ECG/Holter</strong> for conduction disease (enabling prophylactic pacing); <strong>CSF 5MTHF / folinic acid</strong>; <strong>endocrine screening</strong> (glucose, GH, PTH, cortisol, thyroid); <strong>audiometry</strong>; <strong>renal tubular</strong> monitoring; ophthalmologic surveillance.</li>
+<li><strong>Tertiary prevention:</strong> prevent complications — pacing before syncope/arrest; treat endocrinopathy before crises; nutritional support.</li>
+<li><strong>Reproductive options:</strong> prenatal/PGD counseling; heteroplasmy makes prediction difficult, but recurrence risk is low.</li>
+<li><strong>Behavioral:</strong> avoid intense exercise and mitochondrial toxins; avoid folic acid in favor of folinic acid.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> primarily a <strong>human (NCBI:txid9606)</strong> disorder. Naturally occurring KSS-analogous SLSMD disease in companion animals/wildlife is <strong>not established</strong> in the reviewed literature.</li>
+<li><strong>Orthologous genes:</strong> the deleted mtDNA genes are conserved across mammals (e.g., mouse mt-Nd5, mt-Co3, mt-Cytb).</li>
+<li><strong>Comparative biology:</strong> mtDNA deletions accumulate with age across species; the deletion mechanism (direct-repeat misannealing in the major arc) is conserved.</li>
+<li><strong>Zoonotic potential:</strong> none (non-infectious genetic disease).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Primary model — "mito-miceΔ" (Findings F007/F012):</strong> mice accumulating a large-scale ΔmtDNA deletion reproduce <strong>severe multisystem mitochondrial disease</strong>; endurance swimming exacerbated muscle pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/39956167/">PMID: 39956167</a>). FGF21 elevation was reproduced (1,163 vs 379 pg/mL, p&lt;0.0001) (<a href="https://pubmed.ncbi.nlm.nih.gov/27794108/">PMID: 27794108</a>).</li>
+</ul>
+<blockquote>
+<p>"endurance exercise exacerbated muscle pathology in mito-miceΔ" — <a href="https://pubmed.ncbi.nlm.nih.gov/39956167/">PMID: 39956167</a></p>
+</blockquote>
+<ul>
+<li><strong>Related models:</strong> Polg mutator mice (mtDNA instability, brain deletion hotspots and mood phenotypes; <a href="https://pubmed.ncbi.nlm.nih.gov/26481320/">PMID: 26481320</a>); TYMP/UPP double-knockout MNGIE mice (mtDNA depletion/leukoencephalopathy; <a href="https://pubmed.ncbi.nlm.nih.gov/24727567/">PMID: 24727567</a>) — relevant for mtDNA-maintenance pathology though modeling a different (Mendelian) disease.</li>
+<li><strong>Cellular/in vitro:</strong> patient-derived fibroblasts/myoblasts, cybrids, and iPSC-derived tissues carrying heteroplasmic deletions.</li>
+<li><strong>Model limitations:</strong> mouse deletion location/heteroplasmy differ from patients; models don't fully capture the human triad (retinopathy, ophthalmoplegia, conduction block, cerebral folate deficiency).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>Single large-scale mtDNA deletion (major arc, direct-repeat misannealing)
+                   │  (sporadic, de novo, heteroplasmic)
+                   ▼
+Loss of tRNA genes  +  Loss of OXPHOS-subunit genes (MT-ND5 in 96%)
+                   │
+                   ▼
+Impaired mitochondrial translation  →  Respiratory chain failure
+      (Complex IV most affected; Complex II [nuclear] spared)
+                   │
+                   ▼
+ ATP deficit  +  ↑ROS  +  lactic acidosis
+                   │
+┌──────────────┬──────────┼───────────┬──────────────┬─────────────┐
+▼              ▼          ▼           ▼              ▼             ▼
+  Extraocular/     Cardiac    Brain white   Retina/RPE   Cochlea     Endocrine organs
+  skeletal muscle  conduction  matter                                (islet/GH/PTH/adrenal)
+  (RRF, COX-neg)   (AV block)  (spongiform,  (pigmentary  (SN deaf-   (DM, short stature,
+│          │           demyelin.)    retinopathy) ness)        hypoPTH, adrenal insuff.)
+▼          ▼           │ (↓CSF 5MTHF via failed
+   PEO/ptosis,  SUDDEN         │  ATP-dependent folate transport)
+   myopathy     CARDIAC        ▼
+DEATH ◄──────  Cerebral folate deficiency ──► folinic acid REVERSIBLE
+│
+      PROPHYLACTIC PACING = life-saving
+</code></pre>
+<p>The unifying principle is a <strong>tissue-specific energy threshold</strong>: organs with the highest oxidative demand and least regenerative capacity (extraocular muscle, cardiac conduction tissue, CNS white matter, retina, cochlea, endocrine secretory cells) cross the ATP-failure threshold first. Two mechanistic branches are therapeutically actionable and disease-specific: (1) the <strong>cardiac conduction branch</strong> (prevented by pacing) and (2) the <strong>cerebral folate branch</strong> (corrected by folinic acid). Most other manifestations are managed by conventional organ-specific replacement/support.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34872991/">34872991</a></td>
+<td>Largest pediatric SLSMD cohort (n=80): spectrum distribution, phenotype frequencies, natural history (onset 10y, death 11.5y from onset)</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8167995/">8167995</a></td>
+<td>Conventional KSS diagnostic triad + major criteria</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23430846/">23430846</a></td>
+<td>Conduction-disease progression; early pacing to prevent sudden death</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2707275/">2707275</a></td>
+<td>Prophylactic pacemaker indication for bifascicular block</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18058625/">18058625</a></td>
+<td>ATP failure → cerebral folate deficiency; ubiquinone/scavengers reduce seizures</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25539952/">25539952</a></td>
+<td>Folinic acid normalizes CSF 5MTHF in KSS</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16365882/">16365882</a></td>
+<td>CFD + leukoencephalopathy reversible with folinic acid</td>
+<td>Human case</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36341171/">36341171</a></td>
+<td>Folic acid inhibits 5MTHF transport; folinic acid preferred</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39985363/">39985363</a></td>
+<td>MT-ND5 deleted in 96%; heteroplasmy–onset link; GDF15 biomarker; PS predicts poor survival</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41074779/">41074779</a></td>
+<td>Common deletion only 14.3%; deletion-size genotype-phenotype correlations; long-range PCR/NGS</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41086592/">41086592</a></td>
+<td>Complex IV most impaired, complex II spared; dysfunction at &lt;10% heteroplasmy</td>
+<td>Human/in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17541738/">17541738</a></td>
+<td>RRF/COX-negative fibers; white-matter involvement always in KSS</td>
+<td>Human pathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28536827/">28536827</a></td>
+<td>~4% recurrence risk for sporadic deletions</td>
+<td>Review/counseling</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27450679/">27450679</a></td>
+<td>Very low recurrence for single large-scale deletions vs point mutations</td>
+<td>Human genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27794108/">27794108</a></td>
+<td>FGF21/GDF15 biomarkers (human + mouse)</td>
+<td>Human + model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39956167/">39956167</a></td>
+<td>mito-miceΔ model; endurance exercise worsens myopathy</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37815532/">37815532</a></td>
+<td>Adrenal insufficiency in SLSMDS</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1424198/">1424198</a></td>
+<td>KSS endocrine prevalences (short stature 38%, gonadal 20%, DM 13%)</td>
+<td>Human review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29594260/">29594260</a></td>
+<td>DM more common with mtDNA defects (23.3% vs 3.7%)</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40382647/">40382647</a></td>
+<td>Endocrine dysfunction can precede neurology; severe short stature in KSS/PS</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40637848/">40637848</a></td>
+<td>Neuroimaging: symmetric brainstem/cerebellar/pallidal lesions + lactate</td>
+<td>Human imaging</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30450853/">30450853</a></td>
+<td>mtDNA deletion as objective KSS diagnostic factor</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38018320/">38018320</a></td>
+<td>155-patient cohort; KSS larger deletions/earlier onset than CPEO</td>
+<td>Human cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26001801/">26001801</a></td>
+<td>Cardiac MRI phenotype (basal inferolateral LGE) in KSS/CPEO</td>
+<td>Human imaging</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37158879/">37158879</a></td>
+<td>Common-deletion repeats; contact-zone 3× deletion risk</td>
+<td>Computational/genomic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29257976/">29257976</a></td>
+<td>Breakpoints at homology repeats; misannealing mechanism</td>
+<td>Human genomic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27442316/">27442316</a></td>
+<td>CoQ10 improved KSS corneal endothelial disease</td>
+<td>Human case</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24606795/">24606795</a></td>
+<td>Mitochondrial biogenesis pharmacology (experimental)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21156440/">21156440</a></td>
+<td>Late-onset CPEO phenotype; acquired mito-toxicity</td>
+<td>Human cohort</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Epidemiology gap.</strong> Reliable KSS-specific <strong>prevalence and incidence</strong> figures were not established in the reviewed literature; most numbers derive from small pooled SLSMDS cohorts, not population registries.</li>
+<li><strong>Cohort mixing.</strong> Many phenotype frequencies come from combined SLSMDS cohorts (KSS + Pearson + CPEO), so KSS-specific frequencies carry uncertainty.</li>
+<li><strong>Rare-disease sample sizes.</strong> Endocrine, renal, and imaging series are small (single digits to tens of patients); wide confidence intervals.</li>
+<li><strong>Treatment evidence.</strong> Most therapeutic claims (CoQ10, folinic acid, biogenesis inducers) rest on case reports/small series, not RCTs; the folic-acid caution derives from two cases.</li>
+<li><strong>Genotype resolution.</strong> Heteroplasmy varies by tissue and over time, complicating prognosis prediction; blood testing can be falsely negative.</li>
+<li><strong>Model-organism translation.</strong> mito-miceΔ replicate severe myopathy but not the full human triad (retinopathy, ophthalmoplegia, conduction block, cerebral folate deficiency).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Population epidemiology study</strong> — establish KSS-specific prevalence/incidence and sex/age distributions using national mitochondrial-disease registries (Orphanet, GBD, MSeqDR).</li>
+<li><strong>Prospective natural-history cohort</strong> with serial ECG/Holter, echocardiography, CSF 5MTHF, endocrine panels, and heteroplasmy quantification to define intervention windows and validate GDF15/FGF21 as prognostic biomarkers.</li>
+<li><strong>Controlled trial of folinic acid</strong> timing (early vs symptomatic) on white-matter and neurocognitive outcomes.</li>
+<li><strong>Registry analysis of prophylactic pacing/ICD</strong> thresholds (HV interval, bifascicular block) to formalize evidence-based pacing guidelines specific to KSS.</li>
+<li><strong>Deletion-breakpoint sequencing</strong> across a large KSS cohort to correlate deleted-gene content (tRNA vs OXPHOS load) with organ-specific outcomes.</li>
+<li><strong>Preclinical testing</strong> of mitochondrial-targeted therapies (elamipretide, biogenesis inducers, gene/mitochondrial-editing approaches) in mito-miceΔ and patient iPSC-derived cardiomyocytes/retinal organoids.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 13 confirmed findings and 49 reviewed papers over 5 investigation iterations. Evidence types are annotated as human clinical, human cohort, model organism, in vitro, or computational.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Kearns-Sayre_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Kearns-Sayre_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Kearns-Sayre_Syndrome-claude_code.html">← Kearns-Sayre syndrome (Claude Code)</a>
+                
+                
+                <a href="Keipert_syndrome-asta.html">Keipert syndrome (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Kearns-Sayre_syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Kearns-Sayre_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Kearns-Sayre_Syndrome-claude_code.html"><span class="provider-pill provider-claude-code">Claude Code</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

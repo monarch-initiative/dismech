@@ -42,6 +42,21 @@ jobs:
         with:
           persist-credentials: false
 
+      # Fetch the base-branch tip so the snippet-length ratchet can grandfather
+      # against the short snippets already on the base branch (origin/<base>)
+      # instead of a committed snapshot file that parallel merges clobber --
+      # keeping the base branch green by construction. Shallow: only the base
+      # tip tree is needed. `--force` is required: refs/remotes/origin/<base>
+      # already exists in the shallow checkout, so a non-forced update is
+      # rejected as non-fast-forward and would silently leave a stale ref. If
+      # the fetch fails anyway (fork/private context), resolve_baseline() falls
+      # back to the committed baseline, so the gate degrades to prior behavior.
+      - name: Fetch base branch for snippet ratchet
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
+
       - name: Check for changes
         uses: dorny/paths-filter@v4
         id: changes
@@ -92,6 +107,10 @@ jobs:
               - 'tests/js/**'
               - 'package.json'
               - 'package-lock.json'
+              - 'justfile'
+              - 'project.justfile'
+            extension:
+              - 'extension/**'
               - 'justfile'
               - 'project.justfile'
 
@@ -231,6 +250,25 @@ jobs:
       - name: Check for folded-scalar hyphen splits
         run: uv run python scripts/check_folded_hyphens.py
 
+      # Also ungated: the pytest snippet-length ratchet only runs when src/tests
+      # change, so kb-only curation PRs -- the ones that actually add short
+      # snippets -- would otherwise never be checked. Grandfathered live against
+      # the base branch (origin/<base>), so pre-existing backlog is not
+      # inherited and only snippets this PR adds fail. On push-to-<base> the ref
+      # equals HEAD, so it is a no-op there.
+      - name: Check for new short evidence snippets
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: uv run python scripts/check_snippet_length.py --against-ref "origin/$BASE_REF"
+
+      # Also ungated: there is no `cache/**` path filter, so a curation PR that
+      # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
+      # shape that can introduce the #7682 concatenation corruption -- would
+      # otherwise never run this check (the pytest guard only fires on
+      # src/tests changes). Deterministic, offline, and sub-second.
+      - name: Check term cache structural integrity
+        run: uv run python -m dismech.term_cache_integrity cache
+
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
         run: |
@@ -248,7 +286,7 @@ jobs:
         run: just validate-history-all
 
       - name: Set up Node.js
-        if: steps.changes.outputs.app == 'true'
+        if: steps.changes.outputs.app == 'true' || steps.changes.outputs.extension == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -256,6 +294,12 @@ jobs:
       - name: Install Node.js dependencies
         if: steps.changes.outputs.app == 'true'
         run: npm ci
+
+      # The browser-extension tests are pure Node (no npm deps), so they run
+      # whenever extension/ changes without needing `npm ci`.
+      - name: Run browser-extension tests
+        if: steps.changes.outputs.extension == 'true'
+        run: just test-extension
 
       # CI runs narrower slices of `just test-code` so unrelated test-only
       # changes do not pay for full LinkML project generation or Node setup.
@@ -265,6 +309,11 @@ jobs:
 
       - name: Run Python code/logic tests
         if: steps.changes.outputs.python == 'true'
+        env:
+          # Grandfather the snippet-length ratchet against the base branch's
+          # live content, not the committed baseline snapshot (see the fetch
+          # step above).
+          SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
         run: just test-python-code
 
       - name: Run LinkML example tests

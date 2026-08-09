@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25073840"
+reference_id: DOI:10.3390/ijms25073840
 title: "Chagas Disease: A Silent Threat for Dogs and Humans"
 authors:
 - João Durães-Oliveira
@@ -14,6 +14,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25073840
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Chagas Disease: A Silent Threat for Dogs and Humans

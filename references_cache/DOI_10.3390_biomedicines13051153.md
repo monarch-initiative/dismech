@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines13051153"
+reference_id: DOI:10.3390/biomedicines13051153
 title: HER2-Positive Breast Cancer—Current Treatment Management and New Therapeutic Methods for Brain Metastasis
 authors:
 - Hanna Miski
@@ -11,6 +11,7 @@ journal: Biomedicines
 year: '2025'
 doi: 10.3390/biomedicines13051153
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # HER2-Positive Breast Cancer—Current Treatment Management and New Therapeutic Methods for Brain Metastasis

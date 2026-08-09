@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms25158169"
+reference_id: DOI:10.3390/ijms25158169
 title: Humanized-Aquaporin-4-Expressing Rat Created by Gene-Editing Technology and Its Use to Clarify the Pathology of Neuromyelitis Optica Spectrum Disorder
 authors:
 - Chihiro Namatame
@@ -17,6 +17,7 @@ journal: International Journal of Molecular Sciences
 year: '2024'
 doi: 10.3390/ijms25158169
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Humanized-Aquaporin-4-Expressing Rat Created by Gene-Editing Technology and Its Use to Clarify the Pathology of Neuromyelitis Optica Spectrum Disorder

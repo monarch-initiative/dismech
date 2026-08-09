@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/children10111812"
+reference_id: DOI:10.3390/children10111812
 title: "The Diverse Genomic Landscape of Diamond–Blackfan Anemia: Two Novel Variants and a Mini-Review"
 authors:
 - Iordanis Pelagiadis
@@ -16,6 +16,7 @@ journal: Children
 year: '2023'
 doi: 10.3390/children10111812
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Diverse Genomic Landscape of Diamond–Blackfan Anemia: Two Novel Variants and a Mini-Review

@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/ijms241814385"
+reference_id: DOI:10.3390/ijms241814385
 title: Endothelial Dysfunction in Systemic Sclerosis
 authors:
 - Eshaan Patnaik
@@ -10,6 +10,7 @@ journal: International Journal of Molecular Sciences
 year: '2023'
 doi: 10.3390/ijms241814385
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Endothelial Dysfunction in Systemic Sclerosis

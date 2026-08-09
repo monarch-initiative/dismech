@@ -2,6 +2,8 @@
 name: Weekly Compliance
 
 on:
+  schedule:
+    - cron: "0 8 * * 5"  # weekly Friday 08:00 UTC (midnight PST / 03:00 EST)
   workflow_dispatch:
     inputs:
       num_files:
@@ -92,7 +94,12 @@ jobs:
           GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
+          # cap); fall back to the OAuth token only when no API key is set. The
+          # conditional keeps exactly one non-empty, so the action never has to
+          # arbitrate. Rationale in full: claude-code-review.yml.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           github_token: ${{ steps.ai4c-token.outputs.token }}
           show_full_output: true
 
@@ -135,16 +142,8 @@ jobs:
             - Use the exact label returned by OAK for the `label` field
 
       - name: Write step summary
-        if: always()
-        env:
-          # Pass model output through the environment + printf, never interpolate it into the
-          # shell (it is attacker-influenceable and would allow command injection).
-          RESULT: ${{ steps.compliance-fixes.outputs.result }}
-        run: |
-          {
-            echo "## 🤖 Weekly Compliance Run"
-            echo ""
-            echo '```'
-            printf '%s\n' "$RESULT"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+        if: ${{ !cancelled() && steps.compliance-fixes.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.compliance-fixes.outputs.execution_file }}
+          title: "🤖 Weekly Compliance Run"

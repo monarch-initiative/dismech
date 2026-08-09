@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/diagnostics13142398"
+reference_id: DOI:10.3390/diagnostics13142398
 title: "Exploring the Molecular Complexity of Medulloblastoma: Implications for Diagnosis and Treatment"
 authors:
 - Julian S. Rechberger
@@ -11,6 +11,7 @@ journal: Diagnostics
 year: '2023'
 doi: 10.3390/diagnostics13142398
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Exploring the Molecular Complexity of Medulloblastoma: Implications for Diagnosis and Treatment

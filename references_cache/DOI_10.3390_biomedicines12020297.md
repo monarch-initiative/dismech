@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/biomedicines12020297"
+reference_id: DOI:10.3390/biomedicines12020297
 title: "Unraveling the Potential of ALK-Targeted Therapies in Non-Small Cell Lung Cancer: Comprehensive Insights and Future Directions"
 authors:
 - Hannaneh Parvaresh
@@ -11,6 +11,7 @@ journal: Biomedicines
 year: '2024'
 doi: 10.3390/biomedicines12020297
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # Unraveling the Potential of ALK-Targeted Therapies in Non-Small Cell Lung Cancer: Comprehensive Insights and Future Directions

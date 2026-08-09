@@ -1,5 +1,5 @@
 ---
-reference_id: "DOI:10.3390/jcm13061717"
+reference_id: DOI:10.3390/jcm13061717
 title: "The Scope and Impact of Viral Infections in Common Variable Immunodeficiency (CVID) and CVID-like Disorders: A Literature Review"
 authors:
 - Adam Al-Hakim
@@ -9,6 +9,7 @@ journal: Journal of Clinical Medicine
 year: '2024'
 doi: 10.3390/jcm13061717
 content_type: abstract_only
+full_text_attempted: true
 ---
 
 # The Scope and Impact of Viral Infections in Common Variable Immunodeficiency (CVID) and CVID-like Disorders: A Literature Review
