@@ -23,7 +23,7 @@ entry and flagging the four structural risk patterns named in the issue:
 
 The output is deliberately a *risk-class* flagger, not an assertion that any
 specific confusion has occurred. It complements ``src/dismech/preflight_dr.py``
-(#3902), which performs the per-report gene-identity cross-check.
+(#3889), which performs the per-report gene-identity cross-check.
 
 Usage::
 
@@ -38,7 +38,7 @@ import os
 import re
 from collections import defaultdict
 
-import yaml
+from dismech.yaml_io import safe_load
 
 DISORDERS_GLOB = "kb/disorders/*.yaml"
 
@@ -48,7 +48,7 @@ DISORDERS_GLOB = "kb/disorders/*.yaml"
 # as plain descriptors across many entries (e.g. "Parkinson" in 20+ files) and
 # would otherwise swamp the collision detector with false positives. Trade-off:
 # a real collision involving one of these surnames will be missed; the per-report
-# preflight gene check (#3902) remains the backstop for those.
+# preflight gene check (#3889) remains the backstop for those.
 NON_EPONYM_WORDS = {
     "Syndrome", "Disease", "Disorder", "Deficiency", "Dysplasia", "Dystrophy",
     "Dysostosis", "Dyschondrosteosis", "Anemia", "Carcinoma", "Sarcoma",
@@ -106,7 +106,7 @@ def load_entries():
             continue
         try:
             with open(path) as fh:
-                data = yaml.safe_load(fh)
+                data = safe_load(fh)
         except Exception:
             continue
         if not isinstance(data, dict):

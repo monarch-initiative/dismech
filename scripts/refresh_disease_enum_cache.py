@@ -32,6 +32,8 @@ import yaml
 from oaklib import get_adapter
 from oaklib.datamodels.vocabulary import IS_A
 
+from dismech.yaml_io import safe_load
+
 # Enum roots, mirroring the reachable_from source_nodes in
 # src/dismech/schema/dismech.yaml (DiseaseTerm / DiseaseOrSubtypeTerm).
 DISEASE_TERM_ROOTS = ["MONDO:0000001", "MONDO:0020573"]
@@ -91,7 +93,7 @@ def collect_refs() -> tuple[set[str], set[str]]:
     for pattern in KB_GLOBS:
         for path in glob.glob(pattern):
             try:
-                walk(yaml.safe_load(open(path)), None)
+                walk(safe_load(open(path)), None)
             except yaml.YAMLError:
                 continue
     return dt, dos

@@ -9,8 +9,9 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
-import yaml
 from jinja2 import Environment
+
+from dismech.yaml_io import safe_load
 
 TEMPLATE = r"""
 # {{ d.name }}
@@ -588,7 +589,7 @@ SCHEMA_PATH = Path(__file__).parent.parent / "src" / "dismech" / "schema" / "dis
 def _load_enum_metadata(schema_path, enum_name):
     """Load title and description from a LinkML enum's permissible_values."""
     with open(schema_path) as f:
-        schema = yaml.safe_load(f)
+        schema = safe_load(f)
     pv = schema.get("enums", {}).get(enum_name, {}).get("permissible_values", {})
     return {
         k: {"title": v.get("title", k), "description": v.get("description", "")}
@@ -938,7 +939,7 @@ def main():
 
     yaml_path = Path(args.yaml_file)
     with open(yaml_path) as f:
-        data = DotDict(yaml.safe_load(f))
+        data = DotDict(safe_load(f))
 
     # Reset the glossary collector for each render
     global _glossary

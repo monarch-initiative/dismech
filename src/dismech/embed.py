@@ -14,9 +14,10 @@ Install with: uv sync --group embeddings
 import json
 from pathlib import Path
 
-import yaml
 from linkml_store import Client
 from linkml_store.index.implementations.llm_indexer import LLMIndexer
+
+from dismech.yaml_io import safe_load
 
 # Template paths relative to this module
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -103,7 +104,7 @@ def load_disorders(
         if yaml_path.name.endswith(".history.yaml"):
             continue
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
             disorder = _serialize_datetimes(disorder)
             disorder["_source_file"] = yaml_path.name
 

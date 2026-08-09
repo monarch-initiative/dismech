@@ -168,6 +168,24 @@ def build_record(args: argparse.Namespace) -> tuple[dict, Path]:
     return record, out_path
 
 
+def target_missing_warning(path: str) -> str | None:
+    """Warn when scaffolding a record whose target does not exist on disk.
+
+    ``tests/test_history_schema.py`` requires every committed record's target to
+    resolve (or to carry ``target.superseded_by`` when the entry was later
+    renamed), so catching a bad slug here saves a red ``main``.
+    """
+    if Path(path).exists():
+        return None
+    return (
+        f"warning: target {path} does not exist yet.\n"
+        "  If this is a typo or a stale slug, fix --slug/--path before committing:\n"
+        "  committed records must point at a real file, or carry a\n"
+        "  'target.superseded_by' block when the entry was renamed later.\n"
+        "  If you are scaffolding ahead of creating the entry, ignore this."
+    )
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Scaffold a schema-valid dismech history record.",
@@ -200,6 +218,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if out_path.exists() and not args.force:
         sys.exit(f"error: {out_path} already exists (use --force to overwrite)")
+
+    warning = target_missing_warning(record["target"]["path"])
+    if warning:
+        print(warning, file=sys.stderr)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as fh:

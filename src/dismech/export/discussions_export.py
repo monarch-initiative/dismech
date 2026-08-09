@@ -16,15 +16,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.export.utils import slugify
+from dismech.yaml_io import safe_load
 
 # Discussion kinds that count as "knowledge gaps" (used for the Gap? facet).
 GAP_KINDS = {"KNOWLEDGE_GAP", "HUMAN_MODEL_MISMATCH"}
-
-
-def slugify(name: str) -> str:
-    """Convert a disorder name to a filename-safe slug (matches render.slugify)."""
-    return name.replace(" ", "_").replace("/", "_").replace("(", "").replace(")", "")
 
 
 def _node_label(ref: str) -> str:
@@ -54,7 +50,7 @@ class DiscussionsExporter:
 
     def load_entry(self, file_path: Path) -> dict[str, Any]:
         with open(file_path) as f:
-            return yaml.safe_load(f) or {}
+            return safe_load(f) or {}
 
     def extract_discussions(
         self,

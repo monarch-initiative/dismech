@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body { font-family: var(--font); color: var(--gray-800); line-height: 1.7; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
         a { color: var(--teal); text-decoration: none; }
@@ -143,6 +262,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -199,7 +361,7 @@
                 <p style="margin:4px 0; font-size:0.9rem;">
                     <strong>MONDO consistency:</strong>
                     <span class="badge badge-basis">consistent</span>
-                    The listed members are EDS entities or explicit EDS subtype entries. Uncurated MONDO descendants such as TNXB/AEBP1 classical-like, PLOD1/FKBP14 kyphoscoliotic, ADAMTS2 dermatosparaxis, COL1A1/COL1A2 arthrochalasia/cardiac-valvular, CHST14/DSE musculocontractural, C1R/C1S periodontal, and COL12A1 myopathic EDS should be treated as curation gaps surfaced from the exact mapping.
+                    The listed members are EDS entities or explicit EDS subtype entries. Uncurated MONDO descendants such as TNXB/AEBP1 classical-like, PLOD1/FKBP14 kyphoscoliotic, ADAMTS2 dermatosparaxis, COL1A1/COL1A2 arthrochalasia, C1R/C1S periodontal, and COL12A1 myopathic EDS should be treated as curation gaps surfaced from the exact mapping.
                 </p>
                 
             </div>
@@ -263,14 +425,14 @@
         <section class="block">
             <h2>Coverage and gaps</h2>
             <div class="coverage-summary">
-                <span class="coverage-stat">37 rows</span>
+                <span class="coverage-stat">35 rows</span>
                 
-                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 5/37 (13.5%)</span>
+                <span class="coverage-stat">DisMech coverage of exact MONDO scope: 7/35 (20.0%)</span>
                 
                 
-                <span class="coverage-stat">5 listed in scope</span>
+                <span class="coverage-stat">7 listed in scope</span>
                 
-                <span class="coverage-stat">32 MONDO gaps</span>
+                <span class="coverage-stat">28 MONDO gaps</span>
                 
                 
                 
@@ -282,7 +444,7 @@
                 <a href="http://purl.obolibrary.org/obo/MONDO_0020066">MONDO:0020066 &middot; Ehlers-Danlos syndrome</a>
                 
                 Completeness is counted over rows inside this exact MONDO scope that are listed in this grouping.
-                Finer MONDO descendants under already-covered DisMech concepts are suppressed (7).
+                Finer MONDO descendants under already-covered DisMech concepts are suppressed (9).
             </p>
             
             
@@ -640,6 +802,99 @@
                                 
                                 
                                 <div class="entity">
+                                    <a class="entity-name" href="../disorders/Cardiac_Valvular_Ehlers-Danlos_Syndrome.html">Cardiac Valvular Ehlers-Danlos Syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                    <details class="mech-details">
+                                        <summary>Differentiating mechanism</summary>
+                                        
+                                        <div class="mech">Biallelic COL1A2 null variants activate nonsense-mediated decay and abolish the proalpha2(I) chain, so type I collagen is assembled as an alpha1(I) homotrimer. Distinguished by moderate-to-severe progressive cardiac valve disease affecting the mitral valve first, on a background of joint hypermobility and skin hyperextensibility, and by the characteristic absence of bone fragility that separates it from the recessive osteogenesis imperfecta also caused by biallelic COL1A2 variants.
+                                            
+                                            <a class="chip chip-term" href="https://bioregistry.io/hgnc:2198">COL1A2 <span class="chip-id">hgnc:2198</span></a>
+                                        </div>
+                                        
+                                    </details>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009159">cardiac valvular Ehlers-Danlos syndrome</a>
+                                <div class="entity-id">MONDO:0009159</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-listed">listed</span>
+                                
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Cardiac Valvular Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-mapped">
+                            <td>
+                                <span class="status status-mapped">listed in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
                                     <a class="entity-name" href="../disorders/Ehlers-Danlos_Syndrome,_COL5A1-related.html">Ehlers-Danlos Syndrome, COL5A1-related</a>
                                     <span class="mtype">DISEASE</span>
                                     
@@ -719,6 +974,99 @@
                             <td>
                                 
                                 <span class="audit audit-NOT_SATISFIED" title="Ehlers-Danlos Syndrome, COL5A1-related: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                        </tr>
+                        
+                        <tr class="row-mapped">
+                            <td>
+                                <span class="status status-mapped">listed in scope</span>
+                                
+                            </td>
+                            <td>
+                                
+                                
+                                <div class="entity">
+                                    <a class="entity-name" href="../disorders/Musculocontractural_Ehlers-Danlos_Syndrome.html">Musculocontractural Ehlers-Danlos Syndrome</a>
+                                    <span class="mtype">DISEASE</span>
+                                    
+                                    <details class="mech-details">
+                                        <summary>Differentiating mechanism</summary>
+                                        
+                                        <div class="mech">CHST14 (D4ST1) and DSE (DS-epi1) defects block consecutive steps of dermatan sulfate biosynthesis, so the glycosaminoglycan chain of decorin is replaced by chondroitin sulfate and collagen fibril assembly fails. Distinguished from the other EDS members by a two-arm phenotype pairing congenital malformation (multiple congenital contractures with adducted thumbs and talipes equinovarus, a characteristic craniofacial gestalt) with progressive connective-tissue fragility. Shares a glycosaminoglycan-biosynthesis mechanism class with spondylodysplastic EDS, but acts on dermatan-sulfate chain modification rather than on the common tetrasaccharide linker.
+                                            
+                                            <a class="chip chip-term" href="https://bioregistry.io/hgnc:24464">CHST14 <span class="chip-id">hgnc:24464</span></a>
+                                        </div>
+                                        
+                                    </details>
+                                    
+                                </div>
+                                
+                                
+                            </td>
+                            <td>
+                                
+                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011142">musculocontractural Ehlers-Danlos syndrome</a>
+                                <div class="entity-id">MONDO:0011142</div>
+                                
+                            </td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes">yes</span></td>
+                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
+                            <td>
+                                
+                                
+                                <span class="state state-listed">listed</span>
+                                
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: satisfied">SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
+                                
+                            </td>
+                            
+                            <td>
+                                
+                                <span class="audit audit-NOT_SATISFIED" title="Musculocontractural Ehlers-Danlos Syndrome: not satisfied">NOT SATISFIED</span>
                                 
                             </td>
                             
@@ -1504,81 +1852,6 @@
                             </td>
                             <td>
                                 
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0009159">Ehlers-Danlos syndrome, cardiac valvular type</a>
-                                <div class="entity-id">MONDO:0009159</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint hypermobility. | HP:0001382">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint dislocation. | HP:0001373">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Hyperextensible skin. | HP:0000974">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Thin skin. | HP:0000963">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Atrophic scars. | HP:0001075">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Easy bruising. | HP:0000978">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Arterial rupture. | HP:0025019">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Intestinal perforation. | HP:0031368">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
                                 <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0054813">Ehlers-Danlos syndrome, classic-like, 2</a>
                                 <div class="entity-id">MONDO:0054813</div>
                                 
@@ -1956,231 +2229,6 @@
                                 
                                 <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0013800">Ehlers-Danlos syndrome, kyphoscoliotic type, 2</a>
                                 <div class="entity-id">MONDO:0013800</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint hypermobility. | HP:0001382">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint dislocation. | HP:0001373">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Hyperextensible skin. | HP:0000974">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Thin skin. | HP:0000963">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Atrophic scars. | HP:0001075">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Easy bruising. | HP:0000978">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Arterial rupture. | HP:0025019">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Intestinal perforation. | HP:0031368">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0011142">Ehlers-Danlos syndrome, musculocontractural type</a>
-                                <div class="entity-id">MONDO:0011142</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint hypermobility. | HP:0001382">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint dislocation. | HP:0001373">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Hyperextensible skin. | HP:0000974">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Thin skin. | HP:0000963">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Atrophic scars. | HP:0001075">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Easy bruising. | HP:0000978">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Arterial rupture. | HP:0025019">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Intestinal perforation. | HP:0031368">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0020681">Ehlers-Danlos syndrome, musculocontractural type 1</a>
-                                <div class="entity-id">MONDO:0020681</div>
-                                
-                            </td>
-                            <td><span class="presence no">no</span></td>
-                            <td><span class="presence yes">yes</span></td>
-                            <td><span class="presence yes" title="This MONDO concept is the exact grouping term or an is-a descendant.">yes</span></td>
-                            <td>
-                                
-                                <span class="empty">not curated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint hypermobility. | HP:0001382">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Joint dislocation. | HP:0001373">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Hyperextensible skin. | HP:0000974">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Thin skin. | HP:0000963">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Atrophic scars. | HP:0001075">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Easy bruising. | HP:0000978">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Arterial rupture. | HP:0025019">not evaluated</span>
-                                
-                            </td>
-                            
-                            <td>
-                                
-                                <span class="audit audit-empty" title="NECESSARY | HAS_PHENOTYPE | Intestinal perforation. | HP:0031368">not evaluated</span>
-                                
-                            </td>
-                            
-                        </tr>
-                        
-                        <tr class="row-mondo_gap">
-                            <td>
-                                <span class="status status-mondo_gap">MONDO gap</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <span class="empty">No DisMech entry</span>
-                                
-                            </td>
-                            <td>
-                                
-                                <a class="entity-name" href="http://purl.obolibrary.org/obo/MONDO_0014236">Ehlers-Danlos syndrome, musculocontractural type 2</a>
-                                <div class="entity-id">MONDO:0014236</div>
                                 
                             </td>
                             <td><span class="presence no">no</span></td>
@@ -3277,9 +3325,9 @@ mappings:
         The listed members are EDS entities or explicit EDS subtype entries.
         Uncurated MONDO descendants such as TNXB/AEBP1 classical-like,
         PLOD1/FKBP14 kyphoscoliotic, ADAMTS2 dermatosparaxis,
-        COL1A1/COL1A2 arthrochalasia/cardiac-valvular, CHST14/DSE
-        musculocontractural, C1R/C1S periodontal, and COL12A1 myopathic EDS
-        should be treated as curation gaps surfaced from the exact mapping.
+        COL1A1/COL1A2 arthrochalasia, C1R/C1S periodontal, and COL12A1
+        myopathic EDS should be treated as curation gaps surfaced from the
+        exact mapping.
 membership_criteria:
 - description: &gt;-
     A member is an explicit Ehlers-Danlos syndrome disease entry and has at
@@ -3402,15 +3450,57 @@ members:
       term:
         id: hgnc:930
         label: B4GALT7
+- member: Musculocontractural Ehlers-Danlos Syndrome
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: &gt;-
+      CHST14 (D4ST1) and DSE (DS-epi1) defects block consecutive steps of
+      dermatan sulfate biosynthesis, so the glycosaminoglycan chain of decorin
+      is replaced by chondroitin sulfate and collagen fibril assembly fails.
+      Distinguished from the other EDS members by a two-arm phenotype pairing
+      congenital malformation (multiple congenital contractures with adducted
+      thumbs and talipes equinovarus, a characteristic craniofacial gestalt)
+      with progressive connective-tissue fragility. Shares a
+      glycosaminoglycan-biosynthesis mechanism class with spondylodysplastic
+      EDS, but acts on dermatan-sulfate chain modification rather than on the
+      common tetrasaccharide linker.
+    gene:
+      preferred_term: CHST14
+      term:
+        id: hgnc:24464
+        label: CHST14
+- member: Cardiac Valvular Ehlers-Danlos Syndrome
+  member_type: DISEASE
+  differentiating_mechanisms:
+  - description: &gt;-
+      Biallelic COL1A2 null variants activate nonsense-mediated decay and
+      abolish the proalpha2(I) chain, so type I collagen is assembled as an
+      alpha1(I) homotrimer. Distinguished by moderate-to-severe progressive
+      cardiac valve disease affecting the mitral valve first, on a background of
+      joint hypermobility and skin hyperextensibility, and by the
+      characteristic absence of bone fragility that separates it from the
+      recessive osteogenesis imperfecta also caused by biallelic COL1A2
+      variants.
+    gene:
+      preferred_term: COL1A2
+      term:
+        id: hgnc:2198
+        label: COL1A2
 notes: &gt;-
   Exclude Marfan syndrome, Loeys-Dietz syndrome, osteogenesis imperfecta, cutis
   laxa, arterial tortuosity syndrome, and hypermobility spectrum disorder unless
   a separate disease entry is explicitly curated as an EDS or EDS-related
   subtype. High-value future subtype entries include COL5A2 classical EDS,
   TNXB/AEBP1 classical-like EDS, PLOD1/FKBP14 kyphoscoliotic EDS, ADAMTS2
-  dermatosparaxis EDS, COL1A1/COL1A2 arthrochalasia or cardiac-valvular EDS,
-  CHST14/DSE musculocontractural EDS, C1R/C1S periodontal EDS, and COL12A1
-  myopathic EDS.
+  dermatosparaxis EDS, COL1A1/COL1A2 arthrochalasia EDS, C1R/C1S periodontal
+  EDS, and COL12A1 myopathic EDS.
+
+  Mechanism-class note: two members now share a glycosaminoglycan-biosynthesis
+  mechanism class — spondylodysplastic EDS (B4GALT7/B3GALT6 common
+  tetrasaccharide linker) and musculocontractural EDS (CHST14/DSE
+  dermatan-sulfate chain modification). They are a candidate pair for factoring
+  out a shared GAG-biosynthesis mechanism module in kb/modules/; no such module
+  exists yet, so neither entry declares a conforms_to edge.
 </pre>
             </details>
         </section>

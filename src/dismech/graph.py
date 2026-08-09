@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from dismech.yaml_io import safe_load
 
 
 @dataclass
@@ -66,6 +66,27 @@ NODE_COLORS = {
     "computational_model": "#ecfccb",  # lime-100
     "orphan": "#fee2e2",  # red-100 for unmatched targets
 }
+
+# EnvironmentalEffectEnum value to pathograph edge predicate. A protective or
+# merely predisposing exposure must not be drawn as if it triggered the
+# mechanism, so the effect is carried in the predicate itself.
+ENVIRONMENTAL_EFFECT_PREDICATES = {
+    "TRIGGERS": "triggers",
+    "EXACERBATES": "exacerbates",
+    "PREDISPOSES": "predisposes_to",
+    "PROTECTS_AGAINST": "protects_against",
+    "MODULATES": "modulates",
+}
+
+# Used when environmental_effect is absent: a direction-neutral link, so an
+# unqualified exposure is never silently asserted to be causative.
+DEFAULT_ENVIRONMENTAL_PREDICATE = "influences"
+
+# Every predicate an environmental edge can carry, for consumers that reason
+# about them as a group (export styling, QC coverage) rather than one at a time.
+ENVIRONMENTAL_PREDICATES: frozenset[str] = frozenset(
+    ENVIRONMENTAL_EFFECT_PREDICATES.values()
+) | {DEFAULT_ENVIRONMENTAL_PREDICATE}
 
 
 def _sanitize_node_id(name: str) -> str:
@@ -223,10 +244,15 @@ def _resolve_descriptor_target(
     return None
 
 
-def _iter_variant_items(
+def iter_variant_items(
     disorder: dict[str, Any],
 ) -> list[tuple[str | None, dict[str, Any]]]:
-    """Iterate over disease-level and gene-nested variants."""
+    """Iterate over disease-level and gene-nested variants.
+
+    Public because it is the parity contract between the pathograph and the
+    HTML renderer: both must walk exactly the same variants or a variant node
+    ends up with no card (see issues #8037, #8032).
+    """
     items: list[tuple[str | None, dict[str, Any]]] = []
 
     for variant in disorder.get("variants", []) or []:
@@ -283,7 +309,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     description=item.get("description"),
                 )
 
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         name = variant.get("name")
         if not name:
             continue
@@ -374,6 +400,31 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                         ),
                     )
                 )
+
+    # Collect edges from environmental factors to the mechanisms they act on
+    for item in disorder.get("environmental", []) or []:
+        if not isinstance(item, dict):
+            continue
+        source = item.get("name")
+        if not source:
+            continue
+
+        for link in item.get("influences_mechanisms", []) or []:
+            if not isinstance(link, dict) or "target" not in link:
+                continue
+            graph.edges.append(
+                Edge(
+                    source=source,
+                    target=str(link["target"]),
+                    predicate=ENVIRONMENTAL_EFFECT_PREDICATES.get(
+                        link.get("environmental_effect"),
+                        DEFAULT_ENVIRONMENTAL_PREDICATE,
+                    ),
+                    source_type="environmental",
+                    description=link.get("description"),
+                    causal_link_type=link.get("causal_link_type"),
+                )
+            )
 
     # Collect edges from treatment links
     for item in disorder.get("treatments", []) or []:
@@ -523,7 +574,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             )
 
     # Collect edges from variants to their genes or directly linked mechanisms
-    for parent_name, variant in _iter_variant_items(disorder):
+    for parent_name, variant in iter_variant_items(disorder):
         source = variant.get("name")
         if not source:
             continue
@@ -1120,7 +1171,7 @@ def graph_to_json(graph: CausalGraph, disorder: dict[str, Any]) -> str:
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and "name" in item:
                 item_lookup[item["name"]] = item
-    for _parent_name, variant in _iter_variant_items(disorder):
+    for _parent_name, variant in iter_variant_items(disorder):
         if "name" in variant:
             item_lookup[variant["name"]] = variant
     model_links_by_target = _collect_experimental_model_links(disorder)
@@ -1229,7 +1280,7 @@ def validate_all_disorders(input_dir: Path) -> dict[str, list[str]]:
         if yaml_path.name.endswith(".history.yaml"):
             continue
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         if graph.integrity_issues:
@@ -1270,7 +1321,7 @@ def main():
     elif args.show:
         yaml_path = Path(args.show)
         with open(yaml_path) as f:
-            disorder = yaml.safe_load(f)
+            disorder = safe_load(f)
 
         graph = build_causal_graph(disorder)
         mermaid_code = generate_mermaid(graph)

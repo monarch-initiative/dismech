@@ -194,7 +194,7 @@ def test_tabular_export_flattens_treatment_dietary_modifications():
                     "name": "Gluten-free diet",
                     "treatment_term": {
                         "preferred_term": "dietary intervention",
-                        "term": {"id": "MAXO:0000088", "label": "dietary intervention"},
+                        "term": {"id": "NCIT:C15447", "label": "Dietary Intervention"},
                         "dietary_modifications": [
                             {
                                 "action": "AVOID",
