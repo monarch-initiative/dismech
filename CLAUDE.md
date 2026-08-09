@@ -802,6 +802,13 @@ uv run runoak -i sqlite:obo:hp info HP:0040282 -O obo
 
 This prevents AI hallucination of fake or mismatched ontology terms.
 
+For MONDO coverage and epic-checklist synchronization, an entry's primary
+`disease_term` and `has_subtypes` terms count as curated. A
+`mappings.mondo_mappings` term counts only when its `mapping_predicate` is
+`skos:exactMatch` or `skos:narrowMatch`; `broadMatch`, `closeMatch`, and
+`relatedMatch` are cross-references and must not retire the mapped concept from
+the curation queue.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
