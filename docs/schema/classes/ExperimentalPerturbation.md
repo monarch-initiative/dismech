@@ -135,7 +135,7 @@ URI: [dismech:class/ExperimentalPerturbation](https://w3id.org/monarch-initiativ
 | [gene](../slots/gene.md) | 0..1 <br/> [GeneDescriptor](../classes/GeneDescriptor.md) |  | direct |
 | [genes](../slots/genes.md) | * <br/> [GeneDescriptor](../classes/GeneDescriptor.md) |  | direct |
 | [chemical_entities](../slots/chemical_entities.md) | * <br/> [ChemicalEntityDescriptor](../classes/ChemicalEntityDescriptor.md) |  | direct |
-| [treatment_term](../slots/treatment_term.md) | 0..1 <br/> [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | The MAXO term for this treatment/medical action | direct |
+| [treatment_term](../slots/treatment_term.md) | 0..1 <br/> [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | The NCIT term for this treatment/medical action | direct |
 | [exposure_term](../slots/exposure_term.md) | 0..1 <br/> [ExposureDescriptor](../classes/ExposureDescriptor.md) | The ECTO/XCO term for this exposure event | direct |
 | [triggers](../slots/triggers.md) | * <br/> [TriggerDescriptor](../classes/TriggerDescriptor.md) |  | direct |
 | [biological_processes](../slots/biological_processes.md) | * <br/> [BiologicalProcessDescriptor](../classes/BiologicalProcessDescriptor.md) |  | direct |
@@ -273,6 +273,7 @@ attributes:
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
@@ -318,6 +319,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - SurrogateEndpointCollection
     - ProteinStructure
     - ExternalAssertion
@@ -325,6 +327,7 @@ attributes:
     - Pathophysiology
     - Phenotype
     - HistopathologyFinding
+    - ImagingFinding
     - Environmental
     - Disease
     - Stage
@@ -369,6 +372,7 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     range: string
     required: true
   gene:
@@ -424,7 +428,7 @@ attributes:
     inlined_as_list: true
   treatment_term:
     name: treatment_term
-    description: The MAXO term for this treatment/medical action
+    description: The NCIT term for this treatment/medical action
     from_schema: https://w3id.org/monarch-initiative/dismech
     rank: 1000
     alias: treatment_term
@@ -514,17 +518,21 @@ attributes:
     - TreatmentMechanismTarget
     - ModelMechanismLink
     - BiomarkerReadout
+    - PhenotypeReadout
     - ReferenceRange
     - SurrogateEndpoint
     - ExternalAssertion
     - Finding
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Stage
@@ -540,6 +548,7 @@ attributes:
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
+    - AlgorithmValidationStatus
     - CriteriaSet
     - AssociationSignal
     - AssociationStatistics
@@ -584,12 +593,15 @@ attributes:
     - ExternalAssertion
     - TrackedIssue
     - Prevalence
+    - GeneCaseFraction
     - ProgressionInfo
+    - ClinicalBurden
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
     - Biochemical
     - HistopathologyFinding
+    - ImagingFinding
     - Genetic
     - Environmental
     - Disease
