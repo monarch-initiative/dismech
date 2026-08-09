@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vitiligo · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Vitiligo</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Vitiligo</h1>
+                
+                <p class="report-subtitle">Vitiligo (MONDO:0008661): Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-07-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0008661" target="_blank" rel="noopener noreferrer">MONDO:0008661</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">47 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Vitiligo (<a href="http://purl.obolibrary.org/obo/MONDO_0008661" target="_blank" rel="noopener noreferrer">MONDO:0008661</a>): Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Vitiligo — <strong><a href="http://purl.obolibrary.org/obo/MONDO_0008661" target="_blank" rel="noopener noreferrer">MONDO:0008661</a></strong> — Category: Complex (polygenic autoimmune)
+<strong>Report type:</strong> Aggregated disease-level synthesis from primary literature and ontology resources (not individual EHR data).
+<strong>Date:</strong> 2026-07-26</p>
+<h2>Summary</h2>
+<p><strong>Vitiligo</strong> is a common, acquired, chronic <strong>autoimmune depigmenting skin disorder</strong> affecting approximately <strong>0.5–2% of the global population</strong>, in which cytotoxic <strong>CD8+ T lymphocytes selectively destroy epidermal melanocytes</strong>, producing well-demarcated, chalk-white macules and patches. It is not a Mendelian disease but a <strong>polygenic/multifactorial (complex) trait</strong>, with more than <strong>50 genome-wide association (GWAS) susceptibility loci</strong> clustered in three functional categories: immune regulation (e.g., HLA, PTPN22, NLRP1), oxidative-stress response, and melanocyte biology/melanogenesis (e.g., TYR). The disease is defined clinically and confirmed with simple tools (Wood's lamp, dermoscopy), and although it is <strong>non-fatal</strong>, it carries a substantial psychosocial and quality-of-life burden and is strongly associated with other autoimmune conditions, particularly thyroid disease.</p>
+<p>The prevailing mechanistic model is a <strong>convergence of melanocyte-intrinsic vulnerability and immune effector activity</strong>. Vitiligo melanocytes are hypersensitive to oxidative stress owing to defective stress-response and autophagy pathways. Under stress they release <strong>damage-associated molecular patterns (DAMPs)</strong> — notably HSP70, HMGB1, and IL-15 — which activate innate immunity and prime an adaptive response. Loss of adhesion molecules (DDR1, E-cadherin) promotes melanocyte detachment and antigen exposure. The resulting autoimmune cascade converges on a central, self-amplifying <strong>IFN-γ → CXCL9/CXCL10 → CXCR3 → CD8+ T-cell</strong> effector loop, maintained locally by <strong>tissue-resident memory T cells (TRM)</strong> that explain the characteristic relapse after therapy withdrawal. Critically, this axis is <strong>pharmacologically reversible</strong>: neutralizing CXCL10 or inhibiting STAT1/JAK signaling reverses depigmentation in mouse models and repigments patients in the clinic.</p>
+<p>These insights have transformed treatment. <strong>Topical ruxolitinib (a JAK1/2 inhibitor)</strong> is FDA-approved and repigments nonsegmental vitiligo in phase 3 trials; <strong>narrowband UVB (NB-UVB) phototherapy</strong> remains first-line and works by mobilizing melanocyte stem cells while depleting skin memory/resident-memory T cells; and <strong>oral JAK1 inhibitors (povorcitinib, upadacitinib)</strong> and surgical melanocyte grafting extend options for extensive or stable disease. Prognosis is dominated by <strong>anatomical site</strong> (facial lesions repigment best, acral lesions worst) and the availability of a follicular melanocyte reservoir. This report synthesizes 12 confirmed findings drawn from 53 reviewed papers across all 15 requested characterization domains.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Vitiligo is a chronic, acquired autoimmune disorder characterized by the selective and progressive destruction of epidermal melanocytes, resulting in depigmented (white) macules and patches on the skin and, less commonly, mucous membranes and hair (leukotrichia). <em>"Vitiligo is a chronic autoimmune depigmenting disorder affecting 0.5%-2% of the global population"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42332186/">PMID: 42332186</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0008661" target="_blank" rel="noopener noreferrer">MONDO:0008661</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>193200 (Vitiligo-associated multiple autoimmune disease susceptibility 1, VAMAS1)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>EE60</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>L80</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D014820</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:3435" target="_blank" rel="noopener noreferrer">ORPHA:3435</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Acquired leukoderma; vitiligo vulgaris; nonsegmental vitiligo (NSV); segmental vitiligo (SV). Historically "autoimmune vitiligo" was used as a subtype but was formally abandoned by consensus (see Section 5).</p>
+<p><strong>Information source.</strong> The information in this report is derived predominantly from <strong>aggregated disease-level resources</strong> (GWAS meta-analyses, systematic reviews, consensus statements, and randomized clinical trials) supplemented by mechanistic model-organism and in vitro studies, rather than individual patient EHR data.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causes.</strong> Vitiligo is <strong>multifactorial</strong>, arising from an interplay of (1) polygenic genetic predisposition, (2) melanocyte-intrinsic oxidative-stress vulnerability, and (3) environmental/mechanical triggers that precipitate autoimmune melanocyte destruction. The unifying downstream cause of depigmentation is CD8+ T-cell–mediated killing of melanocytes.</p>
+<p><strong>Genetic risk factors.</strong> GWAS have identified <strong>~50 susceptibility loci</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28317533/">PMID: 28317533</a>; <em>"Genomewide association studies have discovered approximately 50 genetic loci contributing to vitiligo risk"</em>), later refined to <strong>&gt;50 loci</strong> encompassing MHC/HLA-region genes and genes involved in immunity, oxidative stress, and melanogenesis (<a href="https://pubmed.ncbi.nlm.nih.gov/39890561/">PMID: 39890561</a>; <em>"Genome-wide association studies (GWAS) have identified over 50 susceptibility loci, including key genes within the MHC region and those involved in immunity, oxidative stress, and melanogenesis"</em>). A well-characterized example is <strong>NLRP1</strong> (innate-immune inflammasome regulator): the susceptible <strong>"GCT" haplotype</strong> (rs2670660, rs6502867, rs12150220) roughly <strong>doubles vitiligo risk</strong> and is accompanied by elevated NLRP1 mRNA (<a href="https://pubmed.ncbi.nlm.nih.gov/23773036/">PMID: 23773036</a>; <em>"The frequency of susceptible haplotype 'GCT' was significantly higher in patients with GV and increased the risk of vitiligo twofold"</em>; meta-analysis <a href="https://pubmed.ncbi.nlm.nih.gov/29152150/">PMID: 29152150</a>).</p>
+<p><strong>Environmental risk factors.</strong> Recognized triggers include cutaneous <strong>oxidative/chemical stress</strong> (phenolic/catechol compounds such as monobenzone), <strong>mechanical trauma / friction</strong> (Koebner phenomenon), <strong>sunburn</strong>, and <strong>emotional/physical stress</strong> (neuroendocrine axis). Family history is a strong risk factor (polygenic burden). Immune-checkpoint inhibitor (ICI) therapy in cancer can precipitate vitiligo-like depigmentation (see Sections 6 and 11).</p>
+<p><strong>Protective factors.</strong> A genetic protective variant has been identified in the <strong>HSP70/HSPA1L</strong> gene: <em>"the rs2227956 C allele and TC genotype were associated with protection against vitiligo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36345598/">PMID: 36345598</a>). No robust dietary/lifestyle protective factor has been established; a folate–autoimmunity review found only weak, low-credibility evidence for any folate association (<a href="https://pubmed.ncbi.nlm.nih.gov/42396914/">PMID: 42396914</a>).</p>
+<p><strong>Gene–environment interactions.</strong> The central paradigm is that <strong>genetically primed melanocytes</strong> (with defective oxidative-stress handling and reduced adhesion) release DAMPs when exposed to environmental oxidative/chemical stress, converting a subclinical predisposition into overt autoimmune destruction (<a href="https://pubmed.ncbi.nlm.nih.gov/36154894/">PMID: 36154894</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35643735/">PMID: 35643735</a>). Neuropeptide Y (NPY), released under stress, synergizes with oxidative stress via NPY2R-mediated NF-κB activation to recruit CD8+ T cells (<a href="https://pubmed.ncbi.nlm.nih.gov/42031917/">PMID: 42031917</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p><strong>Core phenotype (physical manifestation/clinical sign).</strong> Well-demarcated, chalk-white/depigmented macules and patches from loss of epidermal melanocytes. <em>"...characterized by the development of white macules resulting from a loss of epidermal melanocytes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28685247/">PMID: 28685247</a>).</p>
+<p><strong>Associated phenotypes.</strong>
+- <strong>Leukotrichia</strong> (whitening of lesional hair) — found in ~46.5% of NSV patients in one cross-sectional study and considered a marker of poorer prognosis / follicular reservoir depletion (<a href="https://pubmed.ncbi.nlm.nih.gov/30971534/">PMID: 30971534</a>).
+- <strong>Koebner phenomenon</strong> (new lesions at sites of trauma) — an activity sign.
+- <strong>Confetti-like depigmentation</strong> and trichrome lesions — signs of active/progressing disease (<a href="https://pubmed.ncbi.nlm.nih.gov/41703718/">PMID: 41703718</a>).
+- <strong>Psychosocial/behavioral impact</strong> — significant impairment of quality of life and neuropsychological burden (<a href="https://pubmed.ncbi.nlm.nih.gov/42332186/">PMID: 42332186</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>).</p>
+<p><strong>Characteristics.</strong> Onset: frequently childhood — <em>"More than 50% of cases begin before 18 years of age"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>). Severity: variable. Progression: episodic/progressive with periods of stability. Distribution: typically bilateral and symmetric in NSV; unilateral/dermatomal in SV.</p>
+<p><strong>Quality of life.</strong> Measured with the Dermatology Life Quality Index (DLQI); Vellus/leukotrichia scores correlate with DLQI and disease severity (<a href="https://pubmed.ncbi.nlm.nih.gov/30971534/">PMID: 30971534</a>).</p>
+<p><strong>Suggested HPO terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" rel="noopener noreferrer">HP:0001010</a> (Hypopigmentation of the skin); <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" rel="noopener noreferrer">HP:0001053</a> (Hypopigmented skin patches / vitiligo); <a href="http://purl.obolibrary.org/obo/HP_0002861" target="_blank" rel="noopener noreferrer">HP:0002861</a> (Vitiligo); <a href="http://purl.obolibrary.org/obo/HP_0011365" target="_blank" rel="noopener noreferrer">HP:0011365</a> (leukotrichia-related depigmentation of hair).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal / susceptibility genes.</strong> Vitiligo has <strong>no single causal gene</strong>; risk is conferred by <strong>&gt;50 loci</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39890561/">PMID: 39890561</a>). Key implicated genes span:
+- <strong>Immune regulation:</strong> HLA (class I and II, MHC region), PTPN22, NLRP1, LPP, IL2RA, CD44, BACH2, TAPBP.
+- <strong>Oxidative stress:</strong> HSPA1L (HSP70), and stress-response pathways.
+- <strong>Melanogenesis/melanocyte:</strong> TYR (tyrosinase), MC1R, OCA2, TYRP1.</p>
+<p><strong>NLRP1</strong> variants (rs2670660, rs6502867, rs12150220; GCT haplotype ≈ 2× risk) are a robust susceptibility signal shared with other autoimmune diseases including autoimmune thyroid disease (<a href="https://pubmed.ncbi.nlm.nih.gov/23773036/">PMID: 23773036</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23374100/">PMID: 23374100</a>).</p>
+<p><strong>Multi-omics / functional link — TAPBP.</strong> Integrative multi-omics (FinnGen GWAS n=466,064; eQTLgen n=31,684; single-cell) identified <strong>TAPBP</strong> (tapasin, antigen-processing) as a top mediator; TAPBP overexpression in melanocytes increased HLA class I, suppressed proliferation, and induced apoptosis, with <strong>STAT2</strong> as upstream regulator linking IFN signaling to antigen presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/41884389/">PMID: 41884389</a>).</p>
+<p><strong>Variant classification / type.</strong> Vitiligo risk alleles are predominantly <strong>common regulatory/coding SNPs of small individual effect</strong> (susceptibility variants, not ACMG "pathogenic" Mendelian variants). Origin is <strong>germline</strong>; there are no recurrent somatic driver mutations. Functional consequences are largely <strong>regulatory</strong> (altered expression of immune/melanocyte genes) rather than classical loss/gain-of-function.</p>
+<p><strong>Protective allele.</strong> HSPA1L rs2227956 C allele/TC genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/36345598/">PMID: 36345598</a>).</p>
+<p><strong>Epigenetics.</strong> DNA methylation and histone-modification changes contribute to dysregulated immune and melanocyte gene expression (<a href="https://pubmed.ncbi.nlm.nih.gov/39890561/">PMID: 39890561</a>).</p>
+<p><strong>Chromosomal abnormalities.</strong> None characteristic — vitiligo is not associated with aneuploidy or recurrent structural rearrangements. <strong>Somatic mosaicism</strong>, however, is proposed to underlie the dermatomal distribution of <strong>segmental vitiligo</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39739902/">PMID: 39739902</a>).</p>
+<p><strong>Suggested HGNC/gene annotations:</strong> HLA-A, PTPN22 (<a href="https://bioregistry.io/HGNC:9652" target="_blank" rel="noopener noreferrer">HGNC:9652</a>), NLRP1 (<a href="https://bioregistry.io/HGNC:14374" target="_blank" rel="noopener noreferrer">HGNC:14374</a>), TYR (<a href="https://bioregistry.io/HGNC:12442" target="_blank" rel="noopener noreferrer">HGNC:12442</a>), TAPBP (<a href="https://bioregistry.io/HGNC:11566" target="_blank" rel="noopener noreferrer">HGNC:11566</a>), HSPA1L (<a href="https://bioregistry.io/HGNC:5234" target="_blank" rel="noopener noreferrer">HGNC:5234</a>), STAT2, IFNG (<a href="https://bioregistry.io/HGNC:5438" target="_blank" rel="noopener noreferrer">HGNC:5438</a>), CXCL10 (<a href="https://bioregistry.io/HGNC:10637" target="_blank" rel="noopener noreferrer">HGNC:10637</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental / chemical factors.</strong> <strong>Phenolic and catechol chemicals</strong> — most notably <strong>monobenzone (monobenzyl ether of hydroquinone)</strong> — are the best-established chemical triggers; they induce oxidative stress in melanocytes and precipitate CD8+ T-cell-mediated depigmentation, forming the basis of the leading mouse model (<a href="https://pubmed.ncbi.nlm.nih.gov/42230481/">PMID: 42230481</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40780471/">PMID: 40780471</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38542385/">PMID: 38542385</a>). Occupational exposure to phenolic compounds (e.g., in rubber/adhesive industries) is a recognized cause of "occupational/contact vitiligo."</p>
+<p><strong>Lifestyle factors.</strong> Mechanical trauma/friction (Koebner), sunburn, and psychological stress are contributing triggers. No strong causal dietary factor is established.</p>
+<p><strong>Infectious agents.</strong> Vitiligo is <strong>not an infectious disease</strong>; no pathogen causes it. A single case report describes segmental vitiligo temporally following nine-valent HPV vaccination, hypothesized via bystander activation/molecular mimicry, but explicitly noted as <strong>correlation, not proven causation</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40743226/">PMID: 40743226</a>).</p>
+<p><strong>Suggested CHEBI terms:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_9613" target="_blank" rel="noopener noreferrer">CHEBI:9613</a> (monobenzone/hydroquinone monobenzyl ether); <a href="http://purl.obolibrary.org/obo/CHEBI_16240" target="_blank" rel="noopener noreferrer">CHEBI:16240</a> (hydrogen peroxide); <a href="http://purl.obolibrary.org/obo/CHEBI_26523" target="_blank" rel="noopener noreferrer">CHEBI:26523</a> (reactive oxygen species).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Vitiligo pathogenesis integrates a <strong>melanocyte-intrinsic defect</strong>, <strong>innate immune ignition</strong>, and an <strong>adaptive CD8+ T-cell effector loop</strong>.</p>
+<p><strong>Step 1 — Melanocyte-intrinsic oxidative-stress vulnerability.</strong> Vitiligo melanocytes are hypersensitive to oxidative damage due to defective stress-response and autophagy pathways, leading to elevated pro-inflammatory HSP70 (<a href="https://pubmed.ncbi.nlm.nih.gov/35643735/">PMID: 35643735</a>; <em>"melanocytes are more sensitive to oxidative damage, leading to the increased expression of proinflammatory proteins such as HSP70. The lower expression of epithelial adhesion molecules, such as DDR1 and E-cadherin, facilitates damage to melanocytes and exposure of antigens"</em>).</p>
+<p><strong>Step 2 — DAMP release ignites immunity.</strong> <em>"At high oxidative stress levels, damage-associated molecular patterns (DAMPs) are released from keratinocytes or melanocytes in the skin and induce downstream immune responses during vitiligo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36154894/">PMID: 36154894</a>). Key DAMPs: <strong>HSP70, HMGB1, IL-15</strong>. Innate immune activation (including the NLRP1 inflammasome) amplifies the adaptive response and licenses autoreactive CD8+ T cells (<a href="https://pubmed.ncbi.nlm.nih.gov/41169396/">PMID: 41169396</a>).</p>
+<p><strong>Step 3 — Loss of adhesion &amp; antigen exposure.</strong> Reduced DDR1 and E-cadherin facilitate melanocyte detachment (melanocytorrhagy) and antigen presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/35643735/">PMID: 35643735</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36947026/">PMID: 36947026</a>).</p>
+<p><strong>Step 4 — The IFN-γ–CXCL9/CXCL10–CXCR3–CD8+ effector loop (central effector pathway).</strong> Lesional skin shows an <strong>IFN-γ-specific gene signature</strong>; melanocyte-antigen-specific CD8+ T cells infiltrate along the basal layer (<a href="https://pubmed.ncbi.nlm.nih.gov/39739902/">PMID: 39739902</a>; <em>"High levels of melanocyte antigen-specific CD8+ T cells are found in early SV lesional skin infiltrating around melanocytes along the basal layer"</em>). IFN-γ induces keratinocyte production of the chemokines <strong>CXCL9 and CXCL10</strong>, which recruit and localize <strong>CXCR3+</strong> cytotoxic T cells. Mouse-model dissection shows <em>"CXCL9 promoted autoreactive T cell global recruitment to the skin but not effector function, whereas CXCL10 was required for effector function and localization within the skin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24523323/">PMID: 24523323</a>). Crucially the loop is reversible: <em>"CXCL10 neutralization in mice with established, widespread depigmentation induces reversal of disease, evidenced by repigmentation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24523323/">PMID: 24523323</a>), and STAT1 inhibition with simvastatin <em>"both prevented and reversed depigmentation in our mouse model of vitiligo, and reduced the number of infiltrating autoreactive CD8(+) T cells in the skin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25521459/">PMID: 25521459</a>).</p>
+<p><strong>Step 5 — Disease maintenance by tissue-resident memory T cells (TRM).</strong> <em>"Tissue resident memory T cells (Trm) form in the skin in vitiligo and persist to maintain disease, as white spots often recur rapidly after discontinuing therapy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30423329/">PMID: 30423329</a>). TRM cooperate with recirculating memory T cells, explaining chronicity and relapse.</p>
+<p><strong>Molecular pathways:</strong> JAK/STAT (IFN-γ → JAK1/2 → STAT1), NF-κB (NPY2R-driven; <a href="https://pubmed.ncbi.nlm.nih.gov/42031917/">PMID: 42031917</a>), IL-15/IL-15R (TRM survival), Wnt (melanocyte regeneration; noncanonical Wnt5a; <a href="https://pubmed.ncbi.nlm.nih.gov/42230481/">PMID: 42230481</a>), and cAMP/PKA/CREB (melanogenesis; <a href="https://pubmed.ncbi.nlm.nih.gov/41720011/">PMID: 41720011</a>).</p>
+<p><strong>Causal chain (upstream → downstream):</strong></p>
+<pre><code>Genetic predisposition (HLA, NLRP1, oxidative-stress genes)
+│
+Melanocyte oxidative-stress vulnerability + environmental trigger (monobenzone, ROS, trauma)
+│
+DAMP release (HSP70, HMGB1, IL-15) + adhesion loss (DDR1/E-cadherin)
+│
+Innate immune activation (NLRP1 inflammasome, type-1 IFN)
+│
+Autoreactive CD8+ T-cell priming → IFN-γ
+│
+Keratinocyte CXCL9/CXCL10 ↑  →  CXCR3+ CD8+ T-cell recruitment &amp; effector function
+│
+Melanocyte apoptosis → DEPIGMENTED MACULES
+│
+Tissue-resident memory T cells (TRM) → chronicity &amp; relapse
+</code></pre>
+<p><strong>Suggested GO / CL terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a> (response to oxidative stress); <a href="http://purl.obolibrary.org/obo/GO_0060333" target="_blank" rel="noopener noreferrer">GO:0060333</a> (IFN-γ-mediated signaling pathway); <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response); <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process); <a href="http://purl.obolibrary.org/obo/GO_0071356" target="_blank" rel="noopener noreferrer">GO:0071356</a> (cellular response to TNF); <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" rel="noopener noreferrer">CL:0000148</a> (melanocyte); <a href="http://purl.obolibrary.org/obo/CL_0000909" target="_blank" rel="noopener noreferrer">CL:0000909</a> (CD8-positive, alpha-beta memory T cell); <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> (keratinocyte).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> Skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) — specifically the <strong>epidermis</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a>) and its <strong>basal layer</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002025" target="_blank" rel="noopener noreferrer">UBERON:0002025</a>).</li>
+<li><strong>Target cell:</strong> <strong>Epidermal melanocytes</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" rel="noopener noreferrer">CL:0000148</a>); follicular melanocyte stem cells in the hair-follicle bulge serve as the regenerative reservoir.</li>
+<li><strong>Secondary involvement:</strong> Hair follicles (leukotrichia), mucous membranes, and (rarely) the uveal tract/retinal pigment epithelium. Systemic association with the <strong>endocrine (thyroid)</strong> system.</li>
+<li><strong>Tissue type:</strong> Epithelial (stratified squamous epidermis).</li>
+<li><strong>Subcellular compartments:</strong> Melanosome (<a href="http://purl.obolibrary.org/obo/GO_0042470" target="_blank" rel="noopener noreferrer">GO:0042470</a>), mitochondria (oxidative stress), endoplasmic reticulum (antigen processing/HSP), nucleus (STAT signaling).</li>
+<li><strong>Localization / lateralization:</strong> NSV is typically <strong>bilateral and symmetric</strong>, favoring periorificial (face), acral (hands/feet), and extensor surfaces; SV is <strong>unilateral, dermatomal/segmental</strong>. Facial and head/neck sites repigment best; acral sites worst (<a href="https://pubmed.ncbi.nlm.nih.gov/41840918/">PMID: 41840918</a>).</li>
+</ul>
+<p><strong>Suggested UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin), <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a> (skin epidermis), <a href="http://purl.obolibrary.org/obo/UBERON_0002025" target="_blank" rel="noopener noreferrer">UBERON:0002025</a> (basal layer of epidermis), <a href="http://purl.obolibrary.org/obo/UBERON_0002073" target="_blank" rel="noopener noreferrer">UBERON:0002073</a> (hair follicle).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Frequently <strong>childhood/adolescence</strong>: <em>"More than 50% of cases begin before 18 years of age"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>). In a Mexican pediatric cohort mean age at onset was <strong>6.3 ± 3.7 years</strong>, with 85% nonsegmental (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>). Onset pattern is typically <strong>insidious/chronic</strong>.</p>
+<p><strong>Progression.</strong> Course is variable — <strong>progressive, episodic, or stable</strong> — with flares (Koebner, confetti lesions) and periods of quiescence. Disease is <strong>chronic and lifelong</strong>; spontaneous repigmentation is uncommon and usually incomplete.</p>
+<p><strong>Patterns.</strong> Repigmentation (treatment-induced) proceeds perifollicularly from the follicular melanocyte reservoir. <strong>Relapse is common</strong> after therapy discontinuation because of persistent TRM (<a href="https://pubmed.ncbi.nlm.nih.gov/30423329/">PMID: 30423329</a>). <strong>Critical intervention window:</strong> early/active disease responds best to immune suppression, while melanocyte-regeneration strategies matter for repigmentation (<a href="https://pubmed.ncbi.nlm.nih.gov/36947026/">PMID: 36947026</a>).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Prevalence <strong>~0.5–2%</strong> globally (<a href="https://pubmed.ncbi.nlm.nih.gov/42332186/">PMID: 42332186</a>), with higher figures (~2%) reported in India (<a href="https://pubmed.ncbi.nlm.nih.gov/42377206/">PMID: 42377206</a>). A commonly cited general-population estimate is ~0.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/28685247/">PMID: 28685247</a>).</p>
+<p><strong>Inheritance.</strong> <strong>Multifactorial/polygenic</strong> (complex trait) — not Mendelian. Family clustering reflects cumulative polygenic risk plus shared environment; concordance is incomplete even in monozygotic twins, indicating strong environmental/epigenetic contributions. <strong>Segmental vitiligo</strong> is linked to <strong>somatic mosaicism</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39739902/">PMID: 39739902</a>).</p>
+<p><strong>Autoimmune comorbidity.</strong> Strong association with other autoimmune diseases, especially <strong>thyroid dysfunction</strong>: in the pediatric cohort, 34% of tested patients had thyroid abnormalities (subclinical hypothyroidism 20.4%; thyroid autoantibodies positive in 27.3%) (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>; <em>"It has been associated with other autoimmune diseases, particularly thyroid dysfunction"</em>). Vitiligo also co-occurs with type 1 diabetes (<a href="https://pubmed.ncbi.nlm.nih.gov/42445886/">PMID: 42445886</a>), alopecia areata, atopic dermatitis, and shares pleiotropic loci with these conditions (<a href="https://pubmed.ncbi.nlm.nih.gov/41009683/">PMID: 41009683</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42079583/">PMID: 42079583</a>).</p>
+<p><strong>Subtype distribution.</strong> Segmental vitiligo accounts for <strong>5–27.9%</strong> of patients (<a href="https://pubmed.ncbi.nlm.nih.gov/39739902/">PMID: 39739902</a>); the remainder are nonsegmental.</p>
+<p><strong>Demographics.</strong> Affects all skin types and ethnicities; more clinically conspicuous (and psychosocially burdensome) in darker skin. No strong sex predilection overall, though ascertainment often skews female.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Diagnosis is primarily clinical.</strong> <em>"tool-free and standardized assessments such as Koebner phenomenon, confetti-like depigmentation, Wood's lamp and dermoscopy provide visible clues associated with active disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41703718/">PMID: 41703718</a>).</p>
+<p><strong>Key modalities.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Role</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wood's lamp (UV-A)</td>
+<td>Accentuates depigmentation, especially in fair skin</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41703718/">PMID: 41703718</a></td>
+</tr>
+<tr>
+<td>Dermoscopy</td>
+<td>Activity staging (perifollicular pigment, telangiectasia)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42087462/">PMID: 42087462</a></td>
+</tr>
+<tr>
+<td>Reflectance confocal microscopy (RCM)</td>
+<td>Non-invasive melanocyte assessment; staging</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42087462/">PMID: 42087462</a></td>
+</tr>
+<tr>
+<td>Histopathology / IHC</td>
+<td>Absent epidermal melanocytes (loss of Melan-A/MITF/tyrosinase); perilesional lymphocytic infiltrate</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41703718/">PMID: 41703718</a></td>
+</tr>
+<tr>
+<td>Molecular biomarkers</td>
+<td>IFN-γ, CXCL9/CXCL10 in blood, blister fluid, tissue</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41703718/">PMID: 41703718</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>RCM/dermoscopy staging</strong> shows strong concordance with clinical evaluation: <em>"Staging results based on RCM and dermoscopy showed strong concordance with clinical evaluation; Kappa values were 0.74 and 0.718"</em>, with RCM positive percent agreement 94.16% (<a href="https://pubmed.ncbi.nlm.nih.gov/42087462/">PMID: 42087462</a>).</p>
+<p><strong>Severity scoring:</strong> VASI (Vitiligo Area Scoring Index), F-VASI (facial), T-VASI (total), VES, DLQI (<a href="https://pubmed.ncbi.nlm.nih.gov/30971534/">PMID: 30971534</a>).</p>
+<p><strong>Genetic testing</strong> is <strong>not routinely indicated</strong> (polygenic, no single causal gene). <strong>Screening:</strong> thyroid function and thyroid autoantibody testing are recommended given the strong comorbidity (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>).</p>
+<p><strong>Differential diagnosis:</strong> pityriasis alba, tinea versicolor, post-inflammatory hypopigmentation, nevus depigmentosus, piebaldism, chemical leukoderma, and hypopigmented mycosis fungoides.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival/mortality.</strong> Vitiligo is a <strong>non-fatal, chronic</strong> disease with normal life expectancy; morbidity is driven by <strong>psychosocial burden and quality-of-life impairment</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42332186/">PMID: 42332186</a>).</p>
+<p><strong>Prognostic factors.</strong> <strong>Anatomical site is the most consistent predictor of repigmentation</strong>: <em>"Anatomical site was the most consistent predictor, with facial lesions showing the highest repigmentation rates and acral areas demonstrating poor response"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41840918/">PMID: 41840918</a>). With povorcitinib, head/neck VASI50 response was <strong>57.3%</strong> vs feet <strong>25.8%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42440041/">PMID: 42440041</a>). Early clinical improvement predicts better long-term outcome; <strong>leukotrichia</strong> predicts poorer response (follicular reservoir loss; <a href="https://pubmed.ncbi.nlm.nih.gov/30971534/">PMID: 30971534</a>).</p>
+<p><strong>Prognostic biomarkers.</strong> Exploratory: <em>"Exploratory biomarker data suggested that Th2 cytokine profiles and reductions in CXCL10 levels may be linked to response"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41840918/">PMID: 41840918</a>).</p>
+<p><strong>Relapse.</strong> Common after therapy withdrawal due to persistent TRM (<a href="https://pubmed.ncbi.nlm.nih.gov/30423329/">PMID: 30423329</a>).</p>
+<p><strong>Special context — melanoma.</strong> ICI-induced vitiligo correlates with <strong>favorable melanoma prognosis</strong>: <em>"Vitiligo, a distinctive cutaneous immune-related adverse event, correlates with favorable prognosis in melanoma patients"</em> (591 FAERS cases; ipilimumab-pembrolizumab ROR 97.2; <a href="https://pubmed.ncbi.nlm.nih.gov/42299605/">PMID: 42299605</a>).</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>Treatment targets the <strong>JAK/STAT–IFN-γ effector axis</strong> (immune suppression) and <strong>restores melanocytes</strong> (regeneration). MAXO annotations are suggested where applicable.</p>
+<h3>Pharmacotherapy</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Therapy</th>
+<th>Class / MoA</th>
+<th>Key efficacy</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Topical ruxolitinib 1.5% cream</strong></td>
+<td>JAK1/2 inhibitor (FDA-approved)</td>
+<td>Week 24 F-VASI75: <strong>29.8%</strong> vs 7.4% vehicle (TRuE-V1); <strong>30.9%</strong> vs 11.4% (TRuE-V2); Week 52 F-VASI75 <strong>50.3%</strong> (continuous)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36260792/">PMID: 36260792</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40156697/">PMID: 40156697</a></td>
+</tr>
+<tr>
+<td><strong>Oral povorcitinib</strong></td>
+<td>JAK1 inhibitor</td>
+<td>Week 24 T-VASI improvement vs placebo (P&lt;.01); Week 52: T-VASI50 <strong>34.0%</strong>, F-VASI50 <strong>61.2%</strong>, F-VASI75 <strong>45.6%</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40518122/">PMID: 40518122</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42440041/">PMID: 42440041</a></td>
+</tr>
+<tr>
+<td><strong>Oral upadacitinib, ritlecitinib</strong></td>
+<td>JAK1 / JAK3-TEC inhibitors</td>
+<td>Promising in trials; upadacitinib used post-grafting</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40996476/">PMID: 40996476</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40832814/">PMID: 40832814</a></td>
+</tr>
+<tr>
+<td>Topical corticosteroids / calcineurin inhibitors</td>
+<td>Immunosuppression</td>
+<td>Mainstay first-line</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40996476/">PMID: 40996476</a></td>
+</tr>
+<tr>
+<td>Monoclonal antibodies (anifrolumab)</td>
+<td>Type-1 IFN receptor</td>
+<td>Phase 2/3 pipeline</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40417830/">PMID: 40417830</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Safety of ruxolitinib.</strong> <em>"No serious treatment-related TEAEs were reported with ruxolitinib cream"</em> over 104 weeks; most common TEAEs were nasopharyngitis and application-site acne (<a href="https://pubmed.ncbi.nlm.nih.gov/41125994/">PMID: 41125994</a>). Oral JAK inhibitors require monitoring for infection, hematologic, and cardiovascular risk (<a href="https://pubmed.ncbi.nlm.nih.gov/40996476/">PMID: 40996476</a>).</p>
+<h3>Phototherapy</h3>
+<p><strong>NB-UVB</strong> is first-line and dual-acting. It <em>"promotes the migration of melanocyte stem cells (MelSC) to the epidermis, thus restoring pigmentation in affected individuals"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42377206/">PMID: 42377206</a>) and depletes pathogenic memory T cells: <em>"TRM declined in acral (5.95 [3.17-7.41] to 0.65 [0.15-1.15]; pFDR = 0.0039) and non-acral sites (4.12 [2.50-5.57] to 0.69 [0.28-1.19]; pFDR = 0.0039)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42415499/">PMID: 42415499</a>). NB-UVB remains a cost-effective first-line therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/42323047/">PMID: 42323047</a>). 308-nm excimer laser targets localized lesions.</p>
+<h3>Combination and surgical</h3>
+<ul>
+<li><strong>JAK inhibitor + NB-UVB</strong> is superior to NB-UVB alone: <em>"Combination therapy significantly reduced total VASI compared to controls (MD = -4.96, 95% CI [-9.29, -0.63])"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41454839/">PMID: 41454839</a>).</li>
+<li><strong>Surgical melanocyte grafting</strong> (non-cultured epidermal cell suspension, NCES) for <strong>stable/segmental</strong> disease, often with adjunctive JAK inhibitor or corticosteroid; best on face/trunk (<a href="https://pubmed.ncbi.nlm.nih.gov/40832814/">PMID: 40832814</a>).</li>
+</ul>
+<p><strong>Suggested MAXO terms:</strong> <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> (pharmacotherapy); JAK inhibitor therapy (conceptual); <a href="https://bioregistry.io/MAXO:0000596" target="_blank" rel="noopener noreferrer">MAXO:0000596</a> (phototherapy); <a href="https://bioregistry.io/MAXO:0000424" target="_blank" rel="noopener noreferrer">MAXO:0000424</a> (corticosteroid therapy); <a href="https://bioregistry.io/MAXO:0000937" target="_blank" rel="noopener noreferrer">MAXO:0000937</a> (surgical treatment / skin grafting).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Avoid known chemical triggers (phenolic/catechol compounds, e.g., occupational monobenzone exposure) and minimize skin trauma (Koebner) in predisposed individuals. No vaccine or population-level prevention exists.</li>
+<li><strong>Secondary prevention:</strong> <strong>Thyroid screening</strong> in vitiligo patients for early detection of comorbid autoimmune thyroid disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>); early treatment of active disease to preserve melanocyte reservoir.</li>
+<li><strong>Tertiary prevention:</strong> Sun protection of depigmented (melanin-deficient) skin to prevent burns; maintenance therapy and psychological support to prevent relapse and QoL decline.</li>
+<li><strong>Genetic counseling:</strong> Given polygenic inheritance, counseling addresses modestly elevated familial risk rather than Mendelian recurrence.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Naturally occurring vitiligo in horses:</strong> <em>"Vitiligo is a depigmentation autoimmune disorder characterized by the progressive loss of melanocytes leading to the appearance of patchy depigmentation of the skin. The presence of vitiligo in horses is greater in those with grey coats"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39199954/">PMID: 39199954</a>). A genomic study in the Pura Raza Español (Andalusian) horse explored its genetic landscape.</li>
+<li>Vitiligo-like depigmentation is also documented in dogs, cats, and other mammals (companion-animal veterinary relevance).</li>
+<li><strong>Orthologous genes</strong> (IFNG, CXCL10, TYR, MITF) are conserved across mammals, supporting cross-species mechanistic conservation.</li>
+<li><strong>Taxonomy:</strong> <em>Homo sapiens</em> (NCBI:txid9606); <em>Equus caballus</em> (NCBI:txid9796); <em>Mus musculus</em> (NCBI:txid10090).</li>
+<li>No zoonotic potential (non-infectious).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key features / recapitulation</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Monobenzone-induced C57BL/6 mouse</strong></td>
+<td>Chemical/environmental</td>
+<td>Oxidative-stress- and CD8+ T-cell-mediated depigmentation; standard therapeutic testbed</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42230481/">PMID: 42230481</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40780471/">PMID: 40780471</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38542385/">PMID: 38542385</a></td>
+</tr>
+<tr>
+<td><strong>Melanocyte-specific CD8+ T-cell adoptive-transfer mouse</strong></td>
+<td>Genetic/immunologic</td>
+<td>IFN-γ signature, skin CXCL10, CXCR3 upregulation; TRM/Tcm maintain disease and relapse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24523323/">PMID: 24523323</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30423329/">PMID: 30423329</a></td>
+</tr>
+<tr>
+<td><strong>H2O2-induced mouse</strong></td>
+<td>Oxidative stress</td>
+<td>NPY/NF-κB-driven CD8+ infiltration</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42031917/">PMID: 42031917</a></td>
+</tr>
+<tr>
+<td><strong>Zebrafish; B16F10 &amp; PIG1 cells</strong></td>
+<td>In vitro / lower vertebrate</td>
+<td>Melanogenesis (MITF, TYR, cAMP/PKA/CREB)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41720011/">PMID: 41720011</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Applications:</strong> These models dissect the oxidative-stress→immune cascade, validate the CXCL10/JAK-STAT axis as a therapeutic target, and screen candidate drugs. The adoptive-transfer mouse specifically models TRM-maintained relapse: <em>"Tissue resident memory T cells (Trm) form in the skin in vitiligo and persist to maintain disease, as white spots often recur rapidly after discontinuing therapy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30423329/">PMID: 30423329</a>). <strong>Limitations:</strong> mouse models are typically induced (not spontaneous polygenic), may not fully capture human HLA-restricted antigen specificity, disease chronicity, or the psychosocial dimension. <strong>Resources:</strong> MGI (mouse), ZFIN (zebrafish), Cellosaurus (PIG1, B16F10).</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Vitiligo is best understood as a <strong>two-hit convergence disease</strong>: a <em>genetically encoded melanocyte fragility</em> (hit 1) meets an <em>environmental/oxidative trigger</em> (hit 2), and the collision releases DAMPs that convert local stress into a systemic, self-sustaining autoimmune attack. The 12 confirmed findings assemble into a single, therapeutically actionable pathway:</p>
+<pre><code>[Genetics: &gt;50 loci] ──► [Melanocyte oxidative fragility + adhesion loss]
+(F002, F008)                     │
+                         ▼
+        [DAMPs: HSP70/HMGB1/IL-15]  (F008)
+                         │
+                         ▼
+        [Innate + type-1 IFN priming] (F008)
+                         │
+                         ▼
+[IFN-γ ─► CXCL9/CXCL10 ─► CXCR3 ─► CD8+ T cell] (F001, F004)
+                         │
+        ┌────────────────┴───────────────┐
+        ▼                                 ▼
+     [Melanocyte apoptosis ─► white macules]   [TRM maintenance ─► relapse]
+        (F001, F005)                    (F007, F011)
+                         │
+  ┌──────────────────────────────┴───────────────────────────┐
+  ▼                                                           ▼
+ [Immune blockade: JAK inhibitors, NB-UVB T-cell depletion]   [Melanocyte regeneration:
+       (F003, F007, F010)                                        NB-UVB MelSC, grafting] (F007, F010)
+                         │
+                         ▼
+         [Repigmentation — site-dependent] (F011)
+</code></pre>
+<p>The <strong>IFN-γ–CXCL10–CXCR3</strong> node is both the mechanistic hub and the clinical fulcrum: every effective modern therapy (topical/oral JAK inhibitors, NB-UVB, combination) suppresses this node, while durable cure is limited by <strong>TRM persistence</strong> — the single best explanation for the field's central clinical frustration (relapse). Prognosis tracks the <strong>follicular melanocyte reservoir</strong>, which is why facial lesions (rich in follicles) outperform acral lesions (sparse follicles), and why leukotrichia is a bad sign.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42332186/">42332186</a></td>
+<td>Definition, 0.5–2% prevalence</td>
+<td>F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39739902/">39739902</a></td>
+<td>CD8+ T cells in early SV; SV mosaicism/fraction</td>
+<td>F001, F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28317533/">28317533</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39890561/">39890561</a></td>
+<td>~50→&gt;50 GWAS loci; immunity/oxidative/melanogenesis</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23773036/">23773036</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29152150/">29152150</a></td>
+<td>NLRP1 GCT haplotype ≈2× risk</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41884389/">41884389</a></td>
+<td>STAT2–TAPBP multi-omics axis</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36260792/">36260792</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40156697/">40156697</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41125994/">41125994</a></td>
+<td>Topical ruxolitinib efficacy &amp; long-term safety</td>
+<td>F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24523323/">24523323</a></td>
+<td>CXCL9 vs CXCL10 roles; reversal by neutralization</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25521459/">25521459</a></td>
+<td>Simvastatin/STAT1 prevents &amp; reverses</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22417114/">22417114</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28685247/">28685247</a></td>
+<td>VGICC classification; prevalence/defining lesion</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">42479635</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42299605/">42299605</a></td>
+<td>Childhood onset, thyroid comorbidity; ICI-vitiligo/melanoma</td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42377206/">42377206</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42415499/">42415499</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42323047/">42323047</a></td>
+<td>NB-UVB MelSC migration + TRM depletion</td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36154894/">36154894</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35643735/">35643735</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36345598/">36345598</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36947026/">36947026</a></td>
+<td>DAMPs, adhesion loss, HSPA1L protective allele</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30423329/">30423329</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42230481/">42230481</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39199954/">39199954</a></td>
+<td>Mouse models; TRM; horse natural disease</td>
+<td>F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40518122/">40518122</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42440041/">42440041</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41454839/">41454839</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40832814/">40832814</a></td>
+<td>Oral povorcitinib; JAK+NB-UVB; grafting</td>
+<td>F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41840918/">41840918</a></td>
+<td>Site as key prognostic factor; biomarkers</td>
+<td>F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41703718/">41703718</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42087462/">42087462</a></td>
+<td>Clinical/RCM diagnostics; IFN-γ/CXCL biomarkers</td>
+<td>F012</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No primary dataset of origin.</strong> This report synthesizes published aggregate/disease-level evidence rather than analyzing a raw patient dataset; effect sizes are quoted from source studies.</li>
+<li><strong>TRM eradication remains unsolved.</strong> No approved therapy durably eliminates skin-resident memory T cells; relapse biology (IL-15/IL-15R, TRM survival) is an open target.</li>
+<li><strong>Predictive biomarkers are exploratory.</strong> CXCL10/Th2 signatures show promise but lack prospective validation and standardized cutoffs.</li>
+<li><strong>Genetic risk is incompletely explained.</strong> &gt;50 loci account for only part of heritability; gene–environment and epigenetic contributions are underquantified; monozygotic-twin discordance is unexplained mechanistically.</li>
+<li><strong>Acral disease is refractory.</strong> The follicular-reservoir hypothesis explains but does not solve poor acral repigmentation.</li>
+<li><strong>Segmental vitiligo mechanism</strong> (somatic mosaicism vs neuronal) is not definitively resolved.</li>
+<li><strong>Model limitations.</strong> Induced mouse models may not capture human HLA-restricted antigen specificity, chronicity, or psychosocial burden.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>TRM-targeted therapy trials:</strong> Test IL-15/IL-15Rβ (CD122) blockade or JAK inhibitors specifically for durable, relapse-free maintenance after repigmentation.</li>
+<li><strong>Prospective biomarker validation:</strong> Validate serum/skin CXCL10 (and Th2 profiles) as predictive/response biomarkers in a prospective multicenter cohort with standardized thresholds.</li>
+<li><strong>Acral-specific regeneration strategies:</strong> Combine melanocyte-stem-cell mobilizers (Wnt/PKA-CREB agonists; <a href="https://pubmed.ncbi.nlm.nih.gov/41720011/">PMID: 41720011</a>) with immune blockade and grafting for acral lesions.</li>
+<li><strong>Genotype-guided precision medicine:</strong> Correlate HLA/NLRP1/TAPBP genotypes with JAK-inhibitor response to enable stratified treatment.</li>
+<li><strong>Systematic thyroid &amp; autoimmune screening protocol:</strong> Formalize periodic thyroid function/antibody screening in vitiligo care pathways (<a href="https://pubmed.ncbi.nlm.nih.gov/42479635/">PMID: 42479635</a>).</li>
+<li><strong>Head-to-head and combination RCTs:</strong> Directly compare topical ruxolitinib vs NB-UVB vs their combination, and oral vs topical JAK inhibitors, with QoL endpoints.</li>
+<li><strong>Neuro-immune axis exploration:</strong> Investigate NPY2R antagonism and vagus-nerve stimulation (<a href="https://pubmed.ncbi.nlm.nih.gov/42031917/">PMID: 42031917</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38542385/">PMID: 38542385</a>) as adjuncts targeting stress-driven flares.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 12 confirmed findings across 53 reviewed papers spanning genetics, immunology, clinical trials, diagnostics, and comparative/model biology. Evidence source types span human clinical (GWAS, RCTs, cohorts), model organism (mouse, horse, zebrafish), and in vitro (melanocyte/keratinocyte) studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Vitiligo-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Vitiligo-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Vitiligo-falcon.html">← Vitiligo (Falcon)</a>
+                
+                
+                <a href="Vogt-Koyanagi-Harada_Disease-falcon.html">Vogt-Koyanagi-Harada Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Vitiligo.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Vitiligo-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Vitiligo-cyberian-codex.html"><span class="provider-pill provider-cyberian">Cyberian Codex</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Vitiligo-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

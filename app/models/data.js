@@ -510,6 +510,49 @@ window.searchData = [
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
+    "model_key": "Atrial_Fibrillation--computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model--0",
+    "name": "Courtemanche-Ramirez-Nattel human atrial action-potential model",
+    "description": "Ionic-current kinetic model of the human atrial cardiomyocyte action potential used to examine rate adaptation and ion-current contributions to AF susceptibility. It models cellular electrophysiology, not whole-patient natural history or treatment outcomes.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "Courtemanche-1998-human-atrial-AP",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:9688927",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Atrial Fibrillation",
+    "disease_id": "MONDO:0004981",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease",
+      "Cardiac Arrhythmia"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Atrial Electrical Remodeling"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:9688927"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Atrial_Fibrillation.html#computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model",
+    "source_file": "kb/disorders/Atrial_Fibrillation.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-deep-learning-fa-core-complex-structure--3",
     "name": "Deep Learning FA Core Complex Structure",
     "description": "Integration of deep-learned residue distance predictions with Rosetta folding and automated cryo-EM map-guided assembly to determine the near-complete atomic structure of the Fanconi Anemia core complex (FAcc) E3 ubiquitin ligase from a 4.6 angstrom resolution cryo-EM map. Placed 5182 of 6557 residues, greatly expanding the structural model and enabling interpretation of disease-related mutations.",
@@ -1202,6 +1245,49 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-multi-level-dynamical-modelling-of-scc-in-fa",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
+  },
+  {
+    "model_key": "Anaplastic_Large_Cell_Lymphoma--computational-model-npm-alk-signaling-network-sensitivity-model--0",
+    "name": "NPM-ALK Signaling-Network Sensitivity Model",
+    "description": "A quantitative phenomenological ODE network uses Hill-type transfer functions and steady-state sensitivity analysis to rank control points for NPM-ALK-driven survival and proliferation. It predicts a predominant VAV1-CDC42 contribution to proliferation and RAS-MEK-ERK contribution to survival; these predictions require experimental validation.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:27669408",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Anaplastic Large Cell Lymphoma",
+    "disease_id": "MONDO:0020325",
+    "category": "Cancer",
+    "parents": [
+      "Mature T-cell and NK-cell non-Hodgkin lymphoma"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Constitutive ALK Fusion Kinase Activity",
+      "ALK-Driven STAT3 Activation"
+    ],
+    "num_mechanisms": 2,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:27669408"
+    ],
+    "num_evidence": 1,
+    "notes": "The model is literature-derived rather than patient-specific and reports relative steady-state activities, not validated clinical response predictions.",
+    "creation_date": "2026-04-13T05:41:42Z",
+    "page_url": "../../pages/disorders/Anaplastic_Large_Cell_Lymphoma.html#computational-model-npm-alk-signaling-network-sensitivity-model",
+    "source_file": "kb/disorders/Anaplastic_Large_Cell_Lymphoma.yaml"
   },
   {
     "model_key": "Familial_Long_QT_Syndrome--computational-model-o-hara-rudy-ord-human-ventricular-action-potential-model--0",
@@ -2041,8 +2127,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 42,
-  "total_source_entries": 15,
+  "total_models": 44,
+  "total_source_entries": 17,
   "total_model_types": 7,
   "total_runnable": 4,
   "total_with_repository": 20
