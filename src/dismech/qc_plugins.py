@@ -41,12 +41,23 @@ from linkml_data_qc.models import (
 )
 
 from dismech.graph import _genetic_item_infers_mechanism_edges, build_causal_graph
+from dismech.yaml_io import safe_load
 
 # Predicates that mechanistically *explain* a downstream node. A phenotype is
 # considered "wired in" only when something causes it via one of these. A
 # ``treats`` edge (treatment -> phenotype) or a ``models`` edge does not
 # mechanistically explain the phenotype, so those are intentionally excluded.
-CAUSAL_PREDICATES: frozenset[str] = frozenset({"causes", "leads_to"})
+#
+# Environmental edges are included selectively. ``triggers`` and ``exacerbates``
+# are genuine causal claims -- an exposure that initiates or amplifies a
+# manifestation does explain it -- so an exposure curated directly onto a
+# phenotype counts as wiring that phenotype in. The rest are deliberately left
+# out: ``predisposes_to`` raises susceptibility without explaining the
+# phenotype, ``protects_against`` runs the other way, and
+# ``modulates``/``influences`` are non-committal by construction.
+CAUSAL_PREDICATES: frozenset[str] = frozenset(
+    {"causes", "leads_to", "triggers", "exacerbates"}
+)
 
 # Predicates that wire a genetic node *into* the mechanism pathograph. A genetic
 # node reaches the mechanism graph when it ``contributes_to`` a pathophysiology
@@ -202,9 +213,7 @@ class GeneMechanismWiringPlugin:
     slot_name = "mechanism_outlink"
     parent_class = "Genetic"
 
-    def __init__(
-        self, predicates: frozenset[str] = GENE_WIRING_PREDICATES
-    ) -> None:
+    def __init__(self, predicates: frozenset[str] = GENE_WIRING_PREDICATES) -> None:
         self.predicates = predicates
 
     def evaluate(
@@ -290,8 +299,6 @@ def _main() -> None:
     import argparse
     from pathlib import Path
 
-    import yaml
-
     parser = argparse.ArgumentParser(
         description=(
             "Report graph-derived pathograph-wiring coverage across dismech "
@@ -340,7 +347,9 @@ def _main() -> None:
     gene_plugin = GeneMechanismWiringPlugin()
     fail_under = args.fail_under
     if fail_under is None:
-        fail_under = config.get_min_compliance(pheno_plugin.path, pheno_plugin.slot_name)
+        fail_under = config.get_min_compliance(
+            pheno_plugin.path, pheno_plugin.slot_name
+        )
     genes_fail_under = args.genes_fail_under
     if genes_fail_under is None:
         genes_fail_under = config.get_min_compliance(
@@ -368,7 +377,7 @@ def _main() -> None:
 
     for path in files:
         with open(path) as fh:
-            data = yaml.safe_load(fh)
+            data = safe_load(fh)
         if not isinstance(data, dict):
             continue
 

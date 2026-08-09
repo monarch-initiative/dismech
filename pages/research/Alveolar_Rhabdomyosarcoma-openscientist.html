@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1320,7 +1482,7 @@ Tumor formation, invasion, and metastasis
 </ul>
 <hr />
 <h2>12. Treatment</h2>
-<h3>Pharmacotherapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> — chemotherapy)</h3>
+<h3>Pharmacotherapy (<a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> — chemotherapy)</h3>
 <h4>Standard Chemotherapy</h4>
 <details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
 <thead>
@@ -1355,14 +1517,14 @@ Tumor formation, invasion, and metastasis
 </table></div></details>
 <p><em>"For more than three decades, standard treatment for rhabdomyosarcoma in Europe has included 6 months of chemotherapy. The European paediatric Soft tissue sarcoma Study Group aimed to investigate whether prolonging treatment with maintenance chemotherapy would improve survival"</em> — the EpSSG RMS 2005 trial demonstrated 5-year DFS of 77.6% with maintenance vinorelbine/cyclophosphamide in high-risk patients (<a href="https://pubmed.ncbi.nlm.nih.gov/31562043/">PMID: 31562043</a>).</p>
 <p>As reviewed comprehensively: <em>"Although the gene fusions PAX3::FOXO1 and PAX7::FOXO1 were discovered in the early 1990s... the best treatment to date still remains VAC combination therapy, first instituted as standard of care in the 1970s"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41038289/">PMID: 41038289</a>).</p>
-<h4>Targeted Therapies (<a href="http://purl.obolibrary.org/obo/MAXO_0001525" target="_blank" rel="noopener noreferrer">MAXO:0001525</a> — targeted therapy)</h4>
+<h4>Targeted Therapies (<a href="https://bioregistry.io/MAXO:0001525" target="_blank" rel="noopener noreferrer">MAXO:0001525</a> — targeted therapy)</h4>
 <ul>
 <li><strong>FGFR inhibitors:</strong> Emerging utility in PAX3-FOXO1-positive RMS with high FGFR4 expression (<a href="https://pubmed.ncbi.nlm.nih.gov/42041178/">PMID: 42041178</a>).</li>
 <li><strong>HDAC inhibitors (Entinostat):</strong> Class I HDAC inhibitor that transcriptionally suppresses PAX3-FOXO1; being investigated as combinatorial therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/31113472/">PMID: 31113472</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39147820/">PMID: 39147820</a>).</li>
 <li><strong>IGF1R inhibitors (Cixutumumab):</strong> Tested in COG ARST08P1 but did not improve outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/30351457/">PMID: 30351457</a>).</li>
 <li><strong>Metformin + VIT:</strong> Phase I trial established safety; one partial response in ARMS (<a href="https://pubmed.ncbi.nlm.nih.gov/36151773/">PMID: 36151773</a>).</li>
 </ul>
-<h3>Immunotherapy (<a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> — immunotherapy)</h3>
+<h3>Immunotherapy (<a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> — immunotherapy)</h3>
 <ul>
 <li><strong>CAR-T cells:</strong> Targeting HER2, CD276, FGFR4, PDGFR-α, and EphA2. <em>"We explore the potential of CAR-T cell therapy as a transformative approach for rhabdomyosarcoma, focusing on target antigens such as HER2, CD276, FGFR4, PDGFR-α, and others"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41709231/">PMID: 41709231</a>).</li>
 <li><strong>CAR-NK cells:</strong> EphA2-targeted CAR-NK cells demonstrated enhanced cytotoxicity against RMS cell lines <em>in vitro</em> and anti-tumor activity in mouse models (<a href="https://pubmed.ncbi.nlm.nih.gov/39763064/">PMID: 39763064</a>).</li>
@@ -1370,14 +1532,14 @@ Tumor formation, invasion, and metastasis
 <li><strong>EGFR-targeted immunotherapies:</strong> Established as a promising approach for RMS in preclinical zebrafish models, <em>"providing strong preclinical rationale for assessing a wider array of T cell immunotherapies in this disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34415995/">PMID: 34415995</a>).</li>
 <li><strong>Immune checkpoint inhibitors:</strong> Under investigation; limited single-agent activity to date (<a href="https://pubmed.ncbi.nlm.nih.gov/31311607/">PMID: 31311607</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26301204/">PMID: 26301204</a>).</li>
 </ul>
-<h3>Surgery (<a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> — surgical procedure)</h3>
+<h3>Surgery (<a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> — surgical procedure)</h3>
 <ul>
 <li>Complete surgical resection (when feasible without functional loss) is critical for outcome.</li>
 <li>Group I (complete resection): 3-year FFS ~91% vs. Group III (gross residual): ~50% (<a href="https://pubmed.ncbi.nlm.nih.gov/10693687/">PMID: 10693687</a>).</li>
 <li>Sentinel lymph node biopsy recommended for extremity RMS to ensure accurate staging.</li>
 <li>In infants, microscopically complete resection is strongly recommended for both primary and relapsed disease (<a href="https://pubmed.ncbi.nlm.nih.gov/30762282/">PMID: 30762282</a>).</li>
 </ul>
-<h3>Radiation Therapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> — radiation therapy)</h3>
+<h3>Radiation Therapy (<a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> — radiation therapy)</h3>
 <ul>
 <li>Adjuvant RT (36–50.4 Gy) is standard for most ARMS patients.</li>
 <li>For FOXO1-positive group I ARMS: RT significantly improved EFS (77.8% vs 16.7%, p=0.03) (<a href="https://pubmed.ncbi.nlm.nih.gov/32124549/">PMID: 32124549</a>).</li>
@@ -1391,11 +1553,11 @@ Tumor formation, invasion, and metastasis
 3. TNM stage
 4. Age and tumor size</p>
 <p><strong>MAXO terms applicable:</strong>
-- <a href="http://purl.obolibrary.org/obo/MAXO_0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> — chemotherapy
-- <a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> — surgical procedure
-- <a href="http://purl.obolibrary.org/obo/MAXO_0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> — radiation therapy
-- <a href="http://purl.obolibrary.org/obo/MAXO_0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> — immunotherapy
-- <a href="http://purl.obolibrary.org/obo/MAXO_0001525" target="_blank" rel="noopener noreferrer">MAXO:0001525</a> — targeted therapy</p>
+- <a href="https://bioregistry.io/MAXO:0000058" target="_blank" rel="noopener noreferrer">MAXO:0000058</a> — chemotherapy
+- <a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a> — surgical procedure
+- <a href="https://bioregistry.io/MAXO:0000014" target="_blank" rel="noopener noreferrer">MAXO:0000014</a> — radiation therapy
+- <a href="https://bioregistry.io/MAXO:0001298" target="_blank" rel="noopener noreferrer">MAXO:0001298</a> — immunotherapy
+- <a href="https://bioregistry.io/MAXO:0001525" target="_blank" rel="noopener noreferrer">MAXO:0001525</a> — targeted therapy</p>
 <hr />
 <h2>13. Prevention</h2>
 <h3>Primary Prevention</h3>
@@ -1412,7 +1574,7 @@ Tumor formation, invasion, and metastasis
 <li>Monitoring for treatment-related late effects (cardiotoxicity, infertility, secondary malignancies)</li>
 <li>In Li-Fraumeni patients: <em>"ensure the early detection of second malignancies"</em> with reduced genotoxic therapy burden (<a href="https://pubmed.ncbi.nlm.nih.gov/32658383/">PMID: 32658383</a>)</li>
 </ul>
-<h3>Genetic Counseling (<a href="http://purl.obolibrary.org/obo/MAXO_0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a>)</h3>
+<h3>Genetic Counseling (<a href="https://bioregistry.io/MAXO:0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a>)</h3>
 <ul>
 <li>Recommended for families with cancer predisposition syndromes</li>
 <li>TP53 testing should be considered for ARMS patients with anaplastic features or family cancer history</li>

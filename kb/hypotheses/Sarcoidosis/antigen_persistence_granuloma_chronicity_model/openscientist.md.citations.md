@@ -22,6 +22,8 @@ refutes, qualifies, or competes with this hypothesis.
 hypothesis_group_id: antigen_persistence_granuloma_chronicity_model
 hypothesis_label: Antigen Persistence / Th17.1 / mTORC1 Granuloma Chronicity Model
 status: EMERGING
+applies_to_subtypes:
+- Pulmonary Sarcoidosis
 description: Sarcoidosis is modeled as a genetically conditioned, antigen-driven granulomatous immune
   response in which poorly degradable or repeatedly encountered antigens are presented by macrophage-lineage
   antigen-presenting cells to CD4+ T cells. The activated T-cell compartment polarizes toward IFN-gamma-producing
@@ -31,6 +33,12 @@ description: Sarcoidosis is modeled as a genetically conditioned, antigen-driven
   hypothesized to require antigen clearance or sequestration plus restoration of regulatory and apoptotic
   checkpoints; chronic disease and fibrosis occur when antigen persistence, Th17.1 feedback, macrophage
   survival/proliferation, and tissue-repair programs remain engaged.
+notes: 'Retained as EMERGING after the 2026 OpenScientist hypothesis-search report (kb/hypotheses/Sarcoidosis/antigen_persistence_granuloma_chronicity_model/openscientist.md).
+  The report judged the model partially supported: antigen-driven CD4 T-cell responses, Th17.1/Treg imbalance,
+  and macrophage mTORC1 granuloma biology are individually well supported, but the integrated Th17.1-to-macrophage
+  mTORC1 link remains unproven and fibrosis may diverge through distinct profibrotic/EMT-like tissue-remodeling
+  programs. Best current fit is non-Lofgren, chronic/progressive pulmonary sarcoidosis rather than all
+  sarcoidosis phenotypes.'
 evidence:
 - reference: PMID:38165044
   reference_title: Immune mechanisms of granuloma formation in sarcoidosis and tuberculosis.
@@ -145,49 +153,27 @@ evidence matrix, mechanistic diagram, knowledge-gap table, or comparison table.
 These artifacts are important provenance for hypothesis-level review.
 
 **Provider:** openscientist
-**Generated:** 2026-06-03T11:40:50.280377
+**Generated:** 2026-07-26T03:11:42.451542
 
-1. PMID:28092373
-2. PMID:38147536
-3. PMID:38267106
-4. PMID:40996589
-5. PMID:27379969
-6. PMID:29310925
-7. PMID:27755127
-8. PMID:35546376
-9. PMID:26376720
-10. PMID:33901497
-11. PMID:32551397
-12. PMID:41197661
-13. PMID:7929830
-14. PMID:8881751
-15. PMID:22552860
-16. PMID:40075078
-17. PMID:26051272
-18. PMID:41466414
-19. PMID:37399103
-20. PMID:40667074
-21. PMID:33387486
-22. PMID:24284293
-23. PMID:23863960
-24. PMID:42170754
-25. PMID:24325385
-26. PMID:40103819
-27. PMID:30326785
-28. PMID:31279873
-29. PMID:30220489
-30. PMID:33570446
-31. PMID:39896662
-32. PMID:40393718
-33. PMID:36356657
-34. PMID:30154391
-35. PMID:17975200
-36. PMID:21899998
-37. PMID:25194337
-38. PMID:25771769
-39. PMID:41597666
-40. PMID:40837573
-41. PMID:23993988
-42. PMID:42143504
-43. PMID:37750561
-44. PMID:40086403
+1. PMID:40791394
+2. PMID:37750561
+3. PMID:42286635
+4. PMID:41316274
+5. PMID:37576111
+6. PMID:23017494
+7. PMID:19382529
+8. PMID:30038611
+9. PMID:29234685
+10. PMID:41916671
+11. PMID:41396108
+12. PMID:42251788
+13. PMID:41459541
+14. PMID:42143504
+15. PMID:41959437
+16. PMID:40521183
+17. PMID:33801218
+18. PMID:41597666
+19. PMID:40837573
+20. PMID:27387100
+21. PMID:41197661
+22. PMID:41884121
