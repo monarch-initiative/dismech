@@ -44,7 +44,12 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCAN_DIR = ROOT / "kb"
+# Trees whose YAML carries curated prose in folded scalars. ``src`` was added
+# after schema enum descriptions were found to have the same bug while sitting
+# outside the original ``kb``-only scan (dismech PR #7871). ``history`` is
+# deliberately excluded: those records are append-only, so a finding there
+# cannot be repaired without rewriting history.
+SCAN_DIRS = (ROOT / "kb", ROOT / "src")
 BASELINE_PATH = ROOT / "tests" / "folded_hyphen_baseline.txt"
 
 # A block-scalar header: a key (or list dash) whose value is a block indicator
@@ -106,7 +111,8 @@ def find_violations_in_text(text: str):
 def scan_repo():
     """Return a sorted list of (relpath, lineno, stripped_line) findings."""
     findings = []
-    for path in sorted(SCAN_DIR.rglob("*.yaml")):
+    paths = sorted(p for d in SCAN_DIRS for p in d.rglob("*.yaml"))
+    for path in paths:
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(ROOT).as_posix()
         for lineno, line in find_violations_in_text(text):

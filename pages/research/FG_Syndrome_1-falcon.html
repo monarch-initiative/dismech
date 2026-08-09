@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FG Syndrome 1 · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>FG Syndrome 1</span>
+            </div>
+
+            <header class="report-header">
+                <h1>FG Syndrome 1</h1>
+                
+                <p class="report-subtitle">FG Syndrome 1: Disease-Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010590" target="_blank" rel="noopener noreferrer">MONDO:0010590</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">23 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>FG Syndrome 1: Disease-Characteristics Research Report</h1>
+<h2>Executive summary and scope</h2>
+<p><strong>FG syndrome 1 (FGS1)</strong> is the molecularly defined, X-linked multiple-congenital-anomaly/neurodevelopmental disorder classically called <strong>Opitz–Kaveggia syndrome</strong>, caused by the recurrent germline <strong>MED12 c.2881C&gt;T (p.Arg961Trp; p.R961W)</strong> variant. It must be distinguished from the older, phenotype-based label “FG syndrome,” which includes genetically heterogeneous and MED12-negative cases. Only about 3% of patients historically assigned a clinical FG-syndrome diagnosis were found to carry p.Arg961Trp in one diagnostic series. The principal evidence base remains a small cohort—23 molecularly confirmed males from 10 families—so frequencies below are descriptive, not population estimates. (<a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>, <a href="#ref-clark2009fgsyndromean-pages-7-7">clark2009fgsyndromean pages 7-7</a>, <a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>)</p>
+<p>No substantial FGS1-specific clinical or therapeutic advances were identified from 2023–2024. Recent work on MED12 has primarily refined the wider allelic spectrum and mechanisms of Mediator-complex dysfunction rather than changing FGS1 diagnosis or care. The most relevant modern synthesis is van de Plassche and de Brouwer, published April 2021, DOI: <a href="https://doi.org/10.3390/genes12050663">10.3390/genes12050663</a>. Its abstract states: <strong>“Missense variants in MED12 cause FG syndrome, Lujan-Fryns syndrome, and Ohdo syndrome, as well as non-syndromic intellectual disability (ID) in hemizygous males.”</strong> This statement concerns the broader MED12 spectrum; the classic FGS1 diagnosis is specifically anchored to p.Arg961Trp. (<a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>, plassche2021med12related(neuro)developmentaldisorders pages 7-10)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>domain</th>
+<th>finding/statistic</th>
+<th>evidence type</th>
+<th>interpretation/limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Molecular definition</td>
+<td>FG syndrome 1 / Opitz-Kaveggia syndrome is the molecularly confirmed MED12-associated disorder caused by recurrent MED12 c.2881C&gt;T (p.Arg961Trp, p.R961W) (<a href="#ref-clark2009fgsyndromean-pages-7-7">clark2009fgsyndromean pages 7-7</a>, <a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>)</td>
+<td>Human clinical genetics + review</td>
+<td>Important to distinguish from broader “FG syndrome” phenotypes that are genetically heterogeneous and often MED12-negative (<a href="#ref-clark2009fgsyndromean-pages-7-7">clark2009fgsyndromean pages 7-7</a>, <a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Molecularly confirmed cohort</td>
+<td>23 affected males from 10 families with MED12 p.Arg961Trp; broader paper also discusses 30 live-born affected males in 10 families and compares 48 clinically diagnosed but mutation-negative cases (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>)</td>
+<td>Human cohort/case series</td>
+<td>Denominators vary by analysis subset and by availability of records; avoid mixing molecularly confirmed cases with historical phenotypic FG cases (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>X-linked disorder affecting males; heterozygous females reported as clinically unaffected and intellectually normal in the core cohort (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>)</td>
+<td>Human pedigree/cohort</td>
+<td>Evidence supports male-limited expression in known families, but formal penetrance estimates are not established (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Core early phenotype</td>
+<td>Infantile hypotonia and constipation in 23/23 affected males (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Human cohort/case series</td>
+<td>Strongest recurring early clinical features; useful for recognition but not specific outside the syndromic context (<a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Neuroanatomy</td>
+<td>Corpus callosum agenesis/hypoplasia in 13/13 imaged individuals (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Human imaging within cohort</td>
+<td>High frequency among imaged patients, but denominator is only those who underwent neuroimaging (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Gastrointestinal/anorectal anomalies</td>
+<td>Anal anomaly (fistula/stenosis/atresia) in 11/19 (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Human cohort/case series</td>
+<td>Denominator reflects patients with evaluable data; severe constipation can also occur without a major structural anal defect (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Cardiac anomalies</td>
+<td>Congenital cardiac anomaly in 11/18 (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Human cohort/case series</td>
+<td>Substantial but not universal; supports baseline cardiology evaluation in suspected cases (<a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Craniofacial features</td>
+<td>Small ears in 12/13 where specifically measured/supported (<a href="#ref-clark2009fgsyndromean-pages-2-3">clark2009fgsyndromean pages 2-3</a>)</td>
+<td>Human cohort/case series</td>
+<td>One of the more discriminating facial findings, but facial gestalt remains composite rather than single-feature based (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>)</td>
+</tr>
+<tr>
+<td>Head size</td>
+<td>Macrocephaly reported with denominator variation: 15/18 in one summary, 7/18 absolute macrocephaly in another analysis (<a href="#ref-clark2009fgsyndromean-pages-2-3">clark2009fgsyndromean pages 2-3</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Human cohort/case series</td>
+<td>Variation likely reflects different definitions/ascertainment (absolute vs relative macrocephaly, age-specific data); should be reported with denominator and wording preserved (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-2-3">clark2009fgsyndromean pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Diagnostic performance</td>
+<td>Historical clinical algorithm for targeted MED12 p.Arg961Trp testing showed 100% sensitivity and 90% specificity (<a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>)</td>
+<td>Human diagnostic study</td>
+<td>Useful as historical triage, but modern practice generally prioritizes sequencing-based diagnosis; performance derived from limited retrospective cohorts (<a href="#ref-clark2009fgsyndromean-pages-7-7">clark2009fgsyndromean pages 7-7</a>, <a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Mechanism: immediate-early genes</td>
+<td>In patient EBV-immortalized lymphoblastoid cells, MED12 p.Arg961Trp dysregulated immediate-early genes, with JUN downregulation and FOS upregulation; promoter Pol II/MED12 recruitment paralleled expression changes (<a href="#ref-donnio2017med12relatedxliddisorders-pages-10-14">donnio2017med12relatedxliddisorders pages 10-14</a>)</td>
+<td>Human patient-cell functional study</td>
+<td>Mechanistic evidence is from lymphoblastoid cells, so tissue relevance to brain/gut/heart phenotypes is inferential rather than directly demonstrated (<a href="#ref-donnio2017med12relatedxliddisorders-pages-10-14">donnio2017med12relatedxliddisorders pages 10-14</a>)</td>
+</tr>
+<tr>
+<td>Mechanism: SHH/GLI3</td>
+<td>In patient lymphoblast cell lines, MED12-related XLID variants including FG-associated p.Arg961Trp showed elevated GLI3-dependent SHH target-gene transcripts such as CREB5, BMP4, and NEUROG2 (<a href="#ref-srivastava2019dysregulationsofsonic-pages-1-2">srivastava2019dysregulationsofsonic pages 1-2</a>)</td>
+<td>Human patient-cell functional study</td>
+<td>Supports pathway-selective transcriptional dysregulation; does not fully explain organ-specific manifestations or phenotypic variability (plassche2021med12related(neuro)developmentaldisorders pages 7-10, <a href="#ref-srivastava2019dysregulationsofsonic-pages-1-2">srivastava2019dysregulationsofsonic pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Mechanistic synthesis</td>
+<td>Expert review concludes p.Arg961Trp causes selective MED12 pathway dysfunction affecting enhancer/transcriptional control rather than complete loss of MED12 function (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7)</td>
+<td>Expert review/mechanistic synthesis</td>
+<td>Current model integrates REST/IEG/SHH findings, but no unified causal chain has been proven across all affected tissues (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7)</td>
+</tr>
+<tr>
+<td>Prognosis/natural history</td>
+<td>Early deaths/deceased male infants occurred in many families, but after infancy prognosis improves; some affected males were functioning well in the 5th-6th decades and hypotonia may improve with age (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Human natural history within cohort</td>
+<td>Mortality is concentrated early; long-term adult survival is clearly possible, but formal survival curves are unavailable (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Treatment landscape</td>
+<td>No disease-modifying therapy, validated biomarker-directed treatment, or FG syndrome 1-specific interventional clinical trial was identified; management is supportive and multidisciplinary (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</td>
+<td>Review + cohort-based expert management</td>
+<td>Current care targets complications and development rather than MED12-specific molecular correction; evidence base is largely expert opinion and case-series practice (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table summarizes the most actionable evidence for molecularly confirmed FG syndrome 1, including defining variant, cohort size, major phenotype frequencies, mechanism, diagnostic performance, prognosis, and treatment gaps. It is useful for separating MED12 p.Arg961Trp-associated disease from the broader heterogeneous FG phenotype.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and history</h3>
+<p>FGS1 is a congenital, lifelong Mendelian disorder characterized by developmental delay/intellectual disability, congenital hypotonia, severe constipation or anorectal abnormalities, characteristic craniofacial morphology and behavior, and variable brain, cardiac, skeletal, ocular, and genitourinary anomalies. Opitz and Kaveggia originally described five affected males—three brothers and two male first cousins—in 1974. The causal recurrent MED12 variant was established in 2007. (<a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>, <a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>)</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>OMIM:</strong> <strong>305450</strong>, FG syndrome 1/Opitz–Kaveggia syndrome.</li>
+<li><strong>Causal gene:</strong> <strong>MED12</strong>, OMIM <strong>300188</strong>, Xq13.</li>
+<li><strong>Synonyms:</strong> FG syndrome type 1; FGS1; Opitz–Kaveggia syndrome; FG syndrome, MED12-related.</li>
+<li><strong>MONDO:</strong> A dedicated current MONDO identifier could not be verified from the retrieved primary literature; a knowledge-base ingest should resolve the live MONDO release rather than infer an identifier.</li>
+<li><strong>Orphanet:</strong> A current subtype-specific number was not verified in the retrieved evidence.</li>
+<li><strong>ICD-10/ICD-11 and MeSH:</strong> No specific FGS1 code was established. Cases are generally represented under broader congenital-malformation, syndromic intellectual-disability, or rare genetic-disease categories.</li>
+</ul>
+<p>The evidence summarized here is <strong>aggregated disease-level literature</strong>, mostly pedigrees, dysmorphology examinations, records, imaging, and patient-derived cell experiments—not individual EHR data.</p>
+<h2>2. Etiology</h2>
+<h3>Cause and genetic risk</h3>
+<p>FGS1 is caused by the germline hemizygous <strong>MED12 NM_005120.3:c.2881C&gt;T, p.(Arg961Trp)</strong> missense variant in affected males. It is an X-linked disorder: transmission through heterozygous females produces at-risk sons, while male-to-male transmission does not occur. No environmental, infectious, lifestyle, occupational, or toxic cause has been demonstrated. (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-7-7">clark2009fgsyndromean pages 7-7</a>, <a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>)</p>
+<p>The core cohort found clinically unaffected, intellectually normal heterozygous females. This supports sex-dependent expression, probably influenced by X-inactivation, but does not establish a numerical penetrance estimate for every carrier population. Expressivity among affected males is variable, particularly for congenital malformations and intellectual severity. No validated modifier gene, protective allele, founder haplotype, anticipation, or reproducible germline-mosaicism rate has been defined. (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<h3>Protective factors and gene–environment interaction</h3>
+<p>No genetic or environmental factor is known to prevent expression in a hemizygous male. No reproducible gene–environment interaction has been reported. Good nutrition, early therapy, constipation control, and treatment of cardiac or feeding complications can reduce secondary morbidity but are not etiologic protection.</p>
+<h2>3. Phenotypes</h2>
+<p>The best quantitative data derive from incompletely assessed subsets of 23 confirmed males; denominators therefore vary. (<a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type, onset, frequency/course</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developmental delay/intellectual disability</td>
+<td>Neurodevelopmental sign; childhood recognition; borderline to severe, most tested IQ values below 70; lifelong</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>; <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Congenital hypotonia</td>
+<td>Sign; neonatal; 23/23 in the main cohort; often improves with age</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" rel="noopener noreferrer">HP:0008936</a></td>
+</tr>
+<tr>
+<td>Feeding difficulty</td>
+<td>Symptom; neonatal/infancy; frequent and sometimes requires nasogastric or gastrostomy feeding</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+</tr>
+<tr>
+<td>Constipation/GI dysmotility</td>
+<td>Symptom; infancy onward; reported in all 23; chronic and sometimes severe</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a>; <a href="http://purl.obolibrary.org/obo/HP_0012450" target="_blank" rel="noopener noreferrer">HP:0012450</a></td>
+</tr>
+<tr>
+<td>Anal stenosis, atresia, or fistula</td>
+<td>Congenital malformation; 11/19 evaluable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002025" target="_blank" rel="noopener noreferrer">HP:0002025</a>; <a href="http://purl.obolibrary.org/obo/HP_0004378" target="_blank" rel="noopener noreferrer">HP:0004378</a>; <a href="http://purl.obolibrary.org/obo/HP_0010447" target="_blank" rel="noopener noreferrer">HP:0010447</a></td>
+</tr>
+<tr>
+<td>Corpus-callosum agenesis/hypoplasia</td>
+<td>Imaging/anatomic sign; congenital; 13/13 imaged</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" rel="noopener noreferrer">HP:0001274</a>; <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a></td>
+</tr>
+<tr>
+<td>Congenital heart defect</td>
+<td>Malformation; congenital; 11/18 evaluable, including septal defects</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a>; <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a>; <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a></td>
+</tr>
+<tr>
+<td>Macrocephaly/relative macrocephaly</td>
+<td>Physical sign; infancy/childhood; ascertainment varies—15/18 in one summary but 7/18 for absolute macrocephaly in another analysis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" rel="noopener noreferrer">HP:0000256</a>; <a href="http://purl.obolibrary.org/obo/HP_0011451" target="_blank" rel="noopener noreferrer">HP:0011451</a></td>
+</tr>
+<tr>
+<td>Characteristic face</td>
+<td>Long/narrow face, tall or prominent forehead, frontal hair upsweep, puffy eyelids, open mouth, small low-set ears</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000276" target="_blank" rel="noopener noreferrer">HP:0000276</a>; <a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" rel="noopener noreferrer">HP:0011220</a>; <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" rel="noopener noreferrer">HP:0000286</a>; <a href="http://purl.obolibrary.org/obo/HP_0000194" target="_blank" rel="noopener noreferrer">HP:0000194</a>; <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a></td>
+</tr>
+<tr>
+<td>Small ears</td>
+<td>Physical sign; congenital; 12/13 in one measured subset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008551" target="_blank" rel="noopener noreferrer">HP:0008551</a></td>
+</tr>
+<tr>
+<td>Hand/skeletal findings</td>
+<td>Broad thumbs, fetal pads, syndactyly, pectus or vertebral/rib anomalies, contractures, hip dysplasia, limited elbow supination; variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011304" target="_blank" rel="noopener noreferrer">HP:0011304</a>; <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" rel="noopener noreferrer">HP:0001212</a>; <a href="http://purl.obolibrary.org/obo/HP_0001159" target="_blank" rel="noopener noreferrer">HP:0001159</a>; <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a></td>
+</tr>
+<tr>
+<td>Ocular abnormalities</td>
+<td>Clinical sign; approximately 10 patients in the principal series; optic-nerve hypoplasia reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001098" target="_blank" rel="noopener noreferrer">HP:0001098</a>; <a href="http://purl.obolibrary.org/obo/HP_0000609" target="_blank" rel="noopener noreferrer">HP:0000609</a></td>
+</tr>
+<tr>
+<td>Speech/language impairment</td>
+<td>Developmental/behavioral; articulation, syntax, pragmatics and intonation affected; often functionally important</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a>; <a href="http://purl.obolibrary.org/obo/HP_0002465" target="_blank" rel="noopener noreferrer">HP:0002465</a></td>
+</tr>
+<tr>
+<td>Behavioral phenotype</td>
+<td>Affable/eager-to-please, talkative; hyperactivity, short attention span, anxiety, frustration, and insistence on sameness may coexist</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" rel="noopener noreferrer">HP:0000752</a>; <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" rel="noopener noreferrer">HP:0000736</a>; <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Characteristic facies, affable behavior, and infantile hypotonia/feeding difficulty/constipation were each reported in all 13 subjects in one deeply characterized subset; congenital anomalies occurred in 11/13. These figures are vulnerable to referral and publication bias. (<a href="#ref-clark2009fgsyndromean-pages-2-3">clark2009fgsyndromean pages 2-3</a>, <a href="#ref-clark2009fgsyndromean-pages-3-4">clark2009fgsyndromean pages 3-4</a>)</p>
+<p>Quality-of-life studies using EQ-5D, SF-36, PROMIS, or an FGS1-specific instrument were not found. Major burdens are communication impairment, dependence in daily living, chronic bowel dysfunction, anxiety with transitions, mobility limitations, feeding problems, sleep disturbance, and consequences of congenital anomalies. Socialization may be a relative strength. (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>)</p>
+<h2>4. Genetic and molecular information</h2>
+<ul>
+<li><strong>Gene:</strong> MED12, mediator complex subunit 12; Xq13; HGNC symbol <strong>MED12</strong>.</li>
+<li><strong>Defining FGS1 variant:</strong> c.2881C&gt;T, p.Arg961Trp, missense; germline and hemizygous in affected males.</li>
+<li><strong>Population frequency:</strong> No numerical gnomAD frequency was established in the retrieved evidence. Its recurrence in affected pedigrees, segregation, rarity, and functional evidence support pathogenicity; a current clinical report should query the live gnomAD and ClinVar releases.</li>
+<li><strong>Functional class:</strong> Not simple whole-gene loss of function. Evidence favors a <strong>pathway-selective altered-function/hypomorphic transcriptional-regulatory defect</strong>. Complete MED12 loss has broader and often developmentally severe consequences. (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7)</li>
+</ul>
+<p>Other MED12 variants cause <strong>different allelic disorders</strong>, including Lujan syndrome—classically p.Asn1007Ser—X-linked Ohdo syndrome and broader male or female neurodevelopmental phenotypes. Protein-truncating MED12 variants in females can cause Hardikar syndrome or other severe syndromic presentations and should not automatically be called FGS1. (<a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>, plassche2021med12related(neuro)developmentaldisorders pages 7-10)</p>
+<p>No validated FGS1 modifier gene or disease-specific epigenetic signature is known. Large deletions, duplications, translocations, aneuploidy, repeat expansions, mitochondrial variants, and somatic MED12 mutations are <strong>not</strong> the defining cause of FGS1.</p>
+<h2>5. Environmental information</h2>
+<p>Environmental toxins, radiation, pollution, diet, smoking, alcohol, exercise, occupational exposures, and infectious agents have no established causal role. Environmental care affects complications: inadequate hydration or mobility can worsen constipation, and poorly structured transitions may exacerbate anxiety and behavior. These are management interactions, not demonstrated etiologic gene–environment effects. FGS1 is neither infectious nor zoonotic.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream molecular defect</h3>
+<p>MED12 is part of the Mediator kinase module and helps couple transcription factors and regulatory signals to RNA polymerase II. p.Arg961Trp does not appear to abolish all MED12 functions; it selectively impairs recruitment or response at particular regulatory complexes. MED12 loss can reduce super-enhancer capacity by approximately 50% and disturb enhancer–promoter interactions, although these broader loss experiments are not equivalent to FGS1. (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7)</p>
+<h3>Supported pathway effects</h3>
+<ol>
+<li>
+<p><strong>Immediate-early genes and Pol II recruitment—human patient cells.</strong> In EBV-immortalized lymphoblastoid cells from p.Arg961Trp patients, <strong>JUN was downregulated and FOS upregulated</strong>. Chromatin immunoprecipitation showed that MED12 and RNA polymerase II promoter recruitment tracked these changes; impaired TCF4 recruitment was observed at JUN, while altered ELK-factor occupancy occurred at FOS. This supports stimulus-responsive transcriptional dysregulation. DOI: <a href="https://doi.org/10.1093/hmg/ddx099">10.1093/hmg/ddx099</a>, published June 2017. (<a href="#ref-donnio2017med12relatedxliddisorders-pages-10-14">donnio2017med12relatedxliddisorders pages 10-14</a>)</p>
+</li>
+<li>
+<p><strong>SHH–GLI3 signaling—patient cells and rescue experiments.</strong> MED12 normally constrains GLI3-dependent Sonic Hedgehog transcription. Patient lymphoblast lines carrying MED12 XLID variants, including p.Arg961Trp, had increased transcripts of GLI3-regulated targets including <strong>CREB5, BMP4, and NEUROG2</strong>. p.Arg961Trp failed to restore normal SHH inhibition in a MED12-null experimental setting and showed reduced CDK8 recruitment at GLI3 sites while retaining recruitment at unrelated PPARγ targets. DOI: <a href="https://doi.org/10.1002/mgg3.569">10.1002/mgg3.569</a>, published February 2019. (<a href="#ref-srivastava2019dysregulationsofsonic-pages-8-9">srivastava2019dysregulationsofsonic pages 8-9</a>, plassche2021med12related(neuro)developmentaldisorders pages 7-10, <a href="#ref-srivastava2019dysregulationsofsonic-pages-1-2">srivastava2019dysregulationsofsonic pages 1-2</a>)</p>
+</li>
+<li>
+<p><strong>REST/neural-gene repression.</strong> Experimental rescue studies indicate that p.Arg961Trp fails to restore REST-mediated silencing while retaining β-catenin rescue capacity. Unscheduled derepression of neural genes could disrupt neuronal differentiation. This effect appears kinase-independent and therefore differs mechanistically from the CDK8-dependent SHH defect. (plassche2021med12related(neuro)developmentaldisorders pages 6-7)</p>
+</li>
+</ol>
+<h3>Proposed causal chain</h3>
+<p><strong>Germline MED12 p.Arg961Trp → selective disruption of signal-responsive Mediator assembly/recruitment → altered Pol II occupancy, immediate-early-gene expression, REST repression, and SHH/GLI3 developmental transcription → abnormal neurodevelopment and morphogenesis → intellectual disability, hypotonia, corpus-callosum, craniofacial, anorectal, cardiac, and skeletal phenotypes.</strong> The downstream organ links are biologically plausible but not proven directly in fetal human brain, enteric nervous system, heart, or anorectal tissue.</p>
+<p>Suggested annotations include <strong><a href="http://purl.obolibrary.org/obo/GO_0016592" target="_blank" rel="noopener noreferrer">GO:0016592</a> mediator complex; <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a> regulation of transcription by RNA polymerase II; <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" rel="noopener noreferrer">GO:0007224</a> smoothened signaling pathway; <a href="http://purl.obolibrary.org/obo/GO_0045664" target="_blank" rel="noopener noreferrer">GO:0045664</a> regulation of neuron differentiation; <a href="http://purl.obolibrary.org/obo/GO_0007417" target="_blank" rel="noopener noreferrer">GO:0007417</a> central nervous system development; <a href="http://purl.obolibrary.org/obo/GO_0060536" target="_blank" rel="noopener noreferrer">GO:0060536</a> cartilage morphogenesis</strong>. Candidate cell types—not demonstrated selective targets—include neural progenitor cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a></strong>), neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>), enteric neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0007011" target="_blank" rel="noopener noreferrer">CL:0007011</a></strong>), cardiomyocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a></strong>), and chondrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a></strong>).</p>
+<p>No FGS1-specific single-cell, spatial-transcriptomic, proteomic, metabolomic, lipidomic, or multi-omic human-tissue dataset was identified. No characteristic immune, inflammatory, metabolic, mitochondrial, aggregation, fibrosis, or tissue-necrosis mechanism has been demonstrated.</p>
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Nervous system:</strong> cerebral commissures, especially corpus callosum; pituitary/sella and optic nerve can be abnormal. Suggested UBERON: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a> corpus callosum</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000007" target="_blank" rel="noopener noreferrer">UBERON:0000007</a> pituitary gland</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001908" target="_blank" rel="noopener noreferrer">UBERON:0001908</a> optic nerve</strong>.</li>
+<li><strong>Digestive/anorectal system:</strong> anus, distal bowel, and functional intestinal motility; UBERON: <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001245" target="_blank" rel="noopener noreferrer">UBERON:0001245</a> anus</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a> intestine</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001988" target="_blank" rel="noopener noreferrer">UBERON:0001988</a> rectum</strong>.</li>
+<li><strong>Cardiovascular:</strong> congenital structural heart disease; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> heart</strong>.</li>
+<li><strong>Musculoskeletal:</strong> skull, vertebrae/ribs, chest wall, joints, hips, hands/thumbs; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0003129" target="_blank" rel="noopener noreferrer">UBERON:0003129</a> skull</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0002416" target="_blank" rel="noopener noreferrer">UBERON:0002416</a> vertebral column</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001464" target="_blank" rel="noopener noreferrer">UBERON:0001464</a> hand</strong>.</li>
+<li><strong>Craniofacial and ear structures:</strong> face and external ear; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face</strong>, <strong><a href="http://purl.obolibrary.org/obo/UBERON_0003102" target="_blank" rel="noopener noreferrer">UBERON:0003102</a> external ear</strong>.</li>
+</ul>
+<p>The relevant subcellular site is principally the <strong>nucleus</strong> and chromatin-associated Mediator/transcription machinery: <strong><a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0000785" target="_blank" rel="noopener noreferrer">GO:0000785</a> chromatin</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0016592" target="_blank" rel="noopener noreferrer">GO:0016592</a> mediator complex</strong>. No characteristic lateralization has been reported. (<a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<h2>8. Temporal development</h2>
+<p>FGS1 begins prenatally as a developmental disorder. Hypotonia, feeding problems, constipation, dysmorphism, cardiac disease, and anorectal malformations may be apparent neonatally; developmental and behavioral differences emerge during infancy and childhood. Facial recognition may be easiest in early childhood. (<a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<p>The course is chronic and lifelong, not episodic or relapsing-remitting. Congenital malformations are structurally stable unless corrected; hypotonia often improves with age, while intellectual, speech, and adaptive limitations persist. No formal stages, progression rate, remission pattern, or validated critical therapeutic window has been defined, although early feeding, cardiac, bowel, developmental, speech, and vision intervention is clinically important. Some children achieve walking only in later childhood, while surviving adults can function into their fifth or sixth decades. (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-3-4">clark2009fgsyndromean pages 3-4</a>)</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is <strong>X-linked</strong>. A heterozygous carrier has a 50% probability of transmitting the variant in each pregnancy; a son inheriting it is expected to be affected, whereas a daughter inheriting it is generally an asymptomatic carrier based on the core pedigrees. An affected male transmits the variant to all daughters and no sons, assuming reproductive fitness. This is standard X-linked counseling and should be individualized for maternal mosaicism and X-inactivation.</p>
+<p>Formal incidence, prevalence per 100,000, carrier frequency, ethnic enrichment, geographic concentration, and sex ratio from a registry are unavailable. FGS1 is ultra-rare and reported across unrelated families. The clinical cohort consists almost entirely of males because of X-linked hemizygous expression. No founder effect, consanguinity association, anticipation, or population-specific risk has been established. Early family histories often included deceased male infants, miscarriages, or X-linked intellectual disability. (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>)</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended approach</h3>
+<p>Diagnosis requires a compatible phenotype plus identification of a pathogenic MED12 variant, with <strong>p.Arg961Trp defining classic FGS1</strong>. Modern testing should use an intellectual-disability/congenital-anomaly panel containing MED12 or exome/genome sequencing, with confirmation and segregation testing. Targeted testing for c.2881C&gt;T is efficient where the classic phenotype or familial variant is known. A historical phenotype algorithm achieved <strong>100% sensitivity and approximately 90% specificity</strong> and reduced targeted testing by 74%, but it was derived from small retrospective cohorts and should not replace contemporary sequencing. (<a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>, <a href="#ref-clark2009fgsyndromean-pages-2-3">clark2009fgsyndromean pages 2-3</a>)</p>
+<p>WES/WGS is useful for atypical cases and for detecting alternative diagnoses. Copy-number analysis should be considered when sequencing is negative or the phenotype suggests a genomic disorder. Karyotyping, FISH, mitochondrial sequencing, repeat-expansion tests, biopsy, metabolomics, and liquid biopsy are not routine FGS1 tests.</p>
+<h3>Baseline clinical evaluation</h3>
+<p>Recommended assessments include developmental and neurologic examination; brain MRI with attention to the corpus callosum; echocardiography and ECG; formal ophthalmology; hearing evaluation; feeding/swallow and nutritional assessment; gastrointestinal/anorectal examination; renal/genitourinary evaluation when indicated; and orthopedic review. Routine blood or urine chemistry has no diagnostic biomarker. (<a href="#ref-clark2009fgsyndromean-pages-4-6">clark2009fgsyndromean pages 4-6</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<h3>Differential diagnosis</h3>
+<p>Important differentials include Lujan syndrome and X-linked Ohdo syndrome caused by other MED12 variants; broader MED12-related neurodevelopmental disorders; FLNA-, UPF3B-, and BRWD3-associated X-linked intellectual disability; Xq28 duplication syndromes; fragile X syndrome; Mowat–Wilson syndrome; Coffin–Siris spectrum; and other syndromic causes of hypotonia, constipation, macrocephaly, callosal abnormality, and anal or cardiac malformations. A MED12-negative patient with nonspecific “FG-like” findings should not automatically retain an FGS1 label. (<a href="#ref-clark2009fgsyndromean-pages-7-7">clark2009fgsyndromean pages 7-7</a>, <a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>, <a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>)</p>
+<p>There is no population newborn screen. Cascade testing of relatives is appropriate after molecular confirmation.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Early mortality occurred in 8 of the 10 reported families, although the literature does not provide a reliable disease-specific mortality rate or survival curve. Congenital cardiac, respiratory, feeding, and gastrointestinal complications likely contribute, but causes cannot be assigned uniformly. Among survivors beyond infancy, mortality did not appear markedly elevated in the small series, and three males were reportedly functioning into their fifth or sixth decades. (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<p>Long-term morbidity includes intellectual and speech disability, chronic constipation, anxiety/behavioral dysregulation, sleep disturbance, orthopedic problems, and residual consequences of congenital anomalies. Recovery from the underlying disorder is not expected, but hypotonia, mobility, communication, comfort, and participation may improve. No validated molecular prognostic biomarker or FGS1-specific quality-of-life statistic exists.</p>
+<h2>12. Treatment</h2>
+<p>There is <strong>no disease-modifying, gene, RNA, cell, targeted, or approved MED12-directed therapy</strong> for FGS1. No FGS1-specific interventional clinical trial or treatment-response rate was identified. Care is individualized and multidisciplinary. (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>, <a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>)</p>
+<ul>
+<li>Feeding therapy, nutritional support, and gastrostomy when required — suggested <strong><a href="https://bioregistry.io/MAXO:0001006" target="_blank" rel="noopener noreferrer">MAXO:0001006</a> nutritional therapy</strong>, <strong><a href="https://bioregistry.io/MAXO:0001175" target="_blank" rel="noopener noreferrer">MAXO:0001175</a> gastrostomy</strong>.</li>
+<li>Aggressive constipation management, reflux treatment, and evaluation for structural anorectal disease; surgery where indicated — <strong><a href="https://bioregistry.io/MAXO:0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a> surgical procedure</strong>, <strong><a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a> therapeutic procedure</strong>.</li>
+<li>Cardiology surveillance and repair of significant congenital defects — <strong><a href="https://bioregistry.io/MAXO:0000487" target="_blank" rel="noopener noreferrer">MAXO:0000487</a> echocardiography</strong>, surgical-procedure terms as appropriate.</li>
+<li>Physical and occupational therapy for hypotonia, mobility, contractures, and adaptive skills — <strong><a href="https://bioregistry.io/MAXO:0000015" target="_blank" rel="noopener noreferrer">MAXO:0000015</a> physical therapy</strong>, <strong><a href="https://bioregistry.io/MAXO:0000017" target="_blank" rel="noopener noreferrer">MAXO:0000017</a> occupational therapy</strong>.</li>
+<li>Early, sustained speech-language and augmentative-communication support — <strong><a href="https://bioregistry.io/MAXO:0000018" target="_blank" rel="noopener noreferrer">MAXO:0000018</a> speech therapy</strong>.</li>
+<li>Structured routines, advance warnings for transitions, educational support, and behavioral/psychological treatment for anxiety, attention problems, or sleep disturbance.</li>
+<li>Ophthalmic, hearing, orthopedic, neurologic, dental, and genitourinary treatment according to findings.</li>
+</ul>
+<p>Reported real-world interventions include tube feeding, gastrostomy, fundoplication, congenital-heart surgery, orthopedic management, and developmental therapies. Pharmacotherapy is symptom-directed; no FGS1 pharmacogenomic guidance or evidence-based combination regimen exists. (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>, <a href="#ref-clark2009fgsyndromean-pages-3-4">clark2009fgsyndromean pages 3-4</a>)</p>
+<h2>13. Prevention</h2>
+<p>The inherited molecular defect cannot be prevented by diet, vaccination, lifestyle change, or environmental avoidance. Primary reproductive prevention options after identification of a familial variant include genetic counseling, carrier testing, preimplantation genetic testing, chorionic-villus sampling, amniocentesis, and use of donor gametes. Secondary prevention consists of early molecular diagnosis and prompt detection of cardiac, feeding, bowel, visual, hearing, and developmental complications. Tertiary prevention includes bowel regimens, nutrition, rehabilitation, communication support, safety planning, and surveillance for known congenital anomalies. No vaccine, preventive medication, public-health exposure intervention, or population screening program is applicable.</p>
+<h2>14. Other species and natural disease</h2>
+<p>MED12 is evolutionarily conserved in vertebrates, but no naturally occurring veterinary disorder established as an exact orthologue of human MED12 p.Arg961Trp FGS1 was identified. Consequently, no breed, VBO term, animal incidence, veterinary transmission, or zoonotic potential applies. Orthologues include <strong>Med12</strong> in mouse (<em>Mus musculus</em>, NCBI Taxonomy <strong>10090</strong>) and med12 in zebrafish (<em>Danio rerio</em>, Taxonomy <strong>7955</strong>); exact live NCBI Gene IDs should be resolved during database ingestion.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<p>The strongest FGS1-specific functional evidence comes from <strong>patient-derived EBV-immortalized lymphoblastoid cells</strong>, promoter ChIP/qPCR, and MED12-null/rescue cellular experiments. These models demonstrate altered JUN/FOS regulation, Pol II/MED12 recruitment, REST silencing, and SHH/GLI3 target expression. Their major limitation is that lymphoblasts do not model developing cortical neurons, enteric neurons, cardiomyocytes, or anorectal mesenchyme. (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7, <a href="#ref-srivastava2019dysregulationsofsonic-pages-1-2">srivastava2019dysregulationsofsonic pages 1-2</a>, <a href="#ref-donnio2017med12relatedxliddisorders-pages-10-14">donnio2017med12relatedxliddisorders pages 10-14</a>)</p>
+<p>Conditional and reduced-expression Med12 mouse models establish that MED12 is essential for embryogenesis and tissue development, but constitutive loss is often embryonic lethal and is not equivalent to the selective p.Arg961Trp disorder. A validated knock-in model shown to reproduce the complete human FGS1 phenotype was not identified in the retrieved evidence. No established FGS1 zebrafish, Drosophila, C. elegans, organoid, or patient-iPSC neuronal model with comprehensive phenotypic validation was found. Experts have proposed isogenic induced-neuron models to distinguish pathogenic MED12-specific expression signatures, underscoring that this remains a research need rather than a clinical assay. (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7)</p>
+<h2>Evidence limitations and current expert assessment</h2>
+<p>The defining clinical dataset is small, familial, retrospective, and enriched for recognizable severe cases. Frequencies should therefore retain their original denominators and should not be interpreted as penetrance estimates. Mechanistic studies consistently indicate <strong>selective transcriptional-network dysfunction</strong>, but most were performed in lymphoblastoid or engineered cells rather than affected fetal tissues. As of the searched 2023–2024 literature, no prospective natural-history registry, standardized patient-reported outcome, validated biomarker, disease-modifying therapy, or FGS1-specific intervention trial was evident. The immediate priorities are longitudinal natural-history collection, modern variant curation, patient-derived neural and enteric models, and tissue-relevant multi-omic analysis.</p>
+<h3>Principal sources</h3>
+<ol>
+<li>Clark RD et al. <em>FG syndrome, an X-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing.</em> <strong>Genetics in Medicine</strong>, published November 2009. DOI: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90">10.1097/GIM.0b013e3181bd3d90</a>. (<a href="#ref-clark2009fgsyndromean-pages-6-7">clark2009fgsyndromean pages 6-7</a>, <a href="#ref-clark2009fgsyndromean-pages-1-2">clark2009fgsyndromean pages 1-2</a>)</li>
+<li>Graham JM, Schwartz CE. <em>MED12 related disorders.</em> <strong>American Journal of Medical Genetics Part A</strong>, published November 2013. DOI: <a href="https://doi.org/10.1002/ajmg.a.36183">10.1002/ajmg.a.36183</a>. (<a href="#ref-graham2013med12relateddisorders-pages-2-3">graham2013med12relateddisorders pages 2-3</a>, <a href="#ref-graham2013med12relateddisorders-pages-1-2">graham2013med12relateddisorders pages 1-2</a>)</li>
+<li>Donnio LM et al. <em>MED12-related XLID disorders are dose-dependent of immediate early genes (IEGs) expression.</em> <strong>Human Molecular Genetics</strong>, published June 2017. DOI: <a href="https://doi.org/10.1093/hmg/ddx099">10.1093/hmg/ddx099</a>. (<a href="#ref-donnio2017med12relatedxliddisorders-pages-10-14">donnio2017med12relatedxliddisorders pages 10-14</a>)</li>
+<li>Srivastava S et al. <em>Dysregulations of sonic hedgehog signaling in MED12-related X-linked intellectual disability disorders.</em> <strong>Molecular Genetics &amp; Genomic Medicine</strong>, published February 2019. DOI: <a href="https://doi.org/10.1002/mgg3.569">10.1002/mgg3.569</a>. (<a href="#ref-srivastava2019dysregulationsofsonic-pages-8-9">srivastava2019dysregulationsofsonic pages 8-9</a>, <a href="#ref-srivastava2019dysregulationsofsonic-pages-1-2">srivastava2019dysregulationsofsonic pages 1-2</a>)</li>
+<li>van de Plassche SR, de Brouwer APM. <em>MED12-Related (Neuro)Developmental Disorders: A Question of Causality.</em> <strong>Genes</strong>, published April 2021. DOI: <a href="https://doi.org/10.3390/genes12050663">10.3390/genes12050663</a>. (plassche2021med12related(neuro)developmentaldisorders pages 7-10, plassche2021med12related(neuro)developmentaldisorders pages 6-7)</li>
+</ol>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-clark2009fgsyndromean-pages-1-2"></a>(clark2009fgsyndromean pages 1-2): Robin Dawn Clark, John M. Graham, Michael J. Friez, Joe J. Hoo, Kenneth Lyons Jones, Carole McKeown, John B. Moeschler, F. Lucy Raymond, R. Curtis Rogers, Charles E. Schwartz, Agatino Battaglia, Michael J. Lyons, and Roger E. Stevenson. Fg syndrome, an x-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing. Genetics in Medicine, 11:769-775, Nov 2009. URL: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">https://doi.org/10.1097/gim.0b013e3181bd3d90</a>, <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">doi:10.1097/gim.0b013e3181bd3d90</a>. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-clark2009fgsyndromean-pages-7-7"></a>(clark2009fgsyndromean pages 7-7): Robin Dawn Clark, John M. Graham, Michael J. Friez, Joe J. Hoo, Kenneth Lyons Jones, Carole McKeown, John B. Moeschler, F. Lucy Raymond, R. Curtis Rogers, Charles E. Schwartz, Agatino Battaglia, Michael J. Lyons, and Roger E. Stevenson. Fg syndrome, an x-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing. Genetics in Medicine, 11:769-775, Nov 2009. URL: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">https://doi.org/10.1097/gim.0b013e3181bd3d90</a>, <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">doi:10.1097/gim.0b013e3181bd3d90</a>. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-clark2009fgsyndromean-pages-4-6"></a>(clark2009fgsyndromean pages 4-6): Robin Dawn Clark, John M. Graham, Michael J. Friez, Joe J. Hoo, Kenneth Lyons Jones, Carole McKeown, John B. Moeschler, F. Lucy Raymond, R. Curtis Rogers, Charles E. Schwartz, Agatino Battaglia, Michael J. Lyons, and Roger E. Stevenson. Fg syndrome, an x-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing. Genetics in Medicine, 11:769-775, Nov 2009. URL: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">https://doi.org/10.1097/gim.0b013e3181bd3d90</a>, <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">doi:10.1097/gim.0b013e3181bd3d90</a>. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-graham2013med12relateddisorders-pages-1-2"></a>(graham2013med12relateddisorders pages 1-2): John M. Graham and Charles E. Schwartz. Med12 related disorders. American Journal of Medical Genetics Part A, 161:2734-2740, Nov 2013. URL: <a href="https://doi.org/10.1002/ajmg.a.36183" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.36183</a>, <a href="https://doi.org/10.1002/ajmg.a.36183" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.36183</a>. This article has 97 citations.</p>
+</li>
+<li>
+<p>(plassche2021med12related(neuro)developmentaldisorders pages 7-10): Stijn R. van de Plassche and Arjan P. M. de Brouwer. Med12-related (neuro)developmental disorders: a question of causality. Genes, 12 5:663, Apr 2021. URL: <a href="https://doi.org/10.3390/genes12050663" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes12050663</a>, <a href="https://doi.org/10.3390/genes12050663" target="_blank" rel="noopener noreferrer">doi:10.3390/genes12050663</a>. This article has 28 citations.</p>
+</li>
+<li>
+<p><a id="ref-graham2013med12relateddisorders-pages-2-3"></a>(graham2013med12relateddisorders pages 2-3): John M. Graham and Charles E. Schwartz. Med12 related disorders. American Journal of Medical Genetics Part A, 161:2734-2740, Nov 2013. URL: <a href="https://doi.org/10.1002/ajmg.a.36183" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.36183</a>, <a href="https://doi.org/10.1002/ajmg.a.36183" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.36183</a>. This article has 97 citations.</p>
+</li>
+<li>
+<p><a id="ref-clark2009fgsyndromean-pages-6-7"></a>(clark2009fgsyndromean pages 6-7): Robin Dawn Clark, John M. Graham, Michael J. Friez, Joe J. Hoo, Kenneth Lyons Jones, Carole McKeown, John B. Moeschler, F. Lucy Raymond, R. Curtis Rogers, Charles E. Schwartz, Agatino Battaglia, Michael J. Lyons, and Roger E. Stevenson. Fg syndrome, an x-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing. Genetics in Medicine, 11:769-775, Nov 2009. URL: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">https://doi.org/10.1097/gim.0b013e3181bd3d90</a>, <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">doi:10.1097/gim.0b013e3181bd3d90</a>. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-clark2009fgsyndromean-pages-2-3"></a>(clark2009fgsyndromean pages 2-3): Robin Dawn Clark, John M. Graham, Michael J. Friez, Joe J. Hoo, Kenneth Lyons Jones, Carole McKeown, John B. Moeschler, F. Lucy Raymond, R. Curtis Rogers, Charles E. Schwartz, Agatino Battaglia, Michael J. Lyons, and Roger E. Stevenson. Fg syndrome, an x-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing. Genetics in Medicine, 11:769-775, Nov 2009. URL: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">https://doi.org/10.1097/gim.0b013e3181bd3d90</a>, <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">doi:10.1097/gim.0b013e3181bd3d90</a>. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-donnio2017med12relatedxliddisorders-pages-10-14"></a>(donnio2017med12relatedxliddisorders pages 10-14): Lise-Marie Donnio, Baptiste Bidon, Satoru Hashimoto, Melanie May, Alexey Epanchintsev, Colm Ryan, William Allen, Anna Hackett, Jozef Gecz, Cindy Skinner, Roger E. Stevenson, Arjan P.M. de Brouwer, Charles Coutton, Christine Francannet, Pierre-Simon Jouk, Charles E. Schwartz, and Jean-Marc Egly. Med12-related xlid disorders are dose-dependent of immediate early genes (iegs) expression. Human Molecular Genetics, 26:2062–2075, Jun 2017. URL: <a href="https://doi.org/10.1093/hmg/ddx099" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/hmg/ddx099</a>, <a href="https://doi.org/10.1093/hmg/ddx099" target="_blank" rel="noopener noreferrer">doi:10.1093/hmg/ddx099</a>. This article has 33 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-srivastava2019dysregulationsofsonic-pages-1-2"></a>(srivastava2019dysregulationsofsonic pages 1-2): Siddharth Srivastava, Tejasvi Niranjan, Melanie M. May, Patrick Tarpey, William Allen, Anna Hackett, Pierre‐Simon Jouk, Lucy Raymond, Slyvain Briault, Cindy Skinner, Annick Toutain, Jozef Gecz, William Heath, Roger E. Stevenson, Charles E. Schwartz, and Tao Wang. Dysregulations of sonic hedgehog signaling in med12‐related x‐linked intellectual disability disorders. Molecular Genetics &amp; Genomic Medicine, Feb 2019. URL: <a href="https://doi.org/10.1002/mgg3.569" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/mgg3.569</a>, <a href="https://doi.org/10.1002/mgg3.569" target="_blank" rel="noopener noreferrer">doi:10.1002/mgg3.569</a>. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p>(plassche2021med12related(neuro)developmentaldisorders pages 6-7): Stijn R. van de Plassche and Arjan P. M. de Brouwer. Med12-related (neuro)developmental disorders: a question of causality. Genes, 12 5:663, Apr 2021. URL: <a href="https://doi.org/10.3390/genes12050663" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes12050663</a>, <a href="https://doi.org/10.3390/genes12050663" target="_blank" rel="noopener noreferrer">doi:10.3390/genes12050663</a>. This article has 28 citations.</p>
+</li>
+<li>
+<p><a id="ref-clark2009fgsyndromean-pages-3-4"></a>(clark2009fgsyndromean pages 3-4): Robin Dawn Clark, John M. Graham, Michael J. Friez, Joe J. Hoo, Kenneth Lyons Jones, Carole McKeown, John B. Moeschler, F. Lucy Raymond, R. Curtis Rogers, Charles E. Schwartz, Agatino Battaglia, Michael J. Lyons, and Roger E. Stevenson. Fg syndrome, an x-linked multiple congenital anomaly syndrome: the clinical phenotype and an algorithm for diagnostic testing. Genetics in Medicine, 11:769-775, Nov 2009. URL: <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">https://doi.org/10.1097/gim.0b013e3181bd3d90</a>, <a href="https://doi.org/10.1097/gim.0b013e3181bd3d90" target="_blank" rel="noopener noreferrer">doi:10.1097/gim.0b013e3181bd3d90</a>. This article has 49 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-srivastava2019dysregulationsofsonic-pages-8-9"></a>(srivastava2019dysregulationsofsonic pages 8-9): Siddharth Srivastava, Tejasvi Niranjan, Melanie M. May, Patrick Tarpey, William Allen, Anna Hackett, Pierre‐Simon Jouk, Lucy Raymond, Slyvain Briault, Cindy Skinner, Annick Toutain, Jozef Gecz, William Heath, Roger E. Stevenson, Charles E. Schwartz, and Tao Wang. Dysregulations of sonic hedgehog signaling in med12‐related x‐linked intellectual disability disorders. Molecular Genetics &amp; Genomic Medicine, Feb 2019. URL: <a href="https://doi.org/10.1002/mgg3.569" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/mgg3.569</a>, <a href="https://doi.org/10.1002/mgg3.569" target="_blank" rel="noopener noreferrer">doi:10.1002/mgg3.569</a>. This article has 21 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/FG_Syndrome_1-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ferguson-Bonni_Neurodevelopmental_Syndrome-asta.html">← Ferguson-Bonni neurodevelopmental syndrome (Asta)</a>
+                
+                
+                <a href="FG_Syndrome_4-falcon.html">FG Syndrome 4 (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/FG_Syndrome_1.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/FG_Syndrome_1-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

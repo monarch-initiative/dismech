@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choriocarcinoma · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Choriocarcinoma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Choriocarcinoma</h1>
+                
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005207" target="_blank" rel="noopener noreferrer">MONDO:0005207</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
+<h2>Target Disease</h2>
+<ul>
+<li><strong>Disease Name:</strong> Choriocarcinoma</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> </li>
+</ul>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Choriocarcinoma</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
+<ul>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
+</ul>
+<h3>2. Etiology</h3>
+<ul>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
+<ul>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<ul>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
+</ul>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest NCIT (NCI Thesaurus) clinical-intervention terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, NCIT, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (NCIT terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Choriocarcinoma: comprehensive disease-characteristics report</h1>
+<p><strong>Evidence scope.</strong> Choriocarcinoma is biologically heterogeneous. This report distinguishes <strong>gestational choriocarcinoma (GC)</strong>—a pregnancy-derived gestational trophoblastic neoplasia (GTN)—from <strong>nongestational choriocarcinoma (NGC)</strong> arising as an ovarian, testicular, or extragonadal germ-cell tumor. Data labeled “GTD/GTN” may include invasive mole, placental-site trophoblastic tumor (PSTT), and epithelioid trophoblastic tumor (ETT), and therefore are not automatically choriocarcinoma-specific. Most high-quality clinical evidence concerns gestational disease.</p>
+<p>The following ontology-oriented table summarizes the most readily computable findings.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key evidence-backed finding</th>
+<th>Suggested ontology identifiers/terms</th>
+<th>Evidence scope/limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identity</td>
+<td><strong>Choriocarcinoma</strong> is a malignant trophoblastic neoplasm; MONDO association available as <strong><a href="http://purl.obolibrary.org/obo/MONDO_0005207" target="_blank" rel="noopener noreferrer">MONDO:0005207</a></strong>. In clinical practice, reports should distinguish <strong>gestational choriocarcinoma</strong> from <strong>nongestational germ-cell choriocarcinoma</strong>, because etiology, molecular origin, and treatment context differ (OpenTargets Search: choriocarcinoma, <a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005207" target="_blank" rel="noopener noreferrer">MONDO:0005207</a>; suggested terms: choriocarcinoma, gestational choriocarcinoma, nongestational choriocarcinoma, uterine corpus choriocarcinoma, ovarian choriocarcinoma, testicular choriocarcinoma</td>
+<td>MONDO link is supported; subtype ontologies beyond <a href="http://purl.obolibrary.org/obo/MONDO_0005207" target="_blank" rel="noopener noreferrer">MONDO:0005207</a> were not comprehensively validated here. Literature retrieved was much richer for gestational disease than for nongestational germ-cell disease.</td>
+</tr>
+<tr>
+<td>Major subtypes / taxonomy</td>
+<td>Major clinically relevant groupings: <strong>gestational choriocarcinoma</strong> (usually postmolar but may follow any pregnancy), <strong>nongestational ovarian/testicular/extragonadal choriocarcinoma</strong> as a germ-cell tumor component, and <strong>precursor hydatidiform mole</strong> / postmolar GTN, which must not be conflated with frank choriocarcinoma (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested disease terms: gestational trophoblastic neoplasia (GTN), hydatidiform mole, complete hydatidiform mole, partial hydatidiform mole, invasive mole, choriocarcinoma</td>
+<td>Much of the molecular literature concerns precursor moles or broader GTN rather than pure choriocarcinoma. Nongestational biology is underrepresented in the retrieved evidence.</td>
+</tr>
+<tr>
+<td>Etiology / causal factors</td>
+<td>Gestational disease arises from abnormal trophoblastic proliferation after pregnancy; complete hydatidiform moles are typically androgenetic and carry higher risk of progression to invasive mole/choriocarcinoma than partial moles. Recurrent molar disease is associated with maternal-effect/imprinting genes such as <strong>NLRP7</strong> and <strong>KHDC3L</strong> in precursor disease (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>)</td>
+<td>Suggested terms: abnormal fertilization, genomic imprinting defect, androgenetic conceptus, trophoblast neoplasm</td>
+<td>Strongest causal evidence is for precursor villous disease, not for a single universal driver mutation of choriocarcinoma itself.</td>
+</tr>
+<tr>
+<td>Risk factors</td>
+<td>Higher GTD incidence/risk is reported at maternal age extremes (10–19 and 40–54 years), prior molar pregnancy, and ethnicity/geography differences; Asian women have about double the incidence reported for women of Caucasian descent in the cited guideline, and Black US women are overrepresented in some registers (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested exposure/risk terms: advanced maternal age, teenage pregnancy, prior molar pregnancy, Asian ancestry</td>
+<td>Retrieved evidence is disease-group level for GTD/GTN, not choriocarcinoma-only risk quantification. Protective factors were not well established in retrieved sources.</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>In highly developed countries, hydatidiform mole prevalence was cited as <strong>1 per 591 pregnancies</strong> and GTD prevalence <strong>1 per 714 live births</strong>; Dutch population incidence over 20 years was <strong>1.67 cases/1000 births/year</strong> for GTD (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>)</td>
+<td>Suggested epidemiology terms: incidence, prevalence, reproductive-age female predominance</td>
+<td>These are GTD-level figures, not choriocarcinoma-specific incidence. Choriocarcinoma is rarer than GTD overall.</td>
+</tr>
+<tr>
+<td>Core phenotypes / symptoms</td>
+<td>Common clinical manifestations across GTN/choriocarcinoma include abnormal vaginal bleeding, elevated/plateauing/rising <strong>β-hCG</strong>, metastatic symptoms, and hemorrhage from tumor sites; brain, liver, and lung metastases are clinically important in high-risk disease (<a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-10-11">tempfer2023gestationalandnongestational pages 10-11</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested HPO terms: <strong>Abnormal uterine bleeding</strong>, <strong>Elevated circulating human chorionic gonadotropin</strong>, <strong>Pulmonary metastases</strong>, <strong>Brain metastases</strong>, <strong>Liver metastases</strong>, <strong>Anemia</strong>, <strong>Hemorrhage</strong></td>
+<td>Direct HPO numeric IDs were not validated here; terms are suggested labels only. Evidence is strongest for GTN/high-risk cohorts rather than phenotype frequencies specific to choriocarcinoma.</td>
+</tr>
+<tr>
+<td>Anatomy affected</td>
+<td>Primary organ is typically <strong>uterus</strong> in gestational choriocarcinoma; metastatic evaluation routinely targets <strong>lung</strong>, <strong>brain</strong>, <strong>liver</strong>, abdomen/pelvis, and genital tract structures (<a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested UBERON terms: uterus, endometrium, placenta/chorion, lung, brain, liver, vagina, adnexa</td>
+<td>UBERON numeric IDs not validated here. Some anatomic staging language is FIGO/TNM rather than ontology-based.</td>
+</tr>
+<tr>
+<td>Tissue / cell types</td>
+<td>Disease involves malignant <strong>trophoblast</strong> lineage cells; trophoblast research models emphasize <strong>cytotrophoblast</strong>, <strong>syncytiotrophoblast</strong>, and <strong>extravillous trophoblast</strong> biology, with markers such as <strong>GATA3</strong>, <strong>TFAP2C</strong>, low HLA class I, and <strong>C19MC</strong> expression in trophoblast stem-cell systems (<a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>, OpenTargets Search: choriocarcinoma)</td>
+<td>Suggested CL terms: trophoblast cell, cytotrophoblast, syncytiotrophoblast, extravillous trophoblast</td>
+<td>CL numeric IDs were not validated. Many model findings come from trophoblast stem-cell or placental systems, not directly from tumor tissue.</td>
+</tr>
+<tr>
+<td>Histopathology / IHC</td>
+<td>Choriocarcinoma belongs to non-villous malignant GTD; in the broader differential, <strong>p57</strong> is useful mainly to distinguish <strong>complete mole</strong> from partial mole/non-molar tissue because p57 is lost in androgenetic CHM and retained in PHM/non-molar gestations. Molecular pathology and IHC are guideline-recommended in GTD workup (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>)</td>
+<td>Suggested pathology terms: p57/CDKN1C immunostain, trophoblastic neoplasm, molecular genotyping, STR analysis, SNP array</td>
+<td>p57 is a <strong>precursor-mole differential tool</strong>, not a definitive diagnostic marker for choriocarcinoma itself. Specific choriocarcinoma IHC panels were not comprehensively retrieved.</td>
+</tr>
+<tr>
+<td>Molecular / genetic features</td>
+<td>Recent transcriptomic work comparing complete moles with postmolar choriocarcinoma identified <strong>33 differentially expressed genes</strong> and implicated <strong>TGF-β pathway dysregulation</strong> with strong <strong>SALL4</strong> expression in postmolar choriocarcinoma; Open Targets evidence also links <strong>TP53</strong>, <strong>GATA3</strong>, and <strong>DHFR</strong> to choriocarcinoma-related evidence (OpenTargets Search: choriocarcinoma, <a href="#ref-jinkai2024prognosticatinggestationaltrophoblastic-pages-9-10">jinkai2024prognosticatinggestationaltrophoblastic pages 9-10</a>)</td>
+<td>Suggested gene terms: <strong>SALL4</strong>, <strong>TP53</strong>, <strong>GATA3</strong>, <strong>DHFR</strong>; suggested pathway terms: TGF-beta signaling pathway</td>
+<td>Molecular evidence remains sparse and is based on small transcriptomic comparisons and disease-target aggregation; no single recurrent causal mutation was established from retrieved data.</td>
+</tr>
+<tr>
+<td>Epigenetics / imprinting</td>
+<td>Abnormal genomic imprinting is central in precursor molar disease; CHM pathogenesis is linked to androgenesis and loss of maternally expressed <strong>p57/CDKN1C</strong>. Reviews also highlight dysregulated p53/apoptosis pathways, BCL-2/caspases, growth factor receptors, and microRNAs such as <strong>miR-196b</strong> and <strong>miR-21</strong> in GTD/CHM (<a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>, <a href="#ref-nasser2024molecularbasisof-pages-12-13">nasser2024molecularbasisof pages 12-13</a>)</td>
+<td>Suggested terms: genomic imprinting, DNA methylation abnormality, microRNA dysregulation, loss of maternal allele expression</td>
+<td>Most retrieved epigenetic evidence concerns <strong>hydatidiform mole</strong> rather than established choriocarcinoma. Extrapolation should be cautious.</td>
+</tr>
+<tr>
+<td>Mechanisms / pathophysiology</td>
+<td>Proposed mechanisms include dysregulated trophoblast proliferation/invasion, <strong>TGF-β</strong> signaling changes, angiogenesis imbalance, oxidative stress, EMT-related programs, and marked immune-checkpoint biology with frequent <strong>PD-L1</strong> expression in GTN. A 2024 prognostic review cited <strong>PD-L1 expression at 92.3%</strong> in GTN and described <strong>HLA-G</strong> as a biomarker of chemotherapy resistance in gestational choriocarcinoma (<a href="#ref-jinkai2024prognosticatinggestationaltrophoblastic-pages-9-10">jinkai2024prognosticatinggestationaltrophoblastic pages 9-10</a>, <a href="#ref-baas2024immunotherapyforgestational-pages-2-3">baas2024immunotherapyforgestational pages 2-3</a>, <a href="#ref-nasser2024molecularbasisof-pages-12-13">nasser2024molecularbasisof pages 12-13</a>)</td>
+<td>Suggested GO terms: trophoblast cell proliferation, cell migration, cell invasion, epithelial to mesenchymal transition, angiogenesis, response to oxidative stress, immune evasion, TGF-beta receptor signaling pathway, programmed cell death ligand 1 pathway</td>
+<td>Mechanistic evidence is mixed across gestational choriocarcinoma, other GTN subtypes, and precursor lesions. GO numeric IDs not validated.</td>
+</tr>
+<tr>
+<td>Immune biology</td>
+<td>GTN demonstrates strong <strong>PD-L1</strong> expression and immune infiltration, providing biologic rationale for checkpoint blockade. Anti-PD-1/PD-L1 therapy has become a salvage standard for multidrug-resistant GTN in some expert settings (<a href="#ref-baas2024immunotherapyforgestational-pages-2-3">baas2024immunotherapyforgestational pages 2-3</a>, <a href="#ref-baas2024immunotherapyforgestational-pages-2-2">baas2024immunotherapyforgestational pages 2-2</a>, <a href="#ref-baas2024immunotherapyforgestational-pages-6-7">baas2024immunotherapyforgestational pages 6-7</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-10-11">tempfer2023gestationalandnongestational pages 10-11</a>)</td>
+<td>Suggested terms: PD-L1 expression, PD-1 checkpoint pathway, tumor-infiltrating lymphocytes, immune checkpoint inhibitor response</td>
+<td>Evidence is strongest in refractory GTN cohorts, not frontline choriocarcinoma-only populations. Biomarker predictors of response remain incompletely defined.</td>
+</tr>
+<tr>
+<td>Diagnostic biomarkers</td>
+<td><strong>Serial serum β-hCG</strong> is central for diagnosis, monitoring, and remission assessment. Postmolar GTN/choriocarcinoma diagnostic criteria include plateau or rise in hCG over specified intervals; after therapy, remission monitoring requires serial negative hCG measurements (<a href="#ref-tempfer2023gestationalandnongestational-pages-9-10">tempfer2023gestationalandnongestational pages 9-10</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>, NCT06028672 chunk 1, NCT05635344 chunk 1)</td>
+<td>Suggested LOINC/biomarker terms: serum beta-human chorionic gonadotropin (β-hCG), serial quantitative hCG monitoring</td>
+<td>Exact thresholds/definitions vary slightly by guideline/trial. hCG criteria are most validated in postmolar GTN.</td>
+</tr>
+<tr>
+<td>Diagnostic criteria</td>
+<td>Guideline criteria for persistent postmolar villous GTD include: <strong>four or more consecutive hCG values with plateau over ≥3 weeks</strong>, <strong>rise in hCG on 2 consecutive measurements (day 0 and 7)</strong>, or <strong>persistent hCG values over 6 months</strong>; trial eligibility criteria similarly define plateau/rise patterns for GTN (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>, NCT06028672 chunk 1, NCT05635344 chunk 1)</td>
+<td>Suggested terms: FIGO 2000 criteria, postmolar GTN, hCG plateau, hCG rise</td>
+<td>These criteria chiefly define postmolar GTN rather than all histologically confirmed choriocarcinoma presentations.</td>
+</tr>
+<tr>
+<td>Imaging / staging</td>
+<td>Recommended staging includes gynecologic exam with palpation, <strong>transvaginal ultrasound</strong>, <strong>CT thorax and abdomen</strong>, and <strong>MRI brain</strong>; <strong>FDG-PET/CT</strong> may be used if metastasis is suspected. Postoperative malignant GTD should also follow current <strong>TNM</strong> classification in addition to FIGO staging (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>)</td>
+<td>Suggested imaging terms: pelvic ultrasound, CT chest, CT abdomen, brain MRI, FDG-PET/CT, TNM stage, FIGO stage</td>
+<td>Guidance is strong for gestational trophoblastic neoplasia. Imaging approach for nongestational germ-cell choriocarcinoma may differ by site and oncology service.</td>
+</tr>
+<tr>
+<td>FIGO stages / risk strata</td>
+<td>FIGO stage: <strong>I uterus-confined</strong>, <strong>II genital structures</strong>, <strong>III lungs</strong>, <strong>IV other metastatic sites</strong>. Prognostic score uses age, antecedent pregnancy, interval since pregnancy, pretreatment hCG, metastasis number/site, tumor size, and prior chemotherapy; <strong>0–4 low risk</strong>, <strong>5–6 intermediate risk</strong>, <strong>≥7 high risk</strong> (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested terms: FIGO stage I-IV, WHO/FIGO prognostic score, low-risk GTN, intermediate-risk GTN, high-risk GTN</td>
+<td>Core evidence is GTN-wide. Some centers now debate refinements beyond classic FIGO 2000 scoring.</td>
+</tr>
+<tr>
+<td>First-line treatment strata</td>
+<td>Guideline: low-risk disease typically receives <strong>methotrexate</strong> with folinic/folic acid rescue; methotrexate-resistant cases may switch to <strong>actinomycin-D</strong> or polychemotherapy. For FIGO <strong>5–6</strong>, methotrexate may be used, but <strong>EMA-CO</strong> is recommended when FIGO 5–6 coexists with distant metastases, hCG &gt;411,000 IU/L, or diagnosis of choriocarcinoma (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested NCIT terms: Methotrexate, Actinomycin D, Folic Acid, EMA-CO regimen</td>
+<td>Guidance is primarily for gestational disease. Dose/schedule details may vary among regions and centers.</td>
+</tr>
+<tr>
+<td>High-risk / metastatic treatment</td>
+<td><strong>EMA-CO</strong> remains standard for high-risk GTN; one 2023 review cited <strong>93% complete remission</strong> with EMA-CO in high-risk GTN and noted ~40% salvage of incomplete responses with platinum-based chemotherapy. Brain-metastatic disease may require higher-dose methotrexate-containing regimens (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</td>
+<td>Suggested NCIT terms: EMA-CO, EMA-EP, EP/EMA, BEP, platinum-based combination chemotherapy</td>
+<td>Numbers are from GTN/high-risk reviews, not pure choriocarcinoma-only prospective datasets.</td>
+</tr>
+<tr>
+<td>Choriocarcinoma-specific treatment note</td>
+<td>A recent review citing historical stage-specific outcomes reported <strong>83% cure in stage I choriocarcinoma with single-agent chemotherapy</strong>, with additional remissions after further chemotherapy or surgery; stage II-IV disease required combined surgery and chemotherapy (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-10-11">gonzalez2024gestationaltrophoblasticdisease pages 10-11</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-8-10">gonzalez2024gestationaltrophoblasticdisease pages 8-10</a>)</td>
+<td>Suggested NCIT terms: single-agent chemotherapy, hysterectomy, metastasectomy, combined modality therapy</td>
+<td>Source summarizes older outcome series; exact regimen details and cohort era were not fully resolved from retrieved excerpt.</td>
+</tr>
+<tr>
+<td>Immunotherapy</td>
+<td>Checkpoint inhibitors are a major recent development. Across <strong>133 GTN patients</strong> treated with CPI, <strong>85 achieved complete remission</strong>; among <strong>118 high-risk/relapsed/multidrug-resistant</strong> patients, <strong>77</strong> achieved CR; among <strong>15 low-risk</strong> patients, <strong>8</strong> achieved remission. Pembrolizumab, avelumab, camrelizumab, toripalimab, and combinations with apatinib/chemotherapy are reported (<a href="#ref-baas2024immunotherapyforgestational-pages-1-2">baas2024immunotherapyforgestational pages 1-2</a>, <a href="#ref-baas2024immunotherapyforgestational-pages-3-4">baas2024immunotherapyforgestational pages 3-4</a>)</td>
+<td>Suggested NCIT terms: Pembrolizumab, Avelumab, Camrelizumab, Toripalimab, immune checkpoint inhibitor therapy, anti-PD-1 therapy, anti-PD-L1 therapy</td>
+<td>Data are mostly single-arm, retrospective, or case-based, and encompass GTN broadly, including PSTT/ETT and refractory disease.</td>
+</tr>
+<tr>
+<td>Fertility / follow-up</td>
+<td>After chemotherapy completion with undetectable hCG, guideline follow-up is <strong>monthly hCG for 1 year</strong> with <strong>oral hormonal contraception</strong> during that period. Pregnancy after GTD is generally possible; recurrence risk cited as <strong>0.7–2.6% after one prior GTD</strong> and <strong>~10% after two GTDs</strong>; live birth rate cited as <strong>75%</strong> after GTD history (<a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-10-11">tempfer2023gestationalandnongestational pages 10-11</a>)</td>
+<td>Suggested terms: fertility preservation, contraception after GTN, hCG surveillance, pregnancy after GTD</td>
+<td>Evidence is GTD-wide, not choriocarcinoma-only. Immunotherapy-era fertility data remain limited.</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>A 2023 review states GTN can achieve <strong>near-100% cure with adequate treatment</strong> and emphasizes markedly reduced mortality over time; high-risk disease still requires urgent multi-agent therapy, and ultra-high-risk/refractory disease remains a challenge (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>, <a href="#ref-baas2024immunotherapyforgestational-pages-6-7">baas2024immunotherapyforgestational pages 6-7</a>)</td>
+<td>Suggested prognostic terms: complete remission, overall survival, relapse, chemotherapy resistance, ultra-high-risk disease</td>
+<td>Prognosis is excellent in specialized centers for gestational disease, but not necessarily generalizable to nongestational germ-cell choriocarcinoma.</td>
+</tr>
+<tr>
+<td>Current real-world trials</td>
+<td>Recruiting/active studies include <strong>NCT06028672</strong> (toripalimab + actinomycin-D vs actinomycin-D for FIGO 5–6 GTN), <strong>NCT05139095</strong> (camrelizumab + apatinib + chemotherapy for ultra-high-risk or relapsed high-risk GTN), <strong>NCT05635344</strong> (single-dose neoadjuvant pembrolizumab before second evacuation for low-risk postmolar GTN), and <strong>NCT04562558</strong> (biweekly actinomycin-D vs multiday methotrexate in low-risk GTN) (NCT06028672 chunk 1, NCT05139095 chunk 1, NCT05635344 chunk 1)</td>
+<td>Suggested NCIT/clinical trial terms: toripalimab, camrelizumab, apatinib, pembrolizumab, actinomycin-D, methotrexate, neoadjuvant immunotherapy</td>
+<td>These studies are GTN-focused and often include but are not limited to choriocarcinoma. Most are not specific to nongestational choriocarcinoma.</td>
+</tr>
+<tr>
+<td>Model systems</td>
+<td>Choriocarcinoma-derived cell lines (<strong>JAR, JEG-3, BeWo</strong>) remain widely used as trophoblast surrogates, but reviews caution they differ substantially from normal trophoblast. Newer <strong>human trophoblast stem cells</strong> and <strong>trophoblast organoids</strong> better recapitulate placental biology; xenograft and germ-cell tumor models exist but incompletely model gestational choriocarcinoma (<a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>)</td>
+<td>Suggested model terms: JAR cell line, JEG-3 cell line, BeWo cell line, trophoblast stem cell, trophoblast organoid, xenograft model</td>
+<td>Model limitation is important: placental/trophoblast systems are not synonymous with malignant gestational choriocarcinoma, and many animal models do not capture human villous hemochorial placentation.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses the most evidence-supported, ontology-oriented facts for a choriocarcinoma knowledge-base entry. It emphasizes where evidence is strong for gestational trophoblastic neoplasia and where caution is needed when extrapolating to pure choriocarcinoma or nongestational germ-cell disease.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and classification</h3>
+<p>Choriocarcinoma is a highly vascular, malignant trophoblastic neoplasm composed of cytotrophoblast and syncytiotrophoblast, typically without chorionic villi. Gestational tumors arise from placental trophoblast after a complete mole, abortion/ectopic pregnancy, or term/preterm pregnancy. NGC is a germ-cell malignancy and should be managed within ovarian/testicular germ-cell-tumor frameworks rather than assumed to share GC’s pregnancy-derived biology.</p>
+<p><strong>Identifiers and terminology</strong></p>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005207" target="_blank" rel="noopener noreferrer">MONDO:0005207</a>, choriocarcinoma. Related MONDO records found include placental choriocarcinoma (<a href="http://purl.obolibrary.org/obo/MONDO_0006374" target="_blank" rel="noopener noreferrer">MONDO:0006374</a>), uterine-corpus choriocarcinoma (<a href="http://purl.obolibrary.org/obo/MONDO_0004491" target="_blank" rel="noopener noreferrer">MONDO:0004491</a>), ovarian choriocarcinoma (<a href="http://purl.obolibrary.org/obo/MONDO_0003507" target="_blank" rel="noopener noreferrer">MONDO:0003507</a>), and testicular choriocarcinoma (<a href="http://purl.obolibrary.org/obo/MONDO_0003508" target="_blank" rel="noopener noreferrer">MONDO:0003508</a>). (OpenTargets Search: choriocarcinoma)</li>
+<li><strong>MeSH:</strong> <em>Choriocarcinoma</em>.</li>
+<li><strong>ICD-10:</strong> C58, malignant neoplasm of placenta; site-specific nongestational tumors may instead be coded under ovary, testis, or other primary site. O01 and D39.2 describe molar/uncertain-behavior placental disease and are not equivalent to choriocarcinoma.</li>
+<li><strong>Common synonyms:</strong> chorionepithelioma, chorioepithelioma, gestational choriocarcinoma, trophoblastic choriocarcinoma, malignant gestational trophoblastic tumor.</li>
+<li><strong>Category:</strong> rare malignant neoplasm; reproductive/placental disease; GTN when gestational; germ-cell tumor when nongestational.</li>
+<li><strong>OMIM/Orphanet:</strong> no single Mendelian OMIM disease entry adequately represents sporadic choriocarcinoma. Maternal-effect genes associated with recurrent hydatidiform mole concern a precursor syndrome, not a universal inherited choriocarcinoma syndrome.</li>
+</ul>
+<p>The information synthesized here is <strong>aggregated disease-level evidence</strong> from guidelines, reviews, studies, and trial records—not individual EHR data.</p>
+<h2>2. Etiology, risk, and protective factors</h2>
+<h3>Causal framework</h3>
+<p>GC results from malignant transformation/proliferation of pregnancy-derived trophoblast. A complete hydatidiform mole (CHM) is usually androgenetic and lacks a maternal nuclear genome; CHM has substantially greater malignant potential than partial mole. Loss of maternally expressed <strong>CDKN1C/p57</strong> is characteristic of androgenetic CHM, but it is a precursor-lesion mechanism rather than a somatic driver found in every GC. (<a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>)</p>
+<p>NGC arises through germ-cell-tumor development. Adult germ-cell tumors commonly show chromosome 12p gain, but this cannot be transferred uncritically to GC. Ovarian germ-cell tumors show age- and histology-dependent copy-number changes, with 12p gain among recurrent abnormalities. (<a href="#ref-pinto2023molecularbiologyof-pages-7-9">pinto2023molecularbiologyof pages 7-9</a>)</p>
+<h3>Risk factors</h3>
+<p>Established or consistently reported GTD/GTN risk correlates include previous molar pregnancy, maternal age at either extreme—especially ≥40 years—and Asian ancestry/geographic setting. A 2023 guideline reported increased incidence at ages 10–19 and 40–54, approximately twice the incidence in Asian versus White women, and overrepresentation of Black American women in some registers. These are primarily <strong>GTD-level</strong>, not choriocarcinoma-only, associations. (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</p>
+<p>A prior term pregnancy, long interval since antecedent pregnancy, high pretreatment hCG, large tumor burden, brain/liver metastasis, and previous failed chemotherapy are <strong>adverse prognostic variables</strong>, not necessarily etiologic risk factors. (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>)</p>
+<h3>Genetics and gene–environment interaction</h3>
+<p>Biallelic maternal-effect variants in <strong>NLRP7</strong> and <strong>KHDC3L</strong> cause susceptibility to recurrent hydatidiform mole through disturbed imprint establishment. They increase the opportunity for postmolar GTN but are not established as common inherited causes of sporadic GC. No validated population-scale GWAS, protective allele, or clinically actionable germline penetrance estimate was identified for choriocarcinoma itself.</p>
+<p>No infectious cause is established. Smoking, alcohol, diet, exercise, occupational toxins, radiation, and pollution are not validated major causal factors. Consequently, no specific dietary, pharmacologic, or genetic protective factor is established beyond effective management and surveillance of precursor GTD. Evidence for a reproducible gene–environment interaction is insufficient.</p>
+<h2>3. Phenotypes</h2>
+<p>GC usually affects reproductive-age patients and can arise weeks to years after pregnancy. Onset may be acute through hemorrhage or more insidious through persistent hCG elevation. Suggested phenotype annotations include:</p>
+<ul>
+<li><strong>Abnormal uterine/vaginal bleeding</strong>—common presenting sign; severity ranges from spotting to life-threatening hemorrhage. Suggested HPO: <em>Abnormal uterine bleeding</em>, <em>Vaginal bleeding</em>.</li>
+<li><strong>Elevated serum/urine hCG</strong>—central laboratory abnormality; may cause nausea, ovarian theca-lutein cysts, or hyperthyroid manifestations at very high concentrations. Suggested HPO: <em>Elevated circulating human chorionic gonadotropin level</em>, <em>Hyperthyroidism</em>.</li>
+<li><strong>Anemia/hemorrhage</strong>—from uterine or metastatic vascular deposits. Suggested HPO: <em>Anemia</em>, <em>Hemorrhage</em>.</li>
+<li><strong>Pulmonary disease</strong>—cough, dyspnea, chest pain, or hemoptysis; lung is the most frequent metastatic site. Suggested HPO: <em>Dyspnea</em>, <em>Hemoptysis</em>, <em>Pulmonary metastases</em>.</li>
+<li><strong>Neurologic disease</strong>—headache, focal deficit, seizure, or intracranial hemorrhage from brain metastasis. A recent GTN review estimated brain metastasis at presentation in about 11% of high-risk cohorts. Suggested HPO: <em>Headache</em>, <em>Seizure</em>, <em>Focal neurologic deficit</em>, <em>Intracranial hemorrhage</em>. (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</li>
+<li><strong>Liver/GI metastasis</strong>—abdominal pain, gastrointestinal bleeding, or catastrophic intra-abdominal hemorrhage; these sites confer adverse FIGO points. (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</li>
+<li><strong>Renal manifestations</strong>, reported across mole/choriocarcinoma, include proteinuria, nephrotic syndrome, impaired filtration, glomerulonephritis, and renal-vein thrombosis, but frequencies are poorly quantified.</li>
+</ul>
+<p>Symptoms are rapidly progressive if untreated because trophoblast is invasive, angiogenic, and hematogenously disseminating. Quality-of-life burdens include bleeding, treatment toxicity, reproductive uncertainty, anxiety about hCG surveillance, and delayed conception. A recruiting study, NCT06169644, specifically evaluates psychological effects after GTN chemotherapy, reflecting an important evidence gap.</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Causal genes and variants</h3>
+<p>There is <strong>no single validated causal gene or recurrent pathogenic germline variant</strong> for ordinary GC. Routine ACMG-style single-gene testing, carrier frequency, penetrance, anticipation, founder-effect, and germline-mosaicism annotations are therefore not applicable.</p>
+<p>Open Targets associates <strong>DHFR</strong>, <strong>TP53</strong>, and <strong>GATA3</strong> with choriocarcinoma. DHFR is also the pharmacologic target of methotrexate. These are disease/therapeutic associations, not proof that pathogenic variants in these genes cause GC. (OpenTargets Search: choriocarcinoma)</p>
+<p>Candidate abnormalities reported across GTN include altered TP53, p21, RB, MYC, ERBB3, MDM2, and EGFR expression. A 2023 review notes the absence of activating EGFR kinase-domain mutations and therefore finds no established role for conventional EGFR-targeted therapy. (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</p>
+<h3>Epigenetics and chromosomal biology</h3>
+<p>Gestational tumors retain genetic material from the conceptus and often paternal alleles. STR genotyping or SNP-based analysis can establish gestational origin by demonstrating nonmaternal alleles and can distinguish GC from a maternal somatic carcinoma or NGC. CHM’s androgenetic imprinting pattern and absent p57 expression explain precursor trophoblast overgrowth, but frank GC has a more complex molecular landscape. (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>)</p>
+<p>In molar/GTN tissue, reported epigenetic abnormalities include imprinting disruption, altered microRNAs, and promoter methylation. <strong>miR-196b</strong> is reduced in CHM and inversely linked to MAP3K1, whereas <strong>miR-21</strong> is overexpressed and promotes trophoblast proliferation/invasion. These findings remain investigational and are not validated diagnostic tests for GC. (<a href="#ref-nasser2024molecularbasisof-pages-12-13">nasser2024molecularbasisof pages 12-13</a>)</p>
+<h2>5. Environmental information</h2>
+<p>No toxin, radiation exposure, occupational agent, lifestyle behavior, or pathogen has been established as a direct cause. Geographic/ethnic differences may reflect reproductive patterns, nutrition, ascertainment, access to early ultrasound and hCG testing, or population genetics, but causal decomposition remains uncertain. There is no vaccine-relevant infectious agent.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Upstream reproductive event:</strong> abnormal fertilization and androgenetic CHM, or trophoblast persisting after another pregnancy.</li>
+<li><strong>Failure of normal trophoblast control:</strong> imprinting and cell-cycle dysregulation, altered apoptosis, growth-factor signaling, and persistence despite pregnancy resolution.</li>
+<li><strong>Malignant trophoblast expansion:</strong> cytotrophoblast proliferates while syncytiotrophoblast produces large quantities of hCG.</li>
+<li><strong>Invasion/angiogenesis:</strong> EMT-like programs, extracellular-matrix invasion, TGF-β signaling, and angiogenic factors produce a hemorrhagic uterine mass.</li>
+<li><strong>Hematogenous dissemination:</strong> lung first, then brain, liver, kidney, spleen, and GI tract; fragile vascular deposits explain hemoptysis and intracranial or intra-abdominal bleeding.</li>
+<li><strong>Immune evasion:</strong> trophoblast’s physiologic maternal–fetal immune-tolerance machinery, including PD-L1 and HLA-G, is co-opted by tumor.</li>
+</ol>
+<p>A transcriptomic comparison found <strong>33 differentially expressed genes</strong> between CHM and postmolar GC, implicating TGF-β dysregulation and strong <strong>SALL4</strong> expression in GC. The study’s conclusion was: “the TGF-β pathway appears to be a crucial step in the progression of placental malignancies.” This was a small tumor-series result requiring validation. (<a href="#ref-jinkai2024prognosticatinggestationaltrophoblastic-pages-9-10">jinkai2024prognosticatinggestationaltrophoblastic pages 9-10</a>)</p>
+<p>A 2024 prognostic review reported PD-L1 expression in 92.3% of GTN and identified investigational resistance pathways involving DPP4/cholesterol synthesis, RSK2–SOX8, and HLA-G; cfDNA signals involving BMPR1A and MAP3K1 were linked to severity. (<a href="#ref-jinkai2024prognosticatinggestationaltrophoblastic-pages-9-10">jinkai2024prognosticatinggestationaltrophoblastic pages 9-10</a>)</p>
+<p>GTD studies also report p53/apoptosis imbalance, BCL-2/caspase dysregulation, EGFR/ERBB2/CD117 changes, oxidative stress, reduced E-cadherin, increased Twist-1, and proangiogenic PlGF. These are plausible contributors but much of the evidence comes from CHM or cell lines rather than causal intervention in human GC. (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>, <a href="#ref-nasser2024molecularbasisof-pages-12-13">nasser2024molecularbasisof pages 12-13</a>)</p>
+<p><strong>Suggested GO processes:</strong> trophoblast-cell proliferation; cell migration; epithelial-to-mesenchymal transition; extracellular-matrix organization; angiogenesis; TGF-β receptor signaling; apoptotic signaling; response to oxidative stress; immune-response inhibition. <strong>Suggested CL cells:</strong> trophoblast, cytotrophoblast, syncytiotrophoblast, extravillous trophoblast, endothelial cell, tumor-infiltrating lymphocyte. Subcellular emphasis includes nucleus/chromatin for imprinting and transcription, plasma membrane for PD-L1/HLA-G and receptors, and mitochondria/cytosol for apoptosis and redox metabolism.</p>
+<p>No reproducible GC-specific metabolomic, lipidomic, spatial-transcriptomic, proteomic, or CRISPR-screen signature has yet reached clinical implementation.</p>
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary:</strong> uterus/endometrium and antecedent placental implantation site in GC; ovary, testis, mediastinum, retroperitoneum, or CNS in NGC.</li>
+<li><strong>Secondary:</strong> vagina/adnexa and broad ligament (FIGO II), lung (FIGO III), and brain, liver, kidney, spleen, or GI tract (FIGO IV). (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</li>
+<li><strong>Suggested UBERON terms:</strong> uterus, endometrium, placenta/chorion, vagina, ovary, testis, lung, brain, liver, kidney, spleen, gastrointestinal tract.</li>
+<li><strong>Tissue:</strong> malignant trophoblastic epithelium with hemorrhage and necrosis; laterality is generally not meaningful for uterine GC, but ovarian/testicular primaries can be unilateral.</li>
+</ul>
+<h2>8. Temporal development</h2>
+<p>GC can follow any pregnancy and may present after an interval of months or years. A longer interval is adverse in FIGO scoring: &lt;4, 4–6, 7–12, and &gt;12 months receive progressively higher scores. Disease can progress rapidly because of vascular invasion and early hematogenous spread. (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>)</p>
+<p>FIGO stages are: I, confined to uterus; II, extension to genital structures; III, lung metastasis with or without genital involvement; IV, all other metastatic sites. Clinical course after treatment is tracked through quantitative hCG rather than anatomic imaging alone. Remission is usually treatment-induced; spontaneous normalization after complete surgical evacuation can occur in selected postmolar disease, but routine observation of histologically proven GC is not standard.</p>
+<p>The critical intervention window is immediately after an abnormal postpregnancy hCG trend or histologic diagnosis, before high-volume liver/brain disease develops.</p>
+<h2>9. Inheritance and population epidemiology</h2>
+<p>GC is predominantly sporadic and is not inherited in Mendelian fashion. The relevant “genome” may be conceptus-derived rather than the patient’s constitutional genome. NLRP7/KHDC3L-associated recurrent mole is recessive maternal-effect disease, but progression to GC is not fully penetrant.</p>
+<p>A 2023 guideline reported hydatidiform-mole prevalence of <strong>1/591 pregnancies</strong>, GTD prevalence of <strong>1/714 live births</strong>, and Dutch GTD incidence of <strong>1.67/1,000 births/year</strong>. These figures must not be mislabeled as choriocarcinoma-specific incidence. (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>)</p>
+<p>The sex distribution depends on subtype: GC occurs in patients with a pregnancy; NGC affects both sexes. Gestational disease clusters in reproductive years, while ovarian/testicular and extragonadal germ-cell tumors also occur in children, adolescents, and young adults.</p>
+<h2>10. Diagnostics</h2>
+<h3>Core tests</h3>
+<ol>
+<li><strong>Quantitative serum β-hCG</strong>, repeated in the same laboratory/assay where possible. Urine hCG and alternative assays help investigate heterophile-antibody “phantom hCG” or unusual hCG forms.</li>
+<li><strong>Pelvic examination and transvaginal ultrasound.</strong></li>
+<li><strong>Staging imaging:</strong> CT chest and abdomen plus brain MRI; FDG-PET/CT is optional for unresolved suspected metastasis. (<a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>)</li>
+<li><strong>Histopathology:</strong> biphasic malignant cytotrophoblast/syncytiotrophoblast, marked atypia, hemorrhage and necrosis, and no chorionic villi. Biopsy of highly vascular metastases should be avoided when diagnosis can be made safely through hCG and clinical context.</li>
+<li><strong>IHC:</strong> hCG highlights syncytiotrophoblast; broad cytokeratin, GATA3, inhibin, SALL4 and other trophoblast/germ-cell markers may support the diagnosis. p57 is principally a CHM differential marker, not a stand-alone GC test. In CHM diagnosis, adding p57 increased pathologist sensitivity to approximately 93–96% and specificity to 96–98%. (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>)</li>
+<li><strong>STR/SNP genotyping:</strong> recommended when gestational origin is uncertain, especially for ovarian disease, remote pregnancy, unusual primary site, or distinction from a maternal carcinoma.</li>
+</ol>
+<h3>Diagnostic criteria and staging</h3>
+<p>Postmolar GTN criteria include four hCG values forming a plateau over at least three weeks, serial hCG rise, or persistent detectable hCG beyond six months; exact rise definitions vary slightly among guidelines. Histologically confirmed choriocarcinoma itself establishes GTN even without these serial criteria. (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>, NCT06028672 chunk 1)</p>
+<p>The FIGO/WHO prognostic score includes age, antecedent pregnancy, interval, hCG, largest tumor, number/site of metastases, and prior chemotherapy: 0–4 low, 5–6 intermediate, and ≥7 high risk in the cited guideline. Brain/liver metastasis and multiple failed regimens carry the highest weights. (<a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>)</p>
+<h3>Differential diagnosis</h3>
+<p>Important alternatives are retained products/new pregnancy, invasive mole, PSTT/ETT, placental-site nodule, ectopic pregnancy, placental-site exaggerated reaction, hCG-producing germ-cell tumor, poorly differentiated carcinoma, melanoma, sarcoma, and phantom/pituitary hCG. WES/WGS, broad germline panels, CMA, mitochondrial testing, and repeat-expansion testing are <strong>not routine</strong>. Tumor sequencing may be useful only in refractory or diagnostically unresolved disease.</p>
+<p>There is no population screening program. Surveillance after molar pregnancy is targeted secondary prevention.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Gestational disease is among the most curable metastatic solid tumors when managed in a specialist center. A 2023 review states that adequate treatment can approach 100% overall cure and reports <strong>93% complete remission</strong> with EMA-CO in high-risk GTN; approximately 40% of incomplete responders were salvageable using platinum-based multi-agent chemotherapy. (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</p>
+<p>A 2024 review reported stage-I choriocarcinoma cure of <strong>83% with single-agent chemotherapy</strong>, with further remissions after additional treatment; later stages require multi-modality management. The figure derives from earlier series and should not be interpreted as a contemporary population survival estimate. (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-10-11">gonzalez2024gestationaltrophoblasticdisease pages 10-11</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-8-10">gonzalez2024gestationaltrophoblasticdisease pages 8-10</a>)</p>
+<p>Adverse factors include liver/brain metastasis, very high hCG, large/multiple tumors, term-pregnancy antecedent, interval &gt;12 months, choriocarcinoma histology, and prior failed chemotherapy. Untreated disease is frequently fatal from hemorrhage or organ involvement.</p>
+<p>Reproductive prognosis is generally favorable: one review reported an <strong>86.7% fertility rate</strong> among patients desiring conception after treatment for choriocarcinoma/invasive mole. GTD-wide data report a 75% live-birth rate, recurrence of 0.7–2.6% after one GTD and about 10% after two, with no clear excess of congenital malformations. (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-10-11">gonzalez2024gestationaltrophoblasticdisease pages 10-11</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-10-11">tempfer2023gestationalandnongestational pages 10-11</a>)</p>
+<p>Long-term morbidity includes chemotherapy-related myelosuppression, mucositis, alopecia, neuropathy, renal/hepatic injury, premature ovarian impairment, psychological distress, and a dose-related risk of therapy-related myeloid leukemia after etoposide. After MTX and EMA-CO, regular menses were reported in 12/12 and 32/34 women, respectively. (<a href="#ref-tempfer2023gestationalandnongestational-pages-10-11">tempfer2023gestationalandnongestational pages 10-11</a>)</p>
+<h2>12. Treatment</h2>
+<h3>Risk-adapted gestational treatment</h3>
+<ul>
+<li><strong>Low risk:</strong> methotrexate with folinic/folic-acid rescue or actinomycin-D. The cited guideline uses MTX 50 mg IM on days 1, 3, 5 and 7 with folic acid 15 mg orally on days 2, 4, 6 and 8; resistance prompts actinomycin-D 1.25 mg/m² every two weeks or EMA-CO. (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>)</li>
+<li>Comparative studies summarized in 2023 found complete-remission rates of <strong>80% versus 65%</strong>, <strong>73% versus 58%</strong>, and <strong>90% versus 48%</strong> for actinomycin-D versus alternative MTX schedules. Five-day MTX cured 226/253 patients (89.3%) in one center. MTX remains common because it generally causes less alopecia/toxicity. (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</li>
+<li><strong>FIGO 5–6/choriocarcinoma:</strong> multi-agent EMA-CO should be considered when distant metastasis, very high hCG, or choriocarcinoma histology is present because single-agent resistance is more likely. (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>)</li>
+<li><strong>High risk:</strong> EMA-CO; EP/EMA or EMA-EP are important alternatives/salvage regimens. Ultra-high-risk disease may receive low-dose weekly etoposide/cisplatin induction to reduce fatal hemorrhage/tumor-collapse risk. (<a href="#ref-tempfer2023gestationalandnongestational-pages-9-10">tempfer2023gestationalandnongestational pages 9-10</a>)</li>
+<li><strong>Brain metastasis:</strong> higher-dose MTX with CNS penetration and individualized surgery/radiotherapy. A review reported five-year survival of 81.5% with intensive treatment. (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</li>
+</ul>
+<p>Suggested NCIt interventions: Methotrexate; Leucovorin/Folinic Acid; Dactinomycin; Etoposide; Cisplatin; Cyclophosphamide; Vincristine; EMA-CO; EMA-EP; EP/EMA; BEP; Combination Chemotherapy.</p>
+<h3>Surgery</h3>
+<p>Suction evacuation treats molar precursors, not metastatic GC. Hysterectomy can control uterine hemorrhage or isolated chemoresistant disease and is considered when fertility is not desired. Resection of isolated lung, brain, liver, or other resistant deposits can salvage selected patients. Surgery should complement—not replace—systemic therapy for most GC.</p>
+<h3>Immunotherapy: major 2023–2024 development</h3>
+<p>GTN strongly expresses PD-L1, providing unusually compelling biologic rationale for checkpoint blockade. Across 133 checkpoint-inhibitor-treated patients summarized in 2023/2024, <strong>85 achieved complete remission</strong>: 77/118 with high-risk, relapsed, or multidrug-resistant disease and 8/15 with low-risk disease. One complete responder relapsed 22 months after stopping therapy. (<a href="#ref-baas2024immunotherapyforgestational-pages-1-2">baas2024immunotherapyforgestational pages 1-2</a>)</p>
+<p>A 66-patient refractory/relapsed cohort had 46 complete and six partial responses; 25 experienced grade 3–4 toxicity. Camrelizumab plus apatinib produced 10 complete responses among 20 high-risk patients, with grade-3 toxicity in 12. High-risk avelumab monotherapy performed poorly in a separate seven-patient study (one complete response), showing that checkpoint agents and settings are not interchangeable. (<a href="#ref-baas2024immunotherapyforgestational-pages-3-4">baas2024immunotherapyforgestational pages 3-4</a>)</p>
+<p>UK expert practice cited in the review uses pembrolizumab after failure of at least two multi-agent lines, including EMA-CO, and continues therapy to hCG/radiologic remission followed by consolidation. The review concludes: “anti-PD-1 salvage treatment in multidrug resistant disease is now a standard of care,” while emphasizing cost, fertility uncertainty, and limited long-term data. (<a href="#ref-baas2024immunotherapyforgestational-pages-2-2">baas2024immunotherapyforgestational pages 2-2</a>, <a href="#ref-baas2024immunotherapyforgestational-pages-6-7">baas2024immunotherapyforgestational pages 6-7</a>)</p>
+<h3>Current trials and real-world implementation</h3>
+<ul>
+<li><strong>NCT06028672</strong>, recruiting: toripalimab 200 mg IV every two weeks plus actinomycin-D 1.25 mg/m² versus actinomycin-D alone for FIGO 5–6 GTN; estimated n=40; includes AMH, QLQ-C30 and reproductive-concern outcomes. <a href="https://clinicaltrials.gov/study/NCT06028672" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT06028672</a> (NCT06028672 chunk 1)</li>
+<li><strong>NCT05139095</strong>, recruiting phase II: camrelizumab plus apatinib and chemotherapy for ultra-high-risk or multiply treated high-risk GTN; estimated n=70. <a href="https://clinicaltrials.gov/study/NCT05139095" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT05139095</a> (NCT05139095 chunk 1)</li>
+<li><strong>NCT05635344/RESOLVE</strong>, recruiting phase II: one 200-mg pembrolizumab dose before second evacuation versus surgery alone for low-risk postmolar GTN; choriocarcinoma is excluded. <a href="https://clinicaltrials.gov/study/NCT05635344" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT05635344</a> (NCT05635344 chunk 1)</li>
+<li><strong>NCT04562558</strong>, active, not recruiting: biweekly actinomycin-D versus multiday MTX in low-risk GTN; n=228. <a href="https://clinicaltrials.gov/study/NCT04562558" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT04562558</a></li>
+</ul>
+<p>No gene, RNA, CAR-T, or approved cell therapy is established. Pharmacogenomic guidance is not standard; DHFR biology is relevant to MTX, but no CPIC genotype-directed regimen exists.</p>
+<h2>13. Prevention</h2>
+<p>There is no known primary prevention, vaccine, prophylactic medication, or lifestyle program. Prophylactic chemotherapy after a successfully evacuated mole with falling/negative hCG is not recommended in the cited guideline. (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>)</p>
+<p><strong>Secondary prevention</strong> consists of centralized pathology review, complete evacuation of molar pregnancy, and serial hCG. After mole, the guideline recommends weekly hCG until at least two consecutive negatives, followed by monthly testing for at least six months; higher-risk circumstances may warrant longer monitoring. (<a href="#ref-tempfer2023gestationalandnongestational-pages-15-16">tempfer2023gestationalandnongestational pages 15-16</a>)</p>
+<p><strong>Tertiary prevention</strong> includes risk-adapted chemotherapy, prompt evaluation of neurologic/hepatic symptoms, safe management of hemorrhage, and post-treatment hCG monitoring. After chemotherapy, at least three consecutive weekly undetectable values are followed by monthly hCG for one year with hormonal contraception, because pregnancy hCG would obscure relapse detection. (<a href="#ref-tempfer2023gestationalandnongestational-pages-9-10">tempfer2023gestationalandnongestational pages 9-10</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>)</p>
+<p>Patients with recurrent moles should receive reproductive-genetics assessment for NLRP7/KHDC3L-related disease. Future pregnancy should include early ultrasound, placental histology when indicated, and postpartum hCG confirmation.</p>
+<h2>14. Other species and natural disease</h2>
+<p>Naturally occurring choriocarcinoma-like trophoblastic tumors are reported sporadically in domestic and laboratory mammals, but no common veterinary counterpart reproduces human gestational disease sufficiently for direct clinical translation. There is no zoonotic transmission. No breed-specific VBO association or conserved single causal ortholog was established from the retrieved evidence.</p>
+<p>Comparative interpretation is limited because human placentation and trophoblast invasion differ markedly from those of common laboratory rodents. Nonhuman primates have closer placental biology, but their use is constrained by cost and ethics.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<p><strong>Cell lines:</strong> BeWo, JAR, and JEG-3 choriocarcinoma lines are widely used for hCG secretion, syncytialization, transport, invasion, viral-entry, and drug studies. Their major limitation is that they are transformed, karyotypically abnormal tumor cells and “are quite different from normal trophoblast cells,” as a placental-model review states. (<a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>)</p>
+<p><strong>Modern models:</strong> human trophoblast stem cells express GATA3/TFAP2C, low HLA class I, hypomethylated ELF5, and C19MC; they differentiate toward syncytiotrophoblast and extravillous trophoblast. First-trimester trophoblast organoids contain cytotrophoblast- and syncytiotrophoblast-like populations and can produce EVT-like cells. These systems better model normal lineage biology but are not full GC models. (<a href="#ref-shibata2020uniquefeaturesand-pages-8-9">shibata2020uniquefeaturesand pages 8-9</a>)</p>
+<p><strong>In vivo:</strong> immunodeficient-mouse xenografts of choriocarcinoma lines can test tumor growth, metastasis and drug response. Germ-cell-tumor patient-derived xenografts preserve some histologic and chemosensitivity features, but pure choriocarcinoma PDX resources are scarce. Mouse placenta differs from human villous hemochorial placenta, limiting developmental inference.</p>
+<p><strong>Priority research needs:</strong> patient-derived GC organoids/PDXs; matched tumor–antecedent-pregnancy sequencing; single-cell and spatial profiling of malignant trophoblast and immune cells; prospective validation of PD-L1, HLA-G and cfDNA; and functional screens for MTX/EMA-CO resistance.</p>
+<h2>Key recent sources and expert interpretation</h2>
+<ul>
+<li>Tempfer et al., DGGG/OEGGG/SGGG guideline, published <strong>March 2023</strong>, DOI: <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/a-1904-6461</a>. This is the strongest retrieved source for diagnosis, FIGO risk, imaging, treatment and surveillance, but it is an S2k consensus guideline rather than a formally graded systematic guideline. (<a href="#ref-tempfer2023gestationalandnongestational-pages-9-10">tempfer2023gestationalandnongestational pages 9-10</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-4-5">tempfer2023gestationalandnongestational pages 4-5</a>, <a href="#ref-tempfer2023gestationalandnongestational-pages-8-9">tempfer2023gestationalandnongestational pages 8-9</a>)</li>
+<li>Shahzadi et al., review published <strong>November 2023</strong>, DOI: <a href="https://doi.org/10.1186/s43046-023-00195-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s43046-023-00195-y</a>. Its abstract states that EMA-CO “leads to complete remission in 93% of high-risk GTN patients.” (<a href="#ref-shahzadi2023reviewofcurrent-pages-2-4">shahzadi2023reviewofcurrent pages 2-4</a>)</li>
+<li>Baas et al., immunotherapy review published online <strong>September 2023</strong> and in the 2024 journal volume, DOI: <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000533972</a>. Its abstract reports 133 CPI-treated patients and 85 complete remissions, establishing checkpoint blockade as the leading contemporary development. (<a href="#ref-baas2024immunotherapyforgestational-pages-1-2">baas2024immunotherapyforgestational pages 1-2</a>)</li>
+<li>Gonzalez et al., published <strong>July 2024</strong>, DOI: <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/diseases12070159</a>, provides current precursor-mole pathology, p57/genotyping, fertility and summarized treatment outcomes. (<a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-10-11">gonzalez2024gestationaltrophoblasticdisease pages 10-11</a>, <a href="#ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7">gonzalez2024gestationaltrophoblasticdisease pages 5-7</a>)</li>
+<li>Jin-Kai et al., published <strong>November 2024</strong>, DOI: <a href="https://doi.org/10.1016/j.eclinm.2024.102890" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.eclinm.2024.102890</a>, argues that FIGO 2000 should evolve toward molecular/biomarker-integrated prognostication while retaining its proven clinical utility. (<a href="#ref-jinkai2024prognosticatinggestationaltrophoblastic-pages-9-10">jinkai2024prognosticatinggestationaltrophoblastic pages 9-10</a>)</li>
+<li>Nasser et al., published <strong>August 2024</strong>, DOI: <a href="https://doi.org/10.3390/ijms25168739" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25168739</a>, systematically reviews 71 studies of molecular GTD biology. Its evidence chiefly concerns moles and should not be presented as direct proof in GC. (<a href="#ref-nasser2024molecularbasisof-pages-12-13">nasser2024molecularbasisof pages 12-13</a>)</li>
+</ul>
+<p><strong>Overall conclusion.</strong> Gestational choriocarcinoma is a rare, rapidly invasive and hemorrhagic trophoblastic cancer but is exceptionally chemosensitive. Serial quantitative hCG, FIGO/WHO risk stratification, complete metastatic imaging, and specialist-center treatment remain the clinical foundation. The most important recent advance is PD-1/PD-L1 blockade for multidrug-resistant disease. Conversely, claims about causal somatic genes, protective factors, single-cell states, metabolomics, or genotype-guided treatment remain preliminary. Nongestational choriocarcinoma must be separately classified and treated as germ-cell cancer rather than automatically assigned gestational algorithms.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-opentargets-search-choriocarcinoma"></a>(OpenTargets Search: choriocarcinoma): Open Targets Query (choriocarcinoma, 3 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-tempfer2023gestationalandnongestational-pages-4-5"></a>(tempfer2023gestationalandnongestational pages 4-5): Clemens Tempfer, Lars-Christian Horn, Sven Ackermann, Ralf Dittrich, Jens Einenkel, Andreas Günthert, Heidemarie Haase, Jürgen Kratzsch, Michael Kreißl, Stephan Polterauer, Andreas Ebert, Eric Steiner, Falk Thiel, Michael Eichbaum, Tanja Fehm, Martin C. Koch, and Paul Gass. Gestational and non-gestational trophoblastic neoplasia. guideline of the dggg, oeggg and sggg (s2k-level, awmf registry no. 032/049, april 2022). Geburtshilfe und Frauenheilkunde, 83:267-288, Mar 2023. URL: <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/a-1904-6461</a>, <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">doi:10.1055/a-1904-6461</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-shahzadi2023reviewofcurrent-pages-2-4"></a>(shahzadi2023reviewofcurrent pages 2-4): Mehwish Shahzadi, Saqib Raza Khan, Muhammad Tariq, Sehrish Sarwar Baloch, Aisha Shahid, Munira Moosajee, and Zarka Samon. Review of current literature on gestational trophoblastic neoplasia. Journal of the Egyptian National Cancer Institute, Nov 2023. URL: <a href="https://doi.org/10.1186/s43046-023-00195-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s43046-023-00195-y</a>, <a href="https://doi.org/10.1186/s43046-023-00195-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s43046-023-00195-y</a>. This article has 16 citations.</p>
+</li>
+<li>
+<p><a id="ref-gonzalez2024gestationaltrophoblasticdisease-pages-5-7"></a>(gonzalez2024gestationaltrophoblasticdisease pages 5-7): Jeffrey Gonzalez, Meagan Popp, Stephanie Ocejo, Alvaro Abreu, Hisham F. Bahmad, and Robert Poppiti. Gestational trophoblastic disease: complete versus partial hydatidiform moles. Diseases, 12:159, Jul 2024. URL: <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/diseases12070159</a>, <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">doi:10.3390/diseases12070159</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-shibata2020uniquefeaturesand-pages-8-9"></a>(shibata2020uniquefeaturesand pages 8-9): Shun Shibata, Eri H. Kobayashi, Norio Kobayashi, Akira Oike, Hiroaki Okae, and Takahiro Arima. Unique features and emerging in vitro models of human placental development. Reproductive Medicine and Biology, 19:301-313, Sep 2020. URL: <a href="https://doi.org/10.1002/rmb2.12347" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/rmb2.12347</a>, <a href="https://doi.org/10.1002/rmb2.12347" target="_blank" rel="noopener noreferrer">doi:10.1002/rmb2.12347</a>. This article has 33 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tempfer2023gestationalandnongestational-pages-8-9"></a>(tempfer2023gestationalandnongestational pages 8-9): Clemens Tempfer, Lars-Christian Horn, Sven Ackermann, Ralf Dittrich, Jens Einenkel, Andreas Günthert, Heidemarie Haase, Jürgen Kratzsch, Michael Kreißl, Stephan Polterauer, Andreas Ebert, Eric Steiner, Falk Thiel, Michael Eichbaum, Tanja Fehm, Martin C. Koch, and Paul Gass. Gestational and non-gestational trophoblastic neoplasia. guideline of the dggg, oeggg and sggg (s2k-level, awmf registry no. 032/049, april 2022). Geburtshilfe und Frauenheilkunde, 83:267-288, Mar 2023. URL: <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/a-1904-6461</a>, <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">doi:10.1055/a-1904-6461</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tempfer2023gestationalandnongestational-pages-10-11"></a>(tempfer2023gestationalandnongestational pages 10-11): Clemens Tempfer, Lars-Christian Horn, Sven Ackermann, Ralf Dittrich, Jens Einenkel, Andreas Günthert, Heidemarie Haase, Jürgen Kratzsch, Michael Kreißl, Stephan Polterauer, Andreas Ebert, Eric Steiner, Falk Thiel, Michael Eichbaum, Tanja Fehm, Martin C. Koch, and Paul Gass. Gestational and non-gestational trophoblastic neoplasia. guideline of the dggg, oeggg and sggg (s2k-level, awmf registry no. 032/049, april 2022). Geburtshilfe und Frauenheilkunde, 83:267-288, Mar 2023. URL: <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/a-1904-6461</a>, <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">doi:10.1055/a-1904-6461</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-jinkai2024prognosticatinggestationaltrophoblastic-pages-9-10"></a>(jinkai2024prognosticatinggestationaltrophoblastic pages 9-10): Lin Jin-Kai, Jiang Fang, and Xiang Yang. Prognosticating gestational trophoblastic neoplasia: from figo 2000 to future models. eClinicalMedicine, 77:102890, Nov 2024. URL: <a href="https://doi.org/10.1016/j.eclinm.2024.102890" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.eclinm.2024.102890</a>, <a href="https://doi.org/10.1016/j.eclinm.2024.102890" target="_blank" rel="noopener noreferrer">doi:10.1016/j.eclinm.2024.102890</a>. This article has 13 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nasser2024molecularbasisof-pages-12-13"></a>(nasser2024molecularbasisof pages 12-13): Shadha Nasser, Mohammed Bahutair, R. Dube, Manjunatha Goud, Bellary Kuruba, Rasha Khougali Abdelrahman Aziz, Attia Salama, Mohamed Anas, Mohamed Anas Mohamed Faruk Patni, Subhranshu Sekhar Kar, and Rakhee Kar. Molecular basis of hydatidiform moles—a systematic review. International Journal of Molecular Sciences, 25:8739, Aug 2024. URL: <a href="https://doi.org/10.3390/ijms25168739" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25168739</a>, <a href="https://doi.org/10.3390/ijms25168739" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25168739</a>. This article has 13 citations.</p>
+</li>
+<li>
+<p><a id="ref-baas2024immunotherapyforgestational-pages-2-3"></a>(baas2024immunotherapyforgestational pages 2-3): Inge O. Baas, Anneke M. Westermann, Benoit You, Pierre-Adrien Bolze, Michael Seckl, and Ehsan Ghorani. Immunotherapy for gestational trophoblastic neoplasia: a new paradigm. Gynecologic and Obstetric Investigation, 89:230-238, Sep 2023. URL: <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000533972</a>, <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">doi:10.1159/000533972</a>. This article has 49 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-baas2024immunotherapyforgestational-pages-2-2"></a>(baas2024immunotherapyforgestational pages 2-2): Inge O. Baas, Anneke M. Westermann, Benoit You, Pierre-Adrien Bolze, Michael Seckl, and Ehsan Ghorani. Immunotherapy for gestational trophoblastic neoplasia: a new paradigm. Gynecologic and Obstetric Investigation, 89:230-238, Sep 2023. URL: <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000533972</a>, <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">doi:10.1159/000533972</a>. This article has 49 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-baas2024immunotherapyforgestational-pages-6-7"></a>(baas2024immunotherapyforgestational pages 6-7): Inge O. Baas, Anneke M. Westermann, Benoit You, Pierre-Adrien Bolze, Michael Seckl, and Ehsan Ghorani. Immunotherapy for gestational trophoblastic neoplasia: a new paradigm. Gynecologic and Obstetric Investigation, 89:230-238, Sep 2023. URL: <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000533972</a>, <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">doi:10.1159/000533972</a>. This article has 49 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tempfer2023gestationalandnongestational-pages-9-10"></a>(tempfer2023gestationalandnongestational pages 9-10): Clemens Tempfer, Lars-Christian Horn, Sven Ackermann, Ralf Dittrich, Jens Einenkel, Andreas Günthert, Heidemarie Haase, Jürgen Kratzsch, Michael Kreißl, Stephan Polterauer, Andreas Ebert, Eric Steiner, Falk Thiel, Michael Eichbaum, Tanja Fehm, Martin C. Koch, and Paul Gass. Gestational and non-gestational trophoblastic neoplasia. guideline of the dggg, oeggg and sggg (s2k-level, awmf registry no. 032/049, april 2022). Geburtshilfe und Frauenheilkunde, 83:267-288, Mar 2023. URL: <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/a-1904-6461</a>, <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">doi:10.1055/a-1904-6461</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tempfer2023gestationalandnongestational-pages-15-16"></a>(tempfer2023gestationalandnongestational pages 15-16): Clemens Tempfer, Lars-Christian Horn, Sven Ackermann, Ralf Dittrich, Jens Einenkel, Andreas Günthert, Heidemarie Haase, Jürgen Kratzsch, Michael Kreißl, Stephan Polterauer, Andreas Ebert, Eric Steiner, Falk Thiel, Michael Eichbaum, Tanja Fehm, Martin C. Koch, and Paul Gass. Gestational and non-gestational trophoblastic neoplasia. guideline of the dggg, oeggg and sggg (s2k-level, awmf registry no. 032/049, april 2022). Geburtshilfe und Frauenheilkunde, 83:267-288, Mar 2023. URL: <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">https://doi.org/10.1055/a-1904-6461</a>, <a href="https://doi.org/10.1055/a-1904-6461" target="_blank" rel="noopener noreferrer">doi:10.1055/a-1904-6461</a>. This article has 2 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct06028672-chunk-1"></a>(NCT06028672 chunk 1): xiang yang. Toripalimab Plus Actinomycin-D as Fist-Line Treatment for GTN With FIGO Score 5-6. Peking Union Medical College Hospital. 2023. ClinicalTrials.gov Identifier: NCT06028672</p>
+</li>
+<li>
+<p><a id="ref-nct05635344-chunk-1"></a>(NCT05635344 chunk 1):  A Feasibility Window Study of Pembrolizumab Prior to Second Evacuation for Post-molar Gestational Trophoblastic Neoplasia. Imperial College London. 2024. ClinicalTrials.gov Identifier: NCT05635344</p>
+</li>
+<li>
+<p><a id="ref-gonzalez2024gestationaltrophoblasticdisease-pages-10-11"></a>(gonzalez2024gestationaltrophoblasticdisease pages 10-11): Jeffrey Gonzalez, Meagan Popp, Stephanie Ocejo, Alvaro Abreu, Hisham F. Bahmad, and Robert Poppiti. Gestational trophoblastic disease: complete versus partial hydatidiform moles. Diseases, 12:159, Jul 2024. URL: <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/diseases12070159</a>, <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">doi:10.3390/diseases12070159</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-gonzalez2024gestationaltrophoblasticdisease-pages-8-10"></a>(gonzalez2024gestationaltrophoblasticdisease pages 8-10): Jeffrey Gonzalez, Meagan Popp, Stephanie Ocejo, Alvaro Abreu, Hisham F. Bahmad, and Robert Poppiti. Gestational trophoblastic disease: complete versus partial hydatidiform moles. Diseases, 12:159, Jul 2024. URL: <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/diseases12070159</a>, <a href="https://doi.org/10.3390/diseases12070159" target="_blank" rel="noopener noreferrer">doi:10.3390/diseases12070159</a>. This article has 27 citations.</p>
+</li>
+<li>
+<p><a id="ref-baas2024immunotherapyforgestational-pages-1-2"></a>(baas2024immunotherapyforgestational pages 1-2): Inge O. Baas, Anneke M. Westermann, Benoit You, Pierre-Adrien Bolze, Michael Seckl, and Ehsan Ghorani. Immunotherapy for gestational trophoblastic neoplasia: a new paradigm. Gynecologic and Obstetric Investigation, 89:230-238, Sep 2023. URL: <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000533972</a>, <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">doi:10.1159/000533972</a>. This article has 49 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-baas2024immunotherapyforgestational-pages-3-4"></a>(baas2024immunotherapyforgestational pages 3-4): Inge O. Baas, Anneke M. Westermann, Benoit You, Pierre-Adrien Bolze, Michael Seckl, and Ehsan Ghorani. Immunotherapy for gestational trophoblastic neoplasia: a new paradigm. Gynecologic and Obstetric Investigation, 89:230-238, Sep 2023. URL: <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000533972</a>, <a href="https://doi.org/10.1159/000533972" target="_blank" rel="noopener noreferrer">doi:10.1159/000533972</a>. This article has 49 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct05139095-chunk-1"></a>(NCT05139095 chunk 1):  Camrelizumab Plus Apatinib in Patients With High-risk Gestational Trophoblastic Neoplasia. Peking Union Medical College Hospital. 2022. ClinicalTrials.gov Identifier: NCT05139095</p>
+</li>
+<li>
+<p><a id="ref-pinto2023molecularbiologyof-pages-7-9"></a>(pinto2023molecularbiologyof pages 7-9): Mariana Tomazini Pinto, Gisele Eiras Martins, Ana Glenda Santarosa Vieira, Janaina Mello Soares Galvão, Cristiano de Pádua Souza, Carla Renata Pacheco Donato Macedo, and Luiz Fernando Lopes. Molecular biology of pediatric and adult ovarian germ cell tumors: a review. Cancers, 15:2990, May 2023. URL: <a href="https://doi.org/10.3390/cancers15112990" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cancers15112990</a>, <a href="https://doi.org/10.3390/cancers15112990" target="_blank" rel="noopener noreferrer">doi:10.3390/cancers15112990</a>. This article has 24 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Choriocarcinoma-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Chorioamnionitis-claude_code.html">← Chorioamnionitis (Claude Code)</a>
+                
+                
+                <a href="choroid_plexus_carcinoma-asta.html">Choroid Plexus Carcinoma (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Choriocarcinoma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Choriocarcinoma-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
