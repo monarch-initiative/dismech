@@ -36,10 +36,10 @@ direct-acting viral-target modules plus the latency/reservoir gating module. The
 remaining work is **wiring conforming disease entries** (`conforms_to` +
 treatment `target_mechanisms` edges), tracked in §7.
 
-| Module (built ✓) | Target / principle | Drug classes | Candidate conformers (existing entries) |
+| Module (built ✓) | Target / principle | Drug classes | Current / candidate conformers (existing entries) |
 |---|---|---|---|
 | `viral_polymerase_inhibition` | RdRp / reverse transcriptase / viral DNA polymerase; nucleos(t)ide chain termination + non-nucleoside allosteric block | NRTIs, NNRTIs, nucleotide analogs | Hepatitis_B (tenofovir, entecavir), Hepatitis_C (sofosbuvir), COVID-19 (remdesivir, molnupiravir), Acquired_Immunodeficiency_Syndrome (tenofovir/emtricitabine) |
-| `viral_protease_inhibition` | Viral polyprotein maturation protease (HIV PR, HCV NS3/4A, SARS-CoV-2 Mpro/3CLpro) | protease inhibitors | COVID-19 (nirmatrelvir), Hepatitis_C (glecaprevir/grazoprevir), Acquired_Immunodeficiency_Syndrome (atazanavir/darunavir, ritonavir boost) |
+| `viral_protease_inhibition` | Virus-encoded polyprotein-processing protease; replicase-protein release (SARS-CoV-2 Mpro, HCV NS3/4A) versus structural virion maturation (HIV PR) | protease inhibitors | **Wired:** COVID-19 (nirmatrelvir), Acute_Hepatitis_C_Virus_Infection (glecaprevir). **Candidates:** Hepatitis_C (glecaprevir/grazoprevir), Acquired_Immunodeficiency_Syndrome (atazanavir/darunavir, ritonavir boost) |
 | `viral_entry_fusion_inhibition` | Receptor attachment / co-receptor / membrane fusion / host-factor uptake | gp41 fusion, CCR5 antagonist, attachment, NTCP | Acquired_Immunodeficiency_Syndrome (maraviroc, enfuvirtide, fostemsavir) |
 | `viral_integrase_inhibition` | Retroviral integrase strand transfer (provirus formation) | INSTIs | Acquired_Immunodeficiency_Syndrome (dolutegravir, bictegravir) |
 | `viral_assembly_release_inhibition` | Virion assembly / budding / egress (influenza neuraminidase, HCV NS5A replication complex, HBV capsid) | NA inhibitors, NS5A inhibitors, capsid assembly modulators | Influenza (oseltamivir, baloxavir target is endonuclease — see notes), Hepatitis_C (velpatasvir/ledipasvir) |
@@ -53,10 +53,10 @@ side):
   protease (`viral_protease_inhibition`) + entry (`viral_entry_fusion_inhibition`)
   + latent reservoir (`viral_latency_reservoir_persistence`). The canonical
   combination-therapy story.
-- **Hepatitis_C (DAA regimens)**: NS5B polymerase
+- **Hepatitis_C (direct-acting antiviral regimens)**: NS5B polymerase
   (`viral_polymerase_inhibition`) + NS3/4A protease
   (`viral_protease_inhibition`) + NS5A replication-complex
-  (`viral_assembly_release_inhibition`). The three-target DAA cure.
+  (`viral_assembly_release_inhibition`). The three-target antiviral cure.
 - **Hepatitis_B**: reverse transcriptase suppression
   (`viral_polymerase_inhibition`) gated by the cccDNA reservoir
   (`viral_latency_reservoir_persistence`) — explains indefinite suppression
@@ -151,11 +151,11 @@ whereas the proposed modules capture the **direct antiviral drug-target** axis.
 | **Retroviral integration** | integrase strand-transfer inhibitors are retrovirus-only | Acquired_Immunodeficiency_Syndrome (dolutegravir) — meaningless for HCV/influenza |
 | **Entry receptor / co-receptor / host factor** | entry inhibitors are exquisitely virus- and even tropism-specific | Acquired_Immunodeficiency_Syndrome (CCR5-tropic only → maraviroc); HDV/HBV (NTCP → bulevirtide) |
 | **Latency / integrated provirus / cccDNA reservoir** | replication inhibitors suppress but cannot clear a latent genome → lifelong therapy, "functional cure" frontier | Acquired_Immunodeficiency_Syndrome (proviral reservoir), Hepatitis_B (cccDNA) — contrast Hepatitis_C, which is curable (no integration/reservoir) |
-| **High mutation rate / quasispecies** | error-prone RdRp/RT → resistance escape → mandates combination therapy or high-barrier agents | HIV (3-drug ART), HCV (multi-DAA); high genetic barrier of dolutegravir/sofosbuvir |
+| **High mutation rate / quasispecies** | error-prone RdRp/RT → resistance escape → mandates combination therapy or high-barrier agents | HIV (3-drug ART), HCV (multi-agent direct-acting therapy); high genetic barrier of dolutegravir/sofosbuvir |
 | **Resistance mutation** | specific target mutations abolish a drug (M184V, NS5A RASs, Mpro/RdRp mutations) | resistance as its own pathophysiology node the drug must overcome |
 | **Tissue/compartment penetration (PK)** | CNS sanctuary (HIV), genital reservoir, intracellular activation of prodrugs | site-specific `target_phenotypes`; prodrug-activation nodes |
 | **Host-directed vs direct-acting** | immunomodulation (corticosteroids, IFN) acts on host response, not the virion | COVID-19 (dexamethasone), chronic hepatitis (pegylated IFN historically) |
-| **Window of action** | many antivirals only work early (before peak replication / irreversible immunopathology) | Influenza (NA inhibitors within 48 h), Acute_Hepatitis_C (early DAA before chronicity) |
+| **Window of action** | many antivirals only work early (before peak replication / irreversible immunopathology) | Influenza (NA inhibitors within 48 h), Acute_Hepatitis_C (early direct-acting antiviral therapy before chronicity) |
 
 ## 5. Recommended Encoding Pattern (per viral entry)
 
@@ -195,12 +195,16 @@ can separate them.
       termination, sofosbuvir prodrug, high-mutation-rate escape), Amblard
       35792384 (HIV NRTIs). Key target: `#Viral Polymerase as the Replication
       Engine and Drug Target`.
-- [x] Draft `viral_protease_inhibition`. Built: three nodes (maturation protease
-      target → immature non-infectious virions → protease-inhibitor resistance /
-      ritonavir-boost rationale). Evidence: 32858867 (HIV maturation), 37407698
-      (SARS-CoV-2 Mpro structure), 35993498 (HCV NS3/4A resistance), 26566368
-      (cobicistat boosting). Key target: `#Viral Polyprotein Maturation Protease
-      as Drug Target`.
+- [x] Draft `viral_protease_inhibition`. Built as a shared polyprotein-synthesis
+      and virus-encoded protease-processing trunk with separate
+      replicase-protein/RNA-replication (SARS-CoV-2, HCV) and structural
+      virion-maturation (HIV) outputs, plus a viral target-resistance branch.
+      The immature non-infectious-particle consequence is confined to the
+      structural branch, and pharmacokinetic boosting is separate from viral
+      resistance. Evidence: 32858867 (HIV maturation), 35380892 (SARS-CoV-2
+      replicase-polyprotein cleavage), 22558217 (HCV NS3/4A polyprotein
+      processing), and 35993498 (HCV NS3/4A resistance). Key target:
+      `#Virus-Encoded Protease-Dependent Polyprotein Processing`.
 - [x] Draft `viral_entry_fusion_inhibition` (attachment / co-receptor / fusion /
       NTCP), `viral_integrase_inhibition` (retroviral strand transfer), and
       `viral_assembly_release_inhibition` (influenza neuraminidase + HCV NS5A;
@@ -213,15 +217,14 @@ can separate them.
       reactivation on interruption). Evidence covers the HIV proviral reservoir,
       HBV cccDNA, and HSV neuronal latency. Key gating target: `#Antiviral
       Suppression Without Eradication of the Reservoir`.
-- [ ] **Wire conforming disease entries** (the remaining payoff — modules exist
-      but no antiviral disorder yet `conforms_to` them). Highest-value first:
-      **COVID-19** (add explicit SARS-CoV-2 RdRp + Mpro drug-target nodes,
-      `conforms_to` the polymerase/protease modules, `target_mechanisms` from
-      remdesivir/molnupiravir and nirmatrelvir; host-evasion
-      `parp_parg_macrodomain_viral_evasion` conformance is already present);
-      **Acute_Hepatitis_C_Virus_Infection** / **Hepatitis_C** (split the coarse
-      "Early HCV infection of hepatocytes" target into NS5B / NS3/4A / NS5A
-      nodes); **Hepatitis_B** (RT suppression gated by cccDNA reservoir);
+- [ ] **Wire remaining conforming disease entries.** The
+      `viral_protease_inhibition` replicase branch is now instantiated in
+      **COVID-19** (pp1a/pp1ab → Mpro processing → replication-transcription
+      complex; nirmatrelvir target edge) and
+      **Acute_Hepatitis_C_Virus_Infection** (HCV polyprotein → NS3/4A processing
+      → RNA replication; glecaprevir target edge). Remaining highest-value
+      work includes COVID-19 polymerase targets, chronic **Hepatitis_C**
+      NS5B/NS3/4A/NS5A nodes, **Hepatitis_B** RT suppression gated by cccDNA,
       **Acquired_Immunodeficiency_Syndrome** as the flagship five-module
       conformer (RT + integrase + protease + entry + reservoir).
 - [ ] Decide how to model **Influenza** baloxavir (cap-dependent endonuclease,
