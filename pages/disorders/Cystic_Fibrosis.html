@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3470,6 +3699,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3542,6 +3773,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -4877,7 +5117,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">1 support</span>
+                    <span class="evidence-support support-SUPPORT">2 support</span>
 
                 </div>
 
@@ -4885,7 +5125,7 @@
                 <div class="item-desc" style="margin-top: 8px;">Biallelic CFTR pathogenic variants impair the cyclic-AMP-regulated apical anion channel that exports chloride and bicarbonate at epithelial surfaces. Loss of CFTR-mediated anion secretion (and secondary hyperabsorption of sodium and water) produces dehydrated, acidic, viscous airway surface liquid and pancreatic/biliary secretions. The resulting impaired mucociliary clearance, chronic bacterial airway infection, and obstructive secretions drive the progressive bronchiectatic lung disease, exocrine pancreatic insufficiency, hepatobiliary disease, elevated sweat chloride, and male infertility (CBAVD) characteristic of cystic fibrosis. CFTR modulator therapies (correctors/potentiators, exemplified by elexacaftor/tezacaftor/ivacaftor) that restore residual CFTR activity provide direct interventional validation of this canonical pathway.</div>
 
 
-                <div class="mapping-notes">Retained as CANONICAL. The 2026 openscientist hypothesis-search report (kb/hypotheses/Cystic_Fibrosis/canonical_cftr_loss_of_function_model) reviewed 126 papers and found the model strongly supported by five convergent pillars: cryo-EM CFTR structures, animal models (CF pig showing ASL acidification at birth before infection), &gt;2,000 disease- causing variants, in vitro anion-transport assays, and dose-dependent CFTR-modulator efficacy (ETI: ppFEV1 +9.9 across 11,151 patients; next-gen vanzacaftor extends responsiveness). Three refinements: (1) bicarbonate secretion is rate-limiting for initial host defense (not chloride alone); (2) CFTR dysfunction in macrophages/neutrophils is a cell-autonomous parallel mechanism; (3) residual disease persists after HEMT, indicating inflammatory/structural damage becomes self-sustaining.</div>
+                <div class="mapping-notes">Retained as CANONICAL following independent assessment of the 2026 OpenScientist hypothesis-search report (see kb/hypotheses/Cystic_Fibrosis/canonical_cftr_loss_of_function_model/assessments/openscientist-assessment-by-codex.md; reconciliation tracked in issue #7325). The core mechanism is well supported by convergent evidence: newborn CF-pig airway-surface-liquid acidification impairs bacterial killing before infection or inflammation, and randomized/registry CFTR-modulator trials (ETI: ppFEV1 +9.9 across 11,151 registry patients) provide direct human interventional validation. Several report-level claims required narrowing rather than verbatim promotion: (1) as of the 2013 CFTR2 analysis, few of the nearly 2,000 then-reported CFTR variants had empirical evidence of disease causation, so an unqualified &#34;&gt;2,000 disease-causing variants&#34; count conflates reported with clinically classified variants; CFTR2 has interpreted substantially more variants since, so any exact count must be dated to its source snapshot rather than asserted in the present tense; (2) bicarbonate secretion has been shown to be rate-limiting for host defense in mixed porcine airway epithelia and cell-culture systems, but this does not establish bicarbonate as the universal rate-limiting determinant over chloride across all human tissues and genotypes; (3) human monocyte-derived macrophages show direct CFTR-dependent defects, but a cited CFTR-depleted zebrafish neutrophil-recruitment finding traced the effect to epithelial oxidative signaling rather than immune-cell-autonomous CFTR dysfunction, so the two should not be conflated as one parallel immune mechanism; (4) residual airway inflammation and molecular abnormalities persisting after highly effective modulator therapy reflect incomplete correction of CFTR function rather than proof that inflammation becomes independent of ongoing CFTR dysfunction; and (5) next-generation vanzacaftor evidence of differential response in two previously unresponsive genotypes is from intestinal organoids, not yet a demonstrated clinical rescue.</div>
 
 
 
@@ -4913,7 +5153,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4934,6 +5174,29 @@
 
 
                 <div class="evidence-explanation">Elborn 2016 Lancet seminar identifies CFTR functional failure as the central mechanism producing mucus retention, chronic infection, and progressive airway inflammation — the canonical pathogenic chain for cystic fibrosis lung disease.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23974870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23974870" target="_blank">PMID:23974870</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Few of the almost 2,000 variants in the cystic fibrosis transmembrane conductance regulator gene CFTR have empirical evidence that they cause cystic fibrosis."</div>
+
+
+                <div class="evidence-explanation">Corrects an OpenScientist report claim that treated all ~2,000 reported CFTR variants as disease-causing. The snippet&#39;s point is that most reported variants have never been empirically evaluated, not that they were evaluated and failed: of the 159 variants common enough to assess in this 39,696-person cohort, 127 (80%) did meet both clinical and functional criteria consistent with disease. The unsupported step is therefore the slide from ~2,000 reported to ~2,000 disease-causing, per issue #7325. Figures are the 2013 CFTR2 snapshot.
 </div>
 
 
@@ -8276,7 +8539,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-portal-hypertension" data-dismech-node="Portal Hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Portal Hypertension
 
@@ -8348,7 +8611,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exocrine-pancreatic-insufficiency" data-dismech-node="Exocrine Pancreatic Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Exocrine Pancreatic Insufficiency
 
@@ -8433,7 +8696,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-steatorrhea" data-dismech-node="Steatorrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Steatorrhea
 
@@ -8496,7 +8759,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-meconium-ileus" data-dismech-node="Meconium Ileus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Meconium Ileus
 
@@ -8581,7 +8844,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-distal-intestinal-obstruction-syndrome" data-dismech-node="Distal Intestinal Obstruction Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
                         Distal Intestinal Obstruction Syndrome
 
@@ -8644,7 +8907,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rectal-prolapse" data-dismech-node="Rectal Prolapse" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rectal Prolapse
 
@@ -8729,7 +8992,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastroesophageal-reflux" data-dismech-node="Gastroesophageal Reflux" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastroesophageal Reflux
 
@@ -8790,7 +9053,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-biliary-cirrhosis" data-dismech-node="Focal Biliary Cirrhosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Biliary Cirrhosis
 
@@ -8853,7 +9116,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fat-soluble-vitamin-deficiency" data-dismech-node="Fat-Soluble Vitamin Deficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fat-Soluble Vitamin Deficiency
 
@@ -8947,7 +9210,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cf-related-diabetes" data-dismech-node="CF-Related Diabetes" data-dismech-type="phenotype">
                     <div class="item-name">
                         CF-Related Diabetes
 
@@ -9010,7 +9273,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-puberty" data-dismech-node="Delayed Puberty" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Puberty
 
@@ -9082,7 +9345,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-male-infertility" data-dismech-node="Male Infertility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Male Infertility
 
@@ -9145,7 +9408,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-female-fertility" data-dismech-node="Reduced Female Fertility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Female Fertility
 
@@ -9217,7 +9480,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-polyposis" data-dismech-node="Nasal Polyposis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nasal Polyposis
 
@@ -9248,7 +9511,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-sinusitis" data-dismech-node="Chronic Sinusitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Sinusitis
 
@@ -9320,7 +9583,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-respiratory-infections" data-dismech-node="Recurrent Respiratory Infections" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent Respiratory Infections
 
@@ -9414,7 +9677,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-digital-clubbing" data-dismech-node="Digital Clubbing" data-dismech-type="phenotype">
                     <div class="item-name">
                         Digital Clubbing
 
@@ -9486,7 +9749,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyponatremic-dehydration" data-dismech-node="Hyponatremic Dehydration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyponatremic Dehydration
 
@@ -9558,7 +9821,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteoporosis" data-dismech-node="Osteoporosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteoporosis
 
@@ -9630,7 +9893,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-productive-cough" data-dismech-node="Chronic Productive Cough" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Productive Cough
 
@@ -9693,7 +9956,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchiectasis" data-dismech-node="Bronchiectasis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bronchiectasis
 
@@ -9778,7 +10041,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hemoptysis" data-dismech-node="Hemoptysis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hemoptysis
 
@@ -9841,7 +10104,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pneumothorax" data-dismech-node="Pneumothorax" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pneumothorax
 
@@ -9913,7 +10176,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to Thrive
 
@@ -9976,7 +10239,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Stature
 
@@ -10048,7 +10311,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-allergic-bronchopulmonary-aspergillosis" data-dismech-node="Allergic Bronchopulmonary Aspergillosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Allergic Bronchopulmonary Aspergillosis
 
@@ -10150,7 +10413,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cftr" data-dismech-node="CFTR" data-dismech-type="genetic">
                 <div class="item-name">
                     CFTR
 
@@ -10238,9 +10501,310 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (6)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-f508del-phe508del" data-dismech-node="F508del (Phe508del)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        F508del (Phe508del)
+
+    </div>
+
+
+    <div class="item-desc">Deletion of phenylalanine at position 508 in the CFTR protein. The most common CF-causing mutation, present on at least one allele in nearly 90% of CF patients. Causes misfolding of CFTR protein leading to endoplasmic reticulum retention, proteasomal degradation, and near-complete absence of CFTR at the cell surface (Class II defect). The small amount of protein reaching the surface also has reduced channel open probability (Class III) and reduced stability (Class VI).</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31697873" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31697873" target="_blank">PMID:31697873</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"nearly 90% of patients have at least one copy of the Phe508del CFTR mutation"</div>
+
+
+                <div class="evidence-explanation">Confirms F508del is present in nearly 90% of CF patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-g551d-gly551asp" data-dismech-node="G551D (Gly551Asp)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        G551D (Gly551Asp)
+
+    </div>
+
+
+    <div class="item-desc">Missense mutation causing glycine-to-aspartate substitution at position 551. CFTR protein reaches the cell surface normally but has severely reduced channel gating (Class III defect). The first CFTR mutation for which targeted modulator therapy (ivacaftor) was approved, producing dramatic clinical benefit.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22047557" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22047557" target="_blank">PMID:22047557</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The change from baseline through week 24 in the percent of predicted FEV(1) was greater by 10.6 percentage points in the ivacaftor group than in the placebo group (P&lt;0.001)."</div>
+
+
+                <div class="evidence-explanation">Landmark Phase 3 trial demonstrating ivacaftor efficacy in G551D patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-g542x" data-dismech-node="G542X" data-dismech-type="genetic">
+
+    <div class="item-name">
+        G542X
+
+    </div>
+
+
+    <div class="item-desc">Nonsense mutation creating a premature stop codon at position 542. No functional CFTR protein is produced (Class I defect). One of the most common severe mutations after F508del.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23974870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23974870" target="_blank">PMID:23974870</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These variants were evaluated for both clinical severity and functional consequence, with 127 (80%) meeting both clinical and functional criteria consistent with disease."</div>
+
+
+                <div class="evidence-explanation">CFTR2 project establishes disease liability of common CFTR variants including nonsense mutations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-w1282x" data-dismech-node="W1282X" data-dismech-type="genetic">
+
+    <div class="item-name">
+        W1282X
+
+    </div>
+
+
+    <div class="item-desc">Nonsense mutation at position 1282 causing premature termination. Class I defect with no functional protein produced. Common in Ashkenazi Jewish populations.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23974870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23974870" target="_blank">PMID:23974870</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These variants were evaluated for both clinical severity and functional consequence, with 127 (80%) meeting both clinical and functional criteria consistent with disease."</div>
+
+
+                <div class="evidence-explanation">CFTR2 project classifies W1282X as a disease-causing variant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-n1303k" data-dismech-node="N1303K" data-dismech-type="genetic">
+
+    <div class="item-name">
+        N1303K
+
+    </div>
+
+
+    <div class="item-desc">Missense mutation causing protein misfolding and degradation similar to F508del (Class II defect).</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23974870" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23974870" target="_blank">PMID:23974870</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These variants were evaluated for both clinical severity and functional consequence, with 127 (80%) meeting both clinical and functional criteria consistent with disease."</div>
+
+
+                <div class="evidence-explanation">CFTR2 project evaluates N1303K as a disease-causing variant.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-r117h" data-dismech-node="R117H" data-dismech-type="genetic">
+
+    <div class="item-name">
+        R117H
+
+    </div>
+
+
+    <div class="item-desc">Missense mutation producing CFTR with reduced chloride conductance (Class IV defect). Associated with variable phenotype depending on the polythymidine tract variant (5T, 7T, 9T) on the same allele. R117H-5T causes more severe disease; R117H-7T may cause CFTR-related disorder or be benign.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -10252,7 +10816,7 @@
                 <span class="card-count">13</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-elexacaftor-tezacaftor-ivacaftor-trikafta-kaftrio" data-dismech-node="Elexacaftor-Tezacaftor-Ivacaftor (Trikafta/Kaftrio)" data-dismech-type="treatment">
                 <div class="item-name">
                     Elexacaftor-Tezacaftor-Ivacaftor (Trikafta/Kaftrio)
                 </div>
@@ -10414,7 +10978,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ivacaftor-kalydeco" data-dismech-node="Ivacaftor (Kalydeco)" data-dismech-type="treatment">
                 <div class="item-name">
                     Ivacaftor (Kalydeco)
                 </div>
@@ -10552,7 +11116,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-airway-clearance-therapy" data-dismech-node="Airway Clearance Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Airway Clearance Therapy
                 </div>
@@ -10630,7 +11194,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-dornase-alfa-pulmozyme" data-dismech-node="Dornase Alfa (Pulmozyme)" data-dismech-type="treatment">
                 <div class="item-name">
                     Dornase Alfa (Pulmozyme)
                 </div>
@@ -10724,7 +11288,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hypertonic-saline-7" data-dismech-node="Hypertonic Saline (7%)" data-dismech-type="treatment">
                 <div class="item-name">
                     Hypertonic Saline (7%)
                 </div>
@@ -10801,7 +11365,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-inhaled-antibiotics" data-dismech-node="Inhaled Antibiotics" data-dismech-type="treatment">
                 <div class="item-name">
                     Inhaled Antibiotics
                 </div>
@@ -10879,7 +11443,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-systemic-antibiotics" data-dismech-node="Systemic Antibiotics" data-dismech-type="treatment">
                 <div class="item-name">
                     Systemic Antibiotics
                 </div>
@@ -10957,7 +11521,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pancreatic-enzyme-replacement-therapy-pert" data-dismech-node="Pancreatic Enzyme Replacement Therapy (PERT)" data-dismech-type="treatment">
                 <div class="item-name">
                     Pancreatic Enzyme Replacement Therapy (PERT)
                 </div>
@@ -11034,7 +11598,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nutritional-support" data-dismech-node="Nutritional Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Nutritional Support
                 </div>
@@ -11111,7 +11675,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-insulin-therapy-for-cfrd" data-dismech-node="Insulin Therapy for CFRD" data-dismech-type="treatment">
                 <div class="item-name">
                     Insulin Therapy for CFRD
                 </div>
@@ -11188,7 +11752,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ursodeoxycholic-acid" data-dismech-node="Ursodeoxycholic Acid" data-dismech-type="treatment">
                 <div class="item-name">
                     Ursodeoxycholic Acid
                 </div>
@@ -11265,7 +11829,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lung-transplantation" data-dismech-node="Lung Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Lung Transplantation
                 </div>
@@ -11343,7 +11907,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
@@ -11400,7 +11964,7 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-pseudomonas-aeruginosa" data-dismech-node="Pseudomonas aeruginosa" data-dismech-type="environmental">
                 <div class="item-name">Pseudomonas aeruginosa</div>
 
 
@@ -11444,9 +12008,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-staphylococcus-aureus" data-dismech-node="Staphylococcus aureus" data-dismech-type="environmental">
                 <div class="item-name">Staphylococcus aureus</div>
 
 
@@ -11490,9 +12055,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-burkholderia-cepacia-complex" data-dismech-node="Burkholderia cepacia complex" data-dismech-type="environmental">
                 <div class="item-name">Burkholderia cepacia complex</div>
 
 
@@ -11536,9 +12102,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-non-tuberculous-mycobacteria" data-dismech-node="Non-tuberculous Mycobacteria" data-dismech-type="environmental">
                 <div class="item-name">Non-tuberculous Mycobacteria</div>
 
 
@@ -11582,9 +12149,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-aspergillus-fumigatus" data-dismech-node="Aspergillus fumigatus" data-dismech-type="environmental">
                 <div class="item-name">Aspergillus fumigatus</div>
 
 
@@ -11628,9 +12196,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-tobacco-smoke-exposure" data-dismech-node="Tobacco Smoke Exposure" data-dismech-type="environmental">
                 <div class="item-name">Tobacco Smoke Exposure</div>
 
 
@@ -11674,9 +12243,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-air-pollution" data-dismech-node="Air Pollution" data-dismech-type="environmental">
                 <div class="item-name">Air Pollution</div>
 
 
@@ -11720,6 +12290,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -11734,7 +12305,7 @@
                 <span class="card-count">8</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-sweat-chloride" data-dismech-node="Sweat Chloride" data-dismech-type="biochemical">
                 <div class="item-name">
                     Sweat Chloride
 
@@ -11827,7 +12398,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-immunoreactive-trypsinogen-irt" data-dismech-node="Immunoreactive Trypsinogen (IRT)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Immunoreactive Trypsinogen (IRT)
 
@@ -11876,7 +12447,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-fecal-elastase" data-dismech-node="Fecal Elastase" data-dismech-type="biochemical">
                 <div class="item-name">
                     Fecal Elastase
 
@@ -11925,7 +12496,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-fat-soluble-vitamins-a-d-e-k" data-dismech-node="Fat-Soluble Vitamins (A, D, E, K)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Fat-Soluble Vitamins (A, D, E, K)
 
@@ -11974,7 +12545,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-liver-enzymes" data-dismech-node="Liver Enzymes" data-dismech-type="biochemical">
                 <div class="item-name">
                     Liver Enzymes
 
@@ -12023,7 +12594,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-blood-glucose-hba1c" data-dismech-node="Blood Glucose / HbA1c" data-dismech-type="biochemical">
                 <div class="item-name">
                     Blood Glucose / HbA1c
 
@@ -12072,7 +12643,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-sputum-microbiology" data-dismech-node="Sputum Microbiology" data-dismech-type="biochemical">
                 <div class="item-name">
                     Sputum Microbiology
 
@@ -12121,7 +12692,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-forced-expiratory-volume-in-1-second-fev1" data-dismech-node="Forced Expiratory Volume in 1 Second (FEV1)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Forced Expiratory Volume in 1 Second (FEV1)
 
@@ -13846,7 +14417,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-airway-organoid-theratyping-model">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-airway-organoid-theratyping-model" data-dismech-node="Patient-derived airway organoid theratyping model" data-dismech-type="experimental_model">
                 <div class="item-name">
                     Patient-derived airway organoid theratyping model
 
@@ -14063,7 +14634,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-cf-airway-on-chip-microphysiological-model">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-cf-airway-on-chip-microphysiological-model" data-dismech-node="CF airway-on-chip microphysiological model" data-dismech-type="experimental_model">
                 <div class="item-name">
                     CF airway-on-chip microphysiological model
 
@@ -14295,7 +14866,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-nuli-cufi-airway-epithelial-cell-line-model">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-nuli-cufi-airway-epithelial-cell-line-model" data-dismech-node="NuLi/CuFi airway epithelial cell-line model" data-dismech-type="experimental_model">
                 <div class="item-name">
                     NuLi/CuFi airway epithelial cell-line model
 
@@ -14757,20 +15328,38 @@ mechanistic_hypotheses:
     elexacaftor/tezacaftor/ivacaftor) that restore residual CFTR activity
     provide direct interventional validation of this canonical pathway.
   notes: &gt;-
-    Retained as CANONICAL. The 2026 openscientist
-    hypothesis-search report
-    (kb/hypotheses/Cystic_Fibrosis/canonical_cftr_loss_of_function_model)
-    reviewed 126 papers and found the model strongly supported by five
-    convergent pillars: cryo-EM CFTR structures, animal models (CF pig
-    showing ASL acidification at birth before infection), &gt;2,000 disease-
-    causing variants, in vitro anion-transport assays, and dose-dependent
-    CFTR-modulator efficacy (ETI: ppFEV1 +9.9 across 11,151 patients;
-    next-gen vanzacaftor extends responsiveness). Three refinements:
-    (1) bicarbonate secretion is rate-limiting for initial host defense
-    (not chloride alone); (2) CFTR dysfunction in macrophages/neutrophils
-    is a cell-autonomous parallel mechanism; (3) residual disease persists
-    after HEMT, indicating inflammatory/structural damage becomes
-    self-sustaining.
+    Retained as CANONICAL following independent assessment of the 2026
+    OpenScientist hypothesis-search report (see
+    kb/hypotheses/Cystic_Fibrosis/canonical_cftr_loss_of_function_model/assessments/openscientist-assessment-by-codex.md;
+    reconciliation tracked in issue #7325). The core mechanism is well
+    supported by convergent evidence: newborn CF-pig airway-surface-liquid
+    acidification impairs bacterial killing before infection or
+    inflammation, and randomized/registry CFTR-modulator trials (ETI:
+    ppFEV1 +9.9 across 11,151 registry patients) provide direct human
+    interventional validation. Several report-level claims required
+    narrowing rather than verbatim promotion: (1) as of the 2013 CFTR2
+    analysis, few of the nearly 2,000 then-reported CFTR variants had
+    empirical evidence of disease causation, so an unqualified &#34;&gt;2,000
+    disease-causing variants&#34; count conflates reported with clinically
+    classified variants; CFTR2 has interpreted substantially more variants
+    since, so any exact count must be dated to its source snapshot rather
+    than asserted in the present tense; (2) bicarbonate
+    secretion has been shown to be rate-limiting for host defense in mixed
+    porcine airway epithelia and cell-culture systems, but this does not
+    establish bicarbonate as the universal rate-limiting determinant over
+    chloride across all human tissues and genotypes; (3) human
+    monocyte-derived macrophages show direct CFTR-dependent defects, but a
+    cited CFTR-depleted zebrafish neutrophil-recruitment finding traced the
+    effect to epithelial oxidative signaling rather than
+    immune-cell-autonomous CFTR dysfunction, so the two should not be
+    conflated as one parallel immune mechanism; (4) residual airway
+    inflammation and
+    molecular abnormalities persisting after highly effective modulator
+    therapy reflect incomplete correction of CFTR function rather than
+    proof that inflammation becomes independent of ongoing CFTR
+    dysfunction; and (5) next-generation vanzacaftor evidence of
+    differential response in two previously unresponsive genotypes is from
+    intestinal organoids, not yet a demonstrated clinical rescue.
   evidence:
   - reference: PMID:27140670
     reference_title: &#34;Cystic fibrosis.&#34;
@@ -14782,6 +15371,21 @@ mechanistic_hypotheses:
       the central mechanism producing mucus retention, chronic infection,
       and progressive airway inflammation — the canonical pathogenic
       chain for cystic fibrosis lung disease.
+  - reference: PMID:23974870
+    reference_title: &#34;Defining the disease liability of variants in the cystic fibrosis transmembrane conductance regulator gene.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Few of the almost 2,000 variants in the cystic fibrosis transmembrane conductance regulator gene CFTR have empirical evidence that they cause cystic fibrosis.&#34;
+    explanation: &gt;
+      Corrects an OpenScientist report claim that treated all ~2,000
+      reported CFTR variants as disease-causing. The snippet&#39;s point is
+      that most reported variants have never been empirically evaluated,
+      not that they were evaluated and failed: of the 159 variants common
+      enough to assess in this 39,696-person cohort, 127 (80%) did meet
+      both clinical and functional criteria consistent with disease. The
+      unsupported step is therefore the slide from ~2,000 reported to
+      ~2,000 disease-causing, per issue #7325. Figures are the 2013 CFTR2
+      snapshot.
 pathophysiology:
 - name: CFTR Dysfunction
   description: &gt;-
@@ -18060,7 +18664,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cystic Fibrosis", "mondoId": "MONDO:0009061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystic_Fibrosis", "yamlRevision": "4592f4d5c0c3"};
+        const OS_CONFIG = {"diseaseName": "Cystic Fibrosis", "mondoId": "MONDO:0009061", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cystic_Fibrosis", "yamlRevision": "e752f7f59d1a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

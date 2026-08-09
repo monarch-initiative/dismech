@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3476,6 +3705,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3550,6 +3781,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -5257,7 +5489,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-aneurysm" data-dismech-node="Aortic Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Aneurysm
 
@@ -5371,7 +5603,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-dissection" data-dismech-node="Aortic Dissection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Dissection
 
@@ -5476,7 +5708,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-prolapse" data-dismech-node="Mitral Valve Prolapse" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral Valve Prolapse
 
@@ -5544,7 +5776,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-root-aneurysm" data-dismech-node="Aortic Root Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Root Aneurysm
 
@@ -5605,7 +5837,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-regurgitation" data-dismech-node="Aortic Regurgitation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Regurgitation
 
@@ -5675,7 +5907,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ectopia-lentis" data-dismech-node="Ectopia Lentis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ectopia Lentis
 
@@ -5784,7 +6016,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myopia
 
@@ -5845,7 +6077,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-detachment" data-dismech-node="Retinal Detachment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinal Detachment
 
@@ -5915,7 +6147,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-striae-distensae" data-dismech-node="Striae Distensae" data-dismech-type="phenotype">
                     <div class="item-name">
                         Striae Distensae
 
@@ -5985,7 +6217,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arachnodactyly" data-dismech-node="Arachnodactyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arachnodactyly
 
@@ -6090,7 +6322,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes Planus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Planus
 
@@ -6160,7 +6392,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -6267,7 +6499,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-carinatum" data-dismech-node="Pectus Carinatum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Carinatum
 
@@ -6328,7 +6560,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-excavatum" data-dismech-node="Pectus Excavatum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Excavatum
 
@@ -6389,7 +6621,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-hypermobility" data-dismech-node="Joint Hypermobility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Hypermobility
 
@@ -6459,7 +6691,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-apnea" data-dismech-node="Sleep Apnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sleep Apnea
 
@@ -6529,7 +6761,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tall Stature
 
@@ -6645,7 +6877,7 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spontaneous-pneumothorax" data-dismech-node="Spontaneous Pneumothorax" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spontaneous Pneumothorax
 
@@ -6754,7 +6986,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tricuspid-valve-prolapse" data-dismech-node="Tricuspid Valve Prolapse" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tricuspid Valve Prolapse
 
@@ -6815,7 +7047,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ascending-tubular-aorta-aneurysm" data-dismech-node="Ascending Tubular Aorta Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ascending Tubular Aorta Aneurysm
 
@@ -6876,7 +7108,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-slender-build" data-dismech-node="Slender Build" data-dismech-type="phenotype">
                     <div class="item-name">
                         Slender Build
 
@@ -6937,7 +7169,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dural-ectasia" data-dismech-node="Dural Ectasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dural Ectasia
 
@@ -6998,7 +7230,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-fatigue" data-dismech-node="Chronic Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Fatigue
 
@@ -7059,7 +7291,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-protrusio-acetabuli" data-dismech-node="Protrusio Acetabuli" data-dismech-type="phenotype">
                     <div class="item-name">
                         Protrusio Acetabuli
 
@@ -7120,7 +7352,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-regurgitation" data-dismech-node="Mitral Regurgitation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral Regurgitation
 
@@ -7181,7 +7413,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-artery-dilatation" data-dismech-node="Pulmonary Artery Dilatation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Artery Dilatation
 
@@ -7281,7 +7513,7 @@
                 <span class="card-count">10</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-fbn1" data-dismech-node="FBN1" data-dismech-type="genetic">
                 <div class="item-name">
                     FBN1
 
@@ -7371,9 +7603,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfbr1" data-dismech-node="TGFBR1" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFBR1
 
@@ -7385,9 +7618,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tgfbr2" data-dismech-node="TGFBR2" data-dismech-type="genetic">
                 <div class="item-name">
                     TGFBR2
 
@@ -7399,9 +7633,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad2" data-dismech-node="SMAD2" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD2
 
@@ -7413,9 +7648,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad3" data-dismech-node="SMAD3" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD3
 
@@ -7427,9 +7663,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-acta2" data-dismech-node="ACTA2" data-dismech-type="genetic">
                 <div class="item-name">
                     ACTA2
 
@@ -7441,9 +7678,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-agtr1" data-dismech-node="AGTR1" data-dismech-type="genetic">
                 <div class="item-name">
                     AGTR1
 
@@ -7455,9 +7693,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-itgav" data-dismech-node="ITGAV" data-dismech-type="genetic">
                 <div class="item-name">
                     ITGAV
 
@@ -7469,9 +7708,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nos2" data-dismech-node="NOS2" data-dismech-type="genetic">
                 <div class="item-name">
                     NOS2
 
@@ -7483,9 +7723,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-vcan" data-dismech-node="VCAN" data-dismech-type="genetic">
                 <div class="item-name">
                     VCAN
 
@@ -7497,9 +7738,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7511,7 +7756,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-blockers" data-dismech-node="Beta Blockers" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta Blockers
                 </div>
@@ -7633,7 +7878,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-angiotensin-receptor-blockers" data-dismech-node="Angiotensin Receptor Blockers" data-dismech-type="treatment">
                 <div class="item-name">
                     Angiotensin Receptor Blockers
                 </div>
@@ -7695,7 +7940,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-aortic-surgery" data-dismech-node="Aortic Surgery" data-dismech-type="treatment">
                 <div class="item-name">
                     Aortic Surgery
                 </div>
@@ -7795,7 +8040,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-orthopedic-interventions" data-dismech-node="Orthopedic Interventions" data-dismech-type="treatment">
                 <div class="item-name">
                     Orthopedic Interventions
                 </div>
@@ -7919,7 +8164,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vision-correction" data-dismech-node="Vision Correction" data-dismech-type="treatment">
                 <div class="item-name">
                     Vision Correction
                 </div>
@@ -8050,21 +8295,21 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
-                <div class="item-name">Physical Activity Restrictions</div>
+            <div class="item-box environmental-box anchor-target" id="environmental-vigorous-isometric-and-competitive-sport-restriction" data-dismech-node="Vigorous Isometric and Competitive Sport Restriction" data-dismech-type="environmental">
+                <div class="item-name">Vigorous Isometric and Competitive Sport Restriction</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
                     <span class="tag tag-env">
-                        Physical activity exposure
+                        Vigorous isometric and competitive sport exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/XCO_0000059" target="_blank" class="curie-chip curie-chip-xco" title="Open XCO:0000059">XCO:0000059</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000031" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000031">ECTO:6000031</a>
 
 
 
@@ -8075,8 +8320,12 @@
                 </div>
 
 
+                <div class="item-desc">Deliberately scoped to the restriction half of activity modification. The complementary, aortoprotective effect of moderate dynamic (aerobic) activity is curated as the separate &#34;Moderate Dynamic Aerobic Activity&#34; exposure below, so that exercise-benefit evidence is no longer attached to a restriction claim (issue #6953). Both exposures are held simultaneously in current practice: exercise intensity and type, not physical activity per se, are what is restricted. This node and the moderate-activity node below previously shared XCO:0000059, which made the KGX exporter emit two identical subject/predicate/ object edges; they now carry distinct ECTO terms (ECTO:6000031 strenuous vs ECTO:6000002 exercise), which the schema also prefers over XCO, so the split is visible downstream. OPEN QUESTION: the exported subject is the exposure (strenuous exercise) while this node&#39;s effect is phrased for the protective restriction, so the edge still reads &#34;strenuous exercise reduces risk&#34;. Whether to keep both arms PROTECTIVE or re-express this one as &#34;increases risk&#34; is left to the structured effect_polarity enum in issue #2656.
+</div>
 
-                <div class="item-desc">Avoidance of strenuous isometric exercise and contact sports to reduce hemodynamic stress on the aorta.</div>
+
+                <div class="item-desc">Avoidance of maximal-effort isometric/static exertion (heavy weight lifting), high-intensity exercise, and competitive or contact sport, which acutely raise blood pressure and hemodynamic stress on a fragile aortic wall.
+</div>
 
 
 
@@ -8108,6 +8357,96 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:36072558" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36072558" target="_blank">PMID:36072558</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Current guidelines for patients with thoracic aortic aneurysms or dissections (TAD) restrict vigorous exertion with the intention to prevent acute aortic dissections."</div>
+
+
+                <div class="evidence-explanation">Documents that the restriction applies specifically to vigorous exertion and that its stated intent is prevention of acute aortic dissection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35144638" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35144638" target="_blank">PMID:35144638</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There were potential beneficial effects of PA on arterial structures, but this review also showed deleterious effects when PA was conducted at high intensities, corresponding to 75-85% of the maximal oxygen uptake. However, these effects have only been reported in animal studies."</div>
+
+
+                <div class="evidence-explanation">Systematic review supporting an intensity threshold for harm rather than a blanket restriction on activity. PARTIAL rather than SUPPORT because the review states explicitly that the deleterious high-intensity effects have been reported only in animal studies, so it does not establish the harm arm in humans. Tagged MODEL_ORGANISM because the specific harm claim this item is cited for is animal-derived by the authors&#39; own statement, even though the review as a whole also surveys human data.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-moderate-dynamic-aerobic-activity" data-dismech-node="Moderate Dynamic Aerobic Activity" data-dismech-type="environmental">
+                <div class="item-name">Moderate Dynamic Aerobic Activity</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+                    <span class="tag tag-env">
+                        Moderate dynamic aerobic activity exposure
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000002" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:6000002">ECTO:6000002</a>
+
+
+
+                    </span>
+
+
+
+                </div>
+
+
+                <div class="item-desc">Split out from the former single &#34;Physical Activity Restrictions&#34; node so that exercise-benefit evidence attaches to a claim it actually supports (issue #6953). The human trial evidence is pediatric and single-centre and the supporting aortic-wall data are murine, so the aortoprotective claim should be read as emerging rather than settled.
+</div>
+
+
+                <div class="item-desc">Regular moderate-intensity dynamic (aerobic) activity undertaken within the restrictions above - for example a 10,000-steps-per-day walking target - rather than sedentary avoidance of all exertion.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
             <div class="evidence-item" data-dismech-evidence="PMID:36453629" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
@@ -8124,7 +8463,30 @@
                 <div class="evidence-snippet">"We instructed patients to take 10 000 steps per day, tracked by an activity tracker... AoR Z score in the intervention group had a significantly lower rate of change per year compared with the controls (rate of change, -0.24 versus +0.008; P=0.01)."</div>
 
 
-                <div class="evidence-explanation">The study indicates that controlled physical activity can reduce the rate of aortic root dilation, which is associated with a lower risk of aortic dissection.</div>
+                <div class="evidence-explanation">A prescribed moderate dynamic activity target slowed the rate of aortic root growth relative to controls, directly supporting an aortoprotective effect of moderate aerobic activity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36072558" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36072558" target="_blank">PMID:36072558</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moderate intensity exercise is safe and feasible for many TAD patients."</div>
+
+
+                <div class="evidence-explanation">Establishes that moderate-intensity exercise is safe and feasible in thoracic aortic disease - a necessary but not sufficient part of this node&#39;s claim. PARTIAL rather than SUPPORT because safety is not aortoprotection: the paper does not report that moderate activity slows aortic root dilation. Note also that the cohort is mixed heritable-plus-degenerative TAD (31 cases, only 2 with Marfan syndrome), so it generalizes to Marfan rather than measuring it directly. The aortoprotective claim itself rests on PMID:36453629 and PMID:28947563.
+</div>
 
 
 
@@ -8146,7 +8508,7 @@
                 <div class="evidence-snippet">"Over the 5-month experimental period, aortic root dilation rate was significantly greater in the sedentary MF group, compared with the wild-type group (∆mm, 0.27±0.07 versus 0.13±0.02, respectively). Exercise significantly blunted the aortic root dilation rate in MF mice compared with sedentary..."</div>
 
 
-                <div class="evidence-explanation">Moderate dynamic exercise mitigates the progression of cardiovascular issues in Marfan syndrome, indirectly supporting the idea that physical activity restrictions can help manage aortic dissection risk.</div>
+                <div class="evidence-explanation">Moderate exercise training blunted aortic root dilation in a Marfan mouse model, giving the aortoprotective direction of effect a mechanistic counterpart in vivo.</div>
 
 
 
@@ -8155,6 +8517,7 @@
 
         </div>
     </details>
+
 
 
             </div>
@@ -8171,7 +8534,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-fibrillin-1-protein" data-dismech-node="Fibrillin-1 Protein" data-dismech-type="biochemical">
                 <div class="item-name">
                     Fibrillin-1 Protein
 
@@ -9724,9 +10087,28 @@ diagnosis:
     snippet: The position of the lens was noted by observing the eye in different gaze directions in maximal mydriasis during slit lamp examination.
     explanation: The study confirms that slit lamp examination is used to detect lens dislocation (ectopia lentis) in patients with Marfan syndrome.
 environmental:
-- name: Physical Activity Restrictions
-  description: Avoidance of strenuous isometric exercise and contact sports to reduce hemodynamic stress on the aorta.
+- name: Vigorous Isometric and Competitive Sport Restriction
+  description: &gt;
+    Avoidance of maximal-effort isometric/static exertion (heavy weight lifting),
+    high-intensity exercise, and competitive or contact sport, which acutely raise
+    blood pressure and hemodynamic stress on a fragile aortic wall.
   effect: Reduces risk of aortic dissection.
+  notes: &gt;
+    Deliberately scoped to the restriction half of activity modification. The
+    complementary, aortoprotective effect of moderate dynamic (aerobic) activity is
+    curated as the separate &#34;Moderate Dynamic Aerobic Activity&#34; exposure below, so
+    that exercise-benefit evidence is no longer attached to a restriction claim
+    (issue #6953). Both exposures are held simultaneously in current practice:
+    exercise intensity and type, not physical activity per se, are what is
+    restricted. This node and the moderate-activity node below previously shared
+    XCO:0000059, which made the KGX exporter emit two identical subject/predicate/
+    object edges; they now carry distinct ECTO terms (ECTO:6000031 strenuous vs
+    ECTO:6000002 exercise), which the schema also prefers over XCO, so the split is
+    visible downstream. OPEN QUESTION: the exported subject is the exposure
+    (strenuous exercise) while this node&#39;s effect is phrased for the protective
+    restriction, so the edge still reads &#34;strenuous exercise reduces risk&#34;. Whether
+    to keep both arms PROTECTIVE or re-express this one as &#34;increases risk&#34; is left
+    to the structured effect_polarity enum in issue #2656.
   evidence:
   - reference: PMID:9789865
     reference_title: &#34;Exercise and the Marfan syndrome.&#34;
@@ -9734,24 +10116,75 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: The person with Marfan syndrome is often tall and agile and may unknowingly participate in certain physical activities and sports, putting himself or herself at risk for aortic dissection and sudden death.
     explanation: The article suggests that physical activity restrictions are necessary to prevent aortic dissection in individuals with Marfan syndrome.
+  - reference: PMID:36072558
+    reference_title: &#34;Safety of exercise for adults with thoracic aortic aneurysms and dissections.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Current guidelines for patients with thoracic aortic aneurysms or dissections (TAD) restrict vigorous exertion with the intention to prevent acute aortic dissections.
+    explanation: Documents that the restriction applies specifically to vigorous exertion and that its stated intent is prevention of acute aortic dissection.
+  - reference: PMID:35144638
+    reference_title: &#34;Is physical activity a future therapy for patients with Marfan syndrome?&#34;
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
+    snippet: There were potential beneficial effects of PA on arterial structures, but this review also showed deleterious effects when PA was conducted at high intensities, corresponding to 75-85% of the maximal oxygen uptake. However, these effects have only been reported in animal studies.
+    explanation: &gt;
+      Systematic review supporting an intensity threshold for harm rather than a
+      blanket restriction on activity. PARTIAL rather than SUPPORT because the review
+      states explicitly that the deleterious high-intensity effects have been
+      reported only in animal studies, so it does not establish the harm arm in
+      humans. Tagged MODEL_ORGANISM because the specific harm claim this item is
+      cited for is animal-derived by the authors&#39; own statement, even though the
+      review as a whole also surveys human data.
+  exposure_term:
+    preferred_term: Vigorous isometric and competitive sport exposure
+    description: Exposure to high-intensity or isometric physical exertion that increases aortic wall stress.
+    term:
+      id: ECTO:6000031
+      label: exposure to strenuous exercise
+- name: Moderate Dynamic Aerobic Activity
+  description: &gt;
+    Regular moderate-intensity dynamic (aerobic) activity undertaken within the
+    restrictions above - for example a 10,000-steps-per-day walking target - rather
+    than sedentary avoidance of all exertion.
+  effect: Reduces risk of progressive aortic root dilation.
+  notes: &gt;
+    Split out from the former single &#34;Physical Activity Restrictions&#34; node so that
+    exercise-benefit evidence attaches to a claim it actually supports (issue #6953).
+    The human trial evidence is pediatric and single-centre and the supporting
+    aortic-wall data are murine, so the aortoprotective claim should be read as
+    emerging rather than settled.
+  evidence:
   - reference: PMID:36453629
     reference_title: &#34;Can 10 000 Healthy Steps a Day Slow Aortic Root Dilation in Pediatric Patients With Marfan Syndrome?&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: We instructed patients to take 10 000 steps per day, tracked by an activity tracker... AoR Z score in the intervention group had a significantly lower rate of change per year compared with the controls (rate of change, -0.24 versus +0.008; P=0.01).
-    explanation: The study indicates that controlled physical activity can reduce the rate of aortic root dilation, which is associated with a lower risk of aortic dissection.
+    explanation: A prescribed moderate dynamic activity target slowed the rate of aortic root growth relative to controls, directly supporting an aortoprotective effect of moderate aerobic activity.
+  - reference: PMID:36072558
+    reference_title: &#34;Safety of exercise for adults with thoracic aortic aneurysms and dissections.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: Moderate intensity exercise is safe and feasible for many TAD patients.
+    explanation: &gt;
+      Establishes that moderate-intensity exercise is safe and feasible in thoracic
+      aortic disease - a necessary but not sufficient part of this node&#39;s claim.
+      PARTIAL rather than SUPPORT because safety is not aortoprotection: the paper
+      does not report that moderate activity slows aortic root dilation. Note also
+      that the cohort is mixed heritable-plus-degenerative TAD (31 cases, only 2 with
+      Marfan syndrome), so it generalizes to Marfan rather than measuring it directly.
+      The aortoprotective claim itself rests on PMID:36453629 and PMID:28947563.
   - reference: PMID:28947563
     reference_title: &#34;Cardiovascular Benefits of Moderate Exercise Training in Marfan Syndrome: Insights From an Animal Model.&#34;
     supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: Over the 5-month experimental period, aortic root dilation rate was significantly greater in the sedentary MF group, compared with the wild-type group (∆mm, 0.27±0.07 versus 0.13±0.02, respectively). Exercise significantly blunted the aortic root dilation rate in MF mice compared with sedentary MF littermates (∆mm, 0.10±0.04 versus 0.27±0.07, respectively).
-    explanation: Moderate dynamic exercise mitigates the progression of cardiovascular issues in Marfan syndrome, indirectly supporting the idea that physical activity restrictions can help manage aortic dissection risk.
+    explanation: Moderate exercise training blunted aortic root dilation in a Marfan mouse model, giving the aortoprotective direction of effect a mechanistic counterpart in vivo.
   exposure_term:
-    preferred_term: Physical activity exposure
-    description: Exposure to physical exertion that may impact cardiovascular stress.
+    preferred_term: Moderate dynamic aerobic activity exposure
+    description: Exposure to moderate-intensity dynamic (aerobic) physical activity.
     term:
-      id: XCO:0000059
-      label: physical activity
+      id: ECTO:6000002
+      label: exposure to exercise
 treatments:
 - name: Beta Blockers
   description: Used to reduce stress on the aorta and prevent its enlargement.
@@ -10346,7 +10779,7 @@ Marfan syndrome is caused predominantly by pathogenic variants in FBN1, encoding
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Marfan Syndrome", "mondoId": "MONDO:0007947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Marfan_Syndrome", "yamlRevision": "e23fa8aa26dd"};
+        const OS_CONFIG = {"diseaseName": "Marfan Syndrome", "mondoId": "MONDO:0007947", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Marfan_Syndrome", "yamlRevision": "85344436878f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

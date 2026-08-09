@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3462,6 +3691,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3512,6 +3743,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4402,7 +4634,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anemia" data-dismech-node="Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anemia
 
@@ -4440,7 +4672,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-colon-cancer" data-dismech-node="Colon Cancer" data-dismech-type="phenotype">
                     <div class="item-name">
                         Colon Cancer
 
@@ -4478,7 +4710,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal Pain
 
@@ -4507,7 +4739,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -4545,7 +4777,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Loss
 
@@ -4613,7 +4845,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-braf-v600e" data-dismech-node="BRAF V600E" data-dismech-type="genetic">
                 <div class="item-name">
                     BRAF V600E
 
@@ -4694,9 +4926,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mlh1" data-dismech-node="MLH1" data-dismech-type="genetic">
                 <div class="item-name">
                     MLH1
 
@@ -4725,9 +4958,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pik3ca" data-dismech-node="PIK3CA" data-dismech-type="genetic">
                 <div class="item-name">
                     PIK3CA
 
@@ -4756,9 +4990,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pten" data-dismech-node="PTEN" data-dismech-type="genetic">
                 <div class="item-name">
                     PTEN
 
@@ -4787,9 +5022,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4801,7 +5040,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-encorafenib-plus-cetuximab" data-dismech-node="Encorafenib plus Cetuximab" data-dismech-type="treatment">
                 <div class="item-name">
                     Encorafenib plus Cetuximab
                 </div>
@@ -4908,7 +5147,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-encorafenib-plus-cetuximab-plus-binimetinib" data-dismech-node="Encorafenib plus Cetuximab plus Binimetinib" data-dismech-type="treatment">
                 <div class="item-name">
                     Encorafenib plus Cetuximab plus Binimetinib
                 </div>
@@ -4995,7 +5234,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-folfoxiri-plus-bevacizumab" data-dismech-node="FOLFOXIRI plus Bevacizumab" data-dismech-type="treatment">
                 <div class="item-name">
                     FOLFOXIRI plus Bevacizumab
                 </div>
@@ -5083,7 +5322,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-immune-checkpoint-inhibitors-for-msi-h-disease" data-dismech-node="Immune Checkpoint Inhibitors for MSI-H Disease" data-dismech-type="treatment">
                 <div class="item-name">
                     Immune Checkpoint Inhibitors for MSI-H Disease
                 </div>
@@ -5158,7 +5397,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surgical-resection" data-dismech-node="Surgical Resection" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgical Resection
                 </div>
@@ -5218,7 +5457,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-braf-v600e-mutation-detection" data-dismech-node="BRAF V600E Mutation Detection" data-dismech-type="biochemical">
                 <div class="item-name">
                     BRAF V600E Mutation Detection
 
@@ -5231,7 +5470,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-msi-mmr-testing" data-dismech-node="MSI/MMR Testing" data-dismech-type="biochemical">
                 <div class="item-name">
                     MSI/MMR Testing
 
@@ -6011,28 +6250,28 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2011 Mar;24(3):396-411. doi: 10.1038/modpathol.2010.212.&#39;
-    supporting_text: &#39;2011 Mar;24(3):396-411. doi: 10.1038/modpathol.2010.212.&#39;
+  - statement: &#39;Epigenetic silencing of cancer-related genes by promoter methylation is a frequent event in sporadic colorectal cancer.&#39;
+    supporting_text: &#39;Epigenetic silencing of cancer-related genes by promoter methylation is a frequent event in sporadic colorectal cancer.&#39;
     evidence:
     - reference: PMID:21102416
       reference_title: Methylation of the 3p22 region encompassing MLH1 is representative of the CpG island methylator phenotype in colorectal cancer.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2011 Mar;24(3):396-411. doi: 10.1038/modpathol.2010.212.&#39;
+      snippet: &#39;Epigenetic silencing of cancer-related genes by promoter methylation is a frequent event in sporadic colorectal cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:21659424
   title: Genome-scale analysis of aberrant DNA methylation in colorectal cancer.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2012 Feb;22(2):271-82. doi: 10.1101/gr.117523.110.&#39;
-    supporting_text: &#39;2012 Feb;22(2):271-82. doi: 10.1101/gr.117523.110.&#39;
+  - statement: &#39;Colorectal cancer (CRC) is a heterogeneous disease in which unique subtypes are characterized by distinct genetic and epigenetic alterations.&#39;
+    supporting_text: &#39;Colorectal cancer (CRC) is a heterogeneous disease in which unique subtypes are characterized by distinct genetic and epigenetic alterations.&#39;
     evidence:
     - reference: PMID:21659424
       reference_title: Genome-scale analysis of aberrant DNA methylation in colorectal cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2012 Feb;22(2):271-82. doi: 10.1101/gr.117523.110.&#39;
+      snippet: &#39;Colorectal cancer (CRC) is a heterogeneous disease in which unique subtypes are characterized by distinct genetic and epigenetic alterations.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:23425390
   title: Right-sided rhabdoid colorectal tumors might be related to the serrated pathway.
@@ -6053,28 +6292,28 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2013 Dec;26(12):1642-56. doi: 10.1038/modpathol.2013.101.&#39;
-    supporting_text: &#39;2013 Dec;26(12):1642-56. doi: 10.1038/modpathol.2013.101.&#39;
+  - statement: &#39;Mucinous differentiation is associated with both CpG island methylator phenotype and microsatellite instability in colorectal cancer.&#39;
+    supporting_text: &#39;Mucinous differentiation is associated with both CpG island methylator phenotype and microsatellite instability in colorectal cancer.&#39;
     evidence:
     - reference: PMID:23807779
       reference_title: Expression of MUC2, MUC5AC, MUC5B, and MUC6 mucins in colorectal cancers and their association with the CpG island methylator phenotype.
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2013 Dec;26(12):1642-56. doi: 10.1038/modpathol.2013.101.&#39;
+      snippet: &#39;Mucinous differentiation is associated with both CpG island methylator phenotype and microsatellite instability in colorectal cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:23845441
   title: A genetic progression model of Braf(V600E)-induced intestinal tumorigenesis reveals targets for therapeutic intervention.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2013 Jul 8;24(1):15-29. doi: 10.1016/j.ccr.2013.05.014.&#39;
-    supporting_text: &#39;2013 Jul 8;24(1):15-29. doi: 10.1016/j.ccr.2013.05.014.&#39;
+  - statement: &#39;We show that BRAF(V600E) initiates an alternative pathway to colorectal cancer (CRC), which progresses through a hyperplasia/adenoma/carcinoma sequence.&#39;
+    supporting_text: &#39;We show that BRAF(V600E) initiates an alternative pathway to colorectal cancer (CRC), which progresses through a hyperplasia/adenoma/carcinoma sequence.&#39;
     evidence:
     - reference: PMID:23845441
       reference_title: A genetic progression model of Braf(V600E)-induced intestinal tumorigenesis reveals targets for therapeutic intervention.
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: &#39;2013 Jul 8;24(1):15-29. doi: 10.1016/j.ccr.2013.05.014.&#39;
+      snippet: &#39;We show that BRAF(V600E) initiates an alternative pathway to colorectal cancer (CRC), which progresses through a hyperplasia/adenoma/carcinoma sequence.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:25005754
   title: A very low incidence of BRAF mutations in Middle Eastern colorectal carcinoma.
@@ -6095,84 +6334,84 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2016 Aug 1;76(15):4504-15. doi: 10.1158/0008-5472.CAN-16-0396.&#39;
-    supporting_text: &#39;2016 Aug 1;76(15):4504-15. doi: 10.1158/0008-5472.CAN-16-0396.&#39;
+  - statement: &#39;Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit.&#39;
+    supporting_text: &#39;Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit.&#39;
     evidence:
     - reference: PMID:27312529
       reference_title: Molecular Landscape of Acquired Resistance to Targeted Therapy Combinations in BRAF-Mutant Colorectal Cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2016 Aug 1;76(15):4504-15. doi: 10.1158/0008-5472.CAN-16-0396.&#39;
+      snippet: &#39;Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:27765849
   title: Mutant BRAF Upregulates MCL-1 to Confer Apoptosis Resistance that Is Reversed by MCL-1 Antagonism and Cobimetinib in Colorectal Cancer.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2016 Dec;15(12):3015-3027. doi: 10.1158/1535-7163.MCT-16-0017.&#39;
-    supporting_text: &#39;2016 Dec;15(12):3015-3027. doi: 10.1158/1535-7163.MCT-16-0017.&#39;
+  - statement: &#39;Oncogenic BRAFV600E mutations activate MAPK signaling and are associated with treatment resistance and poor prognosis in patients with colorectal cancer.&#39;
+    supporting_text: &#39;Oncogenic BRAFV600E mutations activate MAPK signaling and are associated with treatment resistance and poor prognosis in patients with colorectal cancer.&#39;
     evidence:
     - reference: PMID:27765849
       reference_title: Mutant BRAF Upregulates MCL-1 to Confer Apoptosis Resistance that Is Reversed by MCL-1 Antagonism and Cobimetinib in Colorectal Cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2016 Dec;15(12):3015-3027. doi: 10.1158/1535-7163.MCT-16-0017.&#39;
+      snippet: &#39;Oncogenic BRAFV600E mutations activate MAPK signaling and are associated with treatment resistance and poor prognosis in patients with colorectal cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:29540830
   title: &#39;Classifying BRAF alterations in cancer: new rational therapeutic strategies for actionable mutations.&#39;
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2018 Jun;37(24):3183-3199. doi: 10.1038/s41388-018-0171-x.&#39;
-    supporting_text: &#39;2018 Jun;37(24):3183-3199. doi: 10.1038/s41388-018-0171-x.&#39;
+  - statement: &#39;The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer.&#39;
+    supporting_text: &#39;The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer.&#39;
     evidence:
     - reference: PMID:29540830
       reference_title: &#39;Classifying BRAF alterations in cancer: new rational therapeutic strategies for actionable mutations.&#39;
       supports: SUPPORT
       evidence_source: COMPUTATIONAL
-      snippet: &#39;2018 Jun;37(24):3183-3199. doi: 10.1038/s41388-018-0171-x.&#39;
+      snippet: &#39;The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:29666172
   title: Genetic editing of colonic organoids provides a molecularly distinct and orthotopic preclinical model of serrated carcinogenesis.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2019 Apr;68(4):684-692. doi: 10.1136/gutjnl-2017-315920.&#39;
-    supporting_text: &#39;2019 Apr;68(4):684-692. doi: 10.1136/gutjnl-2017-315920.&#39;
+  - statement: &#39;Serrated colorectal cancer (CRC) accounts for approximately 25% of cases and includes tumours that are among the most treatment resistant and with worst outcomes.&#39;
+    supporting_text: &#39;Serrated colorectal cancer (CRC) accounts for approximately 25% of cases and includes tumours that are among the most treatment resistant and with worst outcomes.&#39;
     evidence:
     - reference: PMID:29666172
       reference_title: Genetic editing of colonic organoids provides a molecularly distinct and orthotopic preclinical model of serrated carcinogenesis.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2019 Apr;68(4):684-692. doi: 10.1136/gutjnl-2017-315920.&#39;
+      snippet: &#39;Serrated colorectal cancer (CRC) accounts for approximately 25% of cases and includes tumours that are among the most treatment resistant and with worst outcomes.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:29970458
   title: A System-wide Approach to Monitor Responses to Synergistic BRAF and EGFR Inhibition in Colorectal Cancer Cells.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2018 Oct;17(10):1892-1908. doi: 10.1074/mcp.RA117.000486.&#39;
-    supporting_text: &#39;2018 Oct;17(10):1892-1908. doi: 10.1074/mcp.RA117.000486.&#39;
+  - statement: &#39;Intrinsic and/or acquired resistance represents one of the great challenges in targeted cancer therapy.&#39;
+    supporting_text: &#39;Intrinsic and/or acquired resistance represents one of the great challenges in targeted cancer therapy.&#39;
     evidence:
     - reference: PMID:29970458
       reference_title: A System-wide Approach to Monitor Responses to Synergistic BRAF and EGFR Inhibition in Colorectal Cancer Cells.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2018 Oct;17(10):1892-1908. doi: 10.1074/mcp.RA117.000486.&#39;
+      snippet: &#39;Intrinsic and/or acquired resistance represents one of the great challenges in targeted cancer therapy.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:31158302
   title: Clinicopathological features, diagnosis, and treatment of sessile serrated adenoma/polyp with dysplasia/carcinoma.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2019 Oct;34(10):1685-1695. doi: 10.1111/jgh.14752.&#39;
-    supporting_text: &#39;2019 Oct;34(10):1685-1695. doi: 10.1111/jgh.14752.&#39;
+  - statement: &#39;Clinicopathological features, diagnosis, and treatment of sessile serrated adenoma/polyp with dysplasia/carcinoma&#39;
+    supporting_text: &#39;Sessile serrated adenoma/polyps (SSA/Ps) are early precursor lesions in the serrated neoplasia pathway, which results in BRAF-mutated colorectal carcinomas with not only high levels of microsatellite instability but also microsatellite stable.&#39;
     evidence:
     - reference: PMID:31158302
       reference_title: Clinicopathological features, diagnosis, and treatment of sessile serrated adenoma/polyp with dysplasia/carcinoma.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2019 Oct;34(10):1685-1695. doi: 10.1111/jgh.14752.&#39;
+      snippet: &#39;Sessile serrated adenoma/polyps (SSA/Ps) are early precursor lesions in the serrated neoplasia pathway, which results in BRAF-mutated colorectal carcinomas with not only high levels of microsatellite instability but also microsatellite stable.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:31504112
   title: Relative contribution of clinicopathological variables, genomic markers, transcriptomic subtyping and microenvironment features for outcome prediction in stage II/III colorectal cancer.
@@ -6221,56 +6460,56 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2020 Feb;22(2):120-128. doi: 10.1016/j.neo.2019.12.002.&#39;
-    supporting_text: &#39;2020 Feb;22(2):120-128. doi: 10.1016/j.neo.2019.12.002.&#39;
+  - statement: &#39;The serrated neoplasia pathway gives rise to a distinct subgroup of colorectal cancers distinguished by the presence of mutant BRAFV600E and the CpG Island Methylator Phenotype (CIMP).&#39;
+    supporting_text: &#39;The serrated neoplasia pathway gives rise to a distinct subgroup of colorectal cancers distinguished by the presence of mutant BRAFV600E and the CpG Island Methylator Phenotype (CIMP).&#39;
     evidence:
     - reference: PMID:31935636
       reference_title: Alterations in signaling pathways that accompany spontaneous transition to malignancy in a mouse model of BRAF mutant microsatellite stable colorectal cancer.
       supports: SUPPORT
       evidence_source: MODEL_ORGANISM
-      snippet: &#39;2020 Feb;22(2):120-128. doi: 10.1016/j.neo.2019.12.002.&#39;
+      snippet: &#39;The serrated neoplasia pathway gives rise to a distinct subgroup of colorectal cancers distinguished by the presence of mutant BRAFV600E and the CpG Island Methylator Phenotype (CIMP).&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:32580537
   title: Evolving pathologic concepts of serrated lesions of the colorectum.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2020 Jul;54(4):276-289. doi: 10.4132/jptm.2020.04.15.&#39;
-    supporting_text: &#39;2020 Jul;54(4):276-289. doi: 10.4132/jptm.2020.04.15.&#39;
+  - statement: &#39;Here, we provide an up-to-date review of the histopathology and molecular pathology of serrated colorectal lesions.&#39;
+    supporting_text: &#39;Here, we provide an up-to-date review of the histopathology and molecular pathology of serrated colorectal lesions.&#39;
     evidence:
     - reference: PMID:32580537
       reference_title: Evolving pathologic concepts of serrated lesions of the colorectum.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2020 Jul;54(4):276-289. doi: 10.4132/jptm.2020.04.15.&#39;
+      snippet: &#39;Here, we provide an up-to-date review of the histopathology and molecular pathology of serrated colorectal lesions.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:34249672
   title: Current Therapeutic Strategies in BRAF-Mutant Metastatic Colorectal Cancer.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2021 Jun 23;11:601722. doi: 10.3389/fonc.2021.601722. eCollection 2021.&#39;
-    supporting_text: &#39;2021 Jun 23;11:601722. doi: 10.3389/fonc.2021.601722. eCollection 2021.&#39;
+  - statement: &#39;Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors.&#39;
+    supporting_text: &#39;Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors.&#39;
     evidence:
     - reference: PMID:34249672
       reference_title: Current Therapeutic Strategies in BRAF-Mutant Metastatic Colorectal Cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2021 Jun 23;11:601722. doi: 10.3389/fonc.2021.601722. eCollection 2021.&#39;
+      snippet: &#39;Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:35248712
   title: &#39;BRAF-mutated colorectal adenocarcinomas: Pathological heterogeneity and clinical implications.&#39;
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2022 Apr;172:103647. doi: 10.1016/j.critrevonc.2022.103647.&#39;
-    supporting_text: &#39;2022 Apr;172:103647. doi: 10.1016/j.critrevonc.2022.103647.&#39;
+  - statement: &#39;Advances in molecular biology have markedly increased our understanding of the heterogeneous molecular landscape of colorectal cancer (CRC).&#39;
+    supporting_text: &#39;Advances in molecular biology have markedly increased our understanding of the heterogeneous molecular landscape of colorectal cancer (CRC).&#39;
     evidence:
     - reference: PMID:35248712
       reference_title: &#39;BRAF-mutated colorectal adenocarcinomas: Pathological heterogeneity and clinical implications.&#39;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2022 Apr;172:103647. doi: 10.1016/j.critrevonc.2022.103647.&#39;
+      snippet: &#39;Advances in molecular biology have markedly increased our understanding of the heterogeneous molecular landscape of colorectal cancer (CRC).&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:35653981
   title: &#39;Quality of life with encorafenib plus cetuximab with or without binimetinib treatment in patients with BRAF V600E-mutant metastatic colorectal cancer: patient-reported outcomes from BEACON CRC.&#39;
@@ -6319,28 +6558,28 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Apr 12;16(1):210-217. doi: 10.1159/000529813. eCollection 2023 Jan-Dec.&#39;
-    supporting_text: &#39;2023 Apr 12;16(1):210-217. doi: 10.1159/000529813. eCollection 2023 Jan-Dec.&#39;
+  - statement: &#39;&#34;Liquid biopsy&#34; is an established technique for examining circulating tumor DNA (ctDNA) from a routine blood draw and detecting actionable biomarkers.&#39;
+    supporting_text: &#39;&#34;Liquid biopsy&#34; is an established technique for examining circulating tumor DNA (ctDNA) from a routine blood draw and detecting actionable biomarkers.&#39;
     evidence:
     - reference: PMID:37064498
       reference_title: Circulating Tumor DNA Testing Overcomes Limitations of Comprehensive Genomic Profiling from Tumor Tissue.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2023 Apr 12;16(1):210-217. doi: 10.1159/000529813. eCollection 2023 Jan-Dec.&#39;
+      snippet: &#39;&#34;Liquid biopsy&#34; is an established technique for examining circulating tumor DNA (ctDNA) from a routine blood draw and detecting actionable biomarkers.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:37352476
   title: &#39;FOLFOXIRI Plus Cetuximab or Bevacizumab as First-Line Treatment of BRAF(V600E)-Mutant Metastatic Colorectal Cancer: The Randomized Phase II FIRE-4.5 (AIO KRK0116) Study.&#39;
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Sep 1;41(25):4143-4153. doi: 10.1200/JCO.22.01420.&#39;
-    supporting_text: &#39;2023 Sep 1;41(25):4143-4153. doi: 10.1200/JCO.22.01420.&#39;
+  - statement: &#39;BRAFV600E mutation is associated with a poor outcome in metastatic colorectal cancer (mCRC).&#39;
+    supporting_text: &#39;BRAFV600E mutation is associated with a poor outcome in metastatic colorectal cancer (mCRC).&#39;
     evidence:
     - reference: PMID:37352476
       reference_title: &#39;FOLFOXIRI Plus Cetuximab or Bevacizumab as First-Line Treatment of BRAF(V600E)-Mutant Metastatic Colorectal Cancer: The Randomized Phase II FIRE-4.5 (AIO KRK0116) Study.&#39;
       supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
-      snippet: &#39;2023 Sep 1;41(25):4143-4153. doi: 10.1200/JCO.22.01420.&#39;
+      snippet: &#39;BRAFV600E mutation is associated with a poor outcome in metastatic colorectal cancer (mCRC).&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:37455182
   title: &#39;Treatment of metastatic colorectal cancer with BRAF V600E mutation: A multicenter real-world study in China.&#39;
@@ -6361,28 +6600,28 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024 Apr;20(11):653-663. doi: 10.2217/fon-2022-1249.&#39;
-    supporting_text: &#39;2024 Apr;20(11):653-663. doi: 10.2217/fon-2022-1249.&#39;
+  - statement: &#39;Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis.&#39;
+    supporting_text: &#39;Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis.&#39;
     evidence:
     - reference: PMID:37815847
       reference_title: &#39;SEAMARK: phase II study of first-line encorafenib and cetuximab plus pembrolizumab for MSI-H/dMMR BRAFV600E-mutant mCRC.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024 Apr;20(11):653-663. doi: 10.2217/fon-2022-1249.&#39;
+      snippet: &#39;Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:37973552
   title: HSPA8 Activates Wnt/β-Catenin Signaling to Facilitate BRAF V600E Colorectal Cancer Progression by CMA-Mediated CAV1 Degradation.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024 Jan;11(3):e2306535. doi: 10.1002/advs.202306535.&#39;
-    supporting_text: &#39;2024 Jan;11(3):e2306535. doi: 10.1002/advs.202306535.&#39;
+  - statement: &#39;BRAF V600E attracts wide attention in the treatment of colorectal cancer (CRC) as stratifying and predicting a refractory classification of CRC.&#39;
+    supporting_text: &#39;BRAF V600E attracts wide attention in the treatment of colorectal cancer (CRC) as stratifying and predicting a refractory classification of CRC.&#39;
     evidence:
     - reference: PMID:37973552
       reference_title: HSPA8 Activates Wnt/β-Catenin Signaling to Facilitate BRAF V600E Colorectal Cancer Progression by CMA-Mediated CAV1 Degradation.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024 Jan;11(3):e2306535. doi: 10.1002/advs.202306535.&#39;
+      snippet: &#39;BRAF V600E attracts wide attention in the treatment of colorectal cancer (CRC) as stratifying and predicting a refractory classification of CRC.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:38553360
   title: &#39;Safety and Efficacy of Encorafenib, Binimetinib, and Cetuximab for BRAF(V600E)-Mutant Metastatic Colorectal Cancer: Results of the Japanese Expanded Access Program.&#39;
@@ -6459,56 +6698,56 @@ references:
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2024;28(4):297-303. doi: 10.5114/wo.2024.146953.&#39;
-    supporting_text: &#39;2024;28(4):297-303. doi: 10.5114/wo.2024.146953.&#39;
+  - statement: &#39;The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients.&#39;
+    supporting_text: &#39;The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients.&#39;
     evidence:
     - reference: PMID:39935752
       reference_title: &#39;Treatment outcomes of patients with BRAF(V600E)-mutated metastatic colorectal cancer: a Polish retrospective cohort study.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2024;28(4):297-303. doi: 10.5114/wo.2024.146953.&#39;
+      snippet: &#39;The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:39961465
   title: &#39;BRAF V600E in cancer: Exploring structural complexities, mutation profiles, and pathway dysregulation.&#39;
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Mar 1;446(1):114440. doi: 10.1016/j.yexcr.2025.114440.&#39;
-    supporting_text: &#39;2025 Mar 1;446(1):114440. doi: 10.1016/j.yexcr.2025.114440.&#39;
+  - statement: &#39;BRAF, a fundamental component of cellular signaling pathways regulating growth and survival, is frequently mutated in cancer development.&#39;
+    supporting_text: &#39;BRAF, a fundamental component of cellular signaling pathways regulating growth and survival, is frequently mutated in cancer development.&#39;
     evidence:
     - reference: PMID:39961465
       reference_title: &#39;BRAF V600E in cancer: Exploring structural complexities, mutation profiles, and pathway dysregulation.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Mar 1;446(1):114440. doi: 10.1016/j.yexcr.2025.114440.&#39;
+      snippet: &#39;BRAF, a fundamental component of cellular signaling pathways regulating growth and survival, is frequently mutated in cancer development.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:41077740
   title: &#39;Diagnostic Challenges in Sessile Serrated Lesions: Progression to Adenocarcinoma in a High-Risk Patient.&#39;
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Oct 13;26:e950179. doi: 10.12659/AJCR.950179.&#39;
-    supporting_text: &#39;2025 Oct 13;26:e950179. doi: 10.12659/AJCR.950179.&#39;
+  - statement: &#39;Diagnostic Challenges in Sessile Serrated Lesions: Progression to Adenocarcinoma in a High-Risk Patient&#39;
+    supporting_text: &#39;Sessile serrated lesions (SSLs) are precursors in approximately 20-30% of colorectal cancer (CRC) cases, often characterized by B-Raf proto-oncogene (BRAF) mutations and CpG island methylator phenotype (CIMP), and follow the serrated neoplasia pathway.&#39;
     evidence:
     - reference: PMID:41077740
       reference_title: &#39;Diagnostic Challenges in Sessile Serrated Lesions: Progression to Adenocarcinoma in a High-Risk Patient.&#39;
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Oct 13;26:e950179. doi: 10.12659/AJCR.950179.&#39;
+      snippet: &#39;Sessile serrated lesions (SSLs) are precursors in approximately 20-30% of colorectal cancer (CRC) cases, often characterized by B-Raf proto-oncogene (BRAF) mutations and CpG island methylator phenotype (CIMP), and follow the serrated neoplasia pathway.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:41515890
   title: Quantitative ctDNA Profiling of RAS Mutations as a Prognostic Biomarker in Metastatic Colorectal Cancer.
   found_in:
   - BRAF_V600E_Mutant_Colorectal_Cancer-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Dec 19;27(1):8. doi: 10.3390/ijms27010008.&#39;
-    supporting_text: &#39;2025 Dec 19;27(1):8. doi: 10.3390/ijms27010008.&#39;
+  - statement: &#39;Circulating tumor DNA (ctDNA) analysis offers a non-invasive approach to molecular profiling.&#39;
+    supporting_text: &#39;Circulating tumor DNA (ctDNA) analysis offers a non-invasive approach to molecular profiling.&#39;
     evidence:
     - reference: PMID:41515890
       reference_title: Quantitative ctDNA Profiling of RAS Mutations as a Prognostic Biomarker in Metastatic Colorectal Cancer.
       supports: SUPPORT
       evidence_source: OTHER
-      snippet: &#39;2025 Dec 19;27(1):8. doi: 10.3390/ijms27010008.&#39;
+      snippet: &#39;Circulating tumor DNA (ctDNA) analysis offers a non-invasive approach to molecular profiling.&#39;
       explanation: Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.
 - reference: PMID:41677963
   title: &#39;Safety and Efficacy of Triple Therapy Containing Encorafenib, Cetuximab, and Binimetinib for BRAF V600E-Mutated Colorectal Cancer: a Systematic Review and Meta-Analysis.&#39;
@@ -7811,10 +8050,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2011 Mar;24(3):396-411. doi: 10.1038/modpathol.2010.212.</div>
+            <div class="reference-finding-statement">Epigenetic silencing of cancer-related genes by promoter methylation is a frequent event in sporadic colorectal cancer.</div>
 
 
-            <div class="reference-finding-supporting">"2011 Mar;24(3):396-411. doi: 10.1038/modpathol.2010.212."</div>
+            <div class="reference-finding-supporting">"Epigenetic silencing of cancer-related genes by promoter methylation is a frequent event in sporadic colorectal cancer."</div>
 
 
 
@@ -7837,7 +8076,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2011 Mar;24(3):396-411. doi: 10.1038/modpathol.2010.212."</div>
+                <div class="evidence-snippet">"Epigenetic silencing of cancer-related genes by promoter methylation is a frequent event in sporadic colorectal cancer."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -7880,10 +8119,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2012 Feb;22(2):271-82. doi: 10.1101/gr.117523.110.</div>
+            <div class="reference-finding-statement">Colorectal cancer (CRC) is a heterogeneous disease in which unique subtypes are characterized by distinct genetic and epigenetic alterations.</div>
 
 
-            <div class="reference-finding-supporting">"2012 Feb;22(2):271-82. doi: 10.1101/gr.117523.110."</div>
+            <div class="reference-finding-supporting">"Colorectal cancer (CRC) is a heterogeneous disease in which unique subtypes are characterized by distinct genetic and epigenetic alterations."</div>
 
 
 
@@ -7906,7 +8145,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2012 Feb;22(2):271-82. doi: 10.1101/gr.117523.110."</div>
+                <div class="evidence-snippet">"Colorectal cancer (CRC) is a heterogeneous disease in which unique subtypes are characterized by distinct genetic and epigenetic alterations."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8018,10 +8257,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2013 Dec;26(12):1642-56. doi: 10.1038/modpathol.2013.101.</div>
+            <div class="reference-finding-statement">Mucinous differentiation is associated with both CpG island methylator phenotype and microsatellite instability in colorectal cancer.</div>
 
 
-            <div class="reference-finding-supporting">"2013 Dec;26(12):1642-56. doi: 10.1038/modpathol.2013.101."</div>
+            <div class="reference-finding-supporting">"Mucinous differentiation is associated with both CpG island methylator phenotype and microsatellite instability in colorectal cancer."</div>
 
 
 
@@ -8044,7 +8283,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2013 Dec;26(12):1642-56. doi: 10.1038/modpathol.2013.101."</div>
+                <div class="evidence-snippet">"Mucinous differentiation is associated with both CpG island methylator phenotype and microsatellite instability in colorectal cancer."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8087,10 +8326,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2013 Jul 8;24(1):15-29. doi: 10.1016/j.ccr.2013.05.014.</div>
+            <div class="reference-finding-statement">We show that BRAF(V600E) initiates an alternative pathway to colorectal cancer (CRC), which progresses through a hyperplasia/adenoma/carcinoma sequence.</div>
 
 
-            <div class="reference-finding-supporting">"2013 Jul 8;24(1):15-29. doi: 10.1016/j.ccr.2013.05.014."</div>
+            <div class="reference-finding-supporting">"We show that BRAF(V600E) initiates an alternative pathway to colorectal cancer (CRC), which progresses through a hyperplasia/adenoma/carcinoma sequence."</div>
 
 
 
@@ -8113,7 +8352,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2013 Jul 8;24(1):15-29. doi: 10.1016/j.ccr.2013.05.014."</div>
+                <div class="evidence-snippet">"We show that BRAF(V600E) initiates an alternative pathway to colorectal cancer (CRC), which progresses through a hyperplasia/adenoma/carcinoma sequence."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8225,10 +8464,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2016 Aug 1;76(15):4504-15. doi: 10.1158/0008-5472.CAN-16-0396.</div>
+            <div class="reference-finding-statement">Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit.</div>
 
 
-            <div class="reference-finding-supporting">"2016 Aug 1;76(15):4504-15. doi: 10.1158/0008-5472.CAN-16-0396."</div>
+            <div class="reference-finding-supporting">"Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit."</div>
 
 
 
@@ -8251,7 +8490,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2016 Aug 1;76(15):4504-15. doi: 10.1158/0008-5472.CAN-16-0396."</div>
+                <div class="evidence-snippet">"Although recent clinical trials of BRAF inhibitor combinations have demonstrated improved efficacy in BRAF-mutant colorectal cancer, emergence of acquired resistance limits clinical benefit."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8294,10 +8533,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2016 Dec;15(12):3015-3027. doi: 10.1158/1535-7163.MCT-16-0017.</div>
+            <div class="reference-finding-statement">Oncogenic BRAFV600E mutations activate MAPK signaling and are associated with treatment resistance and poor prognosis in patients with colorectal cancer.</div>
 
 
-            <div class="reference-finding-supporting">"2016 Dec;15(12):3015-3027. doi: 10.1158/1535-7163.MCT-16-0017."</div>
+            <div class="reference-finding-supporting">"Oncogenic BRAFV600E mutations activate MAPK signaling and are associated with treatment resistance and poor prognosis in patients with colorectal cancer."</div>
 
 
 
@@ -8320,7 +8559,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2016 Dec;15(12):3015-3027. doi: 10.1158/1535-7163.MCT-16-0017."</div>
+                <div class="evidence-snippet">"Oncogenic BRAFV600E mutations activate MAPK signaling and are associated with treatment resistance and poor prognosis in patients with colorectal cancer."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8363,10 +8602,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2018 Jun;37(24):3183-3199. doi: 10.1038/s41388-018-0171-x.</div>
+            <div class="reference-finding-statement">The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer.</div>
 
 
-            <div class="reference-finding-supporting">"2018 Jun;37(24):3183-3199. doi: 10.1038/s41388-018-0171-x."</div>
+            <div class="reference-finding-supporting">"The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer."</div>
 
 
 
@@ -8389,7 +8628,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2018 Jun;37(24):3183-3199. doi: 10.1038/s41388-018-0171-x."</div>
+                <div class="evidence-snippet">"The RAS-RAF-MEK-ERK signaling cascade is among the most frequently mutated pathways in human cancer."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8432,10 +8671,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2019 Apr;68(4):684-692. doi: 10.1136/gutjnl-2017-315920.</div>
+            <div class="reference-finding-statement">Serrated colorectal cancer (CRC) accounts for approximately 25% of cases and includes tumours that are among the most treatment resistant and with worst outcomes.</div>
 
 
-            <div class="reference-finding-supporting">"2019 Apr;68(4):684-692. doi: 10.1136/gutjnl-2017-315920."</div>
+            <div class="reference-finding-supporting">"Serrated colorectal cancer (CRC) accounts for approximately 25% of cases and includes tumours that are among the most treatment resistant and with worst outcomes."</div>
 
 
 
@@ -8458,7 +8697,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2019 Apr;68(4):684-692. doi: 10.1136/gutjnl-2017-315920."</div>
+                <div class="evidence-snippet">"Serrated colorectal cancer (CRC) accounts for approximately 25% of cases and includes tumours that are among the most treatment resistant and with worst outcomes."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8501,10 +8740,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2018 Oct;17(10):1892-1908. doi: 10.1074/mcp.RA117.000486.</div>
+            <div class="reference-finding-statement">Intrinsic and/or acquired resistance represents one of the great challenges in targeted cancer therapy.</div>
 
 
-            <div class="reference-finding-supporting">"2018 Oct;17(10):1892-1908. doi: 10.1074/mcp.RA117.000486."</div>
+            <div class="reference-finding-supporting">"Intrinsic and/or acquired resistance represents one of the great challenges in targeted cancer therapy."</div>
 
 
 
@@ -8527,7 +8766,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2018 Oct;17(10):1892-1908. doi: 10.1074/mcp.RA117.000486."</div>
+                <div class="evidence-snippet">"Intrinsic and/or acquired resistance represents one of the great challenges in targeted cancer therapy."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8570,10 +8809,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2019 Oct;34(10):1685-1695. doi: 10.1111/jgh.14752.</div>
+            <div class="reference-finding-statement">Clinicopathological features, diagnosis, and treatment of sessile serrated adenoma/polyp with dysplasia/carcinoma</div>
 
 
-            <div class="reference-finding-supporting">"2019 Oct;34(10):1685-1695. doi: 10.1111/jgh.14752."</div>
+            <div class="reference-finding-supporting">"Sessile serrated adenoma/polyps (SSA/Ps) are early precursor lesions in the serrated neoplasia pathway, which results in BRAF-mutated colorectal carcinomas with not only high levels of microsatellite instability but also microsatellite stable."</div>
 
 
 
@@ -8596,7 +8835,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2019 Oct;34(10):1685-1695. doi: 10.1111/jgh.14752."</div>
+                <div class="evidence-snippet">"Sessile serrated adenoma/polyps (SSA/Ps) are early precursor lesions in the serrated neoplasia pathway, which results in BRAF-mutated colorectal carcinomas with not only high levels of microsatellite instability but also microsatellite stable."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8846,10 +9085,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2020 Feb;22(2):120-128. doi: 10.1016/j.neo.2019.12.002.</div>
+            <div class="reference-finding-statement">The serrated neoplasia pathway gives rise to a distinct subgroup of colorectal cancers distinguished by the presence of mutant BRAFV600E and the CpG Island Methylator Phenotype (CIMP).</div>
 
 
-            <div class="reference-finding-supporting">"2020 Feb;22(2):120-128. doi: 10.1016/j.neo.2019.12.002."</div>
+            <div class="reference-finding-supporting">"The serrated neoplasia pathway gives rise to a distinct subgroup of colorectal cancers distinguished by the presence of mutant BRAFV600E and the CpG Island Methylator Phenotype (CIMP)."</div>
 
 
 
@@ -8872,7 +9111,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2020 Feb;22(2):120-128. doi: 10.1016/j.neo.2019.12.002."</div>
+                <div class="evidence-snippet">"The serrated neoplasia pathway gives rise to a distinct subgroup of colorectal cancers distinguished by the presence of mutant BRAFV600E and the CpG Island Methylator Phenotype (CIMP)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8915,10 +9154,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2020 Jul;54(4):276-289. doi: 10.4132/jptm.2020.04.15.</div>
+            <div class="reference-finding-statement">Here, we provide an up-to-date review of the histopathology and molecular pathology of serrated colorectal lesions.</div>
 
 
-            <div class="reference-finding-supporting">"2020 Jul;54(4):276-289. doi: 10.4132/jptm.2020.04.15."</div>
+            <div class="reference-finding-supporting">"Here, we provide an up-to-date review of the histopathology and molecular pathology of serrated colorectal lesions."</div>
 
 
 
@@ -8941,7 +9180,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2020 Jul;54(4):276-289. doi: 10.4132/jptm.2020.04.15."</div>
+                <div class="evidence-snippet">"Here, we provide an up-to-date review of the histopathology and molecular pathology of serrated colorectal lesions."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -8984,10 +9223,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2021 Jun 23;11:601722. doi: 10.3389/fonc.2021.601722. eCollection 2021.</div>
+            <div class="reference-finding-statement">Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors.</div>
 
 
-            <div class="reference-finding-supporting">"2021 Jun 23;11:601722. doi: 10.3389/fonc.2021.601722. eCollection 2021."</div>
+            <div class="reference-finding-supporting">"Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors."</div>
 
 
 
@@ -9010,7 +9249,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2021 Jun 23;11:601722. doi: 10.3389/fonc.2021.601722. eCollection 2021."</div>
+                <div class="evidence-snippet">"Around 8-12% of patients with advanced colon rectal cancer (CRC) present with BRAF alterations, in particular V600E mutation, which is associated with right-side, poorly differentiated and mucinous type tumors."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -9053,10 +9292,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2022 Apr;172:103647. doi: 10.1016/j.critrevonc.2022.103647.</div>
+            <div class="reference-finding-statement">Advances in molecular biology have markedly increased our understanding of the heterogeneous molecular landscape of colorectal cancer (CRC).</div>
 
 
-            <div class="reference-finding-supporting">"2022 Apr;172:103647. doi: 10.1016/j.critrevonc.2022.103647."</div>
+            <div class="reference-finding-supporting">"Advances in molecular biology have markedly increased our understanding of the heterogeneous molecular landscape of colorectal cancer (CRC)."</div>
 
 
 
@@ -9079,7 +9318,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2022 Apr;172:103647. doi: 10.1016/j.critrevonc.2022.103647."</div>
+                <div class="evidence-snippet">"Advances in molecular biology have markedly increased our understanding of the heterogeneous molecular landscape of colorectal cancer (CRC)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -9329,10 +9568,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Apr 12;16(1):210-217. doi: 10.1159/000529813. eCollection 2023 Jan-Dec.</div>
+            <div class="reference-finding-statement">&#34;Liquid biopsy&#34; is an established technique for examining circulating tumor DNA (ctDNA) from a routine blood draw and detecting actionable biomarkers.</div>
 
 
-            <div class="reference-finding-supporting">"2023 Apr 12;16(1):210-217. doi: 10.1159/000529813. eCollection 2023 Jan-Dec."</div>
+            <div class="reference-finding-supporting">"&#34;Liquid biopsy&#34; is an established technique for examining circulating tumor DNA (ctDNA) from a routine blood draw and detecting actionable biomarkers."</div>
 
 
 
@@ -9355,7 +9594,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2023 Apr 12;16(1):210-217. doi: 10.1159/000529813. eCollection 2023 Jan-Dec."</div>
+                <div class="evidence-snippet">"&#34;Liquid biopsy&#34; is an established technique for examining circulating tumor DNA (ctDNA) from a routine blood draw and detecting actionable biomarkers."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -9398,10 +9637,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Sep 1;41(25):4143-4153. doi: 10.1200/JCO.22.01420.</div>
+            <div class="reference-finding-statement">BRAFV600E mutation is associated with a poor outcome in metastatic colorectal cancer (mCRC).</div>
 
 
-            <div class="reference-finding-supporting">"2023 Sep 1;41(25):4143-4153. doi: 10.1200/JCO.22.01420."</div>
+            <div class="reference-finding-supporting">"BRAFV600E mutation is associated with a poor outcome in metastatic colorectal cancer (mCRC)."</div>
 
 
 
@@ -9424,7 +9663,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2023 Sep 1;41(25):4143-4153. doi: 10.1200/JCO.22.01420."</div>
+                <div class="evidence-snippet">"BRAFV600E mutation is associated with a poor outcome in metastatic colorectal cancer (mCRC)."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -9536,10 +9775,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024 Apr;20(11):653-663. doi: 10.2217/fon-2022-1249.</div>
+            <div class="reference-finding-statement">Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis.</div>
 
 
-            <div class="reference-finding-supporting">"2024 Apr;20(11):653-663. doi: 10.2217/fon-2022-1249."</div>
+            <div class="reference-finding-supporting">"Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis."</div>
 
 
 
@@ -9562,7 +9801,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024 Apr;20(11):653-663. doi: 10.2217/fon-2022-1249."</div>
+                <div class="evidence-snippet">"Patients with both BRAF V600E mutations and microsatellite instability-high (MSI-H)/mismatch repair-deficient (dMMR) metastatic colorectal cancer (mCRC) have poor prognosis."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -9605,10 +9844,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024 Jan;11(3):e2306535. doi: 10.1002/advs.202306535.</div>
+            <div class="reference-finding-statement">BRAF V600E attracts wide attention in the treatment of colorectal cancer (CRC) as stratifying and predicting a refractory classification of CRC.</div>
 
 
-            <div class="reference-finding-supporting">"2024 Jan;11(3):e2306535. doi: 10.1002/advs.202306535."</div>
+            <div class="reference-finding-supporting">"BRAF V600E attracts wide attention in the treatment of colorectal cancer (CRC) as stratifying and predicting a refractory classification of CRC."</div>
 
 
 
@@ -9631,7 +9870,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024 Jan;11(3):e2306535. doi: 10.1002/advs.202306535."</div>
+                <div class="evidence-snippet">"BRAF V600E attracts wide attention in the treatment of colorectal cancer (CRC) as stratifying and predicting a refractory classification of CRC."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -10019,10 +10258,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2024;28(4):297-303. doi: 10.5114/wo.2024.146953.</div>
+            <div class="reference-finding-statement">The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients.</div>
 
 
-            <div class="reference-finding-supporting">"2024;28(4):297-303. doi: 10.5114/wo.2024.146953."</div>
+            <div class="reference-finding-supporting">"The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients."</div>
 
 
 
@@ -10045,7 +10284,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2024;28(4):297-303. doi: 10.5114/wo.2024.146953."</div>
+                <div class="evidence-snippet">"The BRAFV600E mutation is found in 6-11% of metastatic colo-rectal cancer (mCRC) patients."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -10088,10 +10327,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Mar 1;446(1):114440. doi: 10.1016/j.yexcr.2025.114440.</div>
+            <div class="reference-finding-statement">BRAF, a fundamental component of cellular signaling pathways regulating growth and survival, is frequently mutated in cancer development.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Mar 1;446(1):114440. doi: 10.1016/j.yexcr.2025.114440."</div>
+            <div class="reference-finding-supporting">"BRAF, a fundamental component of cellular signaling pathways regulating growth and survival, is frequently mutated in cancer development."</div>
 
 
 
@@ -10114,7 +10353,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Mar 1;446(1):114440. doi: 10.1016/j.yexcr.2025.114440."</div>
+                <div class="evidence-snippet">"BRAF, a fundamental component of cellular signaling pathways regulating growth and survival, is frequently mutated in cancer development."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -10157,10 +10396,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Oct 13;26:e950179. doi: 10.12659/AJCR.950179.</div>
+            <div class="reference-finding-statement">Diagnostic Challenges in Sessile Serrated Lesions: Progression to Adenocarcinoma in a High-Risk Patient</div>
 
 
-            <div class="reference-finding-supporting">"2025 Oct 13;26:e950179. doi: 10.12659/AJCR.950179."</div>
+            <div class="reference-finding-supporting">"Sessile serrated lesions (SSLs) are precursors in approximately 20-30% of colorectal cancer (CRC) cases, often characterized by B-Raf proto-oncogene (BRAF) mutations and CpG island methylator phenotype (CIMP), and follow the serrated neoplasia pathway."</div>
 
 
 
@@ -10183,7 +10422,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Oct 13;26:e950179. doi: 10.12659/AJCR.950179."</div>
+                <div class="evidence-snippet">"Sessile serrated lesions (SSLs) are precursors in approximately 20-30% of colorectal cancer (CRC) cases, often characterized by B-Raf proto-oncogene (BRAF) mutations and CpG island methylator phenotype (CIMP), and follow the serrated neoplasia pathway."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -10226,10 +10465,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Dec 19;27(1):8. doi: 10.3390/ijms27010008.</div>
+            <div class="reference-finding-statement">Circulating tumor DNA (ctDNA) analysis offers a non-invasive approach to molecular profiling.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Dec 19;27(1):8. doi: 10.3390/ijms27010008."</div>
+            <div class="reference-finding-supporting">"Circulating tumor DNA (ctDNA) analysis offers a non-invasive approach to molecular profiling."</div>
 
 
 
@@ -10252,7 +10491,7 @@ references:
 
                 </div>
 
-                <div class="evidence-snippet">"2025 Dec 19;27(1):8. doi: 10.3390/ijms27010008."</div>
+                <div class="evidence-snippet">"Circulating tumor DNA (ctDNA) analysis offers a non-invasive approach to molecular profiling."</div>
 
 
                 <div class="evidence-explanation">Deep research cited this publication as relevant literature for BRAF V600E Mutant Colorectal Cancer.</div>
@@ -12329,7 +12568,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "BRAF V600E-Mutant Colorectal Cancer", "mondoId": "MONDO:0005575", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF_V600E-Mutant_Colorectal_Cancer", "yamlRevision": "9eea9b11a9a8"};
+        const OS_CONFIG = {"diseaseName": "BRAF V600E-Mutant Colorectal Cancer", "mondoId": "MONDO:0005575", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "BRAF_V600E-Mutant_Colorectal_Cancer", "yamlRevision": "c12c41631beb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

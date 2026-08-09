@@ -1,3 +1,14 @@
+---
+provider: claude-code
+model: claude-opus-5
+disease_name: WAPL-Related Developmental Disorder
+target_entry: kb/disorders/WAPL-Related_Developmental_Disorder.yaml
+search_backend: NCBI E-utilities (esearch + esummary), PubMed
+date: '2026-08-05'
+pull_request: monarch-initiative/dismech#7730
+artifacts: []
+---
+
 # WAPL-Related Developmental Disorder — Claude Code literature sweep
 
 - **Target entry:** `kb/disorders/WAPL-Related_Developmental_Disorder.yaml`

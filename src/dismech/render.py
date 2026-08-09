@@ -20,7 +20,12 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
-from dismech.graph import build_causal_graph, generate_mermaid, graph_to_json
+from dismech.graph import (
+    build_causal_graph,
+    generate_mermaid,
+    graph_to_json,
+    iter_variant_items,
+)
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
 from dismech.yaml_io import safe_load, safe_load_path
@@ -379,6 +384,76 @@ def _make_anchor_id(prefix: str, value: str) -> str:
     """Build a stable HTML anchor ID for an in-page object."""
     slug = re.sub(r"[^a-z0-9]+", "-", str(value).casefold()).strip("-")
     return f"{prefix}-{slug or 'item'}"
+
+
+def _claim_anchor_id(base_id: str, used: set[str]) -> str:
+    """Return an unused anchor ID derived from base_id, recording the claim.
+
+    Probes past any suffix a differently-named sibling already took, so
+    "Foo", "Foo", and "Foo 2" cannot all land on the same ID.
+    """
+    anchor_id = base_id
+    occurrence = 1
+    while anchor_id in used:
+        occurrence += 1
+        anchor_id = f"{base_id}-{occurrence}"
+    used.add(anchor_id)
+    return anchor_id
+
+
+# Sections whose cards are reachable as pathograph nodes. The second element
+# must match the node_type emitted by dismech.graph (see graph.NODE_COLORS), so
+# the pathograph click handler can resolve a node to its card via the
+# data-dismech-node / data-dismech-type attribute pair.
+_CARD_ANCHOR_SECTIONS: tuple[tuple[str, str], ...] = (
+    ("phenotypes", "phenotype"),
+    ("environmental", "environmental"),
+    ("genetic", "genetic"),
+    ("treatments", "treatment"),
+    ("biochemical", "biochemical"),
+)
+
+
+def _annotate_card_anchors(disorder: dict) -> None:
+    """Attach in-page anchor IDs to the cards a pathograph node can point at.
+
+    Pathophysiology, hypothesis, and model cards already get anchors elsewhere;
+    this fills the remaining sections so every pathograph node type has a
+    jump target. IDs are de-duplicated within a section because two items may
+    slugify to the same value.
+    """
+    for section_key, node_type in _CARD_ANCHOR_SECTIONS:
+        items = disorder.get(section_key) or []
+        if not isinstance(items, list):
+            continue
+        used: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not name:
+                continue
+            item["_anchor_id"] = _claim_anchor_id(
+                _make_anchor_id(node_type, str(name)), used
+            )
+
+
+def _annotate_variant_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to variant entries so pathograph nodes can reach them.
+
+    Variants are drawn as ``genetic`` pathograph nodes but live in their own
+    blocks (disease-level ``variants:`` and per-gene ``genetic[].variants:``),
+    so they take a ``variant-`` prefix that cannot collide with a gene's own
+    anchor. Iteration order matches ``graph.iter_variant_items``.
+    """
+    used: set[str] = set()
+    for _parent_name, variant in iter_variant_items(disorder):
+        name = variant.get("name")
+        if not name:
+            continue
+        variant["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("variant", str(name)), used
+        )
 
 
 def _build_semantic_ref_index(disorder: dict) -> dict[str, str]:
@@ -1862,6 +1937,8 @@ def render_disorder(
         disorders_dir=yaml_path.parent,
     )
     _annotate_model_links(disorder)
+    _annotate_card_anchors(disorder)
+    _annotate_variant_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
@@ -3287,13 +3364,71 @@ def _exact_mondo_descendant_terms(
     return descendant_terms, exact_scope_ids, shadowed_ids, None
 
 
+AUDIT_ORDER = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+
+
+def _coverage_conditions_cell(
+    names: list[str],
+    audit: dict[str, list[dict]],
+    *,
+    is_listed: bool,
+) -> dict:
+    """Aggregate a row's membership-criteria verdict into a single cell.
+
+    ``evaluate_grouping`` only evaluates NECESSARY / NECESSARY_AND_SUFFICIENT
+    blocks, so a NOT_SATISFIED verdict for an entry this grouping *lists* as a
+    member is a contradiction between two curated assertions: "D is a member of
+    G" and "every member of G satisfies C". The cell reports that contradiction
+    without interpreting it — the resolution may be to annotate the entry, to
+    loosen the criteria, or to drop the member, and that is a curator's call.
+    """
+    entries = [
+        (name, block) for name in names for block in audit.get(name, []) if block
+    ]
+    if not entries:
+        return {
+            "result": "",
+            "label": "not evaluated",
+            "contradiction": False,
+            "title": "No membership criteria were evaluated for this row.",
+        }
+
+    worst = min(entries, key=lambda item: AUDIT_ORDER.get(item[1].get("result"), 1))[1]
+    result = worst.get("result") or "UNKNOWN"
+    contradiction = is_listed and result == "NOT_SATISFIED"
+
+    details = []
+    for name, block in entries:
+        verdict = (block.get("result") or "UNKNOWN").replace("_", " ").lower()
+        semantics = (block.get("semantics") or "").replace("_", " ").lower()
+        line = f"{name}: {verdict}"
+        if semantics:
+            line += f" ({semantics})"
+        unmet = block.get("unmet") or []
+        if unmet:
+            line += " — unmet: " + "; ".join(unmet)
+        details.append(line)
+    if contradiction:
+        details.append(
+            "Contradiction: listed as a member but a necessary criterion is "
+            "not satisfied."
+        )
+
+    return {
+        "result": result,
+        "label": "contradiction" if contradiction else result.replace("_", " ").lower(),
+        "contradiction": contradiction,
+        "title": " | ".join(details),
+    }
+
+
 def _coverage_criteria_cells(
     names: list[str],
     criteria_columns: list[dict],
     audit: dict[str, list[dict]],
 ) -> list[dict]:
     """Build criteria cells for one coverage row across one or more entries."""
-    order = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+    order = AUDIT_ORDER
     by_key: dict[str, list[dict]] = defaultdict(list)
     for name in names:
         for audit_entry in audit.get(name, []):
@@ -3439,6 +3574,7 @@ def _build_grouping_coverage_rows(
                 "mondo": None,
                 "dismech_entries": [],
                 "criteria_cells": [],
+                "conditions_cell": {},
                 "status": "",
                 "status_label": "",
                 "is_leaf_gap": False,
@@ -3521,6 +3657,13 @@ def _build_grouping_coverage_rows(
     for row in rows.values():
         names = [entry["name"] for entry in row["dismech_entries"]]
         row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["conditions_cell"] = _coverage_conditions_cell(
+            names,
+            audit,
+            is_listed=any(
+                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+            ),
+        )
         row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
         status, status_label = _coverage_status(row, exact_scope_ids)
         row["status"] = status
@@ -3571,6 +3714,9 @@ def _build_grouping_coverage_rows(
         },
         "counts": {
             "rows": len(sorted_rows),
+            "contradictions": sum(
+                1 for r in sorted_rows if r["conditions_cell"].get("contradiction")
+            ),
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
             "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
             "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),

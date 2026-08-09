@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Vitiligo"
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3511,7 +3742,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3524,6 +3755,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3544,6 +3776,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -5444,7 +5684,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Depigmented Patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001053\"}}, {\"id\": \"Increased Sensitivity To Sunlight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000992\"}}], \"edges\": [{\"source\": \"Depigmented Patches\", \"target\": \"Increased Sensitivity To Sunlight\", \"predicate\": \"leads_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Depigmented Patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001053\"}}, {\"id\": \"Increased Sensitivity To Sunlight\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000992\"}}, {\"id\": \"Skin depigmentation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vitiligo produces acquired, progressive cutaneous depigmentation from loss of functional melanocytes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001045\"}}, {\"id\": \"UV Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Promotes the repigmentation process in some cases, but can exacerbate the contrast in others.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Depigmented Patches\", \"target\": \"Increased Sensitivity To Sunlight\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"UV Exposure\", \"target\": \"Skin depigmentation\", \"predicate\": \"protects_against\", \"is_orphan\": false, \"description\": \"Therapeutic ultraviolet phototherapy opposes the depigmented phenotype by driving repigmentation, stimulating melanocyte precursors out of the follicular reservoir to repopulate lesional skin. The target is the depigmentation phenotype rather than the melanocyte-destruction process, because repopulation after destruction is what the cited evidence measures; phototherapy\u0027s separate immunomodulatory action on the autoreactive attack is not evidenced here.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5484,7 +5724,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dry-eye-disease" data-dismech-node="Dry Eye Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dry Eye Disease
 
@@ -5554,7 +5794,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-loss" data-dismech-node="Sensorineural Hearing Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural Hearing Loss
 
@@ -5670,7 +5910,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-uveitis" data-dismech-node="Uveitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Uveitis
 
@@ -5742,7 +5982,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-sensitivity-to-sunlight" data-dismech-node="Increased Sensitivity To Sunlight" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased Sensitivity To Sunlight
 
@@ -5780,7 +6020,7 @@
                     <span class="cat-count">8</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depigmented-patches" data-dismech-node="Depigmented Patches" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depigmented Patches
 
@@ -5896,7 +6136,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-hair-whitening" data-dismech-node="Premature Hair Whitening" data-dismech-type="phenotype">
                     <div class="item-name">
                         Premature Hair Whitening
 
@@ -5959,7 +6199,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-associated-autoimmune-disorders" data-dismech-node="Associated Autoimmune Disorders" data-dismech-type="phenotype">
                     <div class="item-name">
                         Associated Autoimmune Disorders
 
@@ -6058,7 +6298,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depression-anxiety" data-dismech-node="Depression/Anxiety" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depression/Anxiety
 
@@ -6157,7 +6397,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-koebner-phenomenon" data-dismech-node="Koebner Phenomenon" data-dismech-type="phenotype">
                     <div class="item-name">
                         Koebner Phenomenon
 
@@ -6260,7 +6500,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-halo-nevi" data-dismech-node="Halo Nevi" data-dismech-type="phenotype">
                     <div class="item-name">
                         Halo Nevi
 
@@ -6333,7 +6573,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-depigmentation" data-dismech-node="Skin depigmentation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Skin depigmentation
 
@@ -6392,7 +6632,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-leukotrichia" data-dismech-node="Leukotrichia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Leukotrichia
 
@@ -6490,7 +6730,7 @@
                 <span class="card-count">10</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nalp1" data-dismech-node="NALP1" data-dismech-type="genetic">
                 <div class="item-name">
                     NALP1
 
@@ -6556,9 +6796,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tyr" data-dismech-node="TYR" data-dismech-type="genetic">
                 <div class="item-name">
                     TYR
 
@@ -6646,9 +6887,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
                 <div class="item-name">
                     PTPN22
 
@@ -6714,9 +6956,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mc1r" data-dismech-node="MC1R" data-dismech-type="genetic">
                 <div class="item-name">
                     MC1R
 
@@ -6782,9 +7025,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-a" data-dismech-node="HLA-A" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-A
 
@@ -6828,9 +7072,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hla-drb1" data-dismech-node="HLA-DRB1" data-dismech-type="genetic">
                 <div class="item-name">
                     HLA-DRB1
 
@@ -6896,9 +7141,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ifih1" data-dismech-node="IFIH1" data-dismech-type="genetic">
                 <div class="item-name">
                     IFIH1
 
@@ -6942,9 +7188,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
                 <div class="item-name">
                     BACH2
 
@@ -6988,9 +7235,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-irf4" data-dismech-node="IRF4" data-dismech-type="genetic">
                 <div class="item-name">
                     IRF4
 
@@ -7034,9 +7282,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-foxp3" data-dismech-node="FOXP3" data-dismech-type="genetic">
                 <div class="item-name">
                     FOXP3
 
@@ -7080,9 +7329,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7094,7 +7347,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-topical-corticosteroid" data-dismech-node="Topical Corticosteroid" data-dismech-type="treatment">
                 <div class="item-name">
                     Topical Corticosteroid
                 </div>
@@ -7218,7 +7471,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-jak-inhibitor-therapy" data-dismech-node="JAK Inhibitor Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     JAK Inhibitor Therapy
                 </div>
@@ -7281,7 +7534,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-phototherapy" data-dismech-node="Phototherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Phototherapy
                 </div>
@@ -7405,7 +7658,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-skin-graft" data-dismech-node="Skin Graft" data-dismech-type="treatment">
                 <div class="item-name">
                     Skin Graft
                 </div>
@@ -7529,7 +7782,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-melanocyte-transplantation" data-dismech-node="Melanocyte Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Melanocyte Transplantation
                 </div>
@@ -7651,7 +7904,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-monobenzone-cream" data-dismech-node="Monobenzone Cream" data-dismech-type="treatment">
                 <div class="item-name">
                     Monobenzone Cream
                 </div>
@@ -7779,7 +8032,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-uv-exposure" data-dismech-node="UV Exposure" data-dismech-type="environmental">
                 <div class="item-name">UV Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7800,6 +8053,8 @@
 
                 </div>
 
+
+                <div class="item-desc">Curation note: the evidence collected under this entry is entirely therapeutic ultraviolet phototherapy rather than an environmental exposure, so this arguably belongs under treatments rather than environmental. Kept here pending a curator decision; its pathograph link is modelled as protective accordingly.</div>
 
 
                 <div class="item-desc">Promotes the repigmentation process in some cases, but can exacerbate the contrast in others.</div>
@@ -7883,9 +8138,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PROTECTS_AGAINST
+                        </span>
+
+                        <strong style="color: #115e59;">Skin depigmentation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Therapeutic ultraviolet phototherapy opposes the depigmented phenotype by driving repigmentation, stimulating melanocyte precursors out of the follicular reservoir to repopulate lesional skin. The target is the depigmentation phenotype rather than the melanocyte-destruction process, because repopulation after destruction is what the cited evidence measures; phototherapy&#39;s separate immunomodulatory action on the autoreactive attack is not evidenced here.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34245476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34245476" target="_blank">PMID:34245476</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Targeted phototherapy with EL demonstrated better repigmenting efficacy than TUVB in vitiligo."</div>
+
+
+                <div class="evidence-explanation">Reports repigmenting efficacy for targeted ultraviolet phototherapy in vitiligo, an effect opposing the melanocyte loss this node describes.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-stress" data-dismech-node="Stress" data-dismech-type="environmental">
                 <div class="item-name">Stress</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7982,9 +8290,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-chemical-exposure" data-dismech-node="Chemical Exposure" data-dismech-type="environmental">
                 <div class="item-name">Chemical Exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -8088,6 +8397,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -8102,7 +8412,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-autoantibodies-to-melanocytes" data-dismech-node="Autoantibodies to Melanocytes" data-dismech-type="biochemical">
                 <div class="item-name">
                     Autoantibodies to Melanocytes
 
@@ -8149,7 +8459,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-inflammatory-cytokines" data-dismech-node="Inflammatory Cytokines" data-dismech-type="biochemical">
                 <div class="item-name">
                     Inflammatory Cytokines
 
@@ -8227,6 +8537,216 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptomic profiling of vitiligo patients shows polar immune dysregulation in involved and uninvolved skin
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE298871" target="_blank">geo:GSE298871</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Background: Vitiligo is a chronic autoimmune skin depigmenting disorder, with a major impact on quality of life. Therapeutic options are still limited, with only one topical JAK inhibitor being FDA-approved. Although vitiligo is primarily regarded as a Th1/IFN-driven disease, emerging evidence suggests the involvement of additional immune axes, but their relevance to disease pathogenesis remains unclear. Objective: To obtain a global cutaneous transcriptomic profile of lesional and nonlesional vitiligo. Results: Robust inflammatory dysregulation was captured not only in lesional, but also nonlesional vitiligo skin relative to healthy controls.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=17</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40513622" target="_blank" style="color: var(--secondary);">PMID:40513622</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Vitiligo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Single-Cell Transcriptomics Reveals Peripheral Immune Responses in Non-Segmental Vitiligo
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE231794" target="_blank">geo:GSE231794</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Vitiligo is a common autoimmune depigmented dermatology due to the destruction of melanocytes. Much evidence suggests that vitiligo is associated with systemic immune activation. Previous studies have focused on immune cell infiltration in and around lesion areas, while few studies have investigated the cell types and function of circulating immune cells in peripheral blood. We collected peripheral blood from five patients with progressive non-segmental vitiligo (PV) and three healthy controls (HC).Single-cell RNA sequencing(scRNA-seq) is used to investigate the mechanisms of peripheral immune responses in vitiligo patients.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=8</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38077333" target="_blank" style="color: var(--secondary);">PMID:38077333</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Vitiligo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Increased expression of LOC100506314 in T cells from patients with vitiligo and contributed to the pathogenesis of vitiligo
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE205751" target="_blank">geo:GSE205751</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The aim of this study was to investigate the differential expression of long non-coding RNAs (lncRNAs) in T cells from patients with vitiligo and their roles in the pathogenesis of vitiligo. The expression profiles of the RNA transcripts in T cells from three patients with vitiligo and three controls were conducted using microarray analysis. These aberrantly-expressed genes were further validated using T cells from 41 patients with vitiligo and 28 controls. The biologic function of the specific lncRNAs was investigated using transfection, RNA pull-down assay plus proteomic approach and Western blotting.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37731844" target="_blank" style="color: var(--secondary);">PMID:37731844</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Vitiligo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Exome sequencing data for 40 cases of alopecia areata and vitiligo
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001003831" target="_blank">ega:EGAS00001003831</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Sequencing of independent unrelated cases of alopecia areata (total/ universal) and vitiligo (&gt;10%, affected family member). DNA obtained from blood</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Vitiligo&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Immune control of functional memory CD8 T cells in normal-appearing vitiligo skin
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000001317" target="_blank">ega:EGAS50000001317</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This study aimed to characterize immune cell states in nonlesional (NL) and perilesional (PL) skin of patients with vitiligo using single-cell RNA sequencing. Shared CD8⁺ T cell clusters were detected in both regions, with PL-derived cells enriched for immune activation pathways and NL skin showed stronger infiltration of regulatory T cells. These findings reveal functional T cell heterogeneity in vitiligo and highlight regulatory mechanisms that may limit depigmentation in NL skin.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Vitiligo&#34;); description-level mentions were not accepted. EGA study_type: Transcriptome Analysis. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -9040,6 +9560,33 @@ genetic:
     explanation: This study found that FOXP3 expression is significantly reduced in regulatory T cells of vitiligo patients, and identified FOXP3 promoter polymorphisms associated with disease susceptibility.
 environmental:
 - name: UV Exposure
+  notes: &gt;-
+    Curation note: the evidence collected under this entry is entirely
+    therapeutic ultraviolet phototherapy rather than an environmental exposure,
+    so this arguably belongs under treatments rather than environmental. Kept
+    here pending a curator decision; its pathograph link is modelled as
+    protective accordingly.
+  influences_mechanisms:
+  - target: Skin depigmentation
+    environmental_effect: PROTECTS_AGAINST
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Therapeutic ultraviolet phototherapy opposes the depigmented phenotype by
+      driving repigmentation, stimulating melanocyte precursors out of the
+      follicular reservoir to repopulate lesional skin. The target is the
+      depigmentation phenotype rather than the melanocyte-destruction process,
+      because repopulation after destruction is what the cited evidence
+      measures; phototherapy&#39;s separate immunomodulatory action on the
+      autoreactive attack is not evidenced here.
+    evidence:
+    - reference: PMID:34245476
+      reference_title: &#34;Is targeted UVB as effective as excimer light phototherapy in treatment of vitiligo?&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Targeted phototherapy with EL demonstrated better repigmenting efficacy than TUVB in vitiligo.&#34;
+      explanation: &gt;-
+        Reports repigmenting efficacy for targeted ultraviolet phototherapy in
+        vitiligo, an effect opposing the melanocyte loss this node describes.
   description: Promotes the repigmentation process in some cases, but can exacerbate the contrast in others.
   evidence:
   - reference: PMID:29124690
@@ -9597,6 +10144,62 @@ references:
 - reference: DOI:10.3390/life15050684
   title: &#39;Comprehensive Overview of Cytokine Interplay in Vitiligo: A Decade of Meta-Analyses Systematically Reviewed&#39;
   findings: []
+datasets:
+- accession: geo:GSE298871
+  title: Transcriptomic profiling of vitiligo patients shows polar immune dysregulation in involved and uninvolved skin
+  description: &#39;Background: Vitiligo is a chronic autoimmune skin depigmenting disorder, with a major impact on quality of life. Therapeutic options are still limited, with only one topical JAK inhibitor being FDA-approved. Although vitiligo is primarily regarded as a Th1/IFN-driven disease, emerging evidence suggests the involvement of additional immune axes, but their relevance to disease pathogenesis remains unclear. Objective: To obtain a global cutaneous transcriptomic profile of lesional and nonlesional vitiligo. Results: Robust inflammatory dysregulation was captured not only in lesional, but also nonlesional vitiligo skin relative to healthy controls.&#39;
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 17
+  publication: PMID:40513622
+  notes: Identified by GEO DataSets index search for Vitiligo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE231794
+  title: Single-Cell Transcriptomics Reveals Peripheral Immune Responses in Non-Segmental Vitiligo
+  description: Vitiligo is a common autoimmune depigmented dermatology due to the destruction of melanocytes. Much evidence suggests that vitiligo is associated with systemic immune activation. Previous studies have focused on immune cell infiltration in and around lesion areas, while few studies have investigated the cell types and function of circulating immune cells in peripheral blood. We collected peripheral blood from five patients with progressive non-segmental vitiligo (PV) and three healthy controls (HC).Single-cell RNA sequencing(scRNA-seq) is used to investigate the mechanisms of peripheral immune responses in vitiligo patients.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 8
+  publication: PMID:38077333
+  notes: Identified by GEO DataSets index search for Vitiligo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE205751
+  title: Increased expression of LOC100506314 in T cells from patients with vitiligo and contributed to the pathogenesis of vitiligo
+  description: The aim of this study was to investigate the differential expression of long non-coding RNAs (lncRNAs) in T cells from patients with vitiligo and their roles in the pathogenesis of vitiligo. The expression profiles of the RNA transcripts in T cells from three patients with vitiligo and three controls were conducted using microarray analysis. These aberrantly-expressed genes were further validated using T cells from 41 patients with vitiligo and 28 controls. The biologic function of the specific lncRNAs was investigated using transfection, RNA pull-down assay plus proteomic approach and Western blotting.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 6
+  publication: PMID:37731844
+  notes: Identified by GEO DataSets index search for Vitiligo (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001003831
+  title: Exome sequencing data for 40 cases of alopecia areata and vitiligo
+  description: Sequencing of independent unrelated cases of alopecia areata (total/ universal) and vitiligo (&gt;10%, affected family member). DNA obtained from blood
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Vitiligo&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS50000001317
+  title: Immune control of functional memory CD8 T cells in normal-appearing vitiligo skin
+  description: This study aimed to characterize immune cell states in nonlesional (NL) and perilesional (PL) skin of patients with vitiligo using single-cell RNA sequencing. Shared CD8⁺ T cell clusters were detected in both regions, with PL-derived cells enriched for immune activation pathways and NL skin showed stronger infiltration of regulatory T cells. These findings reveal functional T cell heterogeneity in vitiligo and highlight regulatory mechanisms that may limit depigmentation in NL skin.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Vitiligo&#34;); description-level mentions were not accepted. EGA study_type: Transcriptome Analysis. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -10486,7 +11089,7 @@ Tissue-resident memory T cells (TRM) → chronicity &amp; relapse
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Vitiligo", "mondoId": "MONDO:0008661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vitiligo", "yamlRevision": "55e8692fe97c"};
+        const OS_CONFIG = {"diseaseName": "Vitiligo", "mondoId": "MONDO:0008661", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Vitiligo", "yamlRevision": "4d5f37296a32"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
