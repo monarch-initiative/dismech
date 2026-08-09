@@ -66466,6 +66466,130 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Ebstein Anomaly",
+    "disease_id": "MONDO:0009144",
+    "category": "Complex",
+    "parents": [
+      "Congenital heart defect",
+      "Tricuspid valve disease"
+    ],
+    "creation_date": "2026-08-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "MYH7-LVNC"
+    ],
+    "description": "Ebstein anomaly is a rare congenital malformation of the tricuspid valve and right ventricle in which the septal and posteroinferior leaflets fail to delaminate from the underlying ventricular myocardium during valvulogenesis. The functional leaflet hinge points are displaced apically into the right ventricular cavity, dividing the ventricle into a thin-walled \"atrialized\" proximal portion contiguous with the right atrium and a smaller distal functional chamber. The anterosuperior leaflet is typically large, redundant and fenestrated, with abnormal chordal and muscular attachments that further impair coaptation. The resulting tricuspid regurgitation, right atrial dilation, and right ventricular myopathy produce a clinical spectrum spanning fetal circular shunt and hydrops, neonatal cyanotic heart failure, and incidental diagnosis in an asymptomatic adult. An interatrial communication is present in most patients and permits right-to-left shunting with cyanosis and paradoxical embolism. Discontinuity of the central fibrous body at the abnormal atrioventricular junction leaves accessory atrioventricular pathways, making Ebstein anomaly the congenital heart defect most strongly associated with ventricular pre-excitation; atrial fibrillation and flutter dominate the arrhythmia burden in adults. Cone reconstruction of the tricuspid valve is the contemporary surgical standard, with the Starnes procedure reserved for the unrepairable neonate.\n",
+    "pathophysiology": [
+      "Failure of tricuspid leaflet delamination",
+      "Apical displacement of the functional tricuspid orifice",
+      "Anterosuperior leaflet redundancy and abnormal tethering",
+      "Atrialization of the right ventricle",
+      "Tricuspid regurgitation (haemodynamic lesion)",
+      "Right heart volume overload and progressive dilation",
+      "Right-to-left shunting through an interatrial communication",
+      "Accessory atrioventricular pathway substrate",
+      "Atrial remodelling and atrial tachyarrhythmia",
+      "Fetal circular shunt physiology"
+    ],
+    "cell_types": [
+      "Cardiac valve cell",
+      "Endocardial cell",
+      "Cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000147",
+      "CL:0002350",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Tricuspid valve morphogenesis",
+      "Atrioventricular valve morphogenesis"
+    ],
+    "phenotypes": [
+      "Ebstein anomaly of the tricuspid valve",
+      "Tricuspid regurgitation",
+      "Interatrial communication",
+      "Right ventricular dilatation",
+      "Cardiomegaly",
+      "Cyanosis",
+      "Congestive heart failure",
+      "Exercise intolerance",
+      "Ventricular pre-excitation",
+      "Supraventricular tachycardia",
+      "Right bundle branch block",
+      "Atrial fibrillation",
+      "Hydrops fetalis",
+      "Left ventricular noncompaction"
+    ],
+    "phenotype_categories": [
+      "Structural",
+      "Functional",
+      "Electrophysiological",
+      "Fetal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Integument",
+      "Metabolism",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0010316",
+      "HP:0005180",
+      "HP:0001631",
+      "HP:0005133",
+      "HP:0001640",
+      "HP:0000961",
+      "HP:0001635",
+      "HP:0003546",
+      "HP:0004309",
+      "HP:0004755",
+      "HP:0011710",
+      "HP:0005110",
+      "HP:0001789",
+      "HP:0030682"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MYH7",
+      "1p36 deletion",
+      "8p23.1 deletion (GATA4 region)",
+      "NKX2-5"
+    ],
+    "treatments": [
+      "Cone reconstruction of the tricuspid valve",
+      "Starnes procedure with single-ventricle palliation",
+      "Bidirectional cavopulmonary shunt",
+      "Catheter ablation of accessory pathways",
+      "Concomitant maze procedure",
+      "Medical closure of the patent ductus arteriosus",
+      "Antiarrhythmic pharmacotherapy",
+      "Heart failure pharmacotherapy",
+      "Prostaglandin E1 to maintain ductal patency",
+      "Conservative management and surveillance",
+      "Cardiac transplantation",
+      "Genetic counselling and cascade evaluation"
+    ],
+    "environmental": [
+      "First-trimester maternal lithium exposure",
+      "Advanced maternal age"
+    ],
+    "biochemical": [],
+    "source_file": "Ebstein_Anomaly.yaml",
+    "page_url": "../pages/disorders/Ebstein_Anomaly.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 10,
+    "num_genes": 4,
+    "num_treatments": 12,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Ectodermal Dysplasia and Immunodeficiency 2",
     "disease_id": "MONDO:0012806",
     "category": "Mendelian",
@@ -68788,6 +68912,100 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Epilepsy with Generalized Tonic-Clonic Seizures Alone",
+    "disease_id": "MONDO:0005754",
+    "category": "Complex",
+    "parents": [
+      "Epilepsy",
+      "Neurological Disease"
+    ],
+    "creation_date": "2026-08-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Epilepsy with generalized tonic-clonic seizures alone (EGTCA) is the fourth of the four idiopathic generalized epilepsy syndromes recognized by the ILAE, alongside childhood absence epilepsy, juvenile absence epilepsy, and juvenile myoclonic epilepsy. It is defined negatively as much as positively: generalized tonic-clonic seizures are the sole seizure type, and the presence of absence or myoclonic seizures moves the diagnosis to one of the sibling syndromes. Onset is typically in the second decade. The syndrome was historically called awakening epilepsy or grand mal on awakening because seizures were thought to cluster shortly after waking, but the contemporary ILAE-criteria cohorts do not support that as a majority feature: only about 30% of patients have seizures confined to the two hours after awakening, and roughly a quarter have a mixed diurnal-nocturnal pattern. Sleep deprivation remains the most frequently identified precipitant among patients who can name one, though about half cannot. The EEG background is normal and carries generalized spike-wave discharges; neuroimaging shows no lesion. The mechanism is a heritable, polygenic cortico-thalamocortical hyperexcitability whose seizure output is modulated, though not reliably dominated, by sleep-wake state.",
+    "pathophysiology": [
+      "Polygenic Susceptibility to Generalized Epilepsy",
+      "Cortico-Thalamocortical Excitation-Inhibition Imbalance",
+      "Generalized Hypersynchronous Discharge",
+      "Sleep-Wake State Gating of Seizure Threshold",
+      "Catamenial Gating of Seizure Threshold",
+      "Recruitment of Motor Systems into Tonic-Clonic Output",
+      "Recurrent Unprovoked Generalized Tonic-Clonic Seizures",
+      "Seizure-Related Injury"
+    ],
+    "cell_types": [
+      "Neuron",
+      "GABAergic Neuron",
+      "Thalamic Relay Neuron",
+      "Cortical Pyramidal Neuron",
+      "Corticothalamic Projection Neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000617",
+      "CL:4023068",
+      "CL:0000598",
+      "CL:4023013"
+    ],
+    "biological_processes": [
+      "Regulation of Membrane Potential",
+      "Chemical Synaptic Transmission",
+      "GABA Signaling Pathway",
+      "Circadian Sleep/Wake Cycle"
+    ],
+    "phenotypes": [
+      "Generalized Tonic-Clonic Seizures",
+      "Seizures Confined to the Two Hours After Awakening",
+      "Generalized Spike-Wave Discharges",
+      "Photoparoxysmal EEG Response",
+      "Normal Interictal Neurological and Cognitive Status",
+      "Absence Seizures Absent",
+      "Myoclonic Seizures Absent"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Electrophysiological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002069",
+      "HP:0010850",
+      "HP:0010852",
+      "HP:0002121",
+      "HP:0032794"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "EXCLUDED"
+    ],
+    "genes": [
+      "CLCN2"
+    ],
+    "treatments": [
+      "Valproate",
+      "Levetiracetam",
+      "Lamotrigine",
+      "Sleep hygiene and precipitant avoidance counseling"
+    ],
+    "environmental": [
+      "Sleep deprivation",
+      "Habitual late and unstable sleep pattern"
+    ],
+    "biochemical": [],
+    "source_file": "Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.yaml",
+    "page_url": "../pages/disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Epilepsy with Myoclonic Absences",
@@ -196900,17 +197118,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1907,
-  "total_subtypes": 2931,
-  "total_disorders_and_subtypes": 4838,
-  "total_unique_evidence_sources": 28860,
-  "total_unique_publications": 27020,
+  "total_disorder_pages": 1909,
+  "total_subtypes": 2932,
+  "total_disorders_and_subtypes": 4841,
+  "total_unique_evidence_sources": 28911,
+  "total_unique_publications": 27071,
   "total_unique_disease_categories": 43,
   "total_unique_phenotype_categories": 248,
-  "total_pathographs": 1901,
-  "total_unique_pathological_events": 10378,
+  "total_pathographs": 1903,
+  "total_unique_pathological_events": 10396,
   "total_modules": 121,
-  "total_research_reports": 2152,
+  "total_research_reports": 2154,
   "total_classifications": 10,
   "total_comorbidities": 19,
   "total_groupings": 62
