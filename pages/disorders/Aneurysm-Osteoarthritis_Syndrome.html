@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 33</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Aneurysm-Osteoarthritis%20Syndrome"
@@ -3467,6 +3696,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3499,7 +3730,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3517,7 +3748,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">21</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3536,7 +3767,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">33</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3551,6 +3782,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3561,8 +3793,24 @@
 
 
 
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
 
 
+
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -3956,7 +4204,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smad3-loss-of-function" data-dismech-node="SMAD3 Loss-of-Function" data-dismech-type="pathophysiology">
@@ -3967,6 +4215,42 @@
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMAD3
+
+
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4010,11 +4294,36 @@
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-patient-derived-smad3-fibroblast-and-vascular-smooth-muscle-cell-cultures">Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures</a>
+
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
+
+
+                            <span class="crosslink-desc">Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced PRRX2-Dependent Aortic Microfibril Expression</span>
+
+	                            <span class="crosslink-desc">SMAD3 dysfunction reduces PRRX2 and the smooth-muscle-cell microfibril transcriptional program.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">TGF-beta Signaling Dysregulation</span>
@@ -4028,6 +4337,118 @@
 	                            <span class="crosslink-meta">Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis</span>
 
 	                            <span class="crosslink-desc">The same SMAD3 loss also disrupts TGF-beta-dependent cartilage homeostasis, driving the early-onset osteoarthritis arm.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypertelorism</span>
+
+	                            <span class="crosslink-desc">Hypertelorism is an observed pleiotropic manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Bifid Uvula or Cleft Palate</span>
+
+	                            <span class="crosslink-desc">Palatal/uvular abnormalities are observed pleiotropic manifestations of SMAD3-related LDS3; the intervening developmental mechanism is unresolved.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Scoliosis</span>
+
+	                            <span class="crosslink-desc">Scoliosis is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pectus Deformity</span>
+
+	                            <span class="crosslink-desc">Pectus deformity is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Joint Laxity</span>
+
+	                            <span class="crosslink-desc">Joint laxity is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arachnodactyly</span>
+
+	                            <span class="crosslink-desc">Arachnodactyly is an observed skeletal manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pes Planus</span>
+
+	                            <span class="crosslink-desc">Pes planus is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thin or Translucent Skin</span>
+
+	                            <span class="crosslink-desc">Thin/translucent skin is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Easy Bruising</span>
+
+	                            <span class="crosslink-desc">Easy bruising is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atrophic Scars</span>
+
+	                            <span class="crosslink-desc">Atrophic scarring is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Reduced Bone Mineral Density</span>
+
+	                            <span class="crosslink-desc">Reduced bone mass is observed in SMAD3-related disease, but its causal path from SMAD3 dysfunction is not resolved here.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Atrial Fibrillation</span>
+
+	                            <span class="crosslink-desc">Atrial fibrillation is associated with SMAD3-related AOS, but the intervening mechanism independent of aortic disease remains unresolved.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Left Ventricular Hypertrophy</span>
+
+	                            <span class="crosslink-desc">Left ventricular hypertrophy is associated with SMAD3-related AOS, but the intervening mechanism remains unresolved.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Mitral Valve Prolapse</span>
+
+	                            <span class="crosslink-desc">Mitral valve disease is strongly associated with SMAD3-related LDS3, but the intervening valve-tissue mechanism is not resolved here.</span>
 
 
 	                        </div>
@@ -4060,6 +4481,364 @@
 
 
                 <div class="evidence-explanation">van de Laar et al. identified SMAD3 as the causal gene, encoding an essential mediator of TGF-beta signal transmission.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-prrx2-dependent-aortic-microfibril-expression" data-dismech-node="Reduced PRRX2-Dependent Aortic Microfibril Expression" data-dismech-type="pathophysiology">
+                <div class="item-name">Reduced PRRX2-Dependent Aortic Microfibril Expression</div>
+
+                <div class="item-desc">In a multigenerational SMAD3 p.Arg287Gln family, aortic smooth muscle cells showed reduced expression of microfibril genes and downregulation of PRRX2, a promoter-occupying regulator of five microfibril genes. SMAD3 overexpression rescued both PRRX2 and microfibril expression, defining a directly tested SMAD3-PRRX2-microfibril axis.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMAD3
+
+
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PRRX2
+
+
+    <a href="https://bioregistry.io/hgnc:21338" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21338">hgnc:21338</a>
+
+
+
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        extracellular matrix organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection</span>
+
+	                            <span class="crosslink-desc">Reduced microfibril production leaves elastic fibers poorly sheathed and separates smooth muscle cells from the lamellae.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42273728" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273728" target="_blank">PMID:42273728</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"RNA sequencing of Loeys-Dietz syndrome 3 SMCs revealed reduced microfibril gene expression."</div>
+
+
+                <div class="evidence-explanation">Patient-derived aortic SMC transcriptomics directly supports reduced microfibril-gene expression.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42273728" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273728" target="_blank">PMID:42273728</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SMAD3 overexpression rescued both PRRX2 and microfibril expression."</div>
+
+
+                <div class="evidence-explanation">Rescue by SMAD3 overexpression directly supports the direction of the SMAD3-PRRX2-microfibril regulatory relationship in patient-derived cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-smooth-muscle-to-elastic-lamella-disconnection" data-dismech-node="Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection" data-dismech-type="pathophysiology">
+                <div class="item-name">Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection</div>
+
+                <div class="item-desc">Early human aortic pathology in SMAD3 variant carriers consists of smooth muscle cells separated from elastic lamellae by glycosaminoglycans and elastic fibers that are poorly decorated by multiple microfibril proteins, even while lamellar structure and SMC content remain relatively intact.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        vascular smooth muscle cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        extracellular matrix organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aortic Medial Degeneration and Wall Weakening</span>
+
+	                            <span class="crosslink-desc">Loss of smooth-muscle-to-elastic-lamella coupling and microfibril support creates an early structural vulnerability that contributes to medial degeneration.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42273728" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273728" target="_blank">PMID:42273728</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, early pathology was evident, with SMCs separated from elastic lamellae by a thin layer of glycosaminoglycans. Confocal reconstructions revealed that elastic fibers were poorly decorated by microfibrils, with reduced fibrillin-1, fibrillin-2, microfibril associated glycoprotein-2,..."</div>
+
+
+                <div class="evidence-explanation">Direct analysis of surgically obtained human aortas identifies an early tissue lesion preceding gross lamellar destruction.</div>
 
 
 
@@ -4333,6 +5112,23 @@
 
 
 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Experimental models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#experimental-model-patient-derived-smad3-fibroblast-and-vascular-smooth-muscle-cell-cultures">Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures</a>
+
+                            <span class="crosslink-meta">PRIMARY CELL CULTURE</span>
+
+
+                            <span class="crosslink-desc">Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.</span>
+
+                        </div>
+
+                    </div>
+                </div>
+
 
 
 	                <div class="crosslink-block">
@@ -4496,6 +5292,38 @@
 
 	                        </div>
 
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Thoracic Aortic Aneurysm</span>
+
+	                            <span class="crosslink-desc">Progressive aortic wall weakening produces thoracic, usually root, aneurysm.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arterial Tortuosity</span>
+
+	                            <span class="crosslink-desc">Diffuse arteriopathy produces tortuosity throughout the arterial tree.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Cerebral (Intracranial) Aneurysm</span>
+
+	                            <span class="crosslink-desc">The generalized arteriopathy includes intracranial arteries.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Visceral and Iliac Artery Aneurysm</span>
+
+	                            <span class="crosslink-desc">The generalized arteriopathy includes visceral and iliac arteries.</span>
+
+
+	                        </div>
+
 	                    </div>
 	                </div>
 
@@ -4584,6 +5412,21 @@
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Aortic Dissection</span>
+
+	                            <span class="crosslink-desc">This clinical phenotype is the direct manifestation of the modeled dissection event.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -4750,6 +5593,29 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Early-Onset Osteoarthritis</span>
+
+	                            <span class="crosslink-desc">Cartilage dysregulation manifests as premature osteoarthritis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Osteochondritis Dissecans</span>
+
+	                            <span class="crosslink-desc">Osteochondritis dissecans is part of the characteristic early joint-disease spectrum accompanying cartilage dysregulation.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -4911,7 +5777,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiotensin Receptor Blocker Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin receptor blockers (e.g., losartan) are used to reduce hemodynamic stress and are hypothesized to attenuate dysregulated TGF-beta signaling in the aortic wall.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The weakened, aneurysmal arterial wall is prone to dissection and rupture. A clinically critical feature shared with other Loeys-Dietz subtypes is that dissection can occur at smaller aortic diameters and at younger ages than in Marfan syndrome, and vascular disease is not limited to the aortic root.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"vascular smooth muscle cell\"]}}, {\"id\": \"Aortic Medial Degeneration and Wall Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling together with the underlying connective tissue defect produces medial degeneration of the aortic wall. In the Smad3-null model the dominant findings are medial elastin (elastic fiber) disruption and adventitial inflammation with matrix metalloproteinase activation concentrated in inflammatory areas, progressively weakening the wall; this inflammatory, MMP-driven route is a notable AOS-specific feature.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\", \"macrophage\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hallmark that distinguishes aneurysm-osteoarthritis syndrome from other aneurysm syndromes is prominent early-onset osteoarthritis, frequently with osteochondritis dissecans. SMAD3 is essential for TGF-beta-mediated regulation of chondrocyte differentiation and cartilage homeostasis, so its disruption promotes cartilage degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"regulation of chondrocyte differentiation\"]}}, {\"id\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated relative to matched controls\", \"term_id\": \"NCIT:C96610\", \"term_label\": \"N-Terminal ProB-type Natriuretic Peptide Measurement\", \"readouts\": [{\"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\"}]}}, {\"id\": \"Progressive Arterial Aneurysm and Tortuosity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive weakening of the arterial wall produces aneurysms and marked tortuosity that, unlike Marfan syndrome, are distributed widely throughout the arterial tree rather than confined to the aortic root.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"SMAD3 Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic variants in SMAD3 disrupt the receptor-regulated SMAD that transduces TGF-beta signals from activated TGF-beta receptors to the nucleus. SMAD3 forms a complex with the co-SMAD SMAD4 and regulates transcription of TGF-beta target genes. Loss of normal SMAD3 function is the conserved genetic trigger for the syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SMAD protein signal transduction\"]}}, {\"id\": \"TGF-beta Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite SMAD3 being a positive transducer of TGF-beta signaling, SMAD3 mutations lead to paradoxically increased expression of key TGF-beta pathway components in the aortic wall, the same dysregulated-TGF-beta signature seen across the heritable thoracic aortic disease syndromes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}], \"edges\": [{\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction paradoxically increases aortic TGF-beta pathway activity.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same SMAD3 loss also disrupts TGF-beta-dependent cartilage homeostasis, driving the early-onset osteoarthritis arm.\"}, {\"source\": \"TGF-beta Signaling Dysregulation\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling drives maladaptive medial remodeling.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"Progressive Arterial Aneurysm and Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wall weakening permits progressive dilation and tortuosity.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aneurysmal, weakened arteries are prone to dissection and rupture.\"}, {\"source\": \"Angiotensin Receptor Blocker Therapy\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Angiotensin Receptor Blocker Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Angiotensin receptor blockers (e.g., losartan) are used to reduce hemodynamic stress and are hypothesized to attenuate dysregulated TGF-beta signaling in the aortic wall.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"losartan\"]}}, {\"id\": \"Aortic Dissection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dissection of the aorta, which may occur at smaller diameters and younger ages than in Marfan syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002647\"}}, {\"id\": \"Aortic Dissection and Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The weakened, aneurysmal arterial wall is prone to dissection and rupture. A clinically critical feature shared with other Loeys-Dietz subtypes is that dissection can occur at smaller aortic diameters and at younger ages than in Marfan syndrome, and vascular disease is not limited to the aortic root.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"vascular smooth muscle cell\"]}}, {\"id\": \"Aortic Medial Degeneration and Wall Weakening\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling together with the underlying connective tissue defect produces medial degeneration of the aortic wall. In the Smad3-null model the dominant findings are medial elastin (elastic fiber) disruption and adventitial inflammation with matrix metalloproteinase activation concentrated in inflammatory areas, progressively weakening the wall; this inflammatory, MMP-driven route is a notable AOS-specific feature.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vascular smooth muscle cell\", \"macrophage\"], \"biological_processes\": [\"extracellular matrix organization\"], \"experimental_models\": [{\"name\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.\"}]}}, {\"id\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early human aortic pathology in SMAD3 variant carriers consists of smooth muscle cells separated from elastic lamellae by glycosaminoglycans and elastic fibers that are poorly decorated by multiple microfibril proteins, even while lamellar structure and SMC content remain relatively intact.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Arachnodactyly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long, slender digits are part of the overlapping LDS skeletal phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001166\"}}, {\"id\": \"Arterial Tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tortuosity of arteries throughout the arterial tree, a characteristic feature of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005116\"}}, {\"id\": \"Atrial Fibrillation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial fibrillation is part of the cardiac phenotype of AOS, independent of the aortic disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005110\"}}, {\"id\": \"Atrophic Scars\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dystrophic or atrophic scarring is part of the cutaneous phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001075\"}}, {\"id\": \"Bifid Uvula or Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bifid uvula or cleft palate, a craniofacial marker of Loeys-Dietz syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000193\"}}, {\"id\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hallmark that distinguishes aneurysm-osteoarthritis syndrome from other aneurysm syndromes is prominent early-onset osteoarthritis, frequently with osteochondritis dissecans. SMAD3 is essential for TGF-beta-mediated regulation of chondrocyte differentiation and cartilage homeostasis, so its disruption promotes cartilage degeneration.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"regulation of chondrocyte differentiation\"]}}, {\"id\": \"Cerebral (Intracranial) Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial arterial aneurysms occur as part of the widespread arterial involvement.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0007029\"}}, {\"id\": \"Early-Onset Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature, often generalized osteoarthritis with onset in childhood or early adulthood is the distinctive musculoskeletal hallmark of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002758\"}}, {\"id\": \"Easy Bruising\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Easy bruising accompanies the cutaneous connective-tissue fragility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the eyes, a mild craniofacial feature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Joint Laxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint hypermobility/laxity, which coexists with the degenerative joint disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Left Ventricular Hypertrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is observed as part of the broader cardiac involvement in AOS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001712\"}}, {\"id\": \"Mitral Valve Prolapse\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mitral valve prolapse and other mitral valve abnormalities are reported, and were noted to be prominent in SMAD3-related (type 3) Loeys-Dietz.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001634\"}}, {\"id\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"Elevated relative to matched controls\", \"term_id\": \"NCIT:C96610\", \"term_label\": \"N-Terminal ProB-type Natriuretic Peptide Measurement\", \"readouts\": [{\"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\", \"interpretation\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\"}]}}, {\"id\": \"Osteochondritis Dissecans\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteochondritis dissecans and other joint lesions accompany the early-onset osteoarthritis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010886\"}}, {\"id\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts and vascular smooth muscle cells from individuals with pathogenic/likely pathogenic SMAD3 variants were compared across dominant-negative MH2 and haploinsufficient variant classes. The system resolves variant-class effects on differentiation, smooth-muscle markers, MYH11 isoforms, and extracellular-matrix formation. It is limited by small numbers of patient lines, in-vitro differentiation, and the borderline clinical genotype-event comparisons; it does not reproduce arterial biomechanics, immune recruitment, or longitudinal aneurysm formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular smooth muscle cell\", \"fibroblast\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"conditions\": [\"dominant-negative SMAD3 MH2-domain variants\", \"haploinsufficient SMAD3 variants\", \"control cell lines\"], \"publication\": \"DOI:10.1093/hmg/ddae044\"}}, {\"id\": \"Pectus Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pectus excavatum or carinatum chest wall deformity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000767\"}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flatfoot is a common skeletal manifestation in the SMAD3-related LDS spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001763\"}}, {\"id\": \"Progressive Arterial Aneurysm and Tortuosity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive weakening of the arterial wall produces aneurysms and marked tortuosity that, unlike Marfan syndrome, are distributed widely throughout the arterial tree rather than confined to the aortic root.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Reduced Bone Mineral Density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced bone mass is increasingly recognized in SMAD3-related disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}, {\"id\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a multigenerational SMAD3 p.Arg287Gln family, aortic smooth muscle cells showed reduced expression of microfibril genes and downregulation of PRRX2, a promoter-occupying regulator of five microfibril genes. SMAD3 overexpression rescued both PRRX2 and microfibril expression, defining a directly tested SMAD3-PRRX2-microfibril axis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"genes\": [\"SMAD3\", \"PRRX2\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}, {\"label\": \"PRRX2\", \"id\": \"hgnc:21338\"}]}}, {\"id\": \"SMAD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SMAD3 Loss-of-Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous pathogenic variants in SMAD3 disrupt the receptor-regulated SMAD that transduces TGF-beta signals from activated TGF-beta receptors to the nucleus. SMAD3 forms a complex with the co-SMAD SMAD4 and regulates transcription of TGF-beta target genes. Loss of normal SMAD3 function is the conserved genetic trigger for the syndrome.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"SMAD protein signal transduction\"], \"genes\": [\"SMAD3\"], \"gene_terms\": [{\"label\": \"SMAD3\", \"id\": \"hgnc:6769\"}], \"experimental_models\": [{\"name\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral curvature of the spine, part of the skeletal manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002650\"}}, {\"id\": \"TGF-beta Signaling Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite SMAD3 being a positive transducer of TGF-beta signaling, SMAD3 mutations lead to paradoxically increased expression of key TGF-beta pathway components in the aortic wall, the same dysregulated-TGF-beta signature seen across the heritable thoracic aortic disease syndromes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vascular smooth muscle cell\"], \"biological_processes\": [\"transforming growth factor beta receptor signaling pathway\"]}}, {\"id\": \"Thin or Translucent Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cutaneous fragility with velvety, thin/translucent skin, easy bruising, and dystrophic (atrophic) scars is part of the connective-tissue phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000963\"}}, {\"id\": \"Thoracic Aortic Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysm of the thoracic aorta, typically involving the aortic root, is a core vascular manifestation.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002616\"}}, {\"id\": \"Visceral and Iliac Artery Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Aneurysms are widespread beyond the aorta, prominently involving the visceral (splanchnic) and iliac arteries. The common iliac artery is the most frequently affected branch, followed by superior mesenteric, celiac, and splenic arteries; early elective repair is recommended given very high rupture risk.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:4000067\"}}], \"edges\": [{\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction reduces PRRX2 and the smooth-muscle-cell microfibril transcriptional program.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"SMAD3 dysfunction paradoxically increases aortic TGF-beta pathway activity.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same SMAD3 loss also disrupts TGF-beta-dependent cartilage homeostasis, driving the early-onset osteoarthritis arm.\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypertelorism is an observed pleiotropic manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Bifid Uvula or Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Palatal/uvular abnormalities are observed pleiotropic manifestations of SMAD3-related LDS3; the intervening developmental mechanism is unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scoliosis is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Pectus Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pectus deformity is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Joint Laxity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint laxity is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Arachnodactyly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arachnodactyly is an observed skeletal manifestation of SMAD3-related LDS3; the intervening developmental mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pes planus is an observed skeletal manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Thin or Translucent Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Thin/translucent skin is an observed connective-tissue manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Easy Bruising\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Easy bruising is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Atrophic Scars\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrophic scarring is an observed cutaneous manifestation of SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Reduced Bone Mineral Density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced bone mass is observed in SMAD3-related disease, but its causal path from SMAD3 dysfunction is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Atrial Fibrillation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Atrial fibrillation is associated with SMAD3-related AOS, but the intervening mechanism independent of aortic disease remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Left Ventricular Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left ventricular hypertrophy is associated with SMAD3-related AOS, but the intervening mechanism remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMAD3 Loss-of-Function\", \"target\": \"Mitral Valve Prolapse\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral valve disease is strongly associated with SMAD3-related LDS3, but the intervening valve-tissue mechanism is not resolved here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"target\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced microfibril production leaves elastic fibers poorly sheathed and separates smooth muscle cells from the lamellae.\"}, {\"source\": \"Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of smooth-muscle-to-elastic-lamella coupling and microfibril support creates an early structural vulnerability that contributes to medial degeneration.\"}, {\"source\": \"TGF-beta Signaling Dysregulation\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated TGF-beta signaling drives maladaptive medial remodeling.\"}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"Progressive Arterial Aneurysm and Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Wall weakening permits progressive dilation and tortuosity.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Aortic Dissection and Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aneurysmal, weakened arteries are prone to dissection and rupture.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Thoracic Aortic Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive aortic wall weakening produces thoracic, usually root, aneurysm.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Arterial Tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diffuse arteriopathy produces tortuosity throughout the arterial tree.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Cerebral (Intracranial) Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The generalized arteriopathy includes intracranial arteries.\"}, {\"source\": \"Progressive Arterial Aneurysm and Tortuosity\", \"target\": \"Visceral and Iliac Artery Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The generalized arteriopathy includes visceral and iliac arteries.\"}, {\"source\": \"Aortic Dissection and Rupture\", \"target\": \"Aortic Dissection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical phenotype is the direct manifestation of the modeled dissection event.\"}, {\"source\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"target\": \"Early-Onset Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cartilage dysregulation manifests as premature osteoarthritis.\"}, {\"source\": \"Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis\", \"target\": \"Osteochondritis Dissecans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osteochondritis dissecans is part of the characteristic early joint-disease spectrum accompanying cartilage dysregulation.\"}, {\"source\": \"Angiotensin Receptor Blocker Therapy\", \"target\": \"TGF-beta Signaling Dysregulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"target\": \"SMAD3 Loss-of-Function\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures\", \"target\": \"Aortic Medial Degeneration and Wall Weakening\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Aortic Medial Degeneration and Wall Weakening\", \"target\": \"N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Higher NT-proBNP tracks with higher aortic pulse wave velocity (increased aortic stiffness), making it a candidate circulating correlate of the degenerated, stiffened aortic wall. This is an observed correlation in a single cohort, not a validated surrogate endpoint.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"MONITORING\"}, {\"source\": \"SMAD3\", \"target\": \"Reduced PRRX2-Dependent Aortic Microfibril Expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMAD3\", \"target\": \"SMAD3 Loss-of-Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4924,23 +5790,27 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">16</span>
+                <span class="card-count">21</span>
             </div>
 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(5)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4949,11 +5819,79 @@
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-easy-bruising" data-dismech-node="Easy Bruising" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Easy Bruising
+
+
+                    <span class="phenotype-id">
+                        Bruising susceptibility
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000978">HP:0000978</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cutaneous findings (velvety and translucent skin, easy bruising, and dystrophic scars)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly lists easy bruising among LDS cutaneous findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thoracic-aortic-aneurysm" data-dismech-node="Thoracic Aortic Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thoracic Aortic Aneurysm
 
@@ -5036,7 +5974,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aortic-dissection" data-dismech-node="Aortic Dissection" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aortic Dissection
 
@@ -5095,7 +6033,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arterial-tortuosity" data-dismech-node="Arterial Tortuosity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arterial Tortuosity
 
@@ -5178,7 +6116,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-intracranial-aneurysm" data-dismech-node="Cerebral (Intracranial) Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral (Intracranial) Aneurysm
 
@@ -5281,7 +6219,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-fibrillation" data-dismech-node="Atrial Fibrillation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atrial Fibrillation
 
@@ -5342,7 +6280,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-hypertrophy" data-dismech-node="Left Ventricular Hypertrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Left Ventricular Hypertrophy
 
@@ -5403,7 +6341,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-prolapse" data-dismech-node="Mitral Valve Prolapse" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral Valve Prolapse
 
@@ -5428,7 +6366,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5476,6 +6414,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:38508323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38508323" target="_blank">PMID:38508323</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was significant intrafamilial phenotypic variability within the cohort with the predominant cardiovascular abnormality being mitral valve disease followed by aortic disease."</div>
+
+
+                <div class="evidence-explanation">An independently ascertained 2024 family cohort confirms that mitral valve disease can predominate and emphasizes intrafamilial variability.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5488,14 +6448,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertelorism" data-dismech-node="Hypertelorism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertelorism
 
@@ -5556,14 +6516,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-uvula-or-cleft-palate" data-dismech-node="Bifid Uvula or Cleft Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bifid Uvula or Cleft Palate
 
@@ -5624,14 +6584,14 @@
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-or-translucent-skin" data-dismech-node="Thin or Translucent Skin" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin or Translucent Skin
 
@@ -5690,16 +6650,202 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrophic-scars" data-dismech-node="Atrophic Scars" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Atrophic Scars
+
+
+                    <span class="phenotype-id">
+                        Atrophic scars
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001075" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001075">HP:0001075</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cutaneous findings (velvety and translucent skin, easy bruising, and dystrophic scars)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly lists dystrophic scarring among LDS cutaneous findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arachnodactyly" data-dismech-node="Arachnodactyly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arachnodactyly
+
+
+                    <span class="phenotype-id">
+                        Arachnodactyly
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001166">HP:0001166</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loeys-Dietz syndrome (LDS) is characterized by vascular findings (cerebral, thoracic, and abdominal arterial aneurysms and/or dissections), skeletal manifestations (pectus excavatum or pectus carinatum, scoliosis, joint laxity, arachnodactyly, talipes equinovarus, and cervical spine malformation..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists arachnodactyly among LDS skeletal manifestations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes Planus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pes Planus
+
+
+                    <span class="phenotype-id">
+                        Pes planus
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001763">HP:0001763</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Assess for skeletal deformity, joint manifestations, pes planus, hernia, and allergic and inflammatory manifestations at each visit or as needed."</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly includes pes planus in LDS surveillance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-early-onset-osteoarthritis" data-dismech-node="Early-Onset Osteoarthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Early-Onset Osteoarthritis
 
@@ -5811,7 +6957,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
@@ -5870,7 +7016,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-deformity" data-dismech-node="Pectus Deformity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Deformity
 
@@ -5929,7 +7075,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-laxity" data-dismech-node="Joint Laxity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Joint Laxity
 
@@ -5969,7 +7115,7 @@
 
                 </div>
 
-                <div class="evidence-snippet">"scoliosis, joint laxity, arachnodactyly"</div>
+                <div class="evidence-snippet">"Loeys-Dietz syndrome (LDS) is characterized by vascular findings (cerebral, thoracic, and abdominal arterial aneurysms and/or dissections), skeletal manifestations (pectus excavatum or pectus carinatum, scoliosis, joint laxity, arachnodactyly, talipes equinovarus, and cervical spine malformation..."</div>
 
 
                 <div class="evidence-explanation">Joint laxity is listed among the skeletal manifestations of LDS.</div>
@@ -5988,16 +7134,75 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-bone-mineral-density" data-dismech-node="Reduced Bone Mineral Density" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced Bone Mineral Density
+
+
+                    <span class="phenotype-id">
+                        Reduced bone mineral density
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004349">HP:0004349</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32154675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32154675" target="_blank">PMID:32154675</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data underline the high prevalence of decreased bone mass in SRD and more generally in TGFβvs (Kirmani et al., 2010) that can become an important issue in patients care."</div>
+
+
+                <div class="evidence-explanation">A SMAD3 cohort/review reports a high prevalence of reduced bone mass; frequency is omitted because the quoted sentence does not provide a band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-visceral-and-iliac-artery-aneurysm" data-dismech-node="Visceral and Iliac Artery Aneurysm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Visceral and Iliac Artery Aneurysm
 
@@ -6080,7 +7285,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteochondritis-dissecans" data-dismech-node="Osteochondritis Dissecans" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteochondritis Dissecans
 
@@ -6178,7 +7383,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad3" data-dismech-node="SMAD3" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD3
 
@@ -6210,7 +7415,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -6281,13 +7486,19 @@
             </div>
 
 
+            <div class="evidence-more">+ 1 more reference</div>
+
         </div>
     </details>
+
 
 
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6299,7 +7510,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-angiotensin-receptor-blocker-therapy" data-dismech-node="Angiotensin Receptor Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Angiotensin Receptor Blocker Therapy
                 </div>
@@ -6411,7 +7622,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-adrenergic-blocker-therapy" data-dismech-node="Beta-Adrenergic Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta-Adrenergic Blocker Therapy
                 </div>
@@ -6505,7 +7716,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prophylactic-aortic-and-arterial-surgery" data-dismech-node="Prophylactic Aortic and Arterial Surgery" data-dismech-type="treatment">
                 <div class="item-name">
                     Prophylactic Aortic and Arterial Surgery
                 </div>
@@ -6605,9 +7816,9 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-avoidance-of-contact-competitive-and-isometric-exercise" data-dismech-node="Avoidance of Contact, Competitive, and Isometric Exercise" data-dismech-type="treatment">
                 <div class="item-name">
-                    Arterial-Tree Imaging Surveillance
+                    Avoidance of Contact, Competitive, and Isometric Exercise
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -6641,7 +7852,7 @@
 
 
 
-                <div class="item-desc">Serial echocardiography of the aortic root/ascending aorta plus MR or CT angiography of the entire arterial tree, because vascular disease is not limited to the aortic root. Patients should avoid contact/competitive sports and isometric exercise.</div>
+                <div class="item-desc">Patients should avoid contact and competitive sports and isometric exercise because these activities can impose abrupt hemodynamic stress on a fragile arterial wall.</div>
 
 
 
@@ -6650,31 +7861,9 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Echocardiography to monitor the status of the aortic root and ascending aorta (at least annually) and magnetic resonance angiography or computerized tomography angiography to assess the entire arterial tree"</div>
-
-
-                <div class="evidence-explanation">GeneReviews specifies the surveillance regimen for the whole arterial tree.</div>
-
-
-
-            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -6705,7 +7894,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pregnancy-and-peripartum-aortic-surveillance" data-dismech-node="Pregnancy and Peripartum Aortic Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Pregnancy and Peripartum Aortic Surveillance
                 </div>
@@ -6798,7 +7987,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-n-terminal-pro-b-type-natriuretic-peptide-nt-probnp" data-dismech-node="N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)" data-dismech-type="biochemical">
                 <div class="item-name">
                     N-Terminal Pro-B-Type Natriuretic Peptide (NT-proBNP)
 
@@ -6912,6 +8101,284 @@
 
         <!-- Differential Diagnoses -->
 
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">5</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Aneurysm-Osteoarthritis Syndrome:
+            </p>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Marfan_Syndrome.html">Marfan syndrome</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007947" target="_blank">
+                            MONDO:0007947
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Marfan syndrome overlaps in aortic-root aneurysm, skeletal findings, and autosomal dominant inheritance.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>FBN1-associated ectopia lentis favors Marfan syndrome.</li>
+
+                        <li>The absence of characteristic early-onset osteoarthritis and osteochondritis dissecans favors Marfan syndrome.</li>
+
+                        <li>AOS/LDS can dissect at smaller diameters and has more diffuse arterial involvement; SMAD3 molecular testing distinguishes AOS.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"aortic dissection can occur at smaller aortic diameters and at younger ages than observed in Marfan syndrome; vascular disease is not limited to the aortic root"</div>
+
+
+                <div class="evidence-explanation">Directly states two vascular features distinguishing LDS from Marfan syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Vascular_Ehlers-Danlos_Syndrome.html">Vascular Ehlers-Danlos syndrome</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0017314" target="_blank">
+                            MONDO:0017314
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Vascular Ehlers-Danlos syndrome can also present with arterial aneurysm, dissection or rupture and translucent skin.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>COL3A1 molecular findings favor vascular EDS.</li>
+
+                        <li>Characteristic tissue fragility and hollow-organ rupture favor vascular EDS.</li>
+
+                        <li>SMAD3-related early osteoarthritis and osteochondritis dissecans favor AOS.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Loeys-Dietz_Syndrome.html">Other molecular subtypes of Loeys-Dietz syndrome</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0018954" target="_blank">
+                            MONDO:0018954
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    TGFBR1-, TGFBR2-, TGFB2-, TGFB3-, SMAD2-, and IPO8-related LDS share the diffuse aortopathy and overlapping craniofacial, skeletal, and cutaneous findings.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Identification of a pathogenic variant in SMAD3 establishes LDS3/AOS.</li>
+
+                        <li>Prominent premature osteoarthritis is particularly characteristic of LDS3.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301312" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301312" target="_blank">PMID:20301312</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of LDS is established in (1) a proband with characteristic clinical findings or (2) by the identification of a heterozygous pathogenic variant in SMAD2, SMAD3, TGFB2, TGFB3, TGFBR1, or TGFBR2"</div>
+
+
+                <div class="evidence-explanation">Lists the molecular causes that must be separated within the overlapping dominant LDS spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection.html">Familial thoracic aortic aneurysm and dissection</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0019625" target="_blank">
+                            MONDO:0019625
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Nonsyndromic familial HTAD can present with an autosomal dominant thoracic aneurysm/dissection phenotype without obvious systemic features.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>A pathogenic SMAD3 variant with early osteoarthritis, osteochondritis dissecans, arterial tortuosity, and extra-aortic aneurysms supports syndromic AOS rather than an isolated familial TAAD presentation.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Multiple_Epiphyseal_Dysplasia.html">Multiple epiphyseal dysplasia</a>
+
+
+                    <span class="phenotype-id">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0016648" target="_blank">
+                            MONDO:0016648
+                        </a>
+                    </span>
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Multiple epiphyseal dysplasia is an important musculoskeletal differential when premature generalized osteoarthritis is the presenting complaint.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Epiphyseal dysplasia on skeletal imaging and a causal COMP, MATN3, COL9A1, COL9A2, or COL9A3 variant favor multiple epiphyseal dysplasia.</li>
+
+                        <li>Diffuse aneurysm, dissection, or arterial tortuosity with a pathogenic SMAD3 variant establishes AOS.</li>
+
+                    </ul>
+
+                </div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Datasets -->
 
@@ -6920,6 +8387,292 @@
 
 
         <!-- Experimental Models -->
+
+        <div id="experimental-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fffbeb; color: #f59e0b;">🧫</div>
+                <h2 class="card-title">Experimental Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-patient-derived-smad3-fibroblast-and-vascular-smooth-muscle-cell-cultures" data-dismech-node="Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures" data-dismech-type="experimental_model">
+                <div class="item-name">
+                    Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures
+
+                    <span class="tag tag-exp-model-type">PRIMARY_CELL_CULTURE</span>
+
+
+                </div>
+
+                <div class="item-desc">Primary fibroblasts and vascular smooth muscle cells from individuals with pathogenic/likely pathogenic SMAD3 variants were compared across dominant-negative MH2 and haploinsufficient variant classes. The system resolves variant-class effects on differentiation, smooth-muscle markers, MYH11 isoforms, and extracellular-matrix formation. It is limited by small numbers of patient lines, in-vitro differentiation, and the borderline clinical genotype-event comparisons; it does not reproduce arterial biomechanics, immune recruitment, or longitudinal aneurysm formation.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-condition">dominant-negative SMAD3 MH2-domain variants</span>
+
+                    <span class="tag tag-condition">haploinsufficient SMAD3 variants</span>
+
+                    <span class="tag tag-condition">control cell lines</span>
+
+                </div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-cell">
+
+                        vascular smooth muscle cell
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000359">CL:0000359</a>
+
+
+
+                    </span>
+
+                    <span class="tag tag-cell">
+
+                        fibroblast
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Organism</div>
+                        <div class="model-detail-value">
+
+                            human
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+
+
+
+                        </div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Cell source</div>
+                        <div class="model-detail-value">Primary patient-derived dermal fibroblasts and vascular smooth muscle cells</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Culture</div>
+                        <div class="model-detail-value">Monolayer culture with fibroblast-to-myofibroblast differentiation</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae044" target="_blank" class="curie-chip curie-chip-doi" title="Open DOI:10.1093/hmg/ddae044">DOI:10.1093/hmg/ddae044</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-smad3-loss-of-function">SMAD3 Loss-of-Function</a>
+
+                            <span class="crosslink-desc">Compares functional consequences of dominant-negative and haploinsufficient pathogenic SMAD3 variants.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1093/hmg/ddae044" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae044" target="_blank">DOI:10.1093/hmg/ddae044</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic (P)/likely pathogenic (LP) SMAD3 variants cause Loeys-Dietz syndrome type 3 (LDS3), which is characterized by arterial aneurysms, dissections and tortuosity throughout the vascular system combined with osteoarthritis."</div>
+
+
+                <div class="evidence-explanation">Establishes pathogenic SMAD3 variants as the genetic cause represented by the primary-cell model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#pathophysiology-aortic-medial-degeneration-and-wall-weakening">Aortic Medial Degeneration and Wall Weakening</a>
+
+                            <span class="crosslink-desc">Measures vascular smooth-muscle differentiation and extracellular-matrix outputs relevant to aortic wall homeostasis.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1093/hmg/ddae044" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae044" target="_blank">DOI:10.1093/hmg/ddae044</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DN SMAD3 variant myofibroblasts demonstrated reduced extracellular matrix formation compared to control cell lines."</div>
+
+
+                <div class="evidence-explanation">Directly supports the model&#39;s extracellular-matrix readout relevant to medial wall integrity, without claiming that the culture reproduces the intact aorta.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Dominant-negative and haploinsufficient SMAD3 variants produced distinct differentiation, smooth-muscle-marker, MYH11-isoform, and matrix phenotypes.</div>
+
+
+            <div class="finding-supporting">"Fibroblasts carrying DN SMAD3 variants displayed reduced differentiation potential, contrasting with increased differentiation potential in HI SMAD3 variant fibroblasts."</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1093/hmg/ddae044" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae044" target="_blank">DOI:10.1093/hmg/ddae044</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fibroblasts carrying DN SMAD3 variants displayed reduced differentiation potential, contrasting with increased differentiation potential in HI SMAD3 variant fibroblasts."</div>
+
+
+                <div class="evidence-explanation">Directly states the opposing differentiation phenotypes of the two pathogenic-variant classes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1093/hmg/ddae044" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1093/hmg/ddae044" target="_blank">DOI:10.1093/hmg/ddae044</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A retrospective analysis on clinical data from individuals with a P/LP SMAD3 variant and functional analyses on SMAD3 patient-derived VSMCs and SMAD3 patient-derived fibroblasts, differentiated into myofibroblasts."</div>
+
+
+                <div class="evidence-explanation">Defines the patient-derived primary-cell systems and the fibroblast differentiation design.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -6995,6 +8748,105 @@ definitions:
     explanation: &gt;-
       GeneReviews specifies the molecular and clinical basis for establishing the
       diagnosis, including SMAD3 among the causal genes.
+differential_diagnoses:
+- name: Marfan syndrome
+  description: &gt;-
+    Marfan syndrome overlaps in aortic-root aneurysm, skeletal findings, and
+    autosomal dominant inheritance.
+  distinguishing_features:
+  - FBN1-associated ectopia lentis favors Marfan syndrome.
+  - &gt;-
+    The absence of characteristic early-onset osteoarthritis and
+    osteochondritis dissecans favors Marfan syndrome.
+  - &gt;-
+    AOS/LDS can dissect at smaller diameters and has more diffuse arterial
+    involvement; SMAD3 molecular testing distinguishes AOS.
+  disease_term:
+    preferred_term: Marfan syndrome
+    term:
+      id: MONDO:0007947
+      label: Marfan syndrome
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      aortic dissection can occur at smaller aortic diameters and at younger
+      ages than observed in Marfan syndrome; vascular disease is not limited to
+      the aortic root
+    explanation: &gt;-
+      Directly states two vascular features distinguishing LDS from Marfan
+      syndrome.
+- name: Vascular Ehlers-Danlos syndrome
+  description: &gt;-
+    Vascular Ehlers-Danlos syndrome can also present with arterial aneurysm,
+    dissection or rupture and translucent skin.
+  distinguishing_features:
+  - COL3A1 molecular findings favor vascular EDS.
+  - Characteristic tissue fragility and hollow-organ rupture favor vascular EDS.
+  - &gt;-
+    SMAD3-related early osteoarthritis and osteochondritis dissecans favor AOS.
+  disease_term:
+    preferred_term: vascular Ehlers-Danlos syndrome
+    term:
+      id: MONDO:0017314
+      label: Ehlers-Danlos syndrome, vascular type
+- name: Other molecular subtypes of Loeys-Dietz syndrome
+  description: &gt;-
+    TGFBR1-, TGFBR2-, TGFB2-, TGFB3-, SMAD2-, and IPO8-related LDS share the
+    diffuse aortopathy and overlapping craniofacial, skeletal, and cutaneous
+    findings.
+  distinguishing_features:
+  - Identification of a pathogenic variant in SMAD3 establishes LDS3/AOS.
+  - Prominent premature osteoarthritis is particularly characteristic of LDS3.
+  disease_term:
+    preferred_term: Loeys-Dietz syndrome
+    term:
+      id: MONDO:0018954
+      label: Loeys-Dietz syndrome
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The diagnosis of LDS is established in (1) a proband with characteristic
+      clinical findings or (2) by the identification of a heterozygous
+      pathogenic variant in SMAD2, SMAD3, TGFB2, TGFB3, TGFBR1, or TGFBR2
+    explanation: &gt;-
+      Lists the molecular causes that must be separated within the overlapping
+      dominant LDS spectrum.
+- name: Familial thoracic aortic aneurysm and dissection
+  description: &gt;-
+    Nonsyndromic familial HTAD can present with an autosomal dominant thoracic
+    aneurysm/dissection phenotype without obvious systemic features.
+  distinguishing_features:
+  - &gt;-
+    A pathogenic SMAD3 variant with early osteoarthritis, osteochondritis
+    dissecans, arterial tortuosity, and extra-aortic aneurysms supports
+    syndromic AOS rather than an isolated familial TAAD presentation.
+  disease_term:
+    preferred_term: familial thoracic aortic aneurysm and aortic dissection
+    term:
+      id: MONDO:0019625
+      label: familial thoracic aortic aneurysm and aortic dissection
+- name: Multiple epiphyseal dysplasia
+  description: &gt;-
+    Multiple epiphyseal dysplasia is an important musculoskeletal differential
+    when premature generalized osteoarthritis is the presenting complaint.
+  distinguishing_features:
+  - &gt;-
+    Epiphyseal dysplasia on skeletal imaging and a causal COMP, MATN3, COL9A1,
+    COL9A2, or COL9A3 variant favor multiple epiphyseal dysplasia.
+  - &gt;-
+    Diffuse aneurysm, dissection, or arterial tortuosity with a pathogenic SMAD3
+    variant establishes AOS.
+  disease_term:
+    preferred_term: multiple epiphyseal dysplasia
+    term:
+      id: MONDO:0016648
+      label: multiple epiphyseal dysplasia
 references:
 - reference: PMID:20301312
   title: &#34;Loeys-Dietz Syndrome.&#34;
@@ -7040,6 +8892,11 @@ pathophysiology:
       id: GO:0060395
       label: SMAD protein signal transduction
     modifier: ABNORMAL
+  genes:
+  - preferred_term: SMAD3
+    term:
+      id: hgnc:6769
+      label: SMAD3
   evidence:
   - reference: PMID:21217753
     reference_title: &#34;Mutations in SMAD3 cause a syndromic form of aortic aneurysms and dissections with early-onset osteoarthritis.&#34;
@@ -7052,6 +8909,10 @@ pathophysiology:
       van de Laar et al. identified SMAD3 as the causal gene, encoding an
       essential mediator of TGF-beta signal transmission.
   downstream:
+  - target: Reduced PRRX2-Dependent Aortic Microfibril Expression
+    description: &gt;-
+      SMAD3 dysfunction reduces PRRX2 and the smooth-muscle-cell microfibril
+      transcriptional program.
   - target: TGF-beta Signaling Dysregulation
     description: &gt;-
       SMAD3 dysfunction paradoxically increases aortic TGF-beta pathway
@@ -7060,6 +8921,167 @@ pathophysiology:
     description: &gt;-
       The same SMAD3 loss also disrupts TGF-beta-dependent cartilage
       homeostasis, driving the early-onset osteoarthritis arm.
+  - target: Hypertelorism
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Hypertelorism is an observed pleiotropic manifestation of SMAD3-related
+      LDS3; the intervening developmental mechanism is not resolved here.
+  - target: Bifid Uvula or Cleft Palate
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Palatal/uvular abnormalities are observed pleiotropic manifestations of
+      SMAD3-related LDS3; the intervening developmental mechanism is unresolved.
+  - target: Scoliosis
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Scoliosis is an observed skeletal manifestation of SMAD3-related LDS3;
+      the intervening tissue mechanism is not resolved here.
+  - target: Pectus Deformity
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pectus deformity is an observed skeletal manifestation of SMAD3-related
+      LDS3; the intervening tissue mechanism is not resolved here.
+  - target: Joint Laxity
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Joint laxity is an observed connective-tissue manifestation of
+      SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.
+  - target: Arachnodactyly
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Arachnodactyly is an observed skeletal manifestation of SMAD3-related
+      LDS3; the intervening developmental mechanism is not resolved here.
+  - target: Pes Planus
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Pes planus is an observed skeletal manifestation of SMAD3-related LDS3;
+      the intervening tissue mechanism is not resolved here.
+  - target: Thin or Translucent Skin
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Thin/translucent skin is an observed connective-tissue manifestation of
+      SMAD3-related LDS3; the intervening tissue mechanism is not resolved here.
+  - target: Easy Bruising
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Easy bruising is an observed cutaneous manifestation of SMAD3-related
+      LDS3; the intervening tissue mechanism is not resolved here.
+  - target: Atrophic Scars
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Atrophic scarring is an observed cutaneous manifestation of SMAD3-related
+      LDS3; the intervening tissue mechanism is not resolved here.
+  - target: Reduced Bone Mineral Density
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Reduced bone mass is observed in SMAD3-related disease, but its causal
+      path from SMAD3 dysfunction is not resolved here.
+  - target: Atrial Fibrillation
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Atrial fibrillation is associated with SMAD3-related AOS, but the
+      intervening mechanism independent of aortic disease remains unresolved.
+  - target: Left Ventricular Hypertrophy
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Left ventricular hypertrophy is associated with SMAD3-related AOS, but
+      the intervening mechanism remains unresolved.
+  - target: Mitral Valve Prolapse
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Mitral valve disease is strongly associated with SMAD3-related LDS3, but
+      the intervening valve-tissue mechanism is not resolved here.
+- name: Reduced PRRX2-Dependent Aortic Microfibril Expression
+  biological_scale: CELLULAR
+  description: &gt;-
+    In a multigenerational SMAD3 p.Arg287Gln family, aortic smooth muscle cells
+    showed reduced expression of microfibril genes and downregulation of PRRX2,
+    a promoter-occupying regulator of five microfibril genes. SMAD3
+    overexpression rescued both PRRX2 and microfibril expression, defining a
+    directly tested SMAD3-PRRX2-microfibril axis.
+  genes:
+  - preferred_term: SMAD3
+    term:
+      id: hgnc:6769
+      label: SMAD3
+  - preferred_term: PRRX2
+    term:
+      id: hgnc:21338
+      label: PRRX2
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  biological_processes:
+  - preferred_term: extracellular matrix organization
+    term:
+      id: GO:0030198
+      label: extracellular matrix organization
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:42273728
+    reference_title: &#34;Microfibril Denudation Marks Early Aortic Vulnerability in SMAD3 Variant Carriers: A Multigenerational Study.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      RNA sequencing of Loeys-Dietz syndrome 3 SMCs revealed reduced
+      microfibril gene expression.
+    explanation: &gt;-
+      Patient-derived aortic SMC transcriptomics directly supports reduced
+      microfibril-gene expression.
+  - reference: PMID:42273728
+    reference_title: &#34;Microfibril Denudation Marks Early Aortic Vulnerability in SMAD3 Variant Carriers: A Multigenerational Study.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      SMAD3 overexpression rescued both PRRX2 and microfibril expression.
+    explanation: &gt;-
+      Rescue by SMAD3 overexpression directly supports the direction of the
+      SMAD3-PRRX2-microfibril regulatory relationship in patient-derived cells.
+  downstream:
+  - target: Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection
+    description: &gt;-
+      Reduced microfibril production leaves elastic fibers poorly sheathed and
+      separates smooth muscle cells from the lamellae.
+- name: Aortic Smooth-Muscle-to-Elastic-Lamella Disconnection
+  biological_scale: TISSUE
+  description: &gt;-
+    Early human aortic pathology in SMAD3 variant carriers consists of smooth
+    muscle cells separated from elastic lamellae by glycosaminoglycans and
+    elastic fibers that are poorly decorated by multiple microfibril proteins,
+    even while lamellar structure and SMC content remain relatively intact.
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  biological_processes:
+  - preferred_term: extracellular matrix organization
+    term:
+      id: GO:0030198
+      label: extracellular matrix organization
+    modifier: DECREASED
+  evidence:
+  - reference: PMID:42273728
+    reference_title: &#34;Microfibril Denudation Marks Early Aortic Vulnerability in SMAD3 Variant Carriers: A Multigenerational Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      However, early pathology was evident, with SMCs separated from elastic
+      lamellae by a thin layer of glycosaminoglycans. Confocal reconstructions
+      revealed that elastic fibers were poorly decorated by microfibrils, with
+      reduced fibrillin-1, fibrillin-2, microfibril associated glycoprotein-2,
+      fibulin-1 and fibulin-2.
+    explanation: &gt;-
+      Direct analysis of surgically obtained human aortas identifies an early
+      tissue lesion preceding gross lamellar destruction.
+  downstream:
+  - target: Aortic Medial Degeneration and Wall Weakening
+    description: &gt;-
+      Loss of smooth-muscle-to-elastic-lamella coupling and microfibril support
+      creates an early structural vulnerability that contributes to medial
+      degeneration.
 - name: TGF-beta Signaling Dysregulation
   conforms_to: &#34;aortopathy_tgfbeta_dysregulation#TGF-beta Signaling Dysregulation&#34;
   biological_scale: CELLULAR
@@ -7194,6 +9216,14 @@ pathophysiology:
   downstream:
   - target: Aortic Dissection and Rupture
     description: Aneurysmal, weakened arteries are prone to dissection and rupture.
+  - target: Thoracic Aortic Aneurysm
+    description: Progressive aortic wall weakening produces thoracic, usually root, aneurysm.
+  - target: Arterial Tortuosity
+    description: Diffuse arteriopathy produces tortuosity throughout the arterial tree.
+  - target: Cerebral (Intracranial) Aneurysm
+    description: The generalized arteriopathy includes intracranial arteries.
+  - target: Visceral and Iliac Artery Aneurysm
+    description: The generalized arteriopathy includes visceral and iliac arteries.
 - name: Aortic Dissection and Rupture
   conforms_to: &#34;aortopathy_tgfbeta_dysregulation#Aortic Dissection and Rupture&#34;
   biological_scale: ORGANISM
@@ -7250,6 +9280,11 @@ pathophysiology:
       Aortic dissection was the leading cause of death and occurred at only
       mildly increased aortic diameters, underscoring dissection risk below
       conventional thresholds.
+  downstream:
+  - target: Aortic Dissection
+    description: &gt;-
+      This clinical phenotype is the direct manifestation of the modeled
+      dissection event.
 - name: Cartilage TGF-beta Dysregulation and Early-Onset Osteoarthritis
   biological_scale: TISSUE
   description: &gt;-
@@ -7280,6 +9315,13 @@ pathophysiology:
     explanation: &gt;-
       Establishes early-onset osteoarthritis as the distinctive musculoskeletal
       feature of the syndrome.
+  downstream:
+  - target: Early-Onset Osteoarthritis
+    description: Cartilage dysregulation manifests as premature osteoarthritis.
+  - target: Osteochondritis Dissecans
+    description: &gt;-
+      Osteochondritis dissecans is part of the characteristic early joint-disease
+      spectrum accompanying cartilage dysregulation.
 phenotypes:
 - name: Thoracic Aortic Aneurysm
   category: Cardiovascular
@@ -7580,7 +9622,14 @@ phenotypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      scoliosis, joint laxity, arachnodactyly
+      Loeys-Dietz syndrome (LDS) is characterized by vascular findings
+      (cerebral, thoracic, and abdominal arterial aneurysms and/or dissections),
+      skeletal manifestations (pectus excavatum or pectus carinatum, scoliosis,
+      joint laxity, arachnodactyly, talipes equinovarus, and cervical spine
+      malformation and/or instability), craniofacial features (hypertelorism,
+      strabismus, bifid uvula / cleft palate, and craniosynostosis that can
+      involve any sutures), and cutaneous findings (velvety and translucent
+      skin, easy bruising, and dystrophic scars).
     explanation: &gt;-
       Joint laxity is listed among the skeletal manifestations of LDS.
 - name: Thin or Translucent Skin
@@ -7680,6 +9729,111 @@ phenotypes:
       mitral valve abnormalities (51%)
     explanation: &gt;-
       Mitral valve abnormalities were present in 51% of the AOS cohort.
+  - reference: PMID:38508323
+    reference_title: &#34;Cardiovascular pathology, inheritance and prognosis in a familial cohort of Loeys-Dietz type III.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      There was significant intrafamilial phenotypic variability within the
+      cohort with the predominant cardiovascular abnormality being mitral valve
+      disease followed by aortic disease.
+    explanation: &gt;-
+      An independently ascertained 2024 family cohort confirms that mitral valve
+      disease can predominate and emphasizes intrafamilial variability.
+- name: Arachnodactyly
+  category: Musculoskeletal
+  description: Long, slender digits are part of the overlapping LDS skeletal phenotype.
+  phenotype_term:
+    preferred_term: Arachnodactyly
+    term:
+      id: HP:0001166
+      label: Arachnodactyly
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Loeys-Dietz syndrome (LDS) is characterized by vascular findings
+      (cerebral, thoracic, and abdominal arterial aneurysms and/or dissections),
+      skeletal manifestations (pectus excavatum or pectus carinatum, scoliosis,
+      joint laxity, arachnodactyly, talipes equinovarus, and cervical spine
+      malformation and/or instability), craniofacial features (hypertelorism,
+      strabismus, bifid uvula / cleft palate, and craniosynostosis that can
+      involve any sutures), and cutaneous findings (velvety and translucent
+      skin, easy bruising, and dystrophic scars).
+    explanation: GeneReviews lists arachnodactyly among LDS skeletal manifestations.
+- name: Pes Planus
+  category: Musculoskeletal
+  description: Flatfoot is a common skeletal manifestation in the SMAD3-related LDS spectrum.
+  phenotype_term:
+    preferred_term: Pes planus
+    term:
+      id: HP:0001763
+      label: Pes planus
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Assess for skeletal deformity, joint manifestations, pes planus, hernia,
+      and allergic and inflammatory manifestations at each visit or as needed.
+    explanation: GeneReviews explicitly includes pes planus in LDS surveillance.
+- name: Easy Bruising
+  category: Dermatologic
+  description: Easy bruising accompanies the cutaneous connective-tissue fragility.
+  phenotype_term:
+    preferred_term: Bruising susceptibility
+    term:
+      id: HP:0000978
+      label: Bruising susceptibility
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      cutaneous findings (velvety and translucent skin, easy bruising, and
+      dystrophic scars)
+    explanation: GeneReviews explicitly lists easy bruising among LDS cutaneous findings.
+- name: Atrophic Scars
+  category: Dermatologic
+  description: Dystrophic or atrophic scarring is part of the cutaneous phenotype.
+  phenotype_term:
+    preferred_term: Atrophic scars
+    term:
+      id: HP:0001075
+      label: Atrophic scars
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      cutaneous findings (velvety and translucent skin, easy bruising, and
+      dystrophic scars)
+    explanation: GeneReviews explicitly lists dystrophic scarring among LDS cutaneous findings.
+- name: Reduced Bone Mineral Density
+  category: Musculoskeletal
+  description: Reduced bone mass is increasingly recognized in SMAD3-related disease.
+  phenotype_term:
+    preferred_term: Reduced bone mineral density
+    term:
+      id: HP:0004349
+      label: Reduced bone mineral density
+  evidence:
+  - reference: PMID:32154675
+    reference_title: &#34;Clinical and genetic data of 22 new patients with SMAD3 pathogenic variants and review of the literature.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Our data underline the high prevalence of decreased bone mass in SRD and
+      more generally in TGFβvs (Kirmani et al., 2010) that can become an
+      important issue in patients care.
+    explanation: &gt;-
+      A SMAD3 cohort/review reports a high prevalence of reduced bone mass;
+      frequency is omitted because the quoted sentence does not provide a band.
 
 discussions:
 - discussion_id: arb_tgfbeta_target_uncertainty
@@ -7731,6 +9885,60 @@ discussions:
     Retained rather than deleting the target_mechanisms edge so the open
     question stays visible; a curator may prefer to retarget the edge to the
     hemodynamic-stress node instead.
+
+diagnosis:
+- name: Molecular confirmation of a pathogenic SMAD3 variant
+  diagnosis_term:
+    preferred_term: genetic testing
+    term:
+      id: NCIT:C15709
+      label: Genetic Testing
+  description: &gt;-
+    Sequence analysis with deletion/duplication coverage, usually through a
+    heritable thoracic aortic disease or connective-tissue multigene panel,
+    identifies a heterozygous pathogenic or likely pathogenic SMAD3 variant.
+    A variant of uncertain significance alone does not establish the diagnosis.
+  results: &gt;-
+    A heterozygous pathogenic or likely pathogenic SMAD3 variant in a compatible
+    clinical or family context establishes SMAD3-related LDS3/AOS.
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The diagnosis of LDS is established in (1) a proband with characteristic
+      clinical findings or (2) by the identification of a heterozygous
+      pathogenic variant in SMAD2, SMAD3, TGFB2, TGFB3, TGFBR1, or TGFBR2
+    explanation: &gt;-
+      GeneReviews directly supports molecular confirmation and includes SMAD3.
+- name: Baseline and serial whole-arterial-tree imaging
+  diagnosis_term:
+    preferred_term: Diagnostic Imaging Testing
+    term:
+      id: NCIT:C16502
+      label: Diagnostic Imaging Testing
+  description: &gt;-
+    Echocardiography measures the aortic root and ascending aorta, while
+    contrast CT angiography or MR angiography from head to pelvis identifies
+    extra-aortic aneurysms, dissections, and arterial tortuosity that
+    echocardiography cannot detect.
+  results: &gt;-
+    Aortic-root/ascending-aortic dimensions and the presence, location, and
+    growth of aneurysm, dissection, or tortuosity establish vascular extent and
+    guide surveillance and prophylactic repair.
+  evidence:
+  - reference: PMID:20301312
+    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Echocardiography to monitor the status of the aortic root and ascending
+      aorta (at least annually) and magnetic resonance angiography or
+      computerized tomography angiography to assess the entire arterial tree
+    explanation: &gt;-
+      GeneReviews directly supports combined echocardiographic and complete
+      arterial-tree imaging.
 
 histopathology:
 - name: Aortic Medial Degeneration
@@ -7875,6 +10083,19 @@ genetic:
     explanation: &gt;-
       Genotype-phenotype correlation: MH2-domain missense variants are
       associated with earlier aortic events than haploinsufficiency variants.
+  - reference: DOI:10.1093/hmg/ddae044
+    reference_title: Functional analysis of cell lines derived from SMAD3-related Loeys-Dietz syndrome patients provides insights into genotype-phenotype relation
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Individuals with dominant negative (DN) SMAD3 variant in the MH2 domain
+      exhibited more major events (66.7% vs. 44.0%, P = 0.054), occurring at a
+      younger age compared to those with haploinsufficient (HI) variants.
+    explanation: &gt;-
+      The expanded cohort and patient-cell study supports a possible
+      dominant-negative-versus-haploinsufficient distinction. The reported
+      P=0.054 is borderline, so this is a risk-stratification signal rather than
+      a definitive genotype-prognosis rule.
 progression:
 - phase: Childhood and adolescence
   age_range: Childhood to early adulthood
@@ -8035,12 +10256,11 @@ treatments:
     explanation: &gt;-
       Because dissection occurs at mildly increased diameters in AOS, early
       elective ascending-aorta repair is recommended.
-- name: Arterial-Tree Imaging Surveillance
+- name: Avoidance of Contact, Competitive, and Isometric Exercise
   description: &gt;-
-    Serial echocardiography of the aortic root/ascending aorta plus MR or CT
-    angiography of the entire arterial tree, because vascular disease is not
-    limited to the aortic root. Patients should avoid contact/competitive sports
-    and isometric exercise.
+    Patients should avoid contact and competitive sports and isometric exercise
+    because these activities can impose abrupt hemodynamic stress on a fragile
+    arterial wall.
   therapeutic_modality: BEHAVIORAL
   treatment_term:
     preferred_term: supportive care
@@ -8048,16 +10268,6 @@ treatments:
       id: NCIT:C15747
       label: Supportive Care
   evidence:
-  - reference: PMID:20301312
-    reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &gt;-
-      Echocardiography to monitor the status of the aortic root and ascending
-      aorta (at least annually) and magnetic resonance angiography or
-      computerized tomography angiography to assess the entire arterial tree
-    explanation: &gt;-
-      GeneReviews specifies the surveillance regimen for the whole arterial tree.
   - reference: PMID:20301312
     reference_title: &#34;Loeys-Dietz Syndrome (GeneReviews)&#34;
     supports: SUPPORT
@@ -8125,6 +10335,105 @@ prevalence:
       Provides the only quantitative occurrence anchor for AOS: a ~2% share of
       familial thoracic aortic aneurysm and dissection. Population prevalence
       remains undetermined, so prevalence_class stays UNKNOWN.
+experimental_models:
+- name: Patient-Derived SMAD3 Fibroblast and Vascular Smooth Muscle Cell Cultures
+  description: &gt;-
+    Primary fibroblasts and vascular smooth muscle cells from individuals with
+    pathogenic/likely pathogenic SMAD3 variants were compared across
+    dominant-negative MH2 and haploinsufficient variant classes. The system
+    resolves variant-class effects on differentiation, smooth-muscle markers,
+    MYH11 isoforms, and extracellular-matrix formation. It is limited by small
+    numbers of patient lines, in-vitro differentiation, and the borderline
+    clinical genotype-event comparisons; it does not reproduce arterial
+    biomechanics, immune recruitment, or longitudinal aneurysm formation.
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  cell_types:
+  - preferred_term: vascular smooth muscle cell
+    term:
+      id: CL:0000359
+      label: vascular associated smooth muscle cell
+  - preferred_term: fibroblast
+    term:
+      id: CL:0000057
+      label: fibroblast
+  cell_source: Primary patient-derived dermal fibroblasts and vascular smooth muscle cells
+  culture_system: Monolayer culture with fibroblast-to-myofibroblast differentiation
+  conditions:
+  - dominant-negative SMAD3 MH2-domain variants
+  - haploinsufficient SMAD3 variants
+  - control cell lines
+  publication: DOI:10.1093/hmg/ddae044
+  modeled_mechanisms:
+  - target: SMAD3 Loss-of-Function
+    description: &gt;-
+      Compares functional consequences of dominant-negative and
+      haploinsufficient pathogenic SMAD3 variants.
+    evidence:
+    - reference: DOI:10.1093/hmg/ddae044
+      reference_title: Functional analysis of cell lines derived from SMAD3-related Loeys-Dietz syndrome patients provides insights into genotype-phenotype relation
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Pathogenic (P)/likely pathogenic (LP) SMAD3 variants cause Loeys-Dietz
+        syndrome type 3 (LDS3), which is characterized by arterial aneurysms,
+        dissections and tortuosity throughout the vascular system combined with
+        osteoarthritis.
+      explanation: &gt;-
+        Establishes pathogenic SMAD3 variants as the genetic cause represented
+        by the primary-cell model.
+  - target: Aortic Medial Degeneration and Wall Weakening
+    description: &gt;-
+      Measures vascular smooth-muscle differentiation and extracellular-matrix
+      outputs relevant to aortic wall homeostasis.
+    evidence:
+    - reference: DOI:10.1093/hmg/ddae044
+      reference_title: Functional analysis of cell lines derived from SMAD3-related Loeys-Dietz syndrome patients provides insights into genotype-phenotype relation
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        DN SMAD3 variant myofibroblasts demonstrated reduced extracellular
+        matrix formation compared to control cell lines.
+      explanation: &gt;-
+        Directly supports the model&#39;s extracellular-matrix readout relevant to
+        medial wall integrity, without claiming that the culture reproduces the
+        intact aorta.
+  findings:
+  - statement: &gt;-
+      Dominant-negative and haploinsufficient SMAD3 variants produced distinct
+      differentiation, smooth-muscle-marker, MYH11-isoform, and matrix phenotypes.
+    supporting_text: &gt;-
+      Fibroblasts carrying DN SMAD3 variants displayed reduced differentiation
+      potential, contrasting with increased differentiation potential in HI
+      SMAD3 variant fibroblasts.
+    evidence:
+    - reference: DOI:10.1093/hmg/ddae044
+      reference_title: Functional analysis of cell lines derived from SMAD3-related Loeys-Dietz syndrome patients provides insights into genotype-phenotype relation
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Fibroblasts carrying DN SMAD3 variants displayed reduced differentiation
+        potential, contrasting with increased differentiation potential in HI
+        SMAD3 variant fibroblasts.
+      explanation: &gt;-
+        Directly states the opposing differentiation phenotypes of the two
+        pathogenic-variant classes.
+  evidence:
+  - reference: DOI:10.1093/hmg/ddae044
+    reference_title: Functional analysis of cell lines derived from SMAD3-related Loeys-Dietz syndrome patients provides insights into genotype-phenotype relation
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      A retrospective analysis on clinical data from individuals with a P/LP
+      SMAD3 variant and functional analyses on SMAD3 patient-derived VSMCs and
+      SMAD3 patient-derived fibroblasts, differentiated into myofibroblasts.
+    explanation: &gt;-
+      Defines the patient-derived primary-cell systems and the fibroblast
+      differentiation design.
 datasets: []
 </pre>
             </div>
@@ -8520,7 +10829,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aneurysm-Osteoarthritis Syndrome", "mondoId": "MONDO:0013426", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aneurysm-Osteoarthritis_Syndrome", "yamlRevision": "81ec022159bf"};
+        const OS_CONFIG = {"diseaseName": "Aneurysm-Osteoarthritis Syndrome", "mondoId": "MONDO:0013426", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aneurysm-Osteoarthritis_Syndrome", "yamlRevision": "17d3535f998a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

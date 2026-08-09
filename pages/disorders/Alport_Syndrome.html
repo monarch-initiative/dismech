@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3467,6 +3696,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3527,6 +3758,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3545,6 +3777,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">6</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -5628,7 +5868,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertension" data-dismech-node="Hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertension
 
@@ -5698,7 +5938,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-loss" data-dismech-node="Sensorineural Hearing Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural Hearing Loss
 
@@ -5823,7 +6063,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-opacities" data-dismech-node="Corneal Opacities" data-dismech-type="phenotype">
                     <div class="item-name">
                         Corneal Opacities
 
@@ -5895,7 +6135,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microscopic-hematuria" data-dismech-node="Microscopic Hematuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microscopic Hematuria
 
@@ -5955,7 +6195,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Proteinuria
 
@@ -6060,7 +6300,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-renal-failure" data-dismech-node="Progressive Renal Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Renal Failure
 
@@ -6187,7 +6427,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-segmental-glomerulosclerosis" data-dismech-node="Focal Segmental Glomerulosclerosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Segmental Glomerulosclerosis
 
@@ -6271,7 +6511,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gbm-lamellation" data-dismech-node="GBM Lamellation" data-dismech-type="phenotype">
                     <div class="item-name">
                         GBM Lamellation
 
@@ -6355,7 +6595,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-lenticonus" data-dismech-node="Anterior Lenticonus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anterior Lenticonus
 
@@ -6442,7 +6682,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dot-and-fleck-retinopathy" data-dismech-node="Dot-and-Fleck Retinopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dot-and-Fleck Retinopathy
 
@@ -6505,7 +6745,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diffuse-leiomyomatosis" data-dismech-node="Diffuse Leiomyomatosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diffuse Leiomyomatosis
 
@@ -6604,7 +6844,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-col4a5" data-dismech-node="COL4A5" data-dismech-type="genetic">
                 <div class="item-name">
                     COL4A5
 
@@ -6713,9 +6953,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-col4a3" data-dismech-node="COL4A3" data-dismech-type="genetic">
                 <div class="item-name">
                     COL4A3
 
@@ -6800,9 +7041,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-col4a4" data-dismech-node="COL4A4" data-dismech-type="genetic">
                 <div class="item-name">
                     COL4A4
 
@@ -6887,9 +7129,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6901,7 +7147,7 @@
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ace-inhibitor-therapy" data-dismech-node="ACE Inhibitor Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     ACE Inhibitor Therapy
                 </div>
@@ -7023,7 +7269,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-angiotensin-receptor-blocker-therapy" data-dismech-node="Angiotensin Receptor Blocker Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Angiotensin Receptor Blocker Therapy
                 </div>
@@ -7104,7 +7350,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sglt2-inhibitor-therapy" data-dismech-node="SGLT2 Inhibitor Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     SGLT2 Inhibitor Therapy
                 </div>
@@ -7185,7 +7431,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-renal-replacement-therapy" data-dismech-node="Renal Replacement Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Renal Replacement Therapy
                 </div>
@@ -7266,7 +7512,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-kidney-transplantation" data-dismech-node="Kidney Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Kidney Transplantation
                 </div>
@@ -7394,7 +7640,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hearing-aids-for-sensorineural-hearing-loss" data-dismech-node="Hearing Aids for Sensorineural Hearing Loss" data-dismech-type="treatment">
                 <div class="item-name">
                     Hearing Aids for Sensorineural Hearing Loss
                 </div>
@@ -7447,7 +7693,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cataract-removal-for-ocular-involvement" data-dismech-node="Cataract Removal for Ocular Involvement" data-dismech-type="treatment">
                 <div class="item-name">
                     Cataract Removal for Ocular Involvement
                 </div>
@@ -7527,7 +7773,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-adequate-hydration-renal-agents-circumstances-to-avoid" data-dismech-node="Adequate Hydration (Renal, Agents/Circumstances to Avoid)" data-dismech-type="treatment">
                 <div class="item-name">
                     Adequate Hydration (Renal, Agents/Circumstances to Avoid)
                 </div>
@@ -7607,7 +7853,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corneal-trauma-protection-ocular-agents-circumstances-to-avoid" data-dismech-node="Corneal Trauma Protection (Ocular, Agents/Circumstances to Avoid)" data-dismech-type="treatment">
                 <div class="item-name">
                     Corneal Trauma Protection (Ocular, Agents/Circumstances to Avoid)
                 </div>
@@ -7687,7 +7933,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-loud-noise-avoidance-auditory-agents-circumstances-to-avoid" data-dismech-node="Loud-Noise Avoidance (Auditory, Agents/Circumstances to Avoid)" data-dismech-type="treatment">
                 <div class="item-name">
                     Loud-Noise Avoidance (Auditory, Agents/Circumstances to Avoid)
                 </div>
@@ -7767,7 +8013,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-leiomyoma-surgery-col4a5-col4a6-deletion-subtype" data-dismech-node="Leiomyoma Surgery (COL4A5-COL4A6 Deletion Subtype)" data-dismech-type="treatment">
                 <div class="item-name">
                     Leiomyoma Surgery (COL4A5-COL4A6 Deletion Subtype)
                 </div>
@@ -7860,6 +8106,243 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Transcriptomic profiling of prolonged-culture iPSC-derived kidney organoids and X-linked Alport syndrome organoid models carrying COL4A5 deep-intronic variants
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE281080" target="_blank">geo:GSE281080</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Kidney organoids serve as an invaluable platform for modeling hereditary renal diseases and developing therapeutic interventions. While various kidney organoid differentiation protocols have been developed, the protocol introduced by Morizane et al. was among the first to generate kidney organoids from induced pluripotent stem cells (iPSCs). By using a modified version of this protocol, we successfully generated kidney organoids in 21 days. Most studies on kidney organoids focus on early stages, typically between days 21 and 29, leaving the gene expression dynamics during prolonged culture less explored.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Alport Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    SMPDL3b in Podocytes: Decoupling Proteinuria from CKD Progression in Experimental Alport Syndrome
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE274298" target="_blank">geo:GSE274298</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Alport Syndrome (AS) is a rare genetic disease with impaired production of collagen type IV alpha 3, 4 and 5 chains in the glomerular basement membranes (GBM), which results amongst others in progressive loss of kidney function. In AS, abnormalities in the GBM and associated podocyte detachment may potentially result from the dysregulation of sphingolipid metabolism. Here we investigated whether renal sphingomyelin phosphodiesterase acid-like 3b (SMPDL3b) overexpression modulates the generation of sphingosine-1-phosphate (S1P) and contributes to renal failure in Col4a3 knockout mice, a mouse model of AS.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39684843" target="_blank" style="color: var(--secondary);">PMID:39684843</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Alport Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Evidence that chaperone 4-PBA treatment alleviates the renal phenotype in Alport syndrome mouse models
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE271383" target="_blank">geo:GSE271383</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Total RNA was extracted from glomeruli as described above. RNA quality and quantity were determined by the 2100 Bioanalyzer. RT2 Profiler PCR Array (QIAGEN) is the method used for qPCR assay. This technique takes advantage of real-time PCR performance and combines it with the ability of microarrays to detect the expression of many genes related to UPR pathway simultaneously. Total RNA that was purified from glomeruli which were extracted from mutant and wild type kidneys was measured and then converted into first strand cDNA. qPCR was followed by using the instrument-specific and ready-to-use RT2 qPCR Master Mixes and gene specific primer sets.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+
+                    <span class="tag tag-dataset">n=9</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40484355" target="_blank" style="color: var(--secondary);">PMID:40484355</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Alport Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    HipSci HumanExome BeadChip analysis - Alport Syndrome
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002009" target="_blank">ega:EGAS00001002009</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Genotyping analysis using the Infinium HumanExome BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Alport Syndrome.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Alport Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    HipSci HumanExome BeadChip analysis - Alport syndrome (Manchester)
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002019" target="_blank">ega:EGAS00001002019</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Genotyping analysis using the Infinium HumanExome BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Alport syndrome (Manchester Uni).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Alport Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    HipSci HumanHT 12 Expression BeadChip analysis - Alport syndrome
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002024" target="_blank">ega:EGAS00001002024</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Expression analysis using the Illumina HumanHT -12 Expression BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Alport syndrome.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Alport Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -9432,7 +9915,7 @@ references:
   - statement: Alport syndrome, a rare genetic disorder affecting around 1 in 50,000 individuals, primarily presents as microscopic hematuria and chronic kidney disease (CKD) with associated extrarenal complications.
     supporting_text: Alport syndrome, a rare genetic disorder affecting around 1 in 50,000 individuals, primarily presents as microscopic hematuria and chronic kidney disease (CKD) with associated extrarenal complications.
 - reference: DOI:10.3389/fgene.2023.1059322
-  title: Molecular dynamics and minigene assay of new splicing variant c.4298-20T&amp;gt;A of COL4A5 gene that cause Alport syndrome
+  title: Molecular dynamics and minigene assay of new splicing variant c.4298-20T&gt;A of COL4A5 gene that cause Alport syndrome
   found_in:
   - Alport_Syndrome-deep-research-falcon.md
   findings:
@@ -9457,50 +9940,50 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2002 Feb;160(2):721-30. doi: 10.1016/S0002-9440(10)64892-4.&#39;
-    supporting_text: &#39;2002 Feb;160(2):721-30. doi: 10.1016/S0002-9440(10)64892-4.&#39;
+  - statement: &#39;Alport syndrome is a human hereditary glomerulonephritis which results in end-stage renal failure (ESRF) in most cases.&#39;
+    supporting_text: &#39;Alport syndrome is a human hereditary glomerulonephritis which results in end-stage renal failure (ESRF) in most cases.&#39;
 - reference: PMID:14514738
   title: &#39;X-linked Alport syndrome: natural history and genotype-phenotype correlations in girls and women belonging to 195 families: a &#34;European Community Alport Syndrome Concerted Action&#34; study.&#39;
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2003 Oct;14(10):2603-10. doi: 10.1097/01.asn.0000090034.71205.74.&#39;
-    supporting_text: &#39;2003 Oct;14(10):2603-10. doi: 10.1097/01.asn.0000090034.71205.74.&#39;
+  - statement: &#39;Alport syndrome (AS) is a type IV collagen hereditary disease characterized by progressive hematuric nephritis, hearing loss, and ocular changes.&#39;
+    supporting_text: &#39;Alport syndrome (AS) is a type IV collagen hereditary disease characterized by progressive hematuric nephritis, hearing loss, and ocular changes.&#39;
 - reference: PMID:16895672
   title: &#39;[From Alport syndrome to benign familial hematuria: clinical and genetic aspect].&#39;
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2005 May;1(2):90-100. doi: 10.1016/j.nephro.2005.03.005.&#39;
-    supporting_text: &#39;2005 May;1(2):90-100. doi: 10.1016/j.nephro.2005.03.005.&#39;
+  - statement: &#39;Alport syndrome (AS) is a hereditary glomerulonephritis variably associated with neural hearing loss and ocular abnormalities.&#39;
+    supporting_text: &#39;Alport syndrome (AS) is a hereditary glomerulonephritis variably associated with neural hearing loss and ocular abnormalities.&#39;
 - reference: PMID:17570934
   title: Alport syndrome and thin basement membrane nephropathy.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2007;106(2):c82-8. doi: 10.1159/000101802.&#39;
-    supporting_text: &#39;2007;106(2):c82-8. doi: 10.1159/000101802.&#39;
+  - statement: &#39;Both Alport syndrome and thin basement membrane nephropathy (TBMN) can be considered as genetic diseases of the GBM involving the alpha3/alpha4/alpha5 network of type IV collagen.&#39;
+    supporting_text: &#39;Both Alport syndrome and thin basement membrane nephropathy (TBMN) can be considered as genetic diseases of the GBM involving the alpha3/alpha4/alpha5 network of type IV collagen.&#39;
 - reference: PMID:19536083
   title: &#39;Treatment of Alport syndrome: beyond animal models.&#39;
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2009 Sep;76(6):599-603. doi: 10.1038/ki.2009.223.&#39;
-    supporting_text: &#39;2009 Sep;76(6):599-603. doi: 10.1038/ki.2009.223.&#39;
+  - statement: &#39;Alport syndrome (AS) is a hereditary glomerulopathy due to abnormal composition of the glomerular basement membrane, leading to end-stage renal disease (ESRD).&#39;
+    supporting_text: &#39;Alport syndrome (AS) is a hereditary glomerulopathy due to abnormal composition of the glomerular basement membrane, leading to end-stage renal disease (ESRD).&#39;
 - reference: PMID:20197625
   title: Loss of the BMP antagonist USAG-1 ameliorates disease in a mouse model of the progressive hereditary kidney disease Alport syndrome.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2010 Mar;120(3):768-77. doi: 10.1172/JCI39569.&#39;
-    supporting_text: &#39;2010 Mar;120(3):768-77. doi: 10.1172/JCI39569.&#39;
+  - statement: &#39;The glomerular basement membrane (GBM) is a key component of the filtering unit in the kidney.&#39;
+    supporting_text: &#39;The glomerular basement membrane (GBM) is a key component of the filtering unit in the kidney.&#39;
 - reference: PMID:23236390
   title: Upregulated expression of integrin α1 in mesangial cells and integrin α3 and vimentin in podocytes of Col4a3-null (Alport) mice.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2012;7(12):e50745. doi: 10.1371/journal.pone.0050745.&#39;
-    supporting_text: &#39;2012;7(12):e50745. doi: 10.1371/journal.pone.0050745.&#39;
+  - statement: &#39;Upregulated expression of integrin α1 in mesangial cells and integrin α3 and vimentin in podocytes of Col4a3-null (Alport) mice&#39;
+    supporting_text: &#39;Alport disease in humans, which usually results in proteinuria and kidney failure, is caused by mutations to the COL4A3, COL4A4, or COL4A5 genes, and absence of collagen α3α4α5(IV) networks found in mature kidney glomerular basement membrane (GBM).&#39;
 - reference: PMID:24198271
   title: Antifibrotic, nephroprotective effects of paricalcitol versus calcitriol on top of ACE-inhibitor therapy in the COL4A3 knockout mouse model for progressive renal fibrosis.
   found_in:
@@ -9520,8 +10003,8 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2014 Sep 15;592(18):4013-23. doi: 10.1113/jphysiol.2014.274449.&#39;
-    supporting_text: &#39;2014 Sep 15;592(18):4013-23. doi: 10.1113/jphysiol.2014.274449.&#39;
+  - statement: &#39;The glomerular filtration barrier comprises a fenestrated capillary endothelium, glomerular basement membrane and podocyte slit diaphragm.&#39;
+    supporting_text: &#39;The glomerular filtration barrier comprises a fenestrated capillary endothelium, glomerular basement membrane and podocyte slit diaphragm.&#39;
 - reference: PMID:26628280
   title: &#39;Macroscopic hematuria with normal renal biopsy-following the chain to the diagnosis: Answers.&#39;
   found_in:
@@ -9534,29 +10017,29 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2016 Sep;54(9):669-73. doi: 10.3760/cma.j.issn.0578-1310.2016.09.008. [Analysis of diagnosis and treatment of Alport syndrome]. [Article in Chinese] An XG(1), Zhang YQ, Ding J, Wang F, Xiao HJ, Yao Y.&#39;
-    supporting_text: &#39;2016 Sep;54(9):669-73. doi: 10.3760/cma.j.issn.0578-1310.2016.09.008. [Analysis of diagnosis and treatment of Alport syndrome]. [Article in Chinese] An XG(1), Zhang YQ, Ding J, Wang F, Xiao HJ, Yao Y.&#39;
+  - statement: &#39;To investigate the clinical characteristics and the status of diagnosis and treatment of patients with Alport syndrome in China.&#39;
+    supporting_text: &#39;To investigate the clinical characteristics and the status of diagnosis and treatment of patients with Alport syndrome in China.&#39;
 - reference: PMID:28275241
   title: Characterization of contiguous gene deletions in COL4A6 and COL4A5 in Alport syndrome-diffuse leiomyomatosis.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2017 Jul;62(7):733-735. doi: 10.1038/jhg.2017.28.&#39;
-    supporting_text: &#39;2017 Jul;62(7):733-735. doi: 10.1038/jhg.2017.28.&#39;
+  - statement: &#39;Characterization of contiguous gene deletions in COL4A6 and COL4A5 in Alport syndrome-diffuse leiomyomatosis&#39;
+    supporting_text: &#39;Alport syndrome-diffuse leiomyomatosis (AS-DL, OMIM: 308940) is a rare variant of the X-linked Alport syndrome that shows overgrowth of visceral smooth muscles in the gastrointestinal, respiratory and female reproductive tracts in addition to renal symptoms.&#39;
 - reference: PMID:28515156
   title: Anti-Glomerular Basement Membrane Disease.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2017 Jul 7;12(7):1162-1172. doi: 10.2215/CJN.01380217.&#39;
-    supporting_text: &#39;2017 Jul 7;12(7):1162-1172. doi: 10.2215/CJN.01380217.&#39;
+  - statement: &#39;Anti-glomerular basement membrane (anti-GBM) disease is a rare small vessel vasculitis that affects the capillary beds of the kidneys and lungs.&#39;
+    supporting_text: &#39;Anti-glomerular basement membrane (anti-GBM) disease is a rare small vessel vasculitis that affects the capillary beds of the kidneys and lungs.&#39;
 - reference: PMID:30724107
   title: Endothelial cell-specific collagen type IV-α(3) expression does not rescue Alport syndrome in Col4a3(-)(/-) mice.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2019 May 1;316(5):F830-F837. doi: 10.1152/ajprenal.00556.2018.&#39;
-    supporting_text: &#39;2019 May 1;316(5):F830-F837. doi: 10.1152/ajprenal.00556.2018.&#39;
+  - statement: &#39;The glomerular basement membrane (GBM) is a critical component of the kidney&#39;&#39;s blood filtration barrier.&#39;
+    supporting_text: &#39;The glomerular basement membrane (GBM) is a critical component of the kidney&#39;&#39;s blood filtration barrier.&#39;
 - reference: PMID:3124348
   title: An immunohistochemical and electron microscopic study of extra-renal basement membranes in dogs with Samoyed hereditary glomerulopathy.
   found_in:
@@ -9569,15 +10052,15 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2019;143(4):282-287. doi: 10.1159/000502146.&#39;
-    supporting_text: &#39;2019;143(4):282-287. doi: 10.1159/000502146.&#39;
+  - statement: &#39;Autosomal dominant tubulointerstitial kidney disease due to UMOD (encoding uromodulin) mutation (ADTKD-UMOD) is a rare hereditary disease.&#39;
+    supporting_text: &#39;Autosomal dominant tubulointerstitial kidney disease due to UMOD (encoding uromodulin) mutation (ADTKD-UMOD) is a rare hereditary disease.&#39;
 - reference: PMID:32444091
   title: &#39;Long-term ACE inhibition in Alport syndrome: are the benefits worth the risks?&#39;
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2020 Jun;97(6):1104-1106. doi: 10.1016/j.kint.2020.01.030.&#39;
-    supporting_text: &#39;2020 Jun;97(6):1104-1106. doi: 10.1016/j.kint.2020.01.030.&#39;
+  - statement: &#39;Gross et al. present results of the EARLY PRO-TECT trial, a randomized controlled trial of ramipril versus placebo in children with early-stage Alport syndrome.&#39;
+    supporting_text: &#39;Gross et al. present results of the EARLY PRO-TECT trial, a randomized controlled trial of ramipril versus placebo in children with early-stage Alport syndrome.&#39;
 - reference: PMID:33423643
   title: &#39;Alport Syndrome: A Comprehensive Review on Genetics, Pathophysiology, Histology, Clinical and Therapeutic Perspectives.&#39;
   found_in:
@@ -9590,8 +10073,8 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2021 Oct 21;11(1):20836. doi: 10.1038/s41598-021-00354-y.&#39;
-    supporting_text: &#39;2021 Oct 21;11(1):20836. doi: 10.1038/s41598-021-00354-y.&#39;
+  - statement: &#39;Alport syndrome is an inherited chronic human kidney disease, characterized by glomerular basement membrane abnormalities.&#39;
+    supporting_text: &#39;Alport syndrome is an inherited chronic human kidney disease, characterized by glomerular basement membrane abnormalities.&#39;
 - reference: PMID:35020912
   title: Dissecting the genotype-phenotype correlation of COL4A5 gene mutation and its response to renin-angiotensin-aldosterone system blockers in Chinese male patients with Alport syndrome.
   found_in:
@@ -9611,22 +10094,22 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2022 Feb 17;12(1):2722. doi: 10.1038/s41598-022-06525-9.&#39;
-    supporting_text: &#39;2022 Feb 17;12(1):2722. doi: 10.1038/s41598-022-06525-9.&#39;
+  - statement: &#39;Alport syndrome is the commonest inherited kidney disease and nearly half the pathogenic variants in the COL4A3-COL4A5 genes that cause Alport syndrome result in Gly substitutions.&#39;
+    supporting_text: &#39;Alport syndrome is the commonest inherited kidney disease and nearly half the pathogenic variants in the COL4A3-COL4A5 genes that cause Alport syndrome result in Gly substitutions.&#39;
 - reference: PMID:36371577
   title: Aberrant splicing caused by exonic single nucleotide variants positioned 2nd or 3rd to the last nucleotide in the COL4A5 gene.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Mar;27(3):218-226. doi: 10.1007/s10157-022-02294-x.&#39;
-    supporting_text: &#39;2023 Mar;27(3):218-226. doi: 10.1007/s10157-022-02294-x.&#39;
+  - statement: &#39;The evident genotype-phenotype correlation shown by the X-linked Alport syndrome warrants the assessment of the impact of identified gene variants on aberrant splicing.&#39;
+    supporting_text: &#39;The evident genotype-phenotype correlation shown by the X-linked Alport syndrome warrants the assessment of the impact of identified gene variants on aberrant splicing.&#39;
 - reference: PMID:37100867
   title: &#39;Genotype-phenotype correlation of X-linked Alport syndrome observed in both genders: a multicenter study in South Korea.&#39;
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Apr 26;13(1):6827. doi: 10.1038/s41598-023-34053-7.&#39;
-    supporting_text: &#39;2023 Apr 26;13(1):6827. doi: 10.1038/s41598-023-34053-7.&#39;
+  - statement: &#39;The genotype-phenotype correlation of the X-linked Alport syndrome (XLAS) has been well elucidated in males, whereas it remains unclear in females.&#39;
+    supporting_text: &#39;The genotype-phenotype correlation of the X-linked Alport syndrome (XLAS) has been well elucidated in males, whereas it remains unclear in females.&#39;
 - reference: PMID:37428955
   title: Finerenone Added to RAS/SGLT2 Blockade for CKD in Alport Syndrome. Results of a Randomized Controlled Trial with Col4a3-/- Mice.
   found_in:
@@ -9639,8 +10122,8 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2023 Oct 20;15(10):e47373. doi: 10.7759/cureus.47373. eCollection 2023 Oct.&#39;
-    supporting_text: &#39;2023 Oct 20;15(10):e47373. doi: 10.7759/cureus.47373. eCollection 2023 Oct.&#39;
+  - statement: &#39;We report two cases of Alport syndrome and compare the clinical presentations and imaging findings in these cases.&#39;
+    supporting_text: &#39;We report two cases of Alport syndrome and compare the clinical presentations and imaging findings in these cases.&#39;
 - reference: PMID:38837003
   title: A targeted gene panel illuminates pathogenesis in young people with unexplained kidney failure.
   found_in:
@@ -9660,8 +10143,8 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Jan;60(1):e27325. doi: 10.1002/ppul.27325.&#39;
-    supporting_text: &#39;2025 Jan;60(1):e27325. doi: 10.1002/ppul.27325.&#39;
+  - statement: &#39;A 7-year-old girl with hematuria and clinical suspicion of Alport syndrome (AS) presented with dyspnea and nocturnal cough, initially diagnosed and treated as asthma.&#39;
+    supporting_text: &#39;A 7-year-old girl with hematuria and clinical suspicion of Alport syndrome (AS) presented with dyspnea and nocturnal cough, initially diagnosed and treated as asthma.&#39;
 - reference: PMID:39625784
   title: Genotype-First Analysis in an Unselected Health System-Based Population and Phenotypic Severity of COL4A5 Variants.
   found_in:
@@ -9688,22 +10171,22 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Jun 1;36(6):1176-1183. doi: 10.1681/ASN.0000000647.&#39;
-    supporting_text: &#39;2025 Jun 1;36(6):1176-1183. doi: 10.1681/ASN.0000000647.&#39;
+  - statement: &#39;Alport syndrome is an inherited disorder characterized by kidney disease, sensorineural hearing loss, and ocular abnormalities.&#39;
+    supporting_text: &#39;Alport syndrome is an inherited disorder characterized by kidney disease, sensorineural hearing loss, and ocular abnormalities.&#39;
 - reference: PMID:40044766
   title: Pathogenic variants in the Alport genes are prevalent in the Singapore multiethnic population with highest frequency in the Chinese.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Mar 5;15(1):7691. doi: 10.1038/s41598-025-92520-9.&#39;
-    supporting_text: &#39;2025 Mar 5;15(1):7691. doi: 10.1038/s41598-025-92520-9.&#39;
+  - statement: &#39;Alport syndrome is a common monogenic kidney disease resulting from pathogenic variants in COL4A3, COL4A4 or COL4A5 genes.&#39;
+    supporting_text: &#39;Alport syndrome is a common monogenic kidney disease resulting from pathogenic variants in COL4A3, COL4A4 or COL4A5 genes.&#39;
 - reference: PMID:40057613
   title: Identification of novel COL4A5 variants and prenatal diagnosis in three large families.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Mar 8;15(1):8135. doi: 10.1038/s41598-025-92649-7.&#39;
-    supporting_text: &#39;2025 Mar 8;15(1):8135. doi: 10.1038/s41598-025-92649-7.&#39;
+  - statement: &#39;Alport syndrome (AS) is the second-most frequent monogenic kidney disease and 85% of cases are caused by mutations in the genes of the α5 chains of collagen type IV (COL4A5).&#39;
+    supporting_text: &#39;Alport syndrome (AS) is the second-most frequent monogenic kidney disease and 85% of cases are caused by mutations in the genes of the α5 chains of collagen type IV (COL4A5).&#39;
 - reference: PMID:40067386
   title: Oral Ketone β -Hydroxybutyrate Supplement Retards the Loss of GFR in Alport Mice on Dual Renin-Angiotensin System/Sodium-Glucose Transporter 2 Blockade.
   found_in:
@@ -9723,15 +10206,15 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Nov;21(11):778-793. doi: 10.1038/s41581-025-00982-x.&#39;
-    supporting_text: &#39;2025 Nov;21(11):778-793. doi: 10.1038/s41581-025-00982-x.&#39;
+  - statement: &#39;Collagen IV is a basement membrane component that is encoded by six genes in mammals (COL4Α1-COL4A6).&#39;
+    supporting_text: &#39;Collagen IV is a basement membrane component that is encoded by six genes in mammals (COL4Α1-COL4A6).&#39;
 - reference: PMID:40754307
   title: Ectopic laminin α2 accumulation in the glomerular basement membrane exacerbates podocyte injury in Alport syndrome.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2025 Nov;1871(8):168008. doi: 10.1016/j.bbadis.2025.168008.&#39;
-    supporting_text: &#39;2025 Nov;1871(8):168008. doi: 10.1016/j.bbadis.2025.168008.&#39;
+  - statement: &#39;Alport syndrome is a hereditary disease caused by mutations in Col4a3, Col4a4, and Col4a5, which encode the type IV collagen α3, α4, and α5 chains, respectively.&#39;
+    supporting_text: &#39;Alport syndrome is a hereditary disease caused by mutations in Col4a3, Col4a4, and Col4a5, which encode the type IV collagen α3, α4, and α5 chains, respectively.&#39;
 - reference: PMID:41194031
   title: &#39;Whole-exome sequencing of kidney transplant recipients and donors: insights into end-stage renal disease and post-transplant genetic risk.&#39;
   found_in:
@@ -9744,29 +10227,29 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;2026 Jan 20;15(1):24. doi: 10.1007/s13730-025-01057-3.&#39;
-    supporting_text: &#39;2026 Jan 20;15(1):24. doi: 10.1007/s13730-025-01057-3.&#39;
+  - statement: &#39;Autosomal dominant polycystic kidney disease (ADPKD) is the most common genetic kidney disease, accounting for approximately 5% of kidney failure worldwide.&#39;
+    supporting_text: &#39;Autosomal dominant polycystic kidney disease (ADPKD) is the most common genetic kidney disease, accounting for approximately 5% of kidney failure worldwide.&#39;
 - reference: PMID:8971907
   title: Hereditary disorders of the glomerular basement membrane.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;1996 Dec;10(6):779-88. doi: 10.1007/s004670050217.&#39;
-    supporting_text: &#39;1996 Dec;10(6):779-88. doi: 10.1007/s004670050217.&#39;
+  - statement: &#39;Increased knowledge of the biochemical composition of the glomerular basement membrane (GBM) and the introduction of molecular genetics has shed new light on the hereditary disorders of the GBM.&#39;
+    supporting_text: &#39;Increased knowledge of the biochemical composition of the glomerular basement membrane (GBM) and the introduction of molecular genetics has shed new light on the hereditary disorders of the GBM.&#39;
 - reference: PMID:9127294
   title: Glomerular ultrastructural findings similar to hereditary nephritis in 4 English cocker spaniels.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;1997 Mar-Apr;11(2):80-5. doi: 10.1111/j.1939-1676.1997.tb00077.x.&#39;
-    supporting_text: &#39;1997 Mar-Apr;11(2):80-5. doi: 10.1111/j.1939-1676.1997.tb00077.x.&#39;
+  - statement: &#39;Renal disease affecting 3 male and 1 female English Cocker Spaniels was studied.&#39;
+    supporting_text: &#39;Renal disease affecting 3 male and 1 female English Cocker Spaniels was studied.&#39;
 - reference: PMID:9682811
   title: Ultrastructural, physiological, and molecular defects in the inner ear of a gene-knockout mouse model for autosomal Alport syndrome.
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings:
-  - statement: &#39;1998 Jul;121(1-2):84-98. doi: 10.1016/s0378-5955(98)00069-0.&#39;
-    supporting_text: &#39;1998 Jul;121(1-2):84-98. doi: 10.1016/s0378-5955(98)00069-0.&#39;
+  - statement: &#39;The cochleae from a COL4A3-deficient mouse line were examined for defects that might shed light on the molecular mechanism of otopathology observed in humans with Alport syndrome.&#39;
+    supporting_text: &#39;The cochleae from a COL4A3-deficient mouse line were examined for defects that might shed light on the molecular mechanism of otopathology observed in humans with Alport syndrome.&#39;
 - reference: DOI:10.7759/cureus.47129
   title: &#39;Alport Syndrome: A Comprehensive Review&#39;
   found_in:
@@ -9777,6 +10260,68 @@ references:
   found_in:
   - Alport_Syndrome-deep-research-openscientist.md
   findings: []
+datasets:
+- accession: geo:GSE281080
+  title: Transcriptomic profiling of prolonged-culture iPSC-derived kidney organoids and X-linked Alport syndrome organoid models carrying COL4A5 deep-intronic variants
+  description: Kidney organoids serve as an invaluable platform for modeling hereditary renal diseases and developing therapeutic interventions. While various kidney organoid differentiation protocols have been developed, the protocol introduced by Morizane et al. was among the first to generate kidney organoids from induced pluripotent stem cells (iPSCs). By using a modified version of this protocol, we successfully generated kidney organoids in 21 days. Most studies on kidney organoids focus on early stages, typically between days 21 and 29, leaving the gene expression dynamics during prolonged culture less explored.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 24
+  notes: Identified by GEO DataSets index search for Alport Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE274298
+  title: &#39;SMPDL3b in Podocytes: Decoupling Proteinuria from CKD Progression in Experimental Alport Syndrome&#39;
+  description: Alport Syndrome (AS) is a rare genetic disease with impaired production of collagen type IV alpha 3, 4 and 5 chains in the glomerular basement membranes (GBM), which results amongst others in progressive loss of kidney function. In AS, abnormalities in the GBM and associated podocyte detachment may potentially result from the dysregulation of sphingolipid metabolism. Here we investigated whether renal sphingomyelin phosphodiesterase acid-like 3b (SMPDL3b) overexpression modulates the generation of sphingosine-1-phosphate (S1P) and contributes to renal failure in Col4a3 knockout mice, a mouse model of AS.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:39684843
+  notes: Identified by GEO DataSets index search for Alport Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE271383
+  title: Evidence that chaperone 4-PBA treatment alleviates the renal phenotype in Alport syndrome mouse models
+  description: Total RNA was extracted from glomeruli as described above. RNA quality and quantity were determined by the 2100 Bioanalyzer. RT2 Profiler PCR Array (QIAGEN) is the method used for qPCR assay. This technique takes advantage of real-time PCR performance and combines it with the ability of microarrays to detect the expression of many genes related to UPR pathway simultaneously. Total RNA that was purified from glomeruli which were extracted from mutant and wild type kidneys was measured and then converted into first strand cDNA. qPCR was followed by using the instrument-specific and ready-to-use RT2 qPCR Master Mixes and gene specific primer sets.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  sample_count: 9
+  publication: PMID:40484355
+  notes: Identified by GEO DataSets index search for Alport Syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001002009
+  title: HipSci HumanExome BeadChip analysis - Alport Syndrome
+  description: The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Genotyping analysis using the Infinium HumanExome BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Alport Syndrome.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Alport Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002019
+  title: HipSci HumanExome BeadChip analysis - Alport syndrome (Manchester)
+  description: The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Genotyping analysis using the Infinium HumanExome BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Alport syndrome (Manchester Uni).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Alport Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002024
+  title: HipSci HumanHT 12 Expression BeadChip analysis - Alport syndrome
+  description: The HipSci project brings together diverse constituents in genomics, proteomics, cell biology and clinical genetics to create a UK national iPS cell resource and use it to carry out cellular genetic studies. In this sub-study we performed Expression analysis using the Illumina HumanHT -12 Expression BeadChip on iPS cells generated from skin biopsies or blood samples from rare disease patients diagnosed with Alport syndrome.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Alport Syndrome&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -10115,7 +10660,7 @@ references:
                                 <a href="https://bioregistry.io/DOI:10.3389/fgene.2023.1059322" target="_blank">DOI:10.3389/fgene.2023.1059322</a>
                             </div>
 
-                            <div class="reference-title">Molecular dynamics and minigene assay of new splicing variant c.4298-20T&amp;gt;A of COL4A5 gene that cause Alport syndrome</div>
+                            <div class="reference-title">Molecular dynamics and minigene assay of new splicing variant c.4298-20T&gt;A of COL4A5 gene that cause Alport syndrome</div>
 
                         </div>
 
@@ -10240,10 +10785,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2002 Feb;160(2):721-30. doi: 10.1016/S0002-9440(10)64892-4.</div>
+            <div class="reference-finding-statement">Alport syndrome is a human hereditary glomerulonephritis which results in end-stage renal failure (ESRF) in most cases.</div>
 
 
-            <div class="reference-finding-supporting">"2002 Feb;160(2):721-30. doi: 10.1016/S0002-9440(10)64892-4."</div>
+            <div class="reference-finding-supporting">"Alport syndrome is a human hereditary glomerulonephritis which results in end-stage renal failure (ESRF) in most cases."</div>
 
 
 
@@ -10277,10 +10822,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2003 Oct;14(10):2603-10. doi: 10.1097/01.asn.0000090034.71205.74.</div>
+            <div class="reference-finding-statement">Alport syndrome (AS) is a type IV collagen hereditary disease characterized by progressive hematuric nephritis, hearing loss, and ocular changes.</div>
 
 
-            <div class="reference-finding-supporting">"2003 Oct;14(10):2603-10. doi: 10.1097/01.asn.0000090034.71205.74."</div>
+            <div class="reference-finding-supporting">"Alport syndrome (AS) is a type IV collagen hereditary disease characterized by progressive hematuric nephritis, hearing loss, and ocular changes."</div>
 
 
 
@@ -10314,10 +10859,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2005 May;1(2):90-100. doi: 10.1016/j.nephro.2005.03.005.</div>
+            <div class="reference-finding-statement">Alport syndrome (AS) is a hereditary glomerulonephritis variably associated with neural hearing loss and ocular abnormalities.</div>
 
 
-            <div class="reference-finding-supporting">"2005 May;1(2):90-100. doi: 10.1016/j.nephro.2005.03.005."</div>
+            <div class="reference-finding-supporting">"Alport syndrome (AS) is a hereditary glomerulonephritis variably associated with neural hearing loss and ocular abnormalities."</div>
 
 
 
@@ -10351,10 +10896,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2007;106(2):c82-8. doi: 10.1159/000101802.</div>
+            <div class="reference-finding-statement">Both Alport syndrome and thin basement membrane nephropathy (TBMN) can be considered as genetic diseases of the GBM involving the alpha3/alpha4/alpha5 network of type IV collagen.</div>
 
 
-            <div class="reference-finding-supporting">"2007;106(2):c82-8. doi: 10.1159/000101802."</div>
+            <div class="reference-finding-supporting">"Both Alport syndrome and thin basement membrane nephropathy (TBMN) can be considered as genetic diseases of the GBM involving the alpha3/alpha4/alpha5 network of type IV collagen."</div>
 
 
 
@@ -10388,10 +10933,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2009 Sep;76(6):599-603. doi: 10.1038/ki.2009.223.</div>
+            <div class="reference-finding-statement">Alport syndrome (AS) is a hereditary glomerulopathy due to abnormal composition of the glomerular basement membrane, leading to end-stage renal disease (ESRD).</div>
 
 
-            <div class="reference-finding-supporting">"2009 Sep;76(6):599-603. doi: 10.1038/ki.2009.223."</div>
+            <div class="reference-finding-supporting">"Alport syndrome (AS) is a hereditary glomerulopathy due to abnormal composition of the glomerular basement membrane, leading to end-stage renal disease (ESRD)."</div>
 
 
 
@@ -10425,10 +10970,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2010 Mar;120(3):768-77. doi: 10.1172/JCI39569.</div>
+            <div class="reference-finding-statement">The glomerular basement membrane (GBM) is a key component of the filtering unit in the kidney.</div>
 
 
-            <div class="reference-finding-supporting">"2010 Mar;120(3):768-77. doi: 10.1172/JCI39569."</div>
+            <div class="reference-finding-supporting">"The glomerular basement membrane (GBM) is a key component of the filtering unit in the kidney."</div>
 
 
 
@@ -10462,10 +11007,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2012;7(12):e50745. doi: 10.1371/journal.pone.0050745.</div>
+            <div class="reference-finding-statement">Upregulated expression of integrin α1 in mesangial cells and integrin α3 and vimentin in podocytes of Col4a3-null (Alport) mice</div>
 
 
-            <div class="reference-finding-supporting">"2012;7(12):e50745. doi: 10.1371/journal.pone.0050745."</div>
+            <div class="reference-finding-supporting">"Alport disease in humans, which usually results in proteinuria and kidney failure, is caused by mutations to the COL4A3, COL4A4, or COL4A5 genes, and absence of collagen α3α4α5(IV) networks found in mature kidney glomerular basement membrane (GBM)."</div>
 
 
 
@@ -10573,10 +11118,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2014 Sep 15;592(18):4013-23. doi: 10.1113/jphysiol.2014.274449.</div>
+            <div class="reference-finding-statement">The glomerular filtration barrier comprises a fenestrated capillary endothelium, glomerular basement membrane and podocyte slit diaphragm.</div>
 
 
-            <div class="reference-finding-supporting">"2014 Sep 15;592(18):4013-23. doi: 10.1113/jphysiol.2014.274449."</div>
+            <div class="reference-finding-supporting">"The glomerular filtration barrier comprises a fenestrated capillary endothelium, glomerular basement membrane and podocyte slit diaphragm."</div>
 
 
 
@@ -10647,10 +11192,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2016 Sep;54(9):669-73. doi: 10.3760/cma.j.issn.0578-1310.2016.09.008. [Analysis of diagnosis and treatment of Alport syndrome]. [Article in Chinese] An XG(1), Zhang YQ, Ding J, Wang F, Xiao HJ, Yao Y.</div>
+            <div class="reference-finding-statement">To investigate the clinical characteristics and the status of diagnosis and treatment of patients with Alport syndrome in China.</div>
 
 
-            <div class="reference-finding-supporting">"2016 Sep;54(9):669-73. doi: 10.3760/cma.j.issn.0578-1310.2016.09.008. [Analysis of diagnosis and treatment of Alport syndrome]. [Article in Chinese] An XG(1), Zhang YQ, Ding J, Wang F, Xiao HJ, Yao Y."</div>
+            <div class="reference-finding-supporting">"To investigate the clinical characteristics and the status of diagnosis and treatment of patients with Alport syndrome in China."</div>
 
 
 
@@ -10684,10 +11229,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2017 Jul;62(7):733-735. doi: 10.1038/jhg.2017.28.</div>
+            <div class="reference-finding-statement">Characterization of contiguous gene deletions in COL4A6 and COL4A5 in Alport syndrome-diffuse leiomyomatosis</div>
 
 
-            <div class="reference-finding-supporting">"2017 Jul;62(7):733-735. doi: 10.1038/jhg.2017.28."</div>
+            <div class="reference-finding-supporting">"Alport syndrome-diffuse leiomyomatosis (AS-DL, OMIM: 308940) is a rare variant of the X-linked Alport syndrome that shows overgrowth of visceral smooth muscles in the gastrointestinal, respiratory and female reproductive tracts in addition to renal symptoms."</div>
 
 
 
@@ -10721,10 +11266,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2017 Jul 7;12(7):1162-1172. doi: 10.2215/CJN.01380217.</div>
+            <div class="reference-finding-statement">Anti-glomerular basement membrane (anti-GBM) disease is a rare small vessel vasculitis that affects the capillary beds of the kidneys and lungs.</div>
 
 
-            <div class="reference-finding-supporting">"2017 Jul 7;12(7):1162-1172. doi: 10.2215/CJN.01380217."</div>
+            <div class="reference-finding-supporting">"Anti-glomerular basement membrane (anti-GBM) disease is a rare small vessel vasculitis that affects the capillary beds of the kidneys and lungs."</div>
 
 
 
@@ -10758,10 +11303,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2019 May 1;316(5):F830-F837. doi: 10.1152/ajprenal.00556.2018.</div>
+            <div class="reference-finding-statement">The glomerular basement membrane (GBM) is a critical component of the kidney&#39;s blood filtration barrier.</div>
 
 
-            <div class="reference-finding-supporting">"2019 May 1;316(5):F830-F837. doi: 10.1152/ajprenal.00556.2018."</div>
+            <div class="reference-finding-supporting">"The glomerular basement membrane (GBM) is a critical component of the kidney&#39;s blood filtration barrier."</div>
 
 
 
@@ -10832,10 +11377,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2019;143(4):282-287. doi: 10.1159/000502146.</div>
+            <div class="reference-finding-statement">Autosomal dominant tubulointerstitial kidney disease due to UMOD (encoding uromodulin) mutation (ADTKD-UMOD) is a rare hereditary disease.</div>
 
 
-            <div class="reference-finding-supporting">"2019;143(4):282-287. doi: 10.1159/000502146."</div>
+            <div class="reference-finding-supporting">"Autosomal dominant tubulointerstitial kidney disease due to UMOD (encoding uromodulin) mutation (ADTKD-UMOD) is a rare hereditary disease."</div>
 
 
 
@@ -10869,10 +11414,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2020 Jun;97(6):1104-1106. doi: 10.1016/j.kint.2020.01.030.</div>
+            <div class="reference-finding-statement">Gross et al. present results of the EARLY PRO-TECT trial, a randomized controlled trial of ramipril versus placebo in children with early-stage Alport syndrome.</div>
 
 
-            <div class="reference-finding-supporting">"2020 Jun;97(6):1104-1106. doi: 10.1016/j.kint.2020.01.030."</div>
+            <div class="reference-finding-supporting">"Gross et al. present results of the EARLY PRO-TECT trial, a randomized controlled trial of ramipril versus placebo in children with early-stage Alport syndrome."</div>
 
 
 
@@ -10943,10 +11488,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2021 Oct 21;11(1):20836. doi: 10.1038/s41598-021-00354-y.</div>
+            <div class="reference-finding-statement">Alport syndrome is an inherited chronic human kidney disease, characterized by glomerular basement membrane abnormalities.</div>
 
 
-            <div class="reference-finding-supporting">"2021 Oct 21;11(1):20836. doi: 10.1038/s41598-021-00354-y."</div>
+            <div class="reference-finding-supporting">"Alport syndrome is an inherited chronic human kidney disease, characterized by glomerular basement membrane abnormalities."</div>
 
 
 
@@ -11054,10 +11599,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2022 Feb 17;12(1):2722. doi: 10.1038/s41598-022-06525-9.</div>
+            <div class="reference-finding-statement">Alport syndrome is the commonest inherited kidney disease and nearly half the pathogenic variants in the COL4A3-COL4A5 genes that cause Alport syndrome result in Gly substitutions.</div>
 
 
-            <div class="reference-finding-supporting">"2022 Feb 17;12(1):2722. doi: 10.1038/s41598-022-06525-9."</div>
+            <div class="reference-finding-supporting">"Alport syndrome is the commonest inherited kidney disease and nearly half the pathogenic variants in the COL4A3-COL4A5 genes that cause Alport syndrome result in Gly substitutions."</div>
 
 
 
@@ -11091,10 +11636,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Mar;27(3):218-226. doi: 10.1007/s10157-022-02294-x.</div>
+            <div class="reference-finding-statement">The evident genotype-phenotype correlation shown by the X-linked Alport syndrome warrants the assessment of the impact of identified gene variants on aberrant splicing.</div>
 
 
-            <div class="reference-finding-supporting">"2023 Mar;27(3):218-226. doi: 10.1007/s10157-022-02294-x."</div>
+            <div class="reference-finding-supporting">"The evident genotype-phenotype correlation shown by the X-linked Alport syndrome warrants the assessment of the impact of identified gene variants on aberrant splicing."</div>
 
 
 
@@ -11128,10 +11673,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Apr 26;13(1):6827. doi: 10.1038/s41598-023-34053-7.</div>
+            <div class="reference-finding-statement">The genotype-phenotype correlation of the X-linked Alport syndrome (XLAS) has been well elucidated in males, whereas it remains unclear in females.</div>
 
 
-            <div class="reference-finding-supporting">"2023 Apr 26;13(1):6827. doi: 10.1038/s41598-023-34053-7."</div>
+            <div class="reference-finding-supporting">"The genotype-phenotype correlation of the X-linked Alport syndrome (XLAS) has been well elucidated in males, whereas it remains unclear in females."</div>
 
 
 
@@ -11202,10 +11747,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2023 Oct 20;15(10):e47373. doi: 10.7759/cureus.47373. eCollection 2023 Oct.</div>
+            <div class="reference-finding-statement">We report two cases of Alport syndrome and compare the clinical presentations and imaging findings in these cases.</div>
 
 
-            <div class="reference-finding-supporting">"2023 Oct 20;15(10):e47373. doi: 10.7759/cureus.47373. eCollection 2023 Oct."</div>
+            <div class="reference-finding-supporting">"We report two cases of Alport syndrome and compare the clinical presentations and imaging findings in these cases."</div>
 
 
 
@@ -11313,10 +11858,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Jan;60(1):e27325. doi: 10.1002/ppul.27325.</div>
+            <div class="reference-finding-statement">A 7-year-old girl with hematuria and clinical suspicion of Alport syndrome (AS) presented with dyspnea and nocturnal cough, initially diagnosed and treated as asthma.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Jan;60(1):e27325. doi: 10.1002/ppul.27325."</div>
+            <div class="reference-finding-supporting">"A 7-year-old girl with hematuria and clinical suspicion of Alport syndrome (AS) presented with dyspnea and nocturnal cough, initially diagnosed and treated as asthma."</div>
 
 
 
@@ -11461,10 +12006,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Jun 1;36(6):1176-1183. doi: 10.1681/ASN.0000000647.</div>
+            <div class="reference-finding-statement">Alport syndrome is an inherited disorder characterized by kidney disease, sensorineural hearing loss, and ocular abnormalities.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Jun 1;36(6):1176-1183. doi: 10.1681/ASN.0000000647."</div>
+            <div class="reference-finding-supporting">"Alport syndrome is an inherited disorder characterized by kidney disease, sensorineural hearing loss, and ocular abnormalities."</div>
 
 
 
@@ -11498,10 +12043,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Mar 5;15(1):7691. doi: 10.1038/s41598-025-92520-9.</div>
+            <div class="reference-finding-statement">Alport syndrome is a common monogenic kidney disease resulting from pathogenic variants in COL4A3, COL4A4 or COL4A5 genes.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Mar 5;15(1):7691. doi: 10.1038/s41598-025-92520-9."</div>
+            <div class="reference-finding-supporting">"Alport syndrome is a common monogenic kidney disease resulting from pathogenic variants in COL4A3, COL4A4 or COL4A5 genes."</div>
 
 
 
@@ -11535,10 +12080,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Mar 8;15(1):8135. doi: 10.1038/s41598-025-92649-7.</div>
+            <div class="reference-finding-statement">Alport syndrome (AS) is the second-most frequent monogenic kidney disease and 85% of cases are caused by mutations in the genes of the α5 chains of collagen type IV (COL4A5).</div>
 
 
-            <div class="reference-finding-supporting">"2025 Mar 8;15(1):8135. doi: 10.1038/s41598-025-92649-7."</div>
+            <div class="reference-finding-supporting">"Alport syndrome (AS) is the second-most frequent monogenic kidney disease and 85% of cases are caused by mutations in the genes of the α5 chains of collagen type IV (COL4A5)."</div>
 
 
 
@@ -11646,10 +12191,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Nov;21(11):778-793. doi: 10.1038/s41581-025-00982-x.</div>
+            <div class="reference-finding-statement">Collagen IV is a basement membrane component that is encoded by six genes in mammals (COL4Α1-COL4A6).</div>
 
 
-            <div class="reference-finding-supporting">"2025 Nov;21(11):778-793. doi: 10.1038/s41581-025-00982-x."</div>
+            <div class="reference-finding-supporting">"Collagen IV is a basement membrane component that is encoded by six genes in mammals (COL4Α1-COL4A6)."</div>
 
 
 
@@ -11683,10 +12228,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2025 Nov;1871(8):168008. doi: 10.1016/j.bbadis.2025.168008.</div>
+            <div class="reference-finding-statement">Alport syndrome is a hereditary disease caused by mutations in Col4a3, Col4a4, and Col4a5, which encode the type IV collagen α3, α4, and α5 chains, respectively.</div>
 
 
-            <div class="reference-finding-supporting">"2025 Nov;1871(8):168008. doi: 10.1016/j.bbadis.2025.168008."</div>
+            <div class="reference-finding-supporting">"Alport syndrome is a hereditary disease caused by mutations in Col4a3, Col4a4, and Col4a5, which encode the type IV collagen α3, α4, and α5 chains, respectively."</div>
 
 
 
@@ -11757,10 +12302,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">2026 Jan 20;15(1):24. doi: 10.1007/s13730-025-01057-3.</div>
+            <div class="reference-finding-statement">Autosomal dominant polycystic kidney disease (ADPKD) is the most common genetic kidney disease, accounting for approximately 5% of kidney failure worldwide.</div>
 
 
-            <div class="reference-finding-supporting">"2026 Jan 20;15(1):24. doi: 10.1007/s13730-025-01057-3."</div>
+            <div class="reference-finding-supporting">"Autosomal dominant polycystic kidney disease (ADPKD) is the most common genetic kidney disease, accounting for approximately 5% of kidney failure worldwide."</div>
 
 
 
@@ -11794,10 +12339,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">1996 Dec;10(6):779-88. doi: 10.1007/s004670050217.</div>
+            <div class="reference-finding-statement">Increased knowledge of the biochemical composition of the glomerular basement membrane (GBM) and the introduction of molecular genetics has shed new light on the hereditary disorders of the GBM.</div>
 
 
-            <div class="reference-finding-supporting">"1996 Dec;10(6):779-88. doi: 10.1007/s004670050217."</div>
+            <div class="reference-finding-supporting">"Increased knowledge of the biochemical composition of the glomerular basement membrane (GBM) and the introduction of molecular genetics has shed new light on the hereditary disorders of the GBM."</div>
 
 
 
@@ -11831,10 +12376,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">1997 Mar-Apr;11(2):80-5. doi: 10.1111/j.1939-1676.1997.tb00077.x.</div>
+            <div class="reference-finding-statement">Renal disease affecting 3 male and 1 female English Cocker Spaniels was studied.</div>
 
 
-            <div class="reference-finding-supporting">"1997 Mar-Apr;11(2):80-5. doi: 10.1111/j.1939-1676.1997.tb00077.x."</div>
+            <div class="reference-finding-supporting">"Renal disease affecting 3 male and 1 female English Cocker Spaniels was studied."</div>
 
 
 
@@ -11868,10 +12413,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">1998 Jul;121(1-2):84-98. doi: 10.1016/s0378-5955(98)00069-0.</div>
+            <div class="reference-finding-statement">The cochleae from a COL4A3-deficient mouse line were examined for defects that might shed light on the molecular mechanism of otopathology observed in humans with Alport syndrome.</div>
 
 
-            <div class="reference-finding-supporting">"1998 Jul;121(1-2):84-98. doi: 10.1016/s0378-5955(98)00069-0."</div>
+            <div class="reference-finding-supporting">"The cochleae from a COL4A3-deficient mouse line were examined for defects that might shed light on the molecular mechanism of otopathology observed in humans with Alport syndrome."</div>
 
 
 
@@ -13407,7 +13952,7 @@ Preclinical data from Col4a3-/- mice demonstrates synergistic benefit:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alport Syndrome", "mondoId": "MONDO:0018965", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alport_Syndrome", "yamlRevision": "fcf3ab1d1f04"};
+        const OS_CONFIG = {"diseaseName": "Alport Syndrome", "mondoId": "MONDO:0018965", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alport_Syndrome", "yamlRevision": "9762e11e9b0b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

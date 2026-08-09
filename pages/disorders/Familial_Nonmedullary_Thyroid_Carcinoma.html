@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3548,6 +3779,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">16</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">11</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -7275,7 +7515,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cervical-lymphadenopathy" data-dismech-node="Cervical Lymphadenopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cervical Lymphadenopathy
 
@@ -7343,7 +7583,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multifocal-and-bilateral-thyroid-carcinoma" data-dismech-node="Multifocal and Bilateral Thyroid Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multifocal and Bilateral Thyroid Carcinoma
 
@@ -7457,7 +7697,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-metastasis" data-dismech-node="Pulmonary Metastasis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Metastasis
 
@@ -7549,7 +7789,7 @@
                     <span class="cat-count">10</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-non-medullary-thyroid-carcinoma" data-dismech-node="Non-Medullary Thyroid Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Non-Medullary Thyroid Carcinoma
 
@@ -7632,7 +7872,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papillary-thyroid-carcinoma" data-dismech-node="Papillary Thyroid Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Papillary Thyroid Carcinoma
 
@@ -7715,7 +7955,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-follicular-thyroid-carcinoma" data-dismech-node="Follicular Thyroid Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Follicular Thyroid Carcinoma
 
@@ -7776,7 +8016,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-benign-thyroid-nodules-and-multinodular-goiter" data-dismech-node="Benign Thyroid Nodules and Multinodular Goiter" data-dismech-type="phenotype">
                     <div class="item-name">
                         Benign Thyroid Nodules and Multinodular Goiter
 
@@ -7859,7 +8099,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thyroid-nodule" data-dismech-node="Thyroid Nodule" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thyroid Nodule
 
@@ -7918,7 +8158,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extrathyroidal-extension" data-dismech-node="Extrathyroidal Extension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Extrathyroidal Extension
 
@@ -7979,7 +8219,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-earlier-age-at-onset-in-successive-generations" data-dismech-node="Earlier Age at Onset in Successive Generations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Earlier Age at Onset in Successive Generations
 
@@ -8052,7 +8292,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hurthle-cell-thyroid-adenoma" data-dismech-node="Hurthle Cell Thyroid Adenoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hurthle Cell Thyroid Adenoma
 
@@ -8111,7 +8351,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papillary-renal-neoplasia" data-dismech-node="Papillary Renal Neoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Papillary Renal Neoplasia
 
@@ -8170,7 +8410,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hashimoto-thyroiditis" data-dismech-node="Hashimoto Thyroiditis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hashimoto Thyroiditis
 
@@ -8268,7 +8508,7 @@
                 <span class="card-count">16</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-foxe1" data-dismech-node="FOXE1" data-dismech-type="genetic">
                 <div class="item-name">
                     FOXE1
 
@@ -8377,9 +8617,59 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (2)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-rs965513" data-dismech-node="rs965513" data-dismech-type="genetic">
+
+    <div class="item-name">
+        rs965513
+
+    </div>
+
+
+    <div class="item-desc">Common 9q22.33 risk allele nearest to FOXE1, the most consistently replicated thyroid cancer GWAS signal.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-a248g" data-dismech-node="p.A248G" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.A248G
+
+    </div>
+
+
+    <div class="item-desc">Rare germline FOXE1 missense variant (c.743C&gt;G) segregating with disease in one FNMTC family.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nkx2-1-titf-1" data-dismech-node="NKX2-1 (TITF-1)" data-dismech-type="genetic">
                 <div class="item-name">
                     NKX2-1 (TITF-1)
 
@@ -8466,9 +8756,59 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (2)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-a339v" data-dismech-node="p.A339V" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.A339V
+
+    </div>
+
+
+    <div class="item-desc">Germline NKX2-1/TITF-1 missense variant (c.1016C&gt;T) found in 4 of 20 patients with multinodular goiter plus papillary thyroid carcinoma.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-rs944289" data-dismech-node="rs944289" data-dismech-type="genetic">
+
+    <div class="item-name">
+        rs944289
+
+    </div>
+
+
+    <div class="item-desc">Common 14q13.3 risk allele near NKX2-1.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-srgap1" data-dismech-node="SRGAP1" data-dismech-type="genetic">
                 <div class="item-name">
                     SRGAP1
 
@@ -8577,9 +8917,81 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-q149h" data-dismech-node="p.Q149H" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.Q149H
+
+    </div>
+
+
+    <div class="item-desc">SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family; severely impairs CDC42 inactivation.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-a275t" data-dismech-node="p.A275T" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.A275T
+
+    </div>
+
+
+    <div class="item-desc">SRGAP1 Fes/CIP4 homology domain missense variant segregating in one family.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-r617c" data-dismech-node="p.R617C" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.R617C
+
+    </div>
+
+
+    <div class="item-desc">SRGAP1 RhoGAP domain missense variant; severely impairs CDC42 inactivation.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-srrm2" data-dismech-node="SRRM2" data-dismech-type="genetic">
                 <div class="item-name">
                     SRRM2
 
@@ -8644,9 +9056,37 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-s346f" data-dismech-node="p.S346F" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.S346F
+
+    </div>
+
+
+    <div class="item-desc">SRRM2 missense variant (c.1037C&gt;T, rs149019598) cosegregating with papillary thyroid carcinoma in a single six-case family.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-habp2" data-dismech-node="HABP2" data-dismech-type="genetic">
                 <div class="item-name">
                     HABP2
 
@@ -8757,9 +9197,113 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-g534e" data-dismech-node="p.G534E" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.G534E
+
+        <span class="variant-significance variant-significance-benign">Benign</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: HABP2
+
+
+    <a href="https://bioregistry.io/hgnc:4798" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4798">hgnc:4798</a>
+
+
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">HABP2 c.1601G&gt;A (p.G534E, rs7080536) at 10q25.3, within the serine protease trypsin domain, originally proposed as an FNMTC susceptibility allele; present in 7-9% of unselected populations and failing cosegregation in independent kindreds.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27530615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27530615" target="_blank">PMID:27530615</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The G534E variant in HABP2 does not account for the familial nature of NMTC in Australian kindreds, and is common in the general population."</div>
+
+
+                <div class="evidence-explanation">Supports the BENIGN classification - a variant this common in the general population that fails to explain familial disease cannot be a penetrant predisposition allele.</div>
+
+
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="evidence-item" data-dismech-evidence="PMID:26745718" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26745718" target="_blank">PMID:26745718</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The variant was found to be present in 6.1% familial cases, 8.0% sporadic cases (2 individuals were homozygous for the variant) and 8.7% controls."</div>
+
+
+                <div class="evidence-explanation">Independent case-control frequencies, including homozygotes among sporadic cases, corroborating the BENIGN classification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-nid1" data-dismech-node="NID1" data-dismech-type="genetic">
                 <div class="item-name">
                     NID1
 
@@ -8824,9 +9368,37 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-ile657met" data-dismech-node="p.Ile657Met" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.Ile657Met
+
+    </div>
+
+
+    <div class="item-desc">NID1 c.1971T&gt;G (p.Ile657Met), the only variant cosegregating with papillary thyroid carcinoma across three generations of a Brazilian family; very rare in population databases.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-map2k5" data-dismech-node="MAP2K5" data-dismech-type="genetic">
                 <div class="item-name">
                     MAP2K5
 
@@ -8913,9 +9485,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-duox2" data-dismech-node="DUOX2" data-dismech-type="genetic">
                 <div class="item-name">
                     DUOX2
 
@@ -8980,9 +9553,37 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-y1203h" data-dismech-node="p.Y1203H" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.Y1203H
+
+    </div>
+
+
+    <div class="item-desc">DUOX2 missense variant (c.3607A&gt;G) reported to cosegregate in one FNMTC family; absent from 86 members of 33 independent Italian families.</div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-apc" data-dismech-node="APC" data-dismech-type="genetic">
                 <div class="item-name">
                     APC
 
@@ -9093,9 +9694,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pten" data-dismech-node="PTEN" data-dismech-type="genetic">
                 <div class="item-name">
                     PTEN
 
@@ -9204,9 +9806,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prkar1a" data-dismech-node="PRKAR1A" data-dismech-type="genetic">
                 <div class="item-name">
                     PRKAR1A
 
@@ -9315,9 +9918,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-wrn" data-dismech-node="WRN" data-dismech-type="genetic">
                 <div class="item-name">
                     WRN
 
@@ -9426,9 +10030,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-dicer1" data-dismech-node="DICER1" data-dismech-type="genetic">
                 <div class="item-name">
                     DICER1
 
@@ -9537,9 +10142,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pot1" data-dismech-node="POT1" data-dismech-type="genetic">
                 <div class="item-name">
                     POT1
 
@@ -9626,9 +10232,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tinf2" data-dismech-node="TINF2" data-dismech-type="genetic">
                 <div class="item-name">
                     TINF2
 
@@ -9693,9 +10300,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-acd" data-dismech-node="ACD" data-dismech-type="genetic">
                 <div class="item-name">
                     ACD
 
@@ -9760,9 +10368,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -9774,7 +10386,7 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-thyroidectomy" data-dismech-node="Thyroidectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Thyroidectomy
                 </div>
@@ -9913,7 +10525,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-thyroid-lobectomy" data-dismech-node="Thyroid Lobectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Thyroid Lobectomy
                 </div>
@@ -10012,7 +10624,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cervical-lymph-node-dissection" data-dismech-node="Cervical Lymph Node Dissection" data-dismech-type="treatment">
                 <div class="item-name">
                     Cervical Lymph Node Dissection
                 </div>
@@ -10129,7 +10741,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-radioactive-iodine-therapy" data-dismech-node="Radioactive Iodine Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Radioactive Iodine Therapy
                 </div>
@@ -10250,7 +10862,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-levothyroxine-replacement-and-tsh-suppression" data-dismech-node="Levothyroxine Replacement and TSH Suppression" data-dismech-type="treatment">
                 <div class="item-name">
                     Levothyroxine Replacement and TSH Suppression
                 </div>
@@ -10344,7 +10956,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-kinase-inhibitor-therapy-for-radioiodine-refractory-disease" data-dismech-node="Kinase Inhibitor Therapy for Radioiodine-Refractory Disease" data-dismech-type="treatment">
                 <div class="item-name">
                     Kinase Inhibitor Therapy for Radioiodine-Refractory Disease
                 </div>
@@ -10481,7 +11093,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling-and-family-risk-assessment" data-dismech-node="Genetic Counseling and Family Risk Assessment" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling and Family Risk Assessment
                 </div>

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3470,12 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
 
 
 
@@ -3470,6 +3699,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3538,6 +3769,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3548,6 +3780,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -6032,7 +6272,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drooling" data-dismech-node="Drooling" data-dismech-type="phenotype">
                     <div class="item-name">
                         Drooling
 
@@ -6102,7 +6342,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pallor" data-dismech-node="Pallor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pallor
 
@@ -6172,7 +6412,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes Planus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Planus
 
@@ -6242,7 +6482,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rigidity" data-dismech-node="Rigidity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rigidity
 
@@ -6303,7 +6543,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-floppy-infant" data-dismech-node="Floppy Infant" data-dismech-type="phenotype">
                     <div class="item-name">
                         Floppy Infant
 
@@ -6373,7 +6613,7 @@
                     <span class="cat-count">12</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
@@ -6456,7 +6696,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-onset-seizure" data-dismech-node="Focal-onset Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal-onset Seizure
 
@@ -6517,7 +6757,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-febrile-seizures" data-dismech-node="Febrile Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Febrile Seizures
 
@@ -6580,7 +6820,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-seizure" data-dismech-node="Generalized Myoclonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Myoclonic Seizure
 
@@ -6641,7 +6881,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-absence-seizure" data-dismech-node="Atypical Absence Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atypical Absence Seizure
 
@@ -6702,7 +6942,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
                     <div class="item-name">
                         Developmental Regression
 
@@ -6783,7 +7023,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive Impairment
 
@@ -6868,7 +7108,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autistic Behavior
 
@@ -6953,7 +7193,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anxiety
 
@@ -7014,7 +7254,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonus" data-dismech-node="Myoclonus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myoclonus
 
@@ -7075,7 +7315,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Parkinsonism
 
@@ -7136,7 +7376,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bradykinesia" data-dismech-node="Bradykinesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bradykinesia
 
@@ -7206,7 +7446,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Failure
 
@@ -7246,7 +7486,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-unexpected-death-in-epilepsy" data-dismech-node="Sudden Unexpected Death in Epilepsy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sudden Unexpected Death in Epilepsy
 
@@ -7286,7 +7526,7 @@
                     <span class="cat-count">31</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-complex-febrile-seizure" data-dismech-node="Complex Febrile Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Complex Febrile Seizure
 
@@ -7347,7 +7587,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-hemiclonic-seizure" data-dismech-node="Focal Hemiclonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Hemiclonic Seizure
 
@@ -7408,7 +7648,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-photosensitive-myoclonic-seizures" data-dismech-node="Photosensitive Myoclonic Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Photosensitive Myoclonic Seizures
 
@@ -7469,7 +7709,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-photosensitive-tonic-clonic-seizures" data-dismech-node="Photosensitive Tonic-Clonic Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Photosensitive Tonic-Clonic Seizures
 
@@ -7530,7 +7770,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-aware-seizure" data-dismech-node="Focal Aware Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Aware Seizure
 
@@ -7591,7 +7831,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-impaired-awareness-seizure" data-dismech-node="Focal Impaired Awareness Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Impaired Awareness Seizure
 
@@ -7652,7 +7892,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-clonic-seizure" data-dismech-node="Generalized Clonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Clonic Seizure
 
@@ -7713,7 +7953,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epilepsia-partialis-continua" data-dismech-node="Epilepsia Partialis Continua" data-dismech-type="phenotype">
                     <div class="item-name">
                         Epilepsia Partialis Continua
 
@@ -7774,7 +8014,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-status-epilepticus-without-prominent-motor-symptoms" data-dismech-node="Status Epilepticus Without Prominent Motor Symptoms" data-dismech-type="phenotype">
                     <div class="item-name">
                         Status Epilepticus Without Prominent Motor Symptoms
 
@@ -7857,7 +8097,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-tonic-seizure" data-dismech-node="Generalized Tonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Tonic Seizure
 
@@ -7918,7 +8158,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multifocal-epileptiform-discharges" data-dismech-node="Multifocal Epileptiform Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multifocal Epileptiform Discharges
 
@@ -7979,7 +8219,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interictal-epileptiform-activity" data-dismech-node="Interictal Epileptiform Activity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Interictal Epileptiform Activity
 
@@ -8062,7 +8302,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-with-focal-epileptiform-discharges" data-dismech-node="EEG with Focal Epileptiform Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         EEG with Focal Epileptiform Discharges
 
@@ -8123,7 +8363,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-with-generalized-epileptiform-discharges" data-dismech-node="EEG with Generalized Epileptiform Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         EEG with Generalized Epileptiform Discharges
 
@@ -8184,7 +8424,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-electrographic-seizures-scn1a-mouse-model" data-dismech-node="Electrographic Seizures (Scn1a+/- Mouse Model)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Electrographic Seizures (Scn1a+/- Mouse Model)
 
@@ -8235,7 +8475,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-gait-ataxia" data-dismech-node="Progressive Gait Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Gait Ataxia
 
@@ -8318,7 +8558,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obsessive-compulsive-trait" data-dismech-node="Obsessive-Compulsive Trait" data-dismech-type="phenotype">
                     <div class="item-name">
                         Obsessive-Compulsive Trait
 
@@ -8379,7 +8619,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-attention-span" data-dismech-node="Short Attention Span" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Attention Span
 
@@ -8440,7 +8680,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impulsivity" data-dismech-node="Impulsivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impulsivity
 
@@ -8501,7 +8741,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cogwheel-rigidity" data-dismech-node="Cogwheel Rigidity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cogwheel Rigidity
 
@@ -8562,7 +8802,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-action-tremor" data-dismech-node="Action Tremor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Action Tremor
 
@@ -8623,7 +8863,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-tics" data-dismech-node="Facial Tics" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial Tics
 
@@ -8684,7 +8924,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-incoordination" data-dismech-node="Incoordination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Incoordination
 
@@ -8745,7 +8985,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poor-fine-motor-coordination" data-dismech-node="Poor Fine Motor Coordination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Poor Fine Motor Coordination
 
@@ -8806,7 +9046,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-brain-atrophy" data-dismech-node="Global Brain Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Brain Atrophy
 
@@ -8889,7 +9129,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysgenesis-of-the-hippocampus" data-dismech-node="Dysgenesis of the Hippocampus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysgenesis of the Hippocampus
 
@@ -8972,7 +9212,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limited-neck-range-of-motion" data-dismech-node="Limited Neck Range of Motion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limited Neck Range of Motion
 
@@ -9033,7 +9273,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-valgus" data-dismech-node="Pes Valgus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Valgus
 
@@ -9094,7 +9334,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limited-knee-extension" data-dismech-node="Limited Knee Extension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limited Knee Extension
 
@@ -9155,7 +9395,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tibial-torsion" data-dismech-node="Tibial Torsion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tibial Torsion
 
@@ -9216,7 +9456,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cyanotic-episode" data-dismech-node="Cyanotic Episode" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cyanotic Episode
 
@@ -9316,7 +9556,7 @@
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn1a" data-dismech-node="SCN1A" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN1A
 
@@ -9404,9 +9644,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn1b" data-dismech-node="SCN1B" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN1B
 
@@ -9450,9 +9691,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn2a" data-dismech-node="SCN2A" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN2A
 
@@ -9496,9 +9738,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn9a" data-dismech-node="SCN9A" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN9A
 
@@ -9542,9 +9785,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gabra1" data-dismech-node="GABRA1" data-dismech-type="genetic">
                 <div class="item-name">
                     GABRA1
 
@@ -9588,9 +9832,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gabrg2" data-dismech-node="GABRG2" data-dismech-type="genetic">
                 <div class="item-name">
                     GABRG2
 
@@ -9634,9 +9879,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pcdh19" data-dismech-node="PCDH19" data-dismech-type="genetic">
                 <div class="item-name">
                     PCDH19
 
@@ -9680,9 +9926,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stxbp1" data-dismech-node="STXBP1" data-dismech-type="genetic">
                 <div class="item-name">
                     STXBP1
 
@@ -9694,9 +9941,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hcn1" data-dismech-node="HCN1" data-dismech-type="genetic">
                 <div class="item-name">
                     HCN1
 
@@ -9708,9 +9956,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chd2" data-dismech-node="CHD2" data-dismech-type="genetic">
                 <div class="item-name">
                     CHD2
 
@@ -9722,9 +9971,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-depdc5" data-dismech-node="DEPDC5" data-dismech-type="genetic">
                 <div class="item-name">
                     DEPDC5
 
@@ -9736,9 +9986,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -9750,7 +10004,7 @@
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiepileptic-medications" data-dismech-node="Antiepileptic Medications" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiepileptic Medications
                 </div>
@@ -9846,7 +10100,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ketogenic-diet" data-dismech-node="Ketogenic Diet" data-dismech-type="treatment">
                 <div class="item-name">
                     Ketogenic Diet
                 </div>
@@ -9910,7 +10164,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-therapies" data-dismech-node="Supportive Therapies" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Therapies
                 </div>
@@ -9956,7 +10210,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vagus-nerve-stimulation-vns" data-dismech-node="Vagus Nerve Stimulation (VNS)" data-dismech-type="treatment">
                 <div class="item-name">
                     Vagus Nerve Stimulation (VNS)
                 </div>
@@ -10020,7 +10274,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antisense-oligonucleotide-therapy-zorevunersen-stk-001" data-dismech-node="Antisense Oligonucleotide Therapy (Zorevunersen/STK-001)" data-dismech-type="treatment">
                 <div class="item-name">
                     Antisense Oligonucleotide Therapy (Zorevunersen/STK-001)
                 </div>
@@ -10190,7 +10444,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-aav-gene-therapy-etx101" data-dismech-node="AAV Gene Therapy (ETX101)" data-dismech-type="treatment">
                 <div class="item-name">
                     AAV Gene Therapy (ETX101)
                 </div>
@@ -10267,7 +10521,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cannabidiol" data-dismech-node="Cannabidiol" data-dismech-type="treatment">
                 <div class="item-name">
                     Cannabidiol
                 </div>
@@ -10379,7 +10633,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-fenfluramine" data-dismech-node="Fenfluramine" data-dismech-type="treatment">
                 <div class="item-name">
                     Fenfluramine
                 </div>
@@ -10491,7 +10745,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-stiripentol" data-dismech-node="Stiripentol" data-dismech-type="treatment">
                 <div class="item-name">
                     Stiripentol
                 </div>
@@ -10603,7 +10857,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-scn8a-modulation" data-dismech-node="SCN8A Modulation" data-dismech-type="treatment">
                 <div class="item-name">
                     SCN8A Modulation
                 </div>
@@ -10700,7 +10954,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tau-suppression" data-dismech-node="Tau Suppression" data-dismech-type="treatment">
                 <div class="item-name">
                     Tau Suppression
                 </div>
@@ -10809,7 +11063,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-fever" data-dismech-node="Fever" data-dismech-type="environmental">
                 <div class="item-name">Fever</div>
 
 
@@ -10819,13 +11073,15 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-excessive-heat-and-overexertion" data-dismech-node="Excessive Heat and Overexertion" data-dismech-type="environmental">
                 <div class="item-name">Excessive Heat and Overexertion</div>
 
 
                 <div class="item-desc">Can trigger or worsen seizures.</div>
+
 
 
 
@@ -10843,6 +11099,175 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Variability vs. phenotype: Multimodal analysis of Dravet syndrome brain organoids powered by deep learning
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE256142" target="_blank">geo:GSE256142</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dravet Syndrome (DS) is a developmental epileptic encephalopathy (DEE) driven by pathogenic variants in SCN1A gene. Brain organoids (BO) have emerged as reliable models for neurodevelopmental genetic disorders, reproducing human brain developmental milestones and rising as a promising drug testing tool. Here, we determined the underlaying molecular DS pathophysiology affecting neuronal connectivity, revealing an early onset excitatory-inhibitory imbalance in maturing DS organoids circuitry. However, neuronal circuitry modeling in BO remains hampered by the notorious inter- and intra-organoid variability.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=18</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41323276" target="_blank" style="color: var(--secondary);">PMID:41323276</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    dCas9-based Scn1a gene activation restores inhibitory interneuron excitability and restrains epileptic crises in Dravet syndrome mice
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE111436" target="_blank">geo:GSE111436</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dravet syndrome (DS) is a severe epileptic encephalopathy caused by heterozygous loss-of-function mutations in the SCN1A gene, indicating a haploinsufficient genetic mechanism underlining this pathology. Here, we tested whether dCas9-mediated Scn1a gene activation could rescue Scn1a haploinsufficiency and restore physiological levels of its gene product, the Nav1.1 voltage-gated sodium channel. We screeened sgRNAs for their ability to stimulate Scn1a gene transcription in association with the dCas9 activation system. Interestingly, we identified one single sgRNA able to significantly increase Scn1a gene expression levels in cell lines as well as in primary neurons, with high specificity.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31607539" target="_blank" style="color: var(--secondary);">PMID:31607539</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Epigenetic insights into GABAergic development in Dravet Syndrome iPSC and therapeutic implications
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE274660" target="_blank">geo:GSE274660</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dravet syndrome (DS) is a devastating early onset refractory epilepsy syndrome caused by variants in the SCN1A gene. A disturbed GABAergic interneuron function is implicated in the progression to DS but the underlying developmental and pathophysiological mechanisms remain elusive, in particularly at the chromatin level. In this study, we utilized induced pluripotent stem cells (iPSCs) derived from DS cases and healthy donors to model disease-associated epigenetic abnormalities of GABAergic development. Employing the ATAC-Seq technique, we assessed chromatin accessibility at multiple time points (Day 0, Day 19, Day 35, and Day 65) of GABAergic differentiation.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">ATAC SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=56</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000001645" target="_blank">ega:EGAS50000001645</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This dataset contains bulk RNA-sequencing data generated for the study “Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development.” RNA-seq was performed on human cortical organoids and cortical organoid assemblies derived from induced pluripotent stem cells (iPSCs) from two individuals with Dravet syndrome and their corresponding isogenic control lines. Libraries were prepared from total/bulk mRNA and sequenced as paired-end reads. The dataset is intended to enable transcriptomic analyses of early cortical developmental changes associated with Dravet syndrome in an isogenic background.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Dravet syndrome&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -12842,6 +13267,51 @@ discussions:
     would_support:
     - pathophysiology#SCN1A Gene Mutation
     - pathophysiology#Neuronal Hyperexcitability
+datasets:
+- accession: geo:GSE256142
+  title: &#39;Variability vs. phenotype: Multimodal analysis of Dravet syndrome brain organoids powered by deep learning&#39;
+  description: Dravet Syndrome (DS) is a developmental epileptic encephalopathy (DEE) driven by pathogenic variants in SCN1A gene. Brain organoids (BO) have emerged as reliable models for neurodevelopmental genetic disorders, reproducing human brain developmental milestones and rising as a promising drug testing tool. Here, we determined the underlaying molecular DS pathophysiology affecting neuronal connectivity, revealing an early onset excitatory-inhibitory imbalance in maturing DS organoids circuitry. However, neuronal circuitry modeling in BO remains hampered by the notorious inter- and intra-organoid variability.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 18
+  publication: PMID:41323276
+  notes: Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE111436
+  title: dCas9-based Scn1a gene activation restores inhibitory interneuron excitability and restrains epileptic crises in Dravet syndrome mice
+  description: Dravet syndrome (DS) is a severe epileptic encephalopathy caused by heterozygous loss-of-function mutations in the SCN1A gene, indicating a haploinsufficient genetic mechanism underlining this pathology. Here, we tested whether dCas9-mediated Scn1a gene activation could rescue Scn1a haploinsufficiency and restore physiological levels of its gene product, the Nav1.1 voltage-gated sodium channel. We screeened sgRNAs for their ability to stimulate Scn1a gene transcription in association with the dCas9 activation system. Interestingly, we identified one single sgRNA able to significantly increase Scn1a gene expression levels in cell lines as well as in primary neurons, with high specificity.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:31607539
+  notes: Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE274660
+  title: Epigenetic insights into GABAergic development in Dravet Syndrome iPSC and therapeutic implications
+  description: Dravet syndrome (DS) is a devastating early onset refractory epilepsy syndrome caused by variants in the SCN1A gene. A disturbed GABAergic interneuron function is implicated in the progression to DS but the underlying developmental and pathophysiological mechanisms remain elusive, in particularly at the chromatin level. In this study, we utilized induced pluripotent stem cells (iPSCs) derived from DS cases and healthy donors to model disease-associated epigenetic abnormalities of GABAergic development. Employing the ATAC-Seq technique, we assessed chromatin accessibility at multiple time points (Day 0, Day 19, Day 35, and Day 65) of GABAergic differentiation.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: ATAC_SEQ
+  sample_count: 56
+  notes: Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS50000001645
+  title: Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development
+  description: This dataset contains bulk RNA-sequencing data generated for the study “Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development.” RNA-seq was performed on human cortical organoids and cortical organoid assemblies derived from induced pluripotent stem cells (iPSCs) from two individuals with Dravet syndrome and their corresponding isogenic control lines. Libraries were prepared from total/bulk mRNA and sequenced as paired-end reads. The dataset is intended to enable transcriptomic analyses of early cortical developmental changes associated with Dravet syndrome in an isogenic background.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Dravet syndrome&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -13943,7 +14413,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dravet_syndrome", "mondoId": "MONDO:0100135", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dravet_syndrome", "yamlRevision": "4521566c0a70"};
+        const OS_CONFIG = {"diseaseName": "Dravet_syndrome", "mondoId": "MONDO:0100135", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dravet_syndrome", "yamlRevision": "4b4642ff7de6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Adenoid%20Cystic%20Carcinoma"
@@ -3464,6 +3693,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3517,7 +3748,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">19</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3532,16 +3763,25 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3550,7 +3790,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4823,7 +5063,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
 
@@ -4964,6 +5204,30 @@
                                     </span>
 
                                 </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Salivary Gland Neoplasm</span>
+
+	                            <span class="crosslink-desc">Tumor architecture arising in salivary ductal and myoepithelial lineages produces the characteristic salivary-gland neoplasm.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Neoplasm of Head and Neck</span>
+
+	                            <span class="crosslink-desc">At head-and-neck exocrine sites, the biphasic tumor architecture manifests as a locally infiltrative neoplasm.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dysphagia</span>
+
+	                            <span class="crosslink-desc">Oropharyngeal and palatal tumors can impair swallowing through local mass effect and infiltration.</span>
+
 
 	                        </div>
 
@@ -5173,7 +5437,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tert-promoter-mutation-as-an-alternative-oncogenic-route" data-dismech-node="TERT Promoter Mutation as an Alternative Oncogenic Route" data-dismech-type="pathophysiology">
                 <div class="item-name">TERT Promoter Mutation as an Alternative Oncogenic Route</div>
 
-                <div class="item-desc">A minority of recurrent/metastatic tumors carry TERT promoter hotspot mutations that are mutually exclusive with both NOTCH1 mutations and MYB/MYBL1 fusions. Together with the MYB and Notch lesions these define four discrete molecular subgroups, indicating that ACC is reached by more than one oncogenic route rather than by a single obligatory pathway. TERT promoter hotspot mutations are the canonical telomerase-reactivating lesion, which is why this node conforms to the replicative-immortality hallmark module; the module&#39;s downstream chain is not replicated here because the cited ACC genomic series characterise the lesion and its mutual exclusivity rather than measuring telomerase activity or telomere length in ACC.</div>
+                <div class="item-desc">A minority of recurrent/metastatic tumors carry TERT promoter hotspot mutations that are mutually exclusive with both NOTCH1 mutations and MYB/MYBL1 fusions. Together with the MYB and Notch lesions these define four discrete molecular subgroups, indicating that ACC is reached by more than one oncogenic route rather than by a single obligatory pathway. The cited ACC genomic series establishes the lesion and its mutual exclusivity but does not measure telomerase activity or telomere length, so a downstream mechanism of telomere maintenance is not asserted here.</div>
 
 
 
@@ -5219,39 +5483,6 @@
 
 
 
-
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        telomere maintenance via telomerase
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0007004" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007004">GO:0007004</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
 
 
 
@@ -5525,7 +5756,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-neuropathy-and-late-local-recurrence" data-dismech-node="Cranial Neuropathy and Late Local Recurrence" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Neuropathy and Late Local Recurrence</div>
 
-                <div class="item-desc">Perineural tumor extension along the facial and trigeminal nerves and their named branches produces progressive motor and sensory cranial neuropathy, and leaves microscopic disease beyond the surgical field. The result is a characteristically long tail of local recurrence, with events occurring many years after apparently complete treatment and mandating indefinite surveillance.</div>
+                <div class="item-desc">Perineural tumor extension along the facial and trigeminal nerves and their named branches produces progressive motor and sensory cranial neuropathy, and leaves microscopic disease beyond the surgical field. The result is a characteristically long tail of local recurrence, with events occurring many years after apparently complete treatment and motivating long-term follow-up.</div>
 
 
 
@@ -5541,6 +5772,37 @@
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Facial Palsy</span>
+
+	                            <span class="crosslink-desc">Facial-nerve involvement can produce progressive motor weakness.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Facial and Perineural Pain</span>
+
+	                            <span class="crosslink-desc">Invasion of sensory nerves produces pain in the involved distribution.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Paresthesia</span>
+
+	                            <span class="crosslink-desc">Sensory-nerve involvement produces numbness, tingling, or hypoesthesia.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5615,39 +5877,6 @@
 
 
 
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        Cell Population Proliferation
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
 
 
 
@@ -5669,6 +5898,21 @@
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Pulmonary Metastasis</span>
+
+	                            <span class="crosslink-desc">Haematogenous dissemination commonly seeds the lung after a prolonged disease-free interval.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5773,6 +6017,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23463073" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23463073" target="_blank">PMID:23463073</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACC has distinct histologic features, with cribriform and tubular growth patterns of basaloid cells displaying a predominantly myoepithelial cellular phenotype."</div>
+
+
+                <div class="evidence-explanation">A disease-focused review identifies cribriform growth as a defining ACC histologic pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -5785,6 +6061,38 @@
                 <div class="item-desc">True ducts lined by an inner luminal epithelial layer and an outer myoepithelial layer. A predominantly tubular tumor corresponds to the lowest-grade, most favourable end of the histological spectrum.</div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23463073" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23463073" target="_blank">PMID:23463073</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACC has distinct histologic features, with cribriform and tubular growth patterns of basaloid cells displaying a predominantly myoepithelial cellular phenotype."</div>
+
+
+                <div class="evidence-explanation">A disease-focused review identifies tubular growth as a defining ACC histologic pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -5801,9 +6109,31 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27180054" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27180054" target="_blank">PMID:27180054</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The solid pattern of AdCC showed gland differentiation but loss of myoepithelial differentiation with a higher proliferation and more aggressiveness as well as poorer prognosis compared with the cribriform-tubular subtypes"</div>
+
+
+                <div class="evidence-explanation">Directly supports the solid pattern&#39;s altered differentiation and worse clinical behavior relative to cribriform-tubular ACC.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:40025676" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5903,7 +6233,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumor is built from two interdependent epithelial compartments: abluminal myoepithelial-like cells and luminal ductal cells. These are arranged in cribriform, tubular, and solid patterns, with the cribriform \\\"Swiss cheese\\\" architecture produced by pseudocysts filled with basement-membrane-like material laid down by the myoepithelial compartment. The proportion of solid architecture is the basis of histological grading and tracks with aggressiveness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myoepithelial cell of salivary gland\", \"luminal ductal tumor cell\"], \"locations\": [\"major salivary gland\"]}}, {\"id\": \"Brontictuzumab (Anti-NOTCH1 Antibody)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Brontictuzumab is a monoclonal antibody targeting NOTCH1. Tumor growth inhibition in ACC patient-derived xenografts occurred exclusively in the model carrying an activating NOTCH1 mutation, and an index patient with NOTCH1-mutant ACC had a partial response \\u2014 an unusually clean demonstration of genotype-restricted benefit. In direct comparison its responses were shorter-lived than those of AL101.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"brontictuzumab\"]}}, {\"id\": \"Cranial Neuropathy and Late Local Recurrence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perineural tumor extension along the facial and trigeminal nerves and their named branches produces progressive motor and sensory cranial neuropathy, and leaves microscopic disease beyond the surgical field. The result is a characteristically long tail of local recurrence, with events occurring many years after apparently complete treatment and mandating indefinite surveillance.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Intercalated Duct Cell of Origin and Premalignant Transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell transcriptomic profiling of paracarcinoma and carcinoma tissue resolves the ACC epithelium into myoepithelial-like, intercalated duct-like, and duct-like cells. A subset of intercalated duct-like cells in paracarcinoma tissue carries copy-number alterations affecting MYB-family genes and EN1 and is identified as premalignant; pseudotime trajectory analysis shows these cells transitioning into frank malignant cells, implicating the intercalated duct cell as the cell of origin.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intercalated duct cell of salivary gland\"]}}, {\"id\": \"Late Haematogenous Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACC disseminates preferentially by the haematogenous rather than the lymphatic route, so regional nodal involvement is comparatively uncommon while distant metastasis \\u2014 most often pulmonary, then bone and liver \\u2014 is the dominant mode of failure. The defining feature is its latency: distant relapse typically appears several years after primary treatment and can occur more than a decade later, and patients may survive for years with established metastatic disease, so metastasis in ACC marks a chronic phase rather than an immediately terminal one.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Cell Population Proliferation\"], \"locations\": [\"lung\"]}}, {\"id\": \"MYB (MYB-NFIB Fusion)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYB\"], \"gene_terms\": [{\"label\": \"MYB\", \"id\": \"hgnc:7545\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MYB-Driven Oncogenic Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overexpressed MYB (or MYBL1), acting as a sequence-specific DNA-binding transcription factor, drives a transcriptional program promoting cell-cycle progression, survival, angiogenesis and adhesion. Critically, MYB binds lineage-specific enhancers and therefore drives different regulatory programs in the two cell compartments of the tumor: it cooperates with TP63 in myoepithelial cells and with a Notch program in luminal epithelial cells. This single-driver, two-program behaviour is the molecular explanation for the defining biphasic architecture of ACC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MYB target gene transcriptional activation\"], \"molecular_functions\": [\"MYB DNA-binding transcription factor activity\"]}}, {\"id\": \"MYB-NFIB Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent t(6;9)(q22-23;p23-24) translocation fuses the MYB proto-oncogene at 6q23 to the transcription factor gene NFIB at 9p23-24, producing chimeric transcripts in which MYB exon 14 is joined to the last coding exon(s) of NFIB. The rearrangement consistently deletes MYB exon 15 including the 3\u0027 UTR, which carries conserved binding sites for the repressive miR-15a/16 and miR-150 microRNAs. Loss of this post-transcriptional brake is the proximate mechanism of MYB overexpression. Reported prevalence varies widely across cohorts, largely reflecting assay methodology rather than true biological heterogeneity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"salivary gland cell\"], \"genes\": [\"MYB\", \"NFIB\"], \"gene_terms\": [{\"label\": \"MYB\", \"id\": \"hgnc:7545\"}, {\"label\": \"NFIB\", \"id\": \"hgnc:7785\"}]}}, {\"id\": \"MYBL1 Rearrangement\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYBL1\"], \"gene_terms\": [{\"label\": \"MYBL1\", \"id\": \"hgnc:7547\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MYBL1 Rearrangement and MYB Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In tumors lacking the MYB-NFIB fusion, the same MYB-family transcriptional output is reached by alternative genetic routes: rearrangements of the second MYB-family gene MYBL1 (MYBL1-NFIB, MYBL1-ACTN1) or high-level amplification of MYB itself, each producing MYBL1 or MYB overexpression. These lesions are mutually exclusive with the MYB-NFIB fusion, making ACC a convergent phenotype at the level of MYB-family activation rather than a single-lesion disease.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MYBL1\", \"MYB\"], \"gene_terms\": [{\"label\": \"MYBL1\", \"id\": \"hgnc:7547\"}, {\"label\": \"MYB\", \"id\": \"hgnc:7545\"}]}}, {\"id\": \"NFIB (Fusion Partner)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"NFIB\"], \"gene_terms\": [{\"label\": \"NFIB\", \"id\": \"hgnc:7785\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NOTCH1 Activating Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NOTCH1 Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct subgroup of ACC carries activating NOTCH1 mutations clustered in the negative regulatory region and the PEST (Pro-Glu-Ser-Thr-rich) domain \\u2014 the same two hotspots exploited in T-cell acute lymphoblastic leukemia \\u2014 which stabilise the Notch1 intracellular domain and drive constitutive pathway output. These alterations are strongly enriched in recurrent/metastatic relative to primary disease, indicating that Notch activation is a progression event as well as an initiating one.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Notch signaling pathway\"], \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}]}}, {\"id\": \"Neurotropic Perineural Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perineural invasion is the single most characteristic pathophysiological behaviour of ACC: tumor cells track along the perineural and endoneural spaces of named nerves, forming a target-like cuff around nerve fascicles and extending microscopically far beyond the grossly visible tumor margin, in many cases to the skull base. Brain-derived neurotrophic factor (BDNF), a neurotrophin involved in neurogenesis, is uniformly expressed by ACC and is the leading candidate mediator of this neurotropism. Perineural spread is the principal reason margin-negative resection is difficult and local recurrence is late and frequent.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"nerve\"]}}, {\"id\": \"Notch Inhibition (Gamma-Secretase Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AL101 (osugacestat) is a gamma-secretase inhibitor that blocks activation of all four NOTCH receptors, developed specifically for the NOTCH-activated ACC subgroup. It shows potent antitumor activity in NOTCH1-mutant ACC cell lines, organoids and xenografts, and in a retrospective clinical series of Notch-activated recurrent/metastatic ACC produced longer progression-free survival than prior systemic therapy \\u2014 though responses remain partial and short-lived, and combination approaches are being explored.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"osugacestat (AL101)\"]}}, {\"id\": \"Solid-Pattern Aggressive Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NOTCH1-mutant tumors define a clinically distinct aggressive subgroup marked by solid histology, advanced stage at diagnosis, a higher rate of liver and bone metastasis, and substantially shorter relapse-free and overall survival than NOTCH1 wild-type disease. This subgroup is the target population for Notch-directed therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Super-Enhancer Translocation and MYB Positive Feedback Loop\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond creating a chimeric protein, the recurrent rearrangements act as regulatory translocations that juxtapose distal super-enhancers to the MYB locus. MYB protein then binds these translocated enhancers itself, establishing a self-sustaining positive feedback loop that locks in MYB overexpression. This enhancer dependency is the rationale for bromodomain (BET) inhibition in preclinical ACC models.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"enhancer-driven positive regulation of MYB transcription\"]}}, {\"id\": \"TERT Promoter Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"TERT Promoter Mutation as an Alternative Oncogenic Route\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of recurrent/metastatic tumors carry TERT promoter hotspot mutations that are mutually exclusive with both NOTCH1 mutations and MYB/MYBL1 fusions. Together with the MYB and Notch lesions these define four discrete molecular subgroups, indicating that ACC is reached by more than one oncogenic route rather than by a single obligatory pathway. TERT promoter hotspot mutations are the canonical telomerase-reactivating lesion, which is why this node conforms to the replicative-immortality hallmark module; the module\u0027s downstream chain is not replicated here because the cited ACC genomic series characterise the lesion and its mutual exclusivity rather than measuring telomerase activity or telomere length in ACC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"telomere maintenance via telomerase\"], \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}]}}], \"edges\": [{\"source\": \"MYB-NFIB Fusion Oncogene Formation\", \"target\": \"MYB-Driven Oncogenic Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of 3\u0027 UTR-mediated repression leads to overexpression of MYB-NFIB transcripts and protein and activation of MYB target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYBL1 Rearrangement and MYB Amplification\", \"target\": \"MYB-Driven Oncogenic Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYBL1 rearrangement or MYB amplification produces MYB-family overexpression and activation of the same downstream transcriptional program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Enhancer Translocation and MYB Positive Feedback Loop\", \"target\": \"MYB-Driven Oncogenic Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The enhancer feedback loop sustains high-level MYB expression and its downstream transcriptional program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYB-Driven Oncogenic Transcriptional Program\", \"target\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lineage-specific MYB enhancer binding sustains distinct myoepithelial and luminal transcriptional programs within the same tumor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYB-Driven Oncogenic Transcriptional Program\", \"target\": \"Neurotropic Perineural Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The MYB-driven program supports the infiltrative, neurotropic phenotype that characterises ACC growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intercalated Duct Cell of Origin and Premalignant Transition\", \"target\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed intercalated duct-like cells give rise to the two-compartment tumor epithelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"target\": \"Neurotropic Perineural Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The infiltrative biphasic tumor front advances preferentially along perineural planes.\", \"hypothesis_groups\": [\"bdnf_neurotropism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NOTCH1 Pathway Hyperactivation\", \"target\": \"Solid-Pattern Aggressive Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Notch pathway activation drives the solid histologic phenotype and its accelerated clinical course.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurotropic Perineural Invasion\", \"target\": \"Cranial Neuropathy and Late Local Recurrence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor spread along cranial nerves produces neurological deficits and leaves microscopic residual disease after resection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Solid-Pattern Aggressive Disease\", \"target\": \"Late Haematogenous Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The aggressive NOTCH-activated phenotype accelerates distant, particularly liver and bone, metastatic spread.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Notch Inhibition (Gamma-Secretase Inhibitor)\", \"target\": \"NOTCH1 Pathway Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brontictuzumab (Anti-NOTCH1 Antibody)\", \"target\": \"NOTCH1 Pathway Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MYB (MYB-NFIB Fusion)\", \"target\": \"MYB-NFIB Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYB (MYB-NFIB Fusion)\", \"target\": \"MYBL1 Rearrangement and MYB Amplification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NFIB (Fusion Partner)\", \"target\": \"MYB-NFIB Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBL1 Rearrangement\", \"target\": \"MYBL1 Rearrangement and MYB Amplification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOTCH1 Activating Mutation\", \"target\": \"NOTCH1 Pathway Hyperactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT Promoter Mutation\", \"target\": \"TERT Promoter Mutation as an Alternative Oncogenic Route\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tumor is built from two interdependent epithelial compartments: abluminal myoepithelial-like cells and luminal ductal cells. These are arranged in cribriform, tubular, and solid patterns, with the cribriform \\\"Swiss cheese\\\" architecture produced by pseudocysts filled with basement-membrane-like material laid down by the myoepithelial compartment. The proportion of solid architecture is the basis of histological grading and tracks with aggressiveness.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myoepithelial cell of salivary gland\", \"luminal ductal tumor cell\"], \"locations\": [\"major salivary gland\"]}}, {\"id\": \"Brontictuzumab (Anti-NOTCH1 Antibody)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Brontictuzumab is a monoclonal antibody targeting NOTCH1. Tumor growth inhibition in ACC patient-derived xenografts occurred exclusively in the model carrying an activating NOTCH1 mutation, and an index patient with NOTCH1-mutant ACC had a partial response, providing preliminary evidence of genotype-restricted activity.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"brontictuzumab\"]}}, {\"id\": \"Cranial Neuropathy and Late Local Recurrence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perineural tumor extension along the facial and trigeminal nerves and their named branches produces progressive motor and sensory cranial neuropathy, and leaves microscopic disease beyond the surgical field. The result is a characteristically long tail of local recurrence, with events occurring many years after apparently complete treatment and motivating long-term follow-up.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Difficulty swallowing can be a presenting symptom of oropharyngeal ACC, including base-of-tongue primaries.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002015\"}}, {\"id\": \"Facial Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weakness of the facial musculature from perineural tumor extension along the facial nerve (CN VII) can occur with parotid or skull-base disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010628\"}}, {\"id\": \"Facial and Perineural Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pain or neuralgiform discomfort can accompany tumor involvement of sensory nerves; pain/discomfort is also a documented presenting symptom in oropharyngeal ACC.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0046506\"}}, {\"id\": \"Intercalated Duct Cell of Origin and Premalignant Transition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Single-cell transcriptomic profiling of paracarcinoma and carcinoma tissue resolves the ACC epithelium into myoepithelial-like, intercalated duct-like, and duct-like cells. A subset of intercalated duct-like cells in paracarcinoma tissue carries copy-number alterations affecting MYB-family genes and EN1 and is identified as premalignant; pseudotime trajectory analysis shows these cells transitioning into frank malignant cells, implicating the intercalated duct cell as the cell of origin.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intercalated duct cell of salivary gland\"]}}, {\"id\": \"Late Haematogenous Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACC disseminates preferentially by the haematogenous rather than the lymphatic route, so regional nodal involvement is comparatively uncommon while distant metastasis \\u2014 most often pulmonary, then bone and liver \\u2014 is the dominant mode of failure. The defining feature is its latency: distant relapse typically appears several years after primary treatment and can occur more than a decade later, and patients may survive for years with established metastatic disease, so metastasis in ACC marks a chronic phase rather than an immediately terminal one.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"lung\"]}}, {\"id\": \"MYB (MYB-NFIB Fusion)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYB\"], \"gene_terms\": [{\"label\": \"MYB\", \"id\": \"hgnc:7545\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MYB-Driven Oncogenic Transcriptional Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overexpressed MYB (or MYBL1), acting as a sequence-specific DNA-binding transcription factor, drives a transcriptional program promoting cell-cycle progression, survival, angiogenesis and adhesion. Critically, MYB binds lineage-specific enhancers and therefore drives different regulatory programs in the two cell compartments of the tumor: it cooperates with TP63 in myoepithelial cells and with a Notch program in luminal epithelial cells. This single-driver, two-program behaviour is the molecular explanation for the defining biphasic architecture of ACC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MYB target gene transcriptional activation\"], \"molecular_functions\": [\"MYB DNA-binding transcription factor activity\"]}}, {\"id\": \"MYB-NFIB Fusion Oncogene Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent t(6;9)(q22-23;p23-24) translocation fuses the MYB proto-oncogene at 6q23 to the transcription factor gene NFIB at 9p23-24, producing chimeric transcripts in which MYB exon 14 is joined to the last coding exon(s) of NFIB. The rearrangement consistently deletes MYB exon 15 including the 3\u0027 UTR, which carries conserved binding sites for the repressive miR-15a/16 and miR-150 microRNAs. Loss of this post-transcriptional brake is the proximate mechanism of MYB overexpression. Reported prevalence varies widely across cohorts, largely reflecting assay methodology rather than true biological heterogeneity.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"salivary gland cell\"], \"genes\": [\"MYB\", \"NFIB\"], \"gene_terms\": [{\"label\": \"MYB\", \"id\": \"hgnc:7545\"}, {\"label\": \"NFIB\", \"id\": \"hgnc:7785\"}]}}, {\"id\": \"MYBL1 Rearrangement\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYBL1\"], \"gene_terms\": [{\"label\": \"MYBL1\", \"id\": \"hgnc:7547\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"MYBL1 Rearrangement and MYB Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In tumors lacking the MYB-NFIB fusion, the same MYB-family transcriptional output is reached by alternative genetic routes: rearrangements of the second MYB-family gene MYBL1 (MYBL1-NFIB, MYBL1-ACTN1) or high-level amplification of MYB itself, each producing MYBL1 or MYB overexpression. These lesions are mutually exclusive with the MYB-NFIB fusion, making ACC a convergent phenotype at the level of MYB-family activation rather than a single-lesion disease.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MYBL1\", \"MYB\"], \"gene_terms\": [{\"label\": \"MYBL1\", \"id\": \"hgnc:7547\"}, {\"label\": \"MYB\", \"id\": \"hgnc:7545\"}]}}, {\"id\": \"NFIB (Fusion Partner)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NFIB\"], \"gene_terms\": [{\"label\": \"NFIB\", \"id\": \"hgnc:7785\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NOTCH1 Activating Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"NOTCH1 Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinct subgroup of ACC carries activating NOTCH1 mutations clustered in the negative regulatory region and the PEST (Pro-Glu-Ser-Thr-rich) domain \\u2014 the same two hotspots exploited in T-cell acute lymphoblastic leukemia \\u2014 which stabilise the Notch1 intracellular domain and drive constitutive pathway output. These alterations are strongly enriched in recurrent/metastatic relative to primary disease, indicating that Notch activation is a progression event as well as an initiating one.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Notch signaling pathway\"], \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}]}}, {\"id\": \"Neoplasm of Head and Neck\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"ACC most often presents as a head-and-neck tumor arising in major or minor salivary glands; lacrimal-gland primaries are another documented head-and-neck presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012288\"}}, {\"id\": \"Neurotropic Perineural Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perineural invasion is the single most characteristic pathophysiological behaviour of ACC: tumor cells track along the perineural and endoneural spaces of named nerves, forming a target-like cuff around nerve fascicles and extending microscopically far beyond the grossly visible tumor margin, in many cases to the skull base. Brain-derived neurotrophic factor (BDNF), a neurotrophin involved in neurogenesis, is uniformly expressed by ACC and is the leading candidate mediator of this neurotropism. Perineural spread is the principal reason margin-negative resection is difficult and local recurrence is late and frequent.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"nerve\"]}}, {\"id\": \"Notch Inhibition (Gamma-Secretase Inhibitor)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"AL101 (osugacestat) is a gamma-secretase inhibitor that blocks activation of all four NOTCH receptors, developed specifically for the NOTCH-activated ACC subgroup. It shows potent antitumor activity in NOTCH1-mutant ACC cell lines, organoids and xenografts, and in a retrospective clinical series of Notch-activated recurrent/metastatic ACC produced longer progression-free survival than prior systemic therapy \\u2014 though responses remain partial and short-lived, and combination approaches are being explored.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"osugacestat (AL101)\"]}}, {\"id\": \"Paresthesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Numbness, tingling, and hypoesthesia in the territory of a nerve infiltrated by tumor, reflecting sensory fibre involvement by perineural spread.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003401\"}}, {\"id\": \"Pulmonary Metastasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The lung is a well-documented site of distant ACC recurrence. Pulmonary metastasis may appear only after a multi-year disease-free interval.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100526\"}}, {\"id\": \"Salivary Gland Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A slowly enlarging mass of a major or minor salivary gland is a common presentation. ACC also occurs in other secretory glands, so this phenotype does not define every anatomical presentation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100684\"}}, {\"id\": \"Solid-Pattern Aggressive Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NOTCH1-mutant tumors define a clinically distinct aggressive subgroup marked by solid histology, advanced stage at diagnosis, a higher rate of liver and bone metastasis, and substantially shorter relapse-free and overall survival than NOTCH1 wild-type disease. This subgroup is the target population for Notch-directed therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Super-Enhancer Translocation and MYB Positive Feedback Loop\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Beyond creating a chimeric protein, the recurrent rearrangements act as regulatory translocations that juxtapose distal super-enhancers to the MYB locus. MYB protein then binds these translocated enhancers itself, establishing a self-sustaining positive feedback loop that locks in MYB overexpression. This enhancer dependency is the rationale for bromodomain (BET) inhibition in preclinical ACC models.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"enhancer-driven positive regulation of MYB transcription\"]}}, {\"id\": \"TERT Promoter Mutation\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"TERT Promoter Mutation as an Alternative Oncogenic Route\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of recurrent/metastatic tumors carry TERT promoter hotspot mutations that are mutually exclusive with both NOTCH1 mutations and MYB/MYBL1 fusions. Together with the MYB and Notch lesions these define four discrete molecular subgroups, indicating that ACC is reached by more than one oncogenic route rather than by a single obligatory pathway. The cited ACC genomic series establishes the lesion and its mutual exclusivity but does not measure telomerase activity or telomere length, so a downstream mechanism of telomere maintenance is not asserted here.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}]}}], \"edges\": [{\"source\": \"MYB-NFIB Fusion Oncogene Formation\", \"target\": \"MYB-Driven Oncogenic Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of 3\u0027 UTR-mediated repression leads to overexpression of MYB-NFIB transcripts and protein and activation of MYB target genes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYBL1 Rearrangement and MYB Amplification\", \"target\": \"MYB-Driven Oncogenic Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MYBL1 rearrangement or MYB amplification produces MYB-family overexpression and activation of the same downstream transcriptional program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Super-Enhancer Translocation and MYB Positive Feedback Loop\", \"target\": \"MYB-Driven Oncogenic Transcriptional Program\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The enhancer feedback loop sustains high-level MYB expression and its downstream transcriptional program.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYB-Driven Oncogenic Transcriptional Program\", \"target\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lineage-specific MYB enhancer binding sustains distinct myoepithelial and luminal transcriptional programs within the same tumor.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MYB-Driven Oncogenic Transcriptional Program\", \"target\": \"Neurotropic Perineural Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The MYB-driven program supports the infiltrative, neurotropic phenotype that characterises ACC growth.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intercalated Duct Cell of Origin and Premalignant Transition\", \"target\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed intercalated duct-like cells give rise to the two-compartment tumor epithelium.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"target\": \"Neurotropic Perineural Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The infiltrative biphasic tumor front advances preferentially along perineural planes.\", \"hypothesis_groups\": [\"bdnf_neurotropism\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"target\": \"Salivary Gland Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor architecture arising in salivary ductal and myoepithelial lineages produces the characteristic salivary-gland neoplasm.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"target\": \"Neoplasm of Head and Neck\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At head-and-neck exocrine sites, the biphasic tumor architecture manifests as a locally infiltrative neoplasm.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biphasic Myoepithelial-Luminal Tumor Architecture\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oropharyngeal and palatal tumors can impair swallowing through local mass effect and infiltration.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"NOTCH1 Pathway Hyperactivation\", \"target\": \"Solid-Pattern Aggressive Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Notch pathway activation drives the solid histologic phenotype and its accelerated clinical course.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurotropic Perineural Invasion\", \"target\": \"Cranial Neuropathy and Late Local Recurrence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumor spread along cranial nerves produces neurological deficits and leaves microscopic residual disease after resection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Solid-Pattern Aggressive Disease\", \"target\": \"Late Haematogenous Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The aggressive NOTCH-activated phenotype accelerates distant, particularly liver and bone, metastatic spread.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Neuropathy and Late Local Recurrence\", \"target\": \"Facial Palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Facial-nerve involvement can produce progressive motor weakness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Neuropathy and Late Local Recurrence\", \"target\": \"Facial and Perineural Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasion of sensory nerves produces pain in the involved distribution.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial Neuropathy and Late Local Recurrence\", \"target\": \"Paresthesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sensory-nerve involvement produces numbness, tingling, or hypoesthesia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Late Haematogenous Metastasis\", \"target\": \"Pulmonary Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Haematogenous dissemination commonly seeds the lung after a prolonged disease-free interval.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Notch Inhibition (Gamma-Secretase Inhibitor)\", \"target\": \"NOTCH1 Pathway Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Brontictuzumab (Anti-NOTCH1 Antibody)\", \"target\": \"NOTCH1 Pathway Hyperactivation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MYB (MYB-NFIB Fusion)\", \"target\": \"MYB-NFIB Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYB (MYB-NFIB Fusion)\", \"target\": \"MYBL1 Rearrangement and MYB Amplification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NFIB (Fusion Partner)\", \"target\": \"MYB-NFIB Fusion Oncogene Formation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBL1 Rearrangement\", \"target\": \"MYBL1 Rearrangement and MYB Amplification\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOTCH1 Activating Mutation\", \"target\": \"NOTCH1 Pathway Hyperactivation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT Promoter Mutation\", \"target\": \"TERT Promoter Mutation as an Alternative Oncogenic Route\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5943,7 +6273,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphagia
 
@@ -5982,6 +6312,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42371638" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42371638" target="_blank">PMID:42371638</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Presenting symptoms were mainly pain/discomfort (n = 31), followed by a palpable mass (n = 19) and dysphagia (n = 12)."</div>
+
+
+                <div class="evidence-explanation">A 2026 systematic review directly documents dysphagia at presentation; support is PARTIAL because the cohort is limited to oropharyngeal ACC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
 
@@ -5997,7 +6359,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-palsy" data-dismech-node="Facial Palsy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial Palsy
 
@@ -6083,7 +6445,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paresthesia" data-dismech-node="Paresthesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Paresthesia
 
@@ -6122,6 +6484,38 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36060029" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36060029" target="_blank">PMID:36060029</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Facial pain, nasal obstruction, and facial paresthesia were the most common symptoms."</div>
+
+
+                <div class="evidence-explanation">A systematic review directly reports facial paresthesia among common symptoms of skull-base ACC; support is PARTIAL because this is an anatomically selected subset.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
 
@@ -6137,7 +6531,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-metastasis" data-dismech-node="Pulmonary Metastasis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Metastasis
 
@@ -6205,7 +6599,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-salivary-gland-neoplasm" data-dismech-node="Salivary Gland Neoplasm" data-dismech-type="phenotype">
                     <div class="item-name">
                         Salivary Gland Neoplasm
 
@@ -6246,7 +6640,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6272,6 +6666,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:23463073" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23463073" target="_blank">PMID:23463073</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACC is an uncommon neoplasm that most frequently arises in salivary glands and related tissue in the head and neck region."</div>
+
+
+                <div class="evidence-explanation">Directly supports major and minor salivary glands as the typical sites of origin while preserving the existence of non-salivary primaries.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -6282,7 +6698,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neoplasm-of-head-and-neck" data-dismech-node="Neoplasm of Head and Neck" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neoplasm of Head and Neck
 
@@ -6341,7 +6757,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-and-perineural-pain" data-dismech-node="Facial and Perineural Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial and Perineural Pain
 
@@ -6382,7 +6798,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6403,6 +6819,28 @@
 
 
                 <div class="evidence-explanation">Indirect support: documents the perineural invasion that causes neuropathic facial pain; the snippet does not report the pain symptom itself, so this is marked PARTIAL.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42371638" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42371638" target="_blank">PMID:42371638</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Presenting symptoms were mainly pain/discomfort (n = 31), followed by a palpable mass (n = 19) and dysphagia (n = 12)."</div>
+
+
+                <div class="evidence-explanation">A 2026 systematic review directly documents pain as the leading reported presenting symptom in oropharyngeal ACC; support is PARTIAL because the review is restricted to that anatomical subset.</div>
 
 
 
@@ -6457,7 +6895,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-myb-myb-nfib-fusion" data-dismech-node="MYB (MYB-NFIB Fusion)" data-dismech-type="genetic">
                 <div class="item-name">
                     MYB (MYB-NFIB Fusion)
 
@@ -6542,9 +6980,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nfib-fusion-partner" data-dismech-node="NFIB (Fusion Partner)" data-dismech-type="genetic">
                 <div class="item-name">
                     NFIB (Fusion Partner)
 
@@ -6574,10 +7013,43 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19841262" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19841262" target="_blank">PMID:19841262</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the t(6;9)(q22-23;p23-24) translocation in adenoid cystic carcinomas (ACC) of the breast and head and neck consistently results in fusions encoding chimeric transcripts predominantly consisting of MYB exon 14 linked to the last coding exon(s) of NFIB"</div>
+
+
+                <div class="evidence-explanation">Directly establishes NFIB as the recurrent MYB fusion partner in ACC.</div>
+
+
 
             </div>
 
-            <div class="item-box genetic-box">
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-mybl1-rearrangement" data-dismech-node="MYBL1 Rearrangement" data-dismech-type="genetic">
                 <div class="item-name">
                     MYBL1 Rearrangement
 
@@ -6640,9 +7112,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-notch1-activating-mutation" data-dismech-node="NOTCH1 Activating Mutation" data-dismech-type="genetic">
                 <div class="item-name">
                     NOTCH1 Activating Mutation
 
@@ -6705,9 +7178,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tert-promoter-mutation" data-dismech-node="TERT Promoter Mutation" data-dismech-type="genetic">
                 <div class="item-name">
                     TERT Promoter Mutation
 
@@ -6770,9 +7244,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6781,10 +7259,10 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">8</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surgical-resection" data-dismech-node="Surgical Resection" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgical Resection
                 </div>
@@ -6819,7 +7297,7 @@
 
 
 
-                <div class="item-desc">Complete resection with tumor-free margins is the primary treatment at every anatomical site. Achieving negative margins is difficult because microscopic perineural extension reaches well beyond the visible tumor, often forcing a decision about sacrificing or dissecting around a named cranial nerve. Surgical resection is a consistently favourable prognostic factor.</div>
+                <div class="item-desc">Gross total resection with tumor-free margins is the principal local treatment when anatomically feasible. Achieving negative margins is difficult because microscopic perineural extension can reach beyond the visible tumor. In anterior craniofacial ACC, incomplete R2 resection did not improve on nonsurgical treatment, so the benefit should not be generalized to unresectable disease.</div>
 
 
 
@@ -6828,7 +7306,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6854,6 +7332,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:41941852" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41941852" target="_blank">PMID:41941852</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"GTR followed by adjuvant RT, especially with proton therapy (PT), achieved the best local control. R2 resections provided no advantage over NST."</div>
+
+
+                <div class="evidence-explanation">A large multi-institutional cohort supports gross total resection while warning against incomplete resection; support is PARTIAL because the study is retrospective and restricted to anterior craniofacial ACC.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -6861,7 +7361,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-postoperative-radiotherapy" data-dismech-node="Postoperative Radiotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Postoperative Radiotherapy
                 </div>
@@ -6896,7 +7396,7 @@
 
 
 
-                <div class="item-desc">Adjuvant radiotherapy is standard for advanced, high-grade, or margin-positive disease and improves local control. Particle therapy (proton and carbon-ion) is of particular interest in ACC because of the tumor&#39;s relative photon radioresistance and low proliferative fraction.</div>
+                <div class="item-desc">Radiotherapy combined with surgery is the standard local approach for many head-and-neck ACCs, particularly advanced or anatomically complex disease. Proton and carbon-ion techniques are emerging options for improving dose conformity; definitive proton therapy is supported for selected anterior craniofacial tumors when complete resection is not feasible.</div>
 
 
 
@@ -6905,7 +7405,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -6947,7 +7447,29 @@
                 <div class="evidence-snippet">"Advances in radiotherapy, including MRI-guided radiotherapy, FLASH radiotherapy, and proton or carbon-ion therapy, are reshaping local treatment by improving dose precision, normal tissue sparing, and opportunities for treatment individualization."</div>
 
 
-                <div class="evidence-explanation">Supports particle and advanced-photon radiotherapy as the evolving standard for local control in head and neck ACC.</div>
+                <div class="evidence-explanation">Supports an emerging role for particle and advanced-photon techniques in local treatment, without treating all modalities as established standards.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41941852" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41941852" target="_blank">PMID:41941852</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"For ACF-ACC, GTR plus modern RT provides the strongest local control, and R2 surgery should be avoided. PT is an effective definitive option for selected patients, supporting future response-guided treatment strategies."</div>
+
+
+                <div class="evidence-explanation">Supports modern radiotherapy and selected definitive proton therapy in anterior craniofacial ACC; PARTIAL reflects the retrospective, site-restricted evidence.</div>
 
 
 
@@ -6960,7 +7482,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-notch-inhibition-gamma-secretase-inhibitor" data-dismech-node="Notch Inhibition (Gamma-Secretase Inhibitor)" data-dismech-type="treatment">
                 <div class="item-name">
                     Notch Inhibition (Gamma-Secretase Inhibitor)
                 </div>
@@ -7047,10 +7569,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"AL101 (osugacestat) is a potent γ-secretase inhibitor that prevents activation of all four NOTCH receptors."</div>
+                <div class="evidence-snippet">"treatment of the organoid model with AL101 resulted in down-regulation of NICD1"</div>
 
 
-                <div class="evidence-explanation">Defines the molecular mechanism by which AL101 inhibits the Notch pathway node.</div>
+                <div class="evidence-explanation">Directly demonstrates suppression of activated NOTCH1 signaling in an ACC organoid model.</div>
 
 
 
@@ -7071,7 +7593,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -7084,14 +7606,36 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"we find that AL101 has potent antitumor effects in in vitro and in vivo models of ACC with activating NOTCH1 mutations and constitutively upregulated NOTCH signaling pathway"</div>
 
 
-                <div class="evidence-explanation">Preclinical cell line, organoid and xenograft models show AL101 activity restricted to NOTCH-activated ACC.</div>
+                <div class="evidence-explanation">The abstract summarizes activity across cell, organoid, and xenograft systems; OTHER avoids assigning this mixed preclinical statement to only one experimental source type.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35931701" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35931701" target="_blank">PMID:35931701</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"AL101 therapy induced potent TGI in both models with NOTCH1 gain-of-function mutations (110 and 74% for ACCx9 and ACCx11, respectively; p &lt; 0.0001)"</div>
+
+
+                <div class="evidence-explanation">Patient-derived xenografts provide separate in-vivo evidence of activity in NOTCH1 gain-of-function ACC.</div>
 
 
 
@@ -7126,7 +7670,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-brontictuzumab-anti-notch1-antibody" data-dismech-node="Brontictuzumab (Anti-NOTCH1 Antibody)" data-dismech-type="treatment">
                 <div class="item-name">
                     Brontictuzumab (Anti-NOTCH1 Antibody)
                 </div>
@@ -7178,7 +7722,7 @@
 
 
 
-                <div class="item-desc">Brontictuzumab is a monoclonal antibody targeting NOTCH1. Tumor growth inhibition in ACC patient-derived xenografts occurred exclusively in the model carrying an activating NOTCH1 mutation, and an index patient with NOTCH1-mutant ACC had a partial response — an unusually clean demonstration of genotype-restricted benefit. In direct comparison its responses were shorter-lived than those of AL101.</div>
+                <div class="item-desc">Brontictuzumab is a monoclonal antibody targeting NOTCH1. Tumor growth inhibition in ACC patient-derived xenografts occurred exclusively in the model carrying an activating NOTCH1 mutation, and an index patient with NOTCH1-mutant ACC had a partial response, providing preliminary evidence of genotype-restricted activity.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -7193,6 +7737,38 @@
                         <span style="color: #7c3aed;"> &mdash; Antibody blockade of NOTCH1 prevents receptor activation in tumors dependent on activating NOTCH1 mutations.</span>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27870570" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27870570" target="_blank">PMID:27870570</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Significant tumor growth inhibition with brontictuzumab was observed exclusively in the ACC patient-derived xenograft model that harbored a NOTCH1 activating mutation."</div>
+
+
+                <div class="evidence-explanation">Genotype-restricted activity in a NOTCH1-mutant xenograft directly links brontictuzumab treatment to the activated NOTCH1 mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                     </div>
@@ -7260,7 +7836,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lenvatinib" data-dismech-node="Lenvatinib" data-dismech-type="treatment">
                 <div class="item-name">
                     Lenvatinib
                 </div>
@@ -7376,9 +7952,241 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-axitinib" data-dismech-node="Axitinib" data-dismech-type="treatment">
                 <div class="item-name">
-                    Pulmonary Metastasectomy and Long-Term Surveillance
+                    Axitinib
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+                    <span class="tag tag-treatment">
+                        axitinib
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66910" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:66910">CHEBI:66910</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Axitinib improved progression-free survival compared with observation in progressive recurrent or metastatic ACC, but produced no objective responses; its demonstrated benefit is disease stabilization rather than tumor shrinkage.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34315722" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34315722" target="_blank">PMID:34315722</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"With a median follow-up of 25.4 months, the 6-month PFS rate was 73.0% with axitinib and 23.0% with observation. Median PFS was longer in the axitinib arm (10.8 months vs. 2.8 months, P &lt; 0.001). The ORR of axitinib was 0.0%, but the disease control rate was 100.0% with axitinib and 51.9% with..."</div>
+
+
+                <div class="evidence-explanation">The first randomized ACC trial demonstrates a progression-free survival benefit but no objective responses, warranting PARTIAL support.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-rivoceranib" data-dismech-node="Rivoceranib" data-dismech-type="treatment">
+                <div class="item-name">
+                    Rivoceranib
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15986">NCIT:C15986</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+                    <span class="tag tag-treatment">
+                        rivoceranib
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152237" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152237">NCIT:C152237</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+                <div class="item-desc">Rivoceranib, a VEGFR2 tyrosine-kinase inhibitor, has modest objective activity in progressive recurrent or metastatic ACC. Frequent grade 3 or worse toxicity and dose modification limit the certainty of net clinical benefit.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37643133" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37643133" target="_blank">PMID:37643133</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Per investigator and BIRC, respectively, ORR was 15.3%"</div>
+
+
+                <div class="evidence-explanation">The investigator and blinded-review response rates directly quantify the modest objective activity in this single-arm phase II study.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37643133" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37643133" target="_blank">PMID:37643133</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"median progression-free survival was 9.0 months (95% CI, 7.3-11.5) and 9.0 months (95% CI, 7.7-11.5)."</div>
+
+
+                <div class="evidence-explanation">A large international phase II study demonstrates nine-month median progression-free survival; its single-arm design warrants PARTIAL support.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37643133" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37643133" target="_blank">PMID:37643133</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Grade ≥3 treatment-related adverse events occurred in 56 patients (70.0%)"</div>
+
+
+                <div class="evidence-explanation">The high rate of grade 3 or worse treatment-related adverse events tempers the phase II efficacy signal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-pulmonary-metastasectomy" data-dismech-node="Pulmonary Metastasectomy" data-dismech-type="treatment">
+                <div class="item-name">
+                    Pulmonary Metastasectomy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
@@ -7411,7 +8219,7 @@
 
 
 
-                <div class="item-desc">Because recurrence risk does not plateau at five years and distant relapse may appear more than a decade after treatment, indefinite clinical and radiographic surveillance — including periodic chest imaging for pulmonary metastasis — is the principal tertiary-prevention strategy. Resection of isolated pulmonary metastases is offered to selected patients, though the reported survival difference versus non-resection is small and subject to selection bias.</div>
+                <div class="item-desc">Resection of isolated pulmonary metastases is offered to selected patients after a long disease-free interval, but evidence is observational and the reported comparison with non-resection is vulnerable to selection bias.</div>
 
 
 
@@ -7440,7 +8248,7 @@
                 <div class="evidence-snippet">"Nine patients with a median free interval time of 5 years (range 1-12) underwent lung metastasectomy"</div>
 
 
-                <div class="evidence-explanation">Documents pulmonary metastasectomy after a median 5-year and up to 12-year disease-free interval, supporting indefinite surveillance; the comparison with non-resected patients was not statistically powered, so PARTIAL.</div>
+                <div class="evidence-explanation">Documents pulmonary metastasectomy after a median five-year and up to 12-year disease-free interval; the comparison with non-resected patients was not statistically powered, so support is PARTIAL.</div>
 
 
 
@@ -7468,7 +8276,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-myb-nfib-fusion-transcript" data-dismech-node="MYB-NFIB Fusion Transcript" data-dismech-type="biochemical">
                 <div class="item-name">
                     MYB-NFIB Fusion Transcript
 
@@ -7513,7 +8321,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-myb-protein-overexpression" data-dismech-node="MYB Protein Overexpression" data-dismech-type="biochemical">
                 <div class="item-name">
                     MYB Protein Overexpression
 
@@ -7523,10 +8331,42 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21164292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21164292" target="_blank">PMID:21164292</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Strong Myb immunostaining is very specific for adenoid cystic carcinomas but is only present in 65% of all cases."</div>
+
+
+                <div class="evidence-explanation">Directly establishes high specificity and the important 65% sensitivity limitation of MYB immunohistochemistry.</div>
+
+
 
             </div>
 
-            <div class="item-box biochemical-box">
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-kit-cd117-expression" data-dismech-node="KIT (CD117) Expression" data-dismech-type="biochemical">
                 <div class="item-name">
                     KIT (CD117) Expression
 
@@ -7535,6 +8375,38 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14681323" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681323" target="_blank">PMID:14681323</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, 94% (n = 62) of adenoid cystic carcinomas from various anatomic sites and of various histologic subtypes were positive for at least one of the KIT antibodies, and 77% (n = 50) of adenoid cystic carcinoma cases were positive for both antibodies."</div>
+
+
+                <div class="evidence-explanation">Quantifies KIT immunoreactivity across anatomic sites and histologic subtypes, supporting its use as an ancillary rather than definitive marker.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -7546,6 +8418,48 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    The mutational characterization of adenoid cystic carcinoma
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000612" target="_blank">dbgap:phs000612</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Adenoid cystic carcinoma (ACC) typically emanate from the major and minor salivary glands of the head and neck. ACCs have high rates of perineural invasion, locoregional recurrence, and distant metastasis. Here we report sequencing of 60 tumor/normal pairs and find substantial mutational diversity. On pathway analysis, a significant percentage of mutations involved chromatin remodeling, DNA damage, protein kinase A signaling, and FGF/IGF/PI3K signaling. Whole genome sequencing and FISH confirmed the MYB-NFIB translocation as the main structural variant in ACC.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Adenoid Cystic Carcinoma&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -7897,7 +8811,7 @@ pathophysiology:
   - reference: PMID:36465348
     reference_title: &#34;Single-cell transcriptomic analysis of the tumor ecosystem of adenoid cystic carcinoma.&#34;
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: COMPUTATIONAL
     snippet: &gt;-
       Developmental pseudo-time analysis showed that the premalignant cells
       eventually transformed into malignant cells.
@@ -7954,6 +8868,21 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     hypothesis_groups:
     - bdnf_neurotropism
+  - target: Salivary Gland Neoplasm
+    description: &gt;-
+      Tumor architecture arising in salivary ductal and myoepithelial lineages
+      produces the characteristic salivary-gland neoplasm.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Neoplasm of Head and Neck
+    description: &gt;-
+      At head-and-neck exocrine sites, the biphasic tumor architecture manifests
+      as a locally infiltrative neoplasm.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+  - target: Dysphagia
+    description: &gt;-
+      Oropharyngeal and palatal tumors can impair swallowing through local mass
+      effect and infiltration.
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
 - name: NOTCH1 Pathway Hyperactivation
   biological_scale: MOLECULAR
   description: &gt;-
@@ -8015,23 +8944,15 @@ pathophysiology:
     mutations that are mutually exclusive with both NOTCH1 mutations and
     MYB/MYBL1 fusions. Together with the MYB and Notch lesions these define four
     discrete molecular subgroups, indicating that ACC is reached by more than one
-    oncogenic route rather than by a single obligatory pathway. TERT promoter
-    hotspot mutations are the canonical telomerase-reactivating lesion, which is
-    why this node conforms to the replicative-immortality hallmark module; the
-    module&#39;s downstream chain is not replicated here because the cited ACC
-    genomic series characterise the lesion and its mutual exclusivity rather than
-    measuring telomerase activity or telomere length in ACC.
+    oncogenic route rather than by a single obligatory pathway. The cited ACC
+    genomic series establishes the lesion and its mutual exclusivity but does not
+    measure telomerase activity or telomere length, so a downstream mechanism of
+    telomere maintenance is not asserted here.
   genes:
   - preferred_term: TERT
     term:
       id: hgnc:11730
       label: TERT
-  biological_processes:
-  - preferred_term: telomere maintenance via telomerase
-    modifier: INCREASED
-    term:
-      id: GO:0007004
-      label: telomere maintenance via telomerase
   evidence:
   - reference: PMID:31483290
     reference_title: &#34;Genetic hallmarks of recurrent/metastatic adenoid cystic carcinoma.&#34;
@@ -8141,8 +9062,7 @@ pathophysiology:
     named branches produces progressive motor and sensory cranial neuropathy, and
     leaves microscopic disease beyond the surgical field. The result is a
     characteristically long tail of local recurrence, with events occurring many
-    years after apparently complete treatment and mandating indefinite
-    surveillance.
+    years after apparently complete treatment and motivating long-term follow-up.
   evidence:
   - reference: PMID:17576903
     reference_title: &#34;The sensitivity and specificity of high-resolution imaging in evaluating perineural spread of adenoid cystic carcinoma to the skull base.&#34;
@@ -8165,6 +9085,19 @@ pathophysiology:
     explanation: &gt;-
       Quantifies the failure of local therapy to prevent locoregional recurrence
       and distant metastasis in more than half of patients.
+  downstream:
+  - target: Facial Palsy
+    description: &gt;-
+      Facial-nerve involvement can produce progressive motor weakness.
+    causal_link_type: DIRECT
+  - target: Facial and Perineural Pain
+    description: &gt;-
+      Invasion of sensory nerves produces pain in the involved distribution.
+    causal_link_type: DIRECT
+  - target: Paresthesia
+    description: &gt;-
+      Sensory-nerve involvement produces numbness, tingling, or hypoesthesia.
+    causal_link_type: DIRECT
 - name: Late Haematogenous Metastasis
   biological_scale: ORGANISM
   conforms_to: &#34;invasion_and_metastasis#Metastatic Colonization&#34;
@@ -8177,12 +9110,6 @@ pathophysiology:
     more than a decade later, and patients may survive for years with established
     metastatic disease, so metastasis in ACC marks a chronic phase rather than an
     immediately terminal one.
-  biological_processes:
-  - preferred_term: Cell Population Proliferation
-    modifier: INCREASED
-    term:
-      id: GO:0008283
-      label: cell population proliferation
   locations:
   - preferred_term: lung
     term:
@@ -8219,6 +9146,12 @@ pathophysiology:
     explanation: &gt;-
       Documents the prolonged survival after distant metastasis that
       distinguishes ACC from most metastatic carcinomas.
+  downstream:
+  - target: Pulmonary Metastasis
+    description: &gt;-
+      Haematogenous dissemination commonly seeds the lung after a prolonged
+      disease-free interval.
+    causal_link_type: DIRECT
 mechanistic_hypotheses:
 - hypothesis_group_id: bdnf_neurotropism
   hypothesis_label: BDNF-Mediated Neurotropism Model of Perineural Invasion
@@ -8256,6 +9189,18 @@ histopathology:
     punched through by rounded pseudocystic spaces (&#34;Swiss cheese&#34; appearance)
     containing basement-membrane-like and mucoid material produced by the
     myoepithelial compartment.
+  evidence:
+  - reference: PMID:23463073
+    reference_title: &#34;Adenoid cystic carcinoma: clinical and molecular features.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      ACC has distinct histologic features, with cribriform and tubular growth
+      patterns of basaloid cells displaying a predominantly myoepithelial
+      cellular phenotype.
+    explanation: &gt;-
+      A disease-focused review identifies cribriform growth as a defining ACC
+      histologic pattern.
 - name: Tubular Pattern
   finding_term:
     preferred_term: Tubular Pattern
@@ -8266,6 +9211,18 @@ histopathology:
     True ducts lined by an inner luminal epithelial layer and an outer
     myoepithelial layer. A predominantly tubular tumor corresponds to the
     lowest-grade, most favourable end of the histological spectrum.
+  evidence:
+  - reference: PMID:23463073
+    reference_title: &#34;Adenoid cystic carcinoma: clinical and molecular features.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      ACC has distinct histologic features, with cribriform and tubular growth
+      patterns of basaloid cells displaying a predominantly myoepithelial
+      cellular phenotype.
+    explanation: &gt;-
+      A disease-focused review identifies tubular growth as a defining ACC
+      histologic pattern.
 - name: Solid Growth Pattern
   finding_term:
     preferred_term: Solid Growth Pattern
@@ -8278,6 +9235,18 @@ histopathology:
     architecture drives histological grade; a solid-predominant tumor is the
     least favourable pattern and is enriched in NOTCH1-mutant disease.
   evidence:
+  - reference: PMID:27180054
+    reference_title: &#34;Myoepithelial differentiation in cribriform, tubular and solid pattern of adenoid cystic carcinoma: A potential involvement in histological grading and prognosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The solid pattern of AdCC showed gland differentiation but loss of
+      myoepithelial differentiation with a higher proliferation and more
+      aggressiveness as well as poorer prognosis compared with the
+      cribriform-tubular subtypes
+    explanation: &gt;-
+      Directly supports the solid pattern&#39;s altered differentiation and worse
+      clinical behavior relative to cribriform-tubular ACC.
   - reference: PMID:40025676
     reference_title: &#34;Clinical Outcomes With Notch Inhibitors in Notch-Activated Recurrent/Metastatic Adenoid Cystic Carcinoma.&#34;
     supports: SUPPORT
@@ -8315,9 +9284,9 @@ phenotypes:
 - name: Salivary Gland Neoplasm
   category: Clinical
   description: &gt;-
-    A slowly enlarging mass of a major or minor salivary gland, usually painless
-    at first, is the typical presenting feature. The head and neck accounts for
-    roughly 70% of all ACC primaries.
+    A slowly enlarging mass of a major or minor salivary gland is a common
+    presentation. ACC also occurs in other secretory glands, so this phenotype
+    does not define every anatomical presentation.
   phenotype_term:
     preferred_term: Salivary gland neoplasm
     term:
@@ -8335,12 +9304,22 @@ phenotypes:
     explanation: &gt;-
       A SEER registry study of 5,150 patients confirms the head and neck,
       dominated by salivary gland sites, as the principal primary site.
+  - reference: PMID:23463073
+    reference_title: &#34;Adenoid cystic carcinoma: clinical and molecular features.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      ACC is an uncommon neoplasm that most frequently arises in salivary glands
+      and related tissue in the head and neck region.
+    explanation: &gt;-
+      Directly supports major and minor salivary glands as the typical sites of
+      origin while preserving the existence of non-salivary primaries.
 - name: Neoplasm of Head and Neck
   category: Clinical
   description: &gt;-
-    Beyond the major salivary glands, ACC arises from minor salivary glands of
-    the palate and oral cavity, the sinonasal tract, the lacrimal gland, and the
-    trachea, producing site-specific mass effects.
+    ACC most often presents as a head-and-neck tumor arising in major or minor
+    salivary glands; lacrimal-gland primaries are another documented
+    head-and-neck presentation.
   phenotype_term:
     preferred_term: Neoplasm of head and neck
     term:
@@ -8361,9 +9340,8 @@ phenotypes:
   category: Clinical
   description: &gt;-
     Progressive weakness of the facial musculature from perineural tumor
-    extension along the facial nerve (CN VII), most often with parotid or
-    skull-base disease. A facial palsy in a patient with a parotid mass is a
-    strong indicator of malignancy with perineural spread.
+    extension along the facial nerve (CN VII) can occur with parotid or
+    skull-base disease.
   phenotype_term:
     preferred_term: Facial palsy
     term:
@@ -8385,10 +9363,9 @@ phenotypes:
 - name: Facial and Perineural Pain
   category: Clinical
   description: &gt;-
-    Pain, burning, and neuralgiform discomfort in the distribution of an invaded
-    nerve, classically the maxillary or mandibular division of the trigeminal
-    nerve. Pain often precedes imaging-detectable perineural spread and is
-    disproportionate to the size of the primary mass.
+    Pain or neuralgiform discomfort can accompany tumor involvement of sensory
+    nerves; pain/discomfort is also a documented presenting symptom in
+    oropharyngeal ACC.
   phenotype_term:
     preferred_term: Pain in head and neck region
     term:
@@ -8406,6 +9383,17 @@ phenotypes:
       Indirect support: documents the perineural invasion that causes neuropathic
       facial pain; the snippet does not report the pain symptom itself, so this
       is marked PARTIAL.
+  - reference: PMID:42371638
+    reference_title: &#34;Clinical Features, Treatment, and Outcomes for Oropharyngeal Adenoid Cystic Carcinoma: A Systematic Review.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Presenting symptoms were mainly pain/discomfort (n = 31), followed by a
+      palpable mass (n = 19) and dysphagia (n = 12).
+    explanation: &gt;-
+      A 2026 systematic review directly documents pain as the leading reported
+      presenting symptom in oropharyngeal ACC; support is PARTIAL because the
+      review is restricted to that anatomical subset.
 - name: Paresthesia
   category: Clinical
   description: &gt;-
@@ -8417,12 +9405,23 @@ phenotypes:
       id: HP:0003401
       label: Paresthesia
     temporality: CHRONIC
+  evidence:
+  - reference: PMID:36060029
+    reference_title: &#34;Adenoid Cystic Carcinoma (ACC) Infiltrating the Skull Base: A Systematic Review of Clinical Characteristics and Management Strategies.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Facial pain, nasal obstruction, and facial paresthesia were the most common
+      symptoms.
+    explanation: &gt;-
+      A systematic review directly reports facial paresthesia among common
+      symptoms of skull-base ACC; support is PARTIAL because this is an
+      anatomically selected subset.
 - name: Pulmonary Metastasis
   category: Clinical
   description: &gt;-
-    The lung is the dominant site of distant metastasis. Pulmonary deposits are
-    often multiple and bilateral, may be asymptomatic for long periods, and
-    typically appear years after primary treatment.
+    The lung is a well-documented site of distant ACC recurrence. Pulmonary
+    metastasis may appear only after a multi-year disease-free interval.
   phenotype_term:
     preferred_term: Neoplasm of the lung
     term:
@@ -8442,22 +9441,32 @@ phenotypes:
 - name: Dysphagia
   category: Clinical
   description: &gt;-
-    Difficulty swallowing arising from local tumor growth or treatment effect in
-    oropharyngeal, base-of-tongue, and palatal primaries.
+    Difficulty swallowing can be a presenting symptom of oropharyngeal ACC,
+    including base-of-tongue primaries.
   phenotype_term:
     preferred_term: Dysphagia
     term:
       id: HP:0002015
       label: Dysphagia
     clinical_course: PROGRESSIVE
+  evidence:
+  - reference: PMID:42371638
+    reference_title: &#34;Clinical Features, Treatment, and Outcomes for Oropharyngeal Adenoid Cystic Carcinoma: A Systematic Review.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Presenting symptoms were mainly pain/discomfort (n = 31), followed by a
+      palpable mass (n = 19) and dysphagia (n = 12).
+    explanation: &gt;-
+      A 2026 systematic review directly documents dysphagia at presentation;
+      support is PARTIAL because the cohort is limited to oropharyngeal ACC.
 biochemical:
 - name: MYB-NFIB Fusion Transcript
   notes: &gt;-
     Detection of the MYB-NFIB (or MYBL1) rearrangement by FISH, RT-PCR, or RNA
-    sequencing is the principal molecular diagnostic marker for ACC and helps
-    separate it from morphological mimics such as basal cell adenocarcinoma and
-    polymorphous adenocarcinoma. A negative result does not exclude ACC, because
-    MYBL1 rearrangement and MYB amplification are alternative drivers.
+    sequencing is a useful molecular diagnostic adjunct for ACC. A negative
+    result does not exclude ACC because only a subset carries the canonical
+    translocation and alternative MYB-family alterations occur.
   evidence:
   - reference: PMID:39199639
     reference_title: &#34;Molecular Analysis of Salivary and Lacrimal Adenoid Cystic Carcinoma.&#34;
@@ -8476,9 +9485,19 @@ biochemical:
       id: NCIT:C17329
       label: Transcriptional Activator Myb
   notes: &gt;-
-    Nuclear MYB expression by immunohistochemistry is a practical surrogate for
-    MYB-family activation and is used diagnostically when molecular testing is
-    not available.
+    Strong nuclear MYB immunostaining is a specific diagnostic adjunct, but its
+    limited sensitivity means that a negative stain does not exclude ACC.
+  evidence:
+  - reference: PMID:21164292
+    reference_title: MYB expression and translocation in adenoid cystic carcinomas and other salivary gland tumors with clinicopathologic correlation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Strong Myb immunostaining is very specific for adenoid cystic carcinomas
+      but is only present in 65% of all cases.
+    explanation: &gt;-
+      Directly establishes high specificity and the important 65% sensitivity
+      limitation of MYB immunohistochemistry.
 - name: KIT (CD117) Expression
   biomarker_term:
     preferred_term: Mast/Stem Cell Growth Factor Receptor Kit
@@ -8486,11 +9505,67 @@ biochemical:
       id: NCIT:C17328
       label: Mast/Stem Cell Growth Factor Receptor Kit
   notes: &gt;-
-    KIT (CD117) is expressed in the large majority of ACC and is a useful
-    immunohistochemical marker. Importantly it is not a therapeutic target here:
-    KIT inhibitors have produced minimal objective response in ACC, so KIT
-    positivity marks lineage rather than oncogenic dependence. This is a
-    cautionary example of expression not implying addiction.
+    KIT (CD117) is expressed in the large majority of ACC and can serve as an
+    ancillary immunohistochemical marker, although staining does not reliably
+    distinguish ACC from every basaloid mimic.
+  evidence:
+  - reference: PMID:14681323
+    reference_title: &#34;Expression of KIT (CD117) in neoplasms of the head and neck: an ancillary marker for adenoid cystic carcinoma.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Overall, 94% (n = 62) of adenoid cystic carcinomas from various anatomic
+      sites and of various histologic subtypes were positive for at least one of
+      the KIT antibodies, and 77% (n = 50) of adenoid cystic carcinoma cases were
+      positive for both antibodies.
+    explanation: &gt;-
+      Quantifies KIT immunoreactivity across anatomic sites and histologic
+      subtypes, supporting its use as an ancillary rather than definitive marker.
+imaging_findings:
+- name: Perineural spread to the skull base on MRI
+  modality: MRI
+  located_in:
+    preferred_term: nerve
+    term:
+      id: UBERON:0001021
+      label: nerve
+  diagnostic: true
+  description: &gt;-
+    High-resolution MRI is the preferred imaging method for defining named-nerve
+    perineural spread toward the skull base and its extent before local therapy.
+  evidence:
+  - reference: PMID:17576903
+    reference_title: &#34;The sensitivity and specificity of high-resolution imaging in evaluating perineural spread of adenoid cystic carcinoma to the skull base.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Magnetic resonance imaging had a higher sensitivity (100%) and specificity
+      (85%).
+    explanation: &gt;-
+      A histopathology-referenced cohort supports MRI&#39;s diagnostic performance
+      for skull-base perineural spread.
+diagnosis:
+- name: MYB rearrangement testing
+  description: &gt;-
+    Fluorescence in situ hybridization for MYB rearrangement can support an ACC
+    diagnosis in the appropriate morphologic context, but a negative result does
+    not exclude the disease.
+  diagnosis_term:
+    preferred_term: fluorescence in situ hybridization
+    term:
+      id: NCIT:C17563
+      label: Fluorescence In Situ Hybridization
+  evidence:
+  - reference: PMID:21164292
+    reference_title: MYB expression and translocation in adenoid cystic carcinomas and other salivary gland tumors with clinicopathologic correlation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      MYB translocation and expression are useful diagnostic markers for a subset
+      of adenoid cystic carcinomas.
+    explanation: &gt;-
+      Supports FISH-detected MYB translocation as a subset-specific diagnostic
+      adjunct and guards against treating a negative result as exclusionary.
 genetic:
 - name: MYB (MYB-NFIB Fusion)
   gene_term:
@@ -8536,6 +9611,18 @@ genetic:
     NFIB at 9p23-24 is the reciprocal partner of MYB in the t(6;9) translocation.
     Its principal contribution appears to be removal of the MYB 3&#39; UTR rather
     than a gain of NFIB function.
+  evidence:
+  - reference: PMID:19841262
+    reference_title: &#34;Recurrent fusion of MYB and NFIB transcription factor genes in carcinomas of the breast and head and neck.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      the t(6;9)(q22-23;p23-24) translocation in adenoid cystic carcinomas (ACC)
+      of the breast and head and neck consistently results in fusions encoding
+      chimeric transcripts predominantly consisting of MYB exon 14 linked to the
+      last coding exon(s) of NFIB
+    explanation: &gt;-
+      Directly establishes NFIB as the recurrent MYB fusion partner in ACC.
 - name: MYBL1 Rearrangement
   gene_term:
     preferred_term: MYBL1
@@ -8616,11 +9703,12 @@ genetic:
 treatments:
 - name: Surgical Resection
   description: &gt;-
-    Complete resection with tumor-free margins is the primary treatment at every
-    anatomical site. Achieving negative margins is difficult because microscopic
-    perineural extension reaches well beyond the visible tumor, often forcing a
-    decision about sacrificing or dissecting around a named cranial nerve.
-    Surgical resection is a consistently favourable prognostic factor.
+    Gross total resection with tumor-free margins is the principal local
+    treatment when anatomically feasible. Achieving negative margins is
+    difficult because microscopic perineural extension can reach beyond the
+    visible tumor. In anterior craniofacial ACC, incomplete R2 resection did not
+    improve on nonsurgical treatment, so the benefit should not be generalized
+    to unresectable disease.
   therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: Definitive Surgical Resection
@@ -8641,12 +9729,24 @@ treatments:
       In a 5,150-patient SEER analysis, not undergoing surgical resection is an
       independent predictor of poor survival, supporting surgery as the primary
       modality.
+  - reference: PMID:41941852
+    reference_title: &#34;Outcomes of different treatment patterns for adenoid cystic carcinoma of the anterior craniofacial area: A multi-institutional study on 578 patients.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      GTR followed by adjuvant RT, especially with proton therapy (PT), achieved
+      the best local control. R2 resections provided no advantage over NST.
+    explanation: &gt;-
+      A large multi-institutional cohort supports gross total resection while
+      warning against incomplete resection; support is PARTIAL because the study
+      is retrospective and restricted to anterior craniofacial ACC.
 - name: Postoperative Radiotherapy
   description: &gt;-
-    Adjuvant radiotherapy is standard for advanced, high-grade, or
-    margin-positive disease and improves local control. Particle therapy (proton
-    and carbon-ion) is of particular interest in ACC because of the tumor&#39;s
-    relative photon radioresistance and low proliferative fraction.
+    Radiotherapy combined with surgery is the standard local approach for many
+    head-and-neck ACCs, particularly advanced or anatomically complex disease.
+    Proton and carbon-ion techniques are emerging options for improving dose
+    conformity; definitive proton therapy is supported for selected anterior
+    craniofacial tumors when complete resection is not feasible.
   therapeutic_modality: RADIOTHERAPY
   treatment_term:
     preferred_term: Radiation Therapy
@@ -8676,8 +9776,20 @@ treatments:
       treatment by improving dose precision, normal tissue sparing, and
       opportunities for treatment individualization.
     explanation: &gt;-
-      Supports particle and advanced-photon radiotherapy as the evolving standard
-      for local control in head and neck ACC.
+      Supports an emerging role for particle and advanced-photon techniques in
+      local treatment, without treating all modalities as established standards.
+  - reference: PMID:41941852
+    reference_title: &#34;Outcomes of different treatment patterns for adenoid cystic carcinoma of the anterior craniofacial area: A multi-institutional study on 578 patients.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      For ACF-ACC, GTR plus modern RT provides the strongest local control, and
+      R2 surgery should be avoided. PT is an effective definitive option for
+      selected patients, supporting future response-guided treatment strategies.
+    explanation: &gt;-
+      Supports modern radiotherapy and selected definitive proton therapy in
+      anterior craniofacial ACC; PARTIAL reflects the retrospective,
+      site-restricted evidence.
 - name: Notch Inhibition (Gamma-Secretase Inhibitor)
   description: &gt;-
     AL101 (osugacestat) is a gamma-secretase inhibitor that blocks activation of
@@ -8711,23 +9823,34 @@ treatments:
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &gt;-
-        AL101 (osugacestat) is a potent γ-secretase inhibitor that prevents
-        activation of all four NOTCH receptors.
+        treatment of the organoid model with AL101 resulted in down-regulation of
+        NICD1
       explanation: &gt;-
-        Defines the molecular mechanism by which AL101 inhibits the Notch pathway
-        node.
+        Directly demonstrates suppression of activated NOTCH1 signaling in an
+        ACC organoid model.
   evidence:
   - reference: PMID:35931701
     reference_title: &#34;AL101, a gamma-secretase inhibitor, has potent antitumor activity against adenoid cystic carcinoma with activated NOTCH signaling.&#34;
     supports: SUPPORT
-    evidence_source: IN_VITRO
+    evidence_source: OTHER
     snippet: &gt;-
       we find that AL101 has potent antitumor effects in in vitro and in vivo
       models of ACC with activating NOTCH1 mutations and constitutively
       upregulated NOTCH signaling pathway
     explanation: &gt;-
-      Preclinical cell line, organoid and xenograft models show AL101 activity
-      restricted to NOTCH-activated ACC.
+      The abstract summarizes activity across cell, organoid, and xenograft
+      systems; OTHER avoids assigning this mixed preclinical statement to only
+      one experimental source type.
+  - reference: PMID:35931701
+    reference_title: &#34;AL101, a gamma-secretase inhibitor, has potent antitumor activity against adenoid cystic carcinoma with activated NOTCH signaling.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      AL101 therapy induced potent TGI in both models with NOTCH1 gain-of-function
+      mutations (110 and 74% for ACCx9 and ACCx11, respectively; p &lt; 0.0001)
+    explanation: &gt;-
+      Patient-derived xenografts provide separate in-vivo evidence of activity in
+      NOTCH1 gain-of-function ACC.
   - reference: PMID:40025676
     reference_title: &#34;Clinical Outcomes With Notch Inhibitors in Notch-Activated Recurrent/Metastatic Adenoid Cystic Carcinoma.&#34;
     supports: PARTIAL
@@ -8743,9 +9866,8 @@ treatments:
     Brontictuzumab is a monoclonal antibody targeting NOTCH1. Tumor growth
     inhibition in ACC patient-derived xenografts occurred exclusively in the
     model carrying an activating NOTCH1 mutation, and an index patient with
-    NOTCH1-mutant ACC had a partial response — an unusually clean demonstration
-    of genotype-restricted benefit. In direct comparison its responses were
-    shorter-lived than those of AL101.
+    NOTCH1-mutant ACC had a partial response, providing preliminary evidence of
+    genotype-restricted activity.
   therapeutic_modality: MONOCLONAL_ANTIBODY
   treatment_term:
     preferred_term: Pharmacotherapy
@@ -8763,6 +9885,18 @@ treatments:
     description: &gt;-
       Antibody blockade of NOTCH1 prevents receptor activation in tumors
       dependent on activating NOTCH1 mutations.
+    evidence:
+    - reference: PMID:27870570
+      reference_title: &#34;Activating NOTCH1 Mutations Define a Distinct Subgroup of Patients With Adenoid Cystic Carcinoma Who Have Poor Prognosis, Propensity to Bone and Liver Metastasis, and Potential Responsiveness to Notch1 Inhibitors.&#34;
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: &gt;-
+        Significant tumor growth inhibition with brontictuzumab was observed
+        exclusively in the ACC patient-derived xenograft model that harbored a
+        NOTCH1 activating mutation.
+      explanation: &gt;-
+        Genotype-restricted activity in a NOTCH1-mutant xenograft directly links
+        brontictuzumab treatment to the activated NOTCH1 mechanism.
   evidence:
   - reference: PMID:27870570
     reference_title: &#34;Activating NOTCH1 Mutations Define a Distinct Subgroup of Patients With Adenoid Cystic Carcinoma Who Have Poor Prognosis, Propensity to Bone and Liver Metastasis, and Potential Responsiveness to Notch1 Inhibitors.&#34;
@@ -8822,15 +9956,87 @@ treatments:
     explanation: &gt;-
       The trial&#39;s own conclusion characterises lenvatinib activity in ACC as
       modest.
-- name: Pulmonary Metastasectomy and Long-Term Surveillance
+- name: Axitinib
   description: &gt;-
-    Because recurrence risk does not plateau at five years and distant relapse
-    may appear more than a decade after treatment, indefinite clinical and
-    radiographic surveillance — including periodic chest imaging for pulmonary
-    metastasis — is the principal tertiary-prevention strategy. Resection of
-    isolated pulmonary metastases is offered to selected patients, though the
-    reported survival difference versus non-resection is small and subject to
-    selection bias.
+    Axitinib improved progression-free survival compared with observation in
+    progressive recurrent or metastatic ACC, but produced no objective
+    responses; its demonstrated benefit is disease stabilization rather than
+    tumor shrinkage.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: axitinib
+      term:
+        id: CHEBI:66910
+        label: axitinib
+  evidence:
+  - reference: PMID:34315722
+    reference_title: &#34;Randomized Phase II Study of Axitinib versus Observation in Patients with Recurred or Metastatic Adenoid Cystic Carcinoma.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      With a median follow-up of 25.4 months, the 6-month PFS rate was 73.0% with
+      axitinib and 23.0% with observation. Median PFS was longer in the axitinib
+      arm (10.8 months vs. 2.8 months, P &lt; 0.001). The ORR of axitinib was 0.0%,
+      but the disease control rate was 100.0% with axitinib and 51.9% with
+      observation.
+    explanation: &gt;-
+      The first randomized ACC trial demonstrates a progression-free survival
+      benefit but no objective responses, warranting PARTIAL support.
+- name: Rivoceranib
+  description: &gt;-
+    Rivoceranib, a VEGFR2 tyrosine-kinase inhibitor, has modest objective activity
+    in progressive recurrent or metastatic ACC. Frequent grade 3 or worse
+    toxicity and dose modification limit the certainty of net clinical benefit.
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Pharmacotherapy
+    term:
+      id: NCIT:C15986
+      label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: rivoceranib
+      term:
+        id: NCIT:C152237
+        label: Rivoceranib
+  evidence:
+  - reference: PMID:37643133
+    reference_title: &#34;A Phase II Trial of Rivoceranib, an Oral Vascular Endothelial Growth Factor Receptor 2 Inhibitor, for Recurrent or Metastatic Adenoid Cystic Carcinoma.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Per investigator and BIRC, respectively, ORR was 15.3%
+    explanation: &gt;-
+      The investigator and blinded-review response rates directly quantify the
+      modest objective activity in this single-arm phase II study.
+  - reference: PMID:37643133
+    reference_title: &#34;A Phase II Trial of Rivoceranib, an Oral Vascular Endothelial Growth Factor Receptor 2 Inhibitor, for Recurrent or Metastatic Adenoid Cystic Carcinoma.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      median progression-free survival was 9.0 months (95% CI, 7.3-11.5) and 9.0
+      months (95% CI, 7.7-11.5).
+    explanation: &gt;-
+      A large international phase II study demonstrates nine-month median
+      progression-free survival; its single-arm design warrants PARTIAL support.
+  - reference: PMID:37643133
+    reference_title: &#34;A Phase II Trial of Rivoceranib, an Oral Vascular Endothelial Growth Factor Receptor 2 Inhibitor, for Recurrent or Metastatic Adenoid Cystic Carcinoma.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Grade ≥3 treatment-related adverse events occurred in 56 patients (70.0%)
+    explanation: &gt;-
+      The high rate of grade 3 or worse treatment-related adverse events tempers
+      the phase II efficacy signal.
+- name: Pulmonary Metastasectomy
+  description: &gt;-
+    Resection of isolated pulmonary metastases is offered to selected patients
+    after a long disease-free interval, but evidence is observational and the
+    reported comparison with non-resection is vulnerable to selection bias.
   therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: Surgical Procedure
@@ -8846,9 +10052,9 @@ treatments:
       Nine patients with a median free interval time of 5 years (range 1-12)
       underwent lung metastasectomy
     explanation: &gt;-
-      Documents pulmonary metastasectomy after a median 5-year and up to 12-year
-      disease-free interval, supporting indefinite surveillance; the comparison
-      with non-resected patients was not statistically powered, so PARTIAL.
+      Documents pulmonary metastasectomy after a median five-year and up to
+      12-year disease-free interval; the comparison with non-resected patients
+      was not statistically powered, so support is PARTIAL.
 discussions:
 - discussion_id: acc_myb_not_prognostic_gap
   kind: KNOWLEDGE_GAP
@@ -8936,16 +10142,39 @@ discussions:
       The originating study itself frames the BDNF-neurotropism relationship as
       unresolved, which is the gap this discussion records.
 references:
+- reference: PMID:14681323
+  title: &#34;Expression of KIT (CD117) in neoplasms of the head and neck: an ancillary marker for adenoid cystic carcinoma.&#34;
+- reference: PMID:21164292
+  title: MYB expression and translocation in adenoid cystic carcinomas and other salivary gland tumors with clinicopathologic correlation.
+- reference: PMID:23463073
+  title: &#34;Adenoid cystic carcinoma: clinical and molecular features.&#34;
 - reference: PMID:19841262
   title: &#34;Recurrent fusion of MYB and NFIB transcription factor genes in carcinomas of the breast and head and neck.&#34;
+- reference: PMID:27180054
+  title: &#34;Myoepithelial differentiation in cribriform, tubular and solid pattern of adenoid cystic carcinoma: A potential involvement in histological grading and prognosis.&#34;
 - reference: PMID:26829750
   title: &#34;An oncogenic MYB feedback loop drives alternate cell fates in adenoid cystic carcinoma.&#34;
 - reference: PMID:27870570
   title: &#34;Activating NOTCH1 Mutations Define a Distinct Subgroup of Patients With Adenoid Cystic Carcinoma Who Have Poor Prognosis, Propensity to Bone and Liver Metastasis, and Potential Responsiveness to Notch1 Inhibitors.&#34;
 - reference: PMID:31483290
   title: &#34;Genetic hallmarks of recurrent/metastatic adenoid cystic carcinoma.&#34;
+- reference: PMID:34315722
+  title: &#34;Randomized Phase II Study of Axitinib versus Observation in Patients with Recurred or Metastatic Adenoid Cystic Carcinoma.&#34;
+- reference: PMID:36060029
+  title: &#34;Adenoid Cystic Carcinoma (ACC) Infiltrating the Skull Base: A Systematic Review of Clinical Characteristics and Management Strategies.&#34;
 - reference: PMID:36465348
   title: &#34;Single-cell transcriptomic analysis of the tumor ecosystem of adenoid cystic carcinoma.&#34;
+- reference: PMID:37643133
+  title: &#34;A Phase II Trial of Rivoceranib, an Oral Vascular Endothelial Growth Factor Receptor 2 Inhibitor, for Recurrent or Metastatic Adenoid Cystic Carcinoma.&#34;
+- reference: PMID:41941852
+  title: &#34;Outcomes of different treatment patterns for adenoid cystic carcinoma of the anterior craniofacial area: A multi-institutional study on 578 patients.&#34;
+- reference: PMID:42371638
+  title: &#34;Clinical Features, Treatment, and Outcomes for Oropharyngeal Adenoid Cystic Carcinoma: A Systematic Review.&#34;
+datasets:
+- accession: dbgap:phs000612
+  title: The mutational characterization of adenoid cystic carcinoma
+  description: Adenoid cystic carcinoma (ACC) typically emanate from the major and minor salivary glands of the head and neck. ACCs have high rates of perineural invasion, locoregional recurrence, and distant metastasis. Here we report sequencing of 60 tumor/normal pairs and find substantial mutational diversity. On pathway analysis, a significant percentage of mutations involved chromatin remodeling, DNA damage, protein kinase A signaling, and FGF/IGF/PI3K signaling. Whole genome sequencing and FISH confirmed the MYB-NFIB translocation as the main structural variant in ACC.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Adenoid Cystic Carcinoma&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -8961,7 +10190,58 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">5</span>
+                    <span class="card-count">14</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681323" target="_blank">PMID:14681323</a>
+                            </div>
+
+                            <div class="reference-title">Expression of KIT (CD117) in neoplasms of the head and neck: an ancillary marker for adenoid cystic carcinoma.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/21164292" target="_blank">PMID:21164292</a>
+                            </div>
+
+                            <div class="reference-title">MYB expression and translocation in adenoid cystic carcinomas and other salivary gland tumors with clinicopathologic correlation.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/23463073" target="_blank">PMID:23463073</a>
+                            </div>
+
+                            <div class="reference-title">Adenoid cystic carcinoma: clinical and molecular features.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -8972,6 +10252,23 @@ references:
                             </div>
 
                             <div class="reference-title">Recurrent fusion of MYB and NFIB transcription factor genes in carcinomas of the breast and head and neck.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/27180054" target="_blank">PMID:27180054</a>
+                            </div>
+
+                            <div class="reference-title">Myoepithelial differentiation in cribriform, tubular and solid pattern of adenoid cystic carcinoma: A potential involvement in histological grading and prognosis.</div>
 
                         </div>
 
@@ -9036,10 +10333,95 @@ references:
                     <div class="reference-entry-header">
                         <div>
                             <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34315722" target="_blank">PMID:34315722</a>
+                            </div>
+
+                            <div class="reference-title">Randomized Phase II Study of Axitinib versus Observation in Patients with Recurred or Metastatic Adenoid Cystic Carcinoma.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36060029" target="_blank">PMID:36060029</a>
+                            </div>
+
+                            <div class="reference-title">Adenoid Cystic Carcinoma (ACC) Infiltrating the Skull Base: A Systematic Review of Clinical Characteristics and Management Strategies.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
                                 <a href="http://www.ncbi.nlm.nih.gov/pubmed/36465348" target="_blank">PMID:36465348</a>
                             </div>
 
                             <div class="reference-title">Single-cell transcriptomic analysis of the tumor ecosystem of adenoid cystic carcinoma.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37643133" target="_blank">PMID:37643133</a>
+                            </div>
+
+                            <div class="reference-title">A Phase II Trial of Rivoceranib, an Oral Vascular Endothelial Growth Factor Receptor 2 Inhibitor, for Recurrent or Metastatic Adenoid Cystic Carcinoma.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/41941852" target="_blank">PMID:41941852</a>
+                            </div>
+
+                            <div class="reference-title">Outcomes of different treatment patterns for adenoid cystic carcinoma of the anterior craniofacial area: A multi-institutional study on 578 patients.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/42371638" target="_blank">PMID:42371638</a>
+                            </div>
+
+                            <div class="reference-title">Clinical Features, Treatment, and Outcomes for Oropharyngeal Adenoid Cystic Carcinoma: A Systematic Review.</div>
 
                         </div>
 
@@ -9531,7 +10913,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adenoid Cystic Carcinoma", "mondoId": "MONDO:0004971", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenoid_Cystic_Carcinoma", "yamlRevision": "0942cbaf662e"};
+        const OS_CONFIG = {"diseaseName": "Adenoid Cystic Carcinoma", "mondoId": "MONDO:0004971", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenoid_Cystic_Carcinoma", "yamlRevision": "43e2e7f6331c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

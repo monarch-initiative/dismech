@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Ectopic%20Pregnancy"
@@ -3465,6 +3694,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3502,7 +3733,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3515,6 +3746,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -6250,7 +6482,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Tubal Receptivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acquisition by the tubal epithelium of a receptive, implantation-permissive phenotype it should never adopt. This is the second hit, and it is what converts a retained embryo into an implanted one. Both major acquired risk factors converge here through the prokineticin receptor axis: chlamydial infection raises PROKR2 through TLR2 and NF-kappaB, and cotinine raises PROKR1 through nicotinic receptor alpha-7. A common genetic susceptibility signal at MUC1, an anti-adhesive apical glycoprotein whose removal is part of normal endometrial receptivity, is biologically coherent with the same theme of barrier failure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fallopian tube secretory epithelial cell\"], \"biological_processes\": [\"embryo implantation\", \"canonical NF-kappaB signal transduction\"], \"genes\": [\"PROKR1\", \"PROKR2\", \"TLR2\"], \"gene_terms\": [{\"label\": \"PROKR1\", \"id\": \"hgnc:4524\"}, {\"label\": \"PROKR2\", \"id\": \"hgnc:15836\"}, {\"label\": \"TLR2\", \"id\": \"hgnc:11848\"}]}}, {\"id\": \"Blood Transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive resuscitation for haemorrhagic shock from a ruptured ectopic pregnancy, alongside intravenous fluids and, for RhD-negative patients, anti-D immunoglobulin.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chlamydia trachomatis Tubal Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ascending genital infection with Chlamydia trachomatis, the dominant infectious antecedent of tubal ectopic pregnancy. It is mechanistically unusual in that it drives both arms of the two-hit model at once: it destroys the ciliated epithelium that transports the embryo, and it independently shifts the tubal microenvironment toward receptivity via TLR2 signalling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fallopian tube multiciliated epithelial cell\"], \"biological_processes\": [\"toll-like receptor 2 signaling pathway\", \"inflammatory response\"], \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Cigarette Smoke Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Smoking is a dose-dependent risk factor for ectopic pregnancy with a defined receptor-level mechanism. The nicotine metabolite cotinine acts on nicotinic acetylcholine receptor alpha-7 in tubal epithelium to raise PROKR1 expression. Because prokineticin signalling regulates both angiogenesis and smooth muscle contractility, this single axis touches both the receptivity and the transport arm.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"G protein-coupled receptor signaling pathway\"], \"genes\": [\"CHRNA7\", \"PROKR1\"], \"gene_terms\": [{\"label\": \"CHRNA7\", \"id\": \"hgnc:1960\"}, {\"label\": \"PROKR1\", \"id\": \"hgnc:4524\"}]}}, {\"id\": \"Ciliated Epithelial Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the multiciliated epithelial cells that line the tubal mucosa. In human fallopian tube organ culture, chlamydial infection destroys ciliated cells preferentially, and the destruction is initiated by epithelial IL-1 rather than by infiltrating leukocytes, which are absent from the model. Ciliary loss is effectively irreversible and converts a transient infection into permanent transport failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fallopian tube multiciliated epithelial cell\"], \"biological_processes\": [\"cilium movement\"], \"genes\": [\"IL1B\"], \"gene_terms\": [{\"label\": \"IL1B\", \"id\": \"hgnc:5992\"}]}}, {\"id\": \"Embryo Retention in the Fallopian Tube\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistence of the conceptus within the tubal lumen beyond the point at which it should have reached the uterine cavity. Retention alone produces pregnancy failure; it produces ectopic pregnancy only when it coincides with a receptive tubal microenvironment.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Endocannabinoid Tone Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal endocannabinoid signalling through CB1, acting together with beta-adrenergic receptors in the oviductal muscularis, coordinates the smooth muscle contraction and relaxation that moves the embryo. Silencing CB1 in mice retains embryos in the oviduct, and CB1 transcript is low in fallopian tube from women with ectopic pregnancy. The causal arm of this evidence is murine; the human arm is correlative, and a candidate CNR1 polymorphism did not reach significance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fallopian tube smooth muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"], \"genes\": [\"CNR1\"], \"gene_terms\": [{\"label\": \"CNR1\", \"id\": \"hgnc:2159\"}]}}, {\"id\": \"Gefitinib Adjuvant to Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral EGFR inhibitor trialled as an adjuvant to methotrexate on the rationale that trophoblast proliferation is EGFR-dependent. The GEM3 randomised, double-blind, placebo-controlled trial refuted the hypothesis: adding gefitinib did not reduce the need for surgery or shorten time to resolution, and increased minor adverse effects. Curated as a refuted treatment because a mechanistically sound target that failed to translate is worth recording explicitly rather than silently dropping.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"gefitinib\"]}}, {\"id\": \"Hypovolaemic Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Circulatory collapse from acute blood loss, the immediate cause of death in fatal ectopic pregnancy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031274\"}}, {\"id\": \"Impaired Embryo-Tubal Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of the combined ciliary and peristaltic transport that normally delivers the embryo from the ampulla to the uterine cavity within a few days. This is the first of the two hits in the accepted aetiological model. It is necessary but not sufficient: an embryo that merely fails to arrive would be expected to fail, not to implant.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fallopian tube multiciliated epithelial cell\", \"fallopian tube smooth muscle cell\"], \"biological_processes\": [\"cilium movement\", \"smooth muscle contraction\"], \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Laparoscopic Salpingectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Laparoscopic removal of the affected fallopian tube, the reference standard surgical treatment and the required approach in haemodynamic instability or major haemoperitoneum. Definitive, with essentially no risk of persistent trophoblast.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic antifolate that inhibits dihydrofolate reductase and arrests rapidly dividing trophoblast. First-line medical management for the haemodynamically stable patient with an unruptured ectopic pregnancy, acceptable hCG, and reliable follow-up. Given as single-dose, two-dose, or multi-dose regimens; meta-analysis favours the two-dose protocol over single-dose. Contraindicated in haemodynamic instability, rupture, and hepatic, renal, or haematological impairment. Patients must be counselled about separation pain, a transient increase in pain that is easily mistaken for rupture.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Salpingotomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tube-conserving surgery in which the ectopic pregnancy is removed through an incision in the tube. Carries a substantially higher risk of persistent trophoblast than salpingectomy and therefore mandates postoperative hCG surveillance. Reserved mainly for patients whose contralateral tube is damaged or absent.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tubal Implantation Without Decidual Investment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Attachment and invasion of the conceptus at a site that has no decidua. Decidualization of endometrial stroma normally both supports and restrains invading trophoblast; the fallopian tube does not decidualize, so the braking half of that relationship is simply absent. The load-bearing fact of this node is therefore a missing structure rather than a present one, which is why decidualization is tagged ABSENT here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"extravillous trophoblast\"], \"biological_processes\": [\"decidualization\", \"embryo implantation\"], \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Tubal Rupture and Haemoperitoneum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Breach of the tubal wall with haemorrhage into the peritoneal cavity. This is the acute catastrophic branch of the disease; the alternative trajectories are tubal abortion with spontaneous resolution, or treated resolution. Not every ectopic pregnancy ruptures, and modern ultrasound increasingly detects small failing ectopic pregnancies that would have resolved unobserved.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive penetration of the tubal muscularis by extravillous trophoblast. Single-cell profiling of the tube-trophoblast interface shows extravillous trophoblast dominating the ruptured lesion and identifies a CSF1/CSF1R ligand-receptor pair, with CSF1 secreted by fallopian tube secretory epithelial cells, that drives invasion and macrophage accumulation. Matrix metalloproteinase activity increases along the invasive front while the tissue inhibitors that would restrain it are weakly expressed.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"extravillous trophoblast\", \"fallopian tube secretory epithelial cell\", \"macrophage\"], \"genes\": [\"CSF1\", \"CSF1R\"], \"gene_terms\": [{\"label\": \"CSF1\", \"id\": \"hgnc:2432\"}, {\"label\": \"CSF1R\", \"id\": \"hgnc:2433\"}]}}], \"edges\": [{\"source\": \"Chlamydia trachomatis Tubal Infection\", \"target\": \"Ciliated Epithelial Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chlamydial infection of tubal epithelium initiates IL-1-driven destruction of ciliated cells.\\n\"}, {\"source\": \"Chlamydia trachomatis Tubal Infection\", \"target\": \"Aberrant Tubal Receptivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Independently of tissue destruction, chlamydial ligation of TLR2 activates NF-kappaB and raises tubal PROKR2, shifting the microenvironment toward implantation.\\n\"}, {\"source\": \"Cigarette Smoke Exposure\", \"target\": \"Aberrant Tubal Receptivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cotinine-driven PROKR1 upregulation alters the tubal microenvironment toward one that permits implantation.\\n\"}, {\"source\": \"Ciliated Epithelial Destruction\", \"target\": \"Impaired Embryo-Tubal Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of coordinated ciliary beating removes one of the two motive forces that carry the embryo toward the uterus.\\n\"}, {\"source\": \"Endocannabinoid Tone Dysregulation\", \"target\": \"Impaired Embryo-Tubal Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of coordinated oviductal smooth muscle contraction and relaxation impairs the peristaltic component of embryo transport.\\n\"}, {\"source\": \"Impaired Embryo-Tubal Transport\", \"target\": \"Embryo Retention in the Fallopian Tube\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transport failure leaves the embryo within the tubal lumen past the implantation window.\"}, {\"source\": \"Aberrant Tubal Receptivity\", \"target\": \"Tubal Implantation Without Decidual Investment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A receptive tubal epithelium permits attachment and invasion by a retained embryo.\\n\"}, {\"source\": \"Embryo Retention in the Fallopian Tube\", \"target\": \"Tubal Implantation Without Decidual Investment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A retained embryo in a receptive tube attaches to tubal epithelium instead of endometrium.\\n\"}, {\"source\": \"Tubal Implantation Without Decidual Investment\", \"target\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent decidual restraint, invasive trophoblast penetrates the tubal wall rather than being contained at a controlled depth.\\n\"}, {\"source\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"target\": \"Tubal Rupture and Haemoperitoneum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CSF1-driven invasion by extravillous trophoblast breaches the tubal wall and the vessels within it.\\n\"}, {\"source\": \"Tubal Rupture and Haemoperitoneum\", \"target\": \"Hypovolaemic Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing intraperitoneal blood loss depletes circulating volume faster than it can be compensated.\\n\"}, {\"source\": \"Methotrexate\", \"target\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Laparoscopic Salpingectomy\", \"target\": \"Tubal Rupture and Haemoperitoneum\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Salpingotomy\", \"target\": \"Tubal Rupture and Haemoperitoneum\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion\", \"target\": \"Hypovolaemic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gefitinib Adjuvant to Methotrexate\", \"target\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant Tubal Receptivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acquisition by the tubal epithelium of a receptive, implantation-permissive phenotype it should never adopt. This is the second hit, and it is what converts a retained embryo into an implanted one. Both major acquired risk factors converge here through the prokineticin receptor axis: chlamydial infection raises PROKR2 through TLR2 and NF-kappaB, and cotinine raises PROKR1 through nicotinic receptor alpha-7. A common genetic susceptibility signal at MUC1, an anti-adhesive apical glycoprotein whose removal is part of normal endometrial receptivity, is biologically coherent with the same theme of barrier failure.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fallopian tube secretory epithelial cell\"], \"biological_processes\": [\"embryo implantation\", \"canonical NF-kappaB signal transduction\"], \"genes\": [\"PROKR1\", \"PROKR2\", \"TLR2\"], \"gene_terms\": [{\"label\": \"PROKR1\", \"id\": \"hgnc:4524\"}, {\"label\": \"PROKR2\", \"id\": \"hgnc:15836\"}, {\"label\": \"TLR2\", \"id\": \"hgnc:11848\"}]}}, {\"id\": \"Blood Transfusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive resuscitation for haemorrhagic shock from a ruptured ectopic pregnancy, alongside intravenous fluids and, for RhD-negative patients, anti-D immunoglobulin.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chlamydia trachomatis Tubal Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ascending genital infection with Chlamydia trachomatis, the dominant infectious antecedent of tubal ectopic pregnancy. It is mechanistically unusual in that it drives both arms of the two-hit model at once: it destroys the ciliated epithelium that transports the embryo, and it independently shifts the tubal microenvironment toward receptivity via TLR2 signalling.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fallopian tube multiciliated epithelial cell\"], \"biological_processes\": [\"toll-like receptor 2 signaling pathway\", \"inflammatory response\"], \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Chlamydia trachomatis infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ascending chlamydial genital infection causing salpingitis and permanent tubal damage. The dominant infectious antecedent of tubal ectopic pregnancy and the only risk factor with a fully worked out molecular chain, acting on both the transport and the receptivity arm.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Cigarette Smoke Exposure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Smoking is a dose-dependent risk factor for ectopic pregnancy with a defined receptor-level mechanism. The nicotine metabolite cotinine acts on nicotinic acetylcholine receptor alpha-7 in tubal epithelium to raise PROKR1 expression. Because prokineticin signalling regulates both angiogenesis and smooth muscle contractility, this single axis touches both the receptivity and the transport arm.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"G protein-coupled receptor signaling pathway\"], \"genes\": [\"CHRNA7\", \"PROKR1\"], \"gene_terms\": [{\"label\": \"CHRNA7\", \"id\": \"hgnc:1960\"}, {\"label\": \"PROKR1\", \"id\": \"hgnc:4524\"}]}}, {\"id\": \"Cigarette smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Dose-dependent modifiable risk factor acting through cotinine on nicotinic acetylcholine receptor alpha-7 in tubal epithelium, raising PROKR1 and shifting the tubal microenvironment toward receptivity.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Ciliated Epithelial Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of the multiciliated epithelial cells that line the tubal mucosa. In human fallopian tube organ culture, chlamydial infection destroys ciliated cells preferentially, and the destruction is initiated by epithelial IL-1 rather than by infiltrating leukocytes, which are absent from the model. Ciliary loss is effectively irreversible and converts a transient infection into permanent transport failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fallopian tube multiciliated epithelial cell\"], \"biological_processes\": [\"cilium movement\"], \"genes\": [\"IL1B\"], \"gene_terms\": [{\"label\": \"IL1B\", \"id\": \"hgnc:5992\"}]}}, {\"id\": \"Embryo Retention in the Fallopian Tube\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistence of the conceptus within the tubal lumen beyond the point at which it should have reached the uterine cavity. Retention alone produces pregnancy failure; it produces ectopic pregnancy only when it coincides with a receptive tubal microenvironment.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Endocannabinoid Tone Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Basal endocannabinoid signalling through CB1, acting together with beta-adrenergic receptors in the oviductal muscularis, coordinates the smooth muscle contraction and relaxation that moves the embryo. Silencing CB1 in mice retains embryos in the oviduct, and CB1 transcript is low in fallopian tube from women with ectopic pregnancy. The causal arm of this evidence is murine; the human arm is correlative, and a candidate CNR1 polymorphism did not reach significance.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fallopian tube smooth muscle cell\"], \"biological_processes\": [\"smooth muscle contraction\"], \"genes\": [\"CNR1\"], \"gene_terms\": [{\"label\": \"CNR1\", \"id\": \"hgnc:2159\"}]}}, {\"id\": \"Gefitinib Adjuvant to Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral EGFR inhibitor trialled as an adjuvant to methotrexate on the rationale that trophoblast proliferation is EGFR-dependent. The GEM3 randomised, double-blind, placebo-controlled trial refuted the hypothesis: adding gefitinib did not reduce the need for surgery or shorten time to resolution, and increased minor adverse effects. Curated as a refuted treatment because a mechanistically sound target that failed to translate is worth recording explicitly rather than silently dropping.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"gefitinib\"]}}, {\"id\": \"Hypovolaemic Shock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Circulatory collapse from acute blood loss, the immediate cause of death in fatal ectopic pregnancy.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031274\"}}, {\"id\": \"Impaired Embryo-Tubal Transport\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Failure of the combined ciliary and peristaltic transport that normally delivers the embryo from the ampulla to the uterine cavity within a few days. This is the first of the two hits in the accepted aetiological model. It is necessary but not sufficient: an embryo that merely fails to arrive would be expected to fail, not to implant.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fallopian tube multiciliated epithelial cell\", \"fallopian tube smooth muscle cell\"], \"biological_processes\": [\"cilium movement\", \"smooth muscle contraction\"], \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Laparoscopic Salpingectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Laparoscopic removal of the affected fallopian tube, the reference standard surgical treatment and the required approach in haemodynamic instability or major haemoperitoneum. Definitive, with essentially no risk of persistent trophoblast.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Systemic antifolate that inhibits dihydrofolate reductase and arrests rapidly dividing trophoblast. First-line medical management for the haemodynamically stable patient with an unruptured ectopic pregnancy, acceptable hCG, and reliable follow-up. Given as single-dose, two-dose, or multi-dose regimens; meta-analysis favours the two-dose protocol over single-dose. Contraindicated in haemodynamic instability, rupture, and hepatic, renal, or haematological impairment. Patients must be counselled about separation pain, a transient increase in pain that is easily mistaken for rupture.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Prior tubal damage from surgery or infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Structural tubal injury from previous pelvic infection, tubal surgery including sterilisation and its reversal, or prior ectopic pregnancy. Assisted reproductive technology also raises risk, partly through the tubal-factor infertility that led to treatment.\\n\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Salpingotomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Tube-conserving surgery in which the ectopic pregnancy is removed through an incision in the tube. Carries a substantially higher risk of persistent trophoblast than salpingectomy and therefore mandates postoperative hCG surveillance. Reserved mainly for patients whose contralateral tube is damaged or absent.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tubal Implantation Without Decidual Investment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Attachment and invasion of the conceptus at a site that has no decidua. Decidualization of endometrial stroma normally both supports and restrains invading trophoblast; the fallopian tube does not decidualize, so the braking half of that relationship is simply absent. The load-bearing fact of this node is therefore a missing structure rather than a present one, which is why decidualization is tagged ABSENT here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"extravillous trophoblast\"], \"biological_processes\": [\"decidualization\", \"embryo implantation\"], \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Tubal Rupture and Haemoperitoneum\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Breach of the tubal wall with haemorrhage into the peritoneal cavity. This is the acute catastrophic branch of the disease; the alternative trajectories are tubal abortion with spontaneous resolution, or treated resolution. Not every ectopic pregnancy ruptures, and modern ultrasound increasingly detects small failing ectopic pregnancies that would have resolved unobserved.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"fallopian tube\"]}}, {\"id\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive penetration of the tubal muscularis by extravillous trophoblast. Single-cell profiling of the tube-trophoblast interface shows extravillous trophoblast dominating the ruptured lesion and identifies a CSF1/CSF1R ligand-receptor pair, with CSF1 secreted by fallopian tube secretory epithelial cells, that drives invasion and macrophage accumulation. Matrix metalloproteinase activity increases along the invasive front while the tissue inhibitors that would restrain it are weakly expressed.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"extravillous trophoblast\", \"fallopian tube secretory epithelial cell\", \"macrophage\"], \"genes\": [\"CSF1\", \"CSF1R\"], \"gene_terms\": [{\"label\": \"CSF1\", \"id\": \"hgnc:2432\"}, {\"label\": \"CSF1R\", \"id\": \"hgnc:2433\"}]}}], \"edges\": [{\"source\": \"Chlamydia trachomatis Tubal Infection\", \"target\": \"Ciliated Epithelial Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chlamydial infection of tubal epithelium initiates IL-1-driven destruction of ciliated cells.\\n\"}, {\"source\": \"Chlamydia trachomatis Tubal Infection\", \"target\": \"Aberrant Tubal Receptivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Independently of tissue destruction, chlamydial ligation of TLR2 activates NF-kappaB and raises tubal PROKR2, shifting the microenvironment toward implantation.\\n\"}, {\"source\": \"Cigarette Smoke Exposure\", \"target\": \"Aberrant Tubal Receptivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cotinine-driven PROKR1 upregulation alters the tubal microenvironment toward one that permits implantation.\\n\"}, {\"source\": \"Ciliated Epithelial Destruction\", \"target\": \"Impaired Embryo-Tubal Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of coordinated ciliary beating removes one of the two motive forces that carry the embryo toward the uterus.\\n\"}, {\"source\": \"Endocannabinoid Tone Dysregulation\", \"target\": \"Impaired Embryo-Tubal Transport\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of coordinated oviductal smooth muscle contraction and relaxation impairs the peristaltic component of embryo transport.\\n\"}, {\"source\": \"Impaired Embryo-Tubal Transport\", \"target\": \"Embryo Retention in the Fallopian Tube\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transport failure leaves the embryo within the tubal lumen past the implantation window.\"}, {\"source\": \"Aberrant Tubal Receptivity\", \"target\": \"Tubal Implantation Without Decidual Investment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A receptive tubal epithelium permits attachment and invasion by a retained embryo.\\n\"}, {\"source\": \"Embryo Retention in the Fallopian Tube\", \"target\": \"Tubal Implantation Without Decidual Investment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A retained embryo in a receptive tube attaches to tubal epithelium instead of endometrium.\\n\"}, {\"source\": \"Tubal Implantation Without Decidual Investment\", \"target\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent decidual restraint, invasive trophoblast penetrates the tubal wall rather than being contained at a controlled depth.\\n\"}, {\"source\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"target\": \"Tubal Rupture and Haemoperitoneum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CSF1-driven invasion by extravillous trophoblast breaches the tubal wall and the vessels within it.\\n\"}, {\"source\": \"Tubal Rupture and Haemoperitoneum\", \"target\": \"Hypovolaemic Shock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ongoing intraperitoneal blood loss depletes circulating volume faster than it can be compensated.\\n\"}, {\"source\": \"Chlamydia trachomatis infection\", \"target\": \"Chlamydia trachomatis Tubal Infection\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The entry models the infection itself as the initiating node, so this is an identity link. Chlamydia is the single largest infectious contributor, and its damage is typically silent, which is why tubal injury is usually discovered only at the ectopic pregnancy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cigarette smoking\", \"target\": \"Cigarette Smoke Exposure\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Also modelled as its own node in this entry, which then routes smoke exposure to endocannabinoid tone dysregulation and impaired embryo-tubal transport rather than to infection-driven scarring. Smoking and chlamydia damage the tube by different routes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prior tubal damage from surgery or infection\", \"target\": \"Ciliated Epithelial Destruction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Bundles surgical and post-infective injury, both of which reach the same endpoint of a scarred tube with lost ciliated epithelium. The intermediates differ by cause but the resulting transport failure is shared.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Methotrexate\", \"target\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Laparoscopic Salpingectomy\", \"target\": \"Tubal Rupture and Haemoperitoneum\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Salpingotomy\", \"target\": \"Tubal Rupture and Haemoperitoneum\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blood Transfusion\", \"target\": \"Hypovolaemic Shock\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gefitinib Adjuvant to Methotrexate\", \"target\": \"Unrestrained Trophoblast Invasion of the Tubal Wall\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6290,7 +6522,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anaemia" data-dismech-node="Anaemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anaemia
 
@@ -6382,7 +6614,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypovolaemic-shock" data-dismech-node="Hypovolaemic Shock" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypovolaemic Shock
 
@@ -6459,7 +6691,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotension" data-dismech-node="Hypotension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotension
 
@@ -6516,7 +6748,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-amenorrhoea" data-dismech-node="Amenorrhoea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Amenorrhoea
 
@@ -6576,7 +6808,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-subsequent-infertility" data-dismech-node="Subsequent Infertility" data-dismech-type="phenotype">
                     <div class="item-name">
                         Subsequent Infertility
 
@@ -6662,7 +6894,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal Pain
 
@@ -6763,7 +6995,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-pain" data-dismech-node="Pelvic Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pelvic Pain
 
@@ -6820,7 +7052,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vaginal-bleeding" data-dismech-node="Abnormal Vaginal Bleeding" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Vaginal Bleeding
 
@@ -6880,7 +7112,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-haemoperitoneum" data-dismech-node="Haemoperitoneum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Haemoperitoneum
 
@@ -6957,7 +7189,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-psychological-distress" data-dismech-node="Psychological Distress" data-dismech-type="phenotype">
                     <div class="item-name">
                         Psychological Distress
 
@@ -7077,7 +7309,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-muc1" data-dismech-node="MUC1" data-dismech-type="genetic">
                 <div class="item-name">
                     MUC1
 
@@ -7144,9 +7376,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cnr1" data-dismech-node="CNR1" data-dismech-type="genetic">
                 <div class="item-name">
                     CNR1
 
@@ -7213,9 +7446,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7227,7 +7464,7 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-methotrexate" data-dismech-node="Methotrexate" data-dismech-type="treatment">
                 <div class="item-name">
                     Methotrexate
                 </div>
@@ -7363,7 +7600,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-laparoscopic-salpingectomy" data-dismech-node="Laparoscopic Salpingectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Laparoscopic Salpingectomy
                 </div>
@@ -7461,7 +7698,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-salpingotomy" data-dismech-node="Salpingotomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Salpingotomy
                 </div>
@@ -7560,7 +7797,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-expectant-management" data-dismech-node="Expectant Management" data-dismech-type="treatment">
                 <div class="item-name">
                     Expectant Management
                 </div>
@@ -7612,7 +7849,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-blood-transfusion" data-dismech-node="Blood Transfusion" data-dismech-type="treatment">
                 <div class="item-name">
                     Blood Transfusion
                 </div>
@@ -7709,7 +7946,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-gefitinib-adjuvant-to-methotrexate" data-dismech-node="Gefitinib Adjuvant to Methotrexate" data-dismech-type="treatment">
                 <div class="item-name">
                     Gefitinib Adjuvant to Methotrexate
                 </div>
@@ -7836,7 +8073,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-chlamydia-trachomatis-infection" data-dismech-node="Chlamydia trachomatis infection" data-dismech-type="environmental">
                 <div class="item-name">Chlamydia trachomatis infection</div>
 
 
@@ -7879,9 +8116,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chlamydia trachomatis Tubal Infection</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The entry models the infection itself as the initiating node, so this is an identity link. Chlamydia is the single largest infectious contributor, and its damage is typically silent, which is why tubal injury is usually discovered only at the ectopic pregnancy.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21224062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21224062" target="_blank">PMID:21224062</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chlamydia trachomatis and smoking are major risk factors for tubal ectopic pregnancy (EP), but the underlying mechanisms of these associations are not completely understood."</div>
+
+
+                <div class="evidence-explanation">Identifies Chlamydia trachomatis as a major risk factor for tubal ectopic pregnancy.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-cigarette-smoking" data-dismech-node="Cigarette smoking" data-dismech-type="environmental">
                 <div class="item-name">Cigarette smoking</div>
 
 
@@ -7924,9 +8214,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Cigarette Smoke Exposure</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Also modelled as its own node in this entry, which then routes smoke exposure to endocannabinoid tone dysregulation and impaired embryo-tubal transport rather than to infection-driven scarring. Smoking and chlamydia damage the tube by different routes.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20864676" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20864676" target="_blank">PMID:20864676</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Smoking is a major risk factor for EP."</div>
+
+
+                <div class="evidence-explanation">Identifies smoking as a major risk factor for ectopic pregnancy.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-prior-tubal-damage-from-surgery-or-infection" data-dismech-node="Prior tubal damage from surgery or infection" data-dismech-type="environmental">
                 <div class="item-name">Prior tubal damage from surgery or infection</div>
 
 
@@ -7969,6 +8312,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Ciliated Epithelial Destruction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Bundles surgical and post-infective injury, both of which reach the same endpoint of a scarred tube with lost ciliated epithelium. The intermediates differ by cause but the resulting transport failure is shared.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20071358" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20071358" target="_blank">PMID:20071358</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The epidemiological risk factors for tubal ectopic pregnancy are well established and include: tubal damage as a result of surgery or infection (particularly Chlamydia trachomatis), smoking and in vitro fertilization."</div>
+
+
+                <div class="evidence-explanation">Names tubal damage resulting from surgery among the well-established epidemiological risk factors for tubal ectopic pregnancy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -7983,7 +8379,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-beta-human-chorionic-gonadotropin" data-dismech-node="Serum beta-human chorionic gonadotropin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum beta-human chorionic gonadotropin
 
@@ -9198,6 +9594,24 @@ genetic:
       significance in their cohorts.
 environmental:
 - name: Chlamydia trachomatis infection
+  influences_mechanisms:
+  - target: Chlamydia trachomatis Tubal Infection
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The entry models the infection itself as the initiating node, so this is
+      an identity link. Chlamydia is the single largest infectious
+      contributor, and its damage is typically silent, which is why tubal
+      injury is usually discovered only at the ectopic pregnancy.
+    evidence:
+    - reference: PMID:21224062
+      reference_title: &#34;Chlamydia trachomatis infection increases fallopian tube PROKR2 via TLR2 and NFκB activation resulting in a microenvironment predisposed to ectopic pregnancy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Chlamydia trachomatis and smoking are major risk factors for tubal ectopic pregnancy (EP), but the underlying mechanisms of these associations are not completely understood.&#34;
+      explanation: &gt;-
+        Identifies Chlamydia trachomatis as a major risk factor for tubal
+        ectopic pregnancy.
   description: &gt;
     Ascending chlamydial genital infection causing salpingitis and permanent tubal damage.
     The dominant infectious antecedent of tubal ectopic pregnancy and the only risk factor
@@ -9212,6 +9626,23 @@ environmental:
     snippet: &#34;Chlamydia trachomatis and smoking are major risk factors for tubal ectopic pregnancy (EP), but the underlying mechanisms of these associations are not completely understood.&#34;
     explanation: Establishes chlamydial infection as a major risk factor.
 - name: Cigarette smoking
+  influences_mechanisms:
+  - target: Cigarette Smoke Exposure
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Also modelled as its own node in this entry, which then routes smoke
+      exposure to endocannabinoid tone dysregulation and impaired embryo-tubal
+      transport rather than to infection-driven scarring. Smoking and
+      chlamydia damage the tube by different routes.
+    evidence:
+    - reference: PMID:20864676
+      reference_title: &#34;Cotinine exposure increases Fallopian tube PROKR1 expression via nicotinic AChRalpha-7: a potential mechanism explaining the link between smoking and tubal ectopic pregnancy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Smoking is a major risk factor for EP.&#34;
+      explanation: &gt;-
+        Identifies smoking as a major risk factor for ectopic pregnancy.
   description: &gt;
     Dose-dependent modifiable risk factor acting through cotinine on nicotinic
     acetylcholine receptor alpha-7 in tubal epithelium, raising PROKR1 and shifting the
@@ -9228,6 +9659,24 @@ environmental:
     snippet: &#34;Smoking is a major risk factor for EP.&#34;
     explanation: States smoking as a major risk factor for ectopic pregnancy.
 - name: Prior tubal damage from surgery or infection
+  influences_mechanisms:
+  - target: Ciliated Epithelial Destruction
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Bundles surgical and post-infective injury, both of which reach the same
+      endpoint of a scarred tube with lost ciliated epithelium. The
+      intermediates differ by cause but the resulting transport failure is
+      shared.
+    evidence:
+    - reference: PMID:20071358
+      reference_title: &#34;Current knowledge of the aetiology of human tubal ectopic pregnancy.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The epidemiological risk factors for tubal ectopic pregnancy are well established and include: tubal damage as a result of surgery or infection (particularly Chlamydia trachomatis), smoking and in vitro fertilization.&#34;
+      explanation: &gt;-
+        Names tubal damage resulting from surgery among the well-established
+        epidemiological risk factors for tubal ectopic pregnancy.
   description: &gt;
     Structural tubal injury from previous pelvic infection, tubal surgery including
     sterilisation and its reversal, or prior ectopic pregnancy. Assisted reproductive
@@ -11057,7 +11506,7 @@ cause of these differences.&quot;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ectopic Pregnancy", "mondoId": "MONDO:0000755", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ectopic_Pregnancy", "yamlRevision": "448911a99603"};
+        const OS_CONFIG = {"diseaseName": "Ectopic Pregnancy", "mondoId": "MONDO:0000755", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ectopic_Pregnancy", "yamlRevision": "5d86950004b7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
