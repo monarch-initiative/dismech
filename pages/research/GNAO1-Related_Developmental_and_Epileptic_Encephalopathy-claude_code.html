@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1429,11 +1591,11 @@
 4. <strong>Single-gene testing</strong> — appropriate only when the phenotype is highly characteristic (e.g. recognizable dyskinetic crisis pattern).
 5. <strong>Chromosomal microarray</strong> — low yield; useful for differential, not for GNAO1 diagnosis (deletions do not produce this phenotype).
 6. <strong>Karyotype, FISH, mtDNA testing, repeat expansion testing</strong> — not indicated for GNAO1; relevant only to exclude differentials.</p>
-<p>MAXO term: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a></strong> genetic testing.</p>
+<p>MAXO term: <strong><a href="https://bioregistry.io/MAXO:0000127" target="_blank" rel="noopener noreferrer">MAXO:0000127</a></strong> genetic testing.</p>
 <p><strong>Critical interpretive point for splice variants:</strong> because c.723+1G&gt;A / c.723+2T&gt;A produce an in-frame switch-III deletion via cryptic splicing (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41150825/" target="_blank" rel="noopener noreferrer">PMID:41150825</a></strong>) and c.724-8G&gt;A produces an in-frame two-residue insertion (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/42024408/" target="_blank" rel="noopener noreferrer">PMID:42024408</a></strong>), RNA-level confirmation is genuinely informative for intronic variants near exon 6/7 boundaries. Standard <em>in silico</em> splice prediction will not tell you what protein you get.</p>
 <h3>Functional / supportive testing</h3>
 <ul>
-<li><strong>EEG</strong> (<strong><a href="http://purl.obolibrary.org/obo/MAXO_0000932" target="_blank" rel="noopener noreferrer">MAXO:0000932</a></strong> electroencephalography): burst-suppression / Ohtahara pattern in neonatal DEE; multifocal or migrating focal discharges; hypsarrhythmia in some. Quantitative EEG shows increased delta power and reduced alpha power with disrupted long-range temporal correlations, correlating with severity (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/40576155/" target="_blank" rel="noopener noreferrer">PMID:40576155</a></strong>) — a promising <strong>severity biomarker</strong>, not yet a diagnostic test.</li>
+<li><strong>EEG</strong> (<strong><a href="https://bioregistry.io/MAXO:0000932" target="_blank" rel="noopener noreferrer">MAXO:0000932</a></strong> electroencephalography): burst-suppression / Ohtahara pattern in neonatal DEE; multifocal or migrating focal discharges; hypsarrhythmia in some. Quantitative EEG shows increased delta power and reduced alpha power with disrupted long-range temporal correlations, correlating with severity (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/40576155/" target="_blank" rel="noopener noreferrer">PMID:40576155</a></strong>) — a promising <strong>severity biomarker</strong>, not yet a diagnostic test.</li>
 <li><strong>Video-EEG</strong> is important for distinguishing dyskinetic crises from seizures. The Delphi consensus explicitly calls out this problem: <em>"Future research should concentrate on differentiating dyskinetic crises from other neurological events"</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38903163/" target="_blank" rel="noopener noreferrer">PMID:38903163</a></strong>).</li>
 <li><strong>Brain MRI:</strong> often normal early; over time cerebral atrophy, thin/dysgenetic corpus callosum, caudate hypoplasia or atrophy, mild ventriculomegaly. <strong>Non-diagnostic</strong> — a normal MRI does not exclude GNAO1.</li>
 <li><strong>Laboratory tests:</strong> no diagnostic biochemical marker. Routine metabolic workup (lactate, amino acids, organic acids, CSF neurotransmitters) is performed to exclude differentials and is normal in GNAO1. Note the incidental low CSF 5-MTHF in two Danti patients, which did not respond to folinic acid (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/28357411/" target="_blank" rel="noopener noreferrer">PMID:28357411</a></strong>).</li>
@@ -1559,9 +1721,9 @@
 <p>Feng et al. anticipated the general principle a decade earlier: <em>"one might expect that different approaches to therapy would be needed for different mutations (i.e., agonists for LOF and antagonists for GOF mutants)"</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/28747448/" target="_blank" rel="noopener noreferrer">PMID:28747448</a></strong>). Mechanism-blind pharmacotherapy in this disease can push in the wrong direction.</p>
 <h3>Pharmacotherapy — epilepsy</h3>
 <p>No GNAO1-specific antiseizure medication algorithm exists. Standard DEE management applies. Documented in cohorts: levetiracetam (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" rel="noopener noreferrer">CHEBI:6437</a></strong>), valproic acid (<strong><a href="http://purl.obolibrary.org/obo/CHEBI_39867" target="_blank" rel="noopener noreferrer">CHEBI:39867</a></strong>), phenobarbital, topiramate, vigabatrin, benzodiazepines. Valproate controlled focal epilepsy in one patient; Danti reported <em>"Five patients had well-controlled epilepsy and 1 had drug-resistant seizures"</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/28357411/" target="_blank" rel="noopener noreferrer">PMID:28357411</a></strong>), while 37.5% met drug-resistance criteria in an earlier tabulation.</p>
-<p><strong>Ketogenic diet:</strong> Marcé-Grau et al. reported <em>"our patient showed a sustained seizure reduction while on a ketogenic diet"</em> and flagged <em>"responsiveness of seizures to ketogenic diet"</em> as a <strong>novel feature</strong> of the condition (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/27072799/" target="_blank" rel="noopener noreferrer">PMID:27072799</a></strong>). Evidence remains anecdotal in GNAO1 specifically; general DEE evidence supports a trial. MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a></strong> dietary intervention (a specific ketogenic-diet MAXO term did not resolve in my local build — verify against a current MAXO release).</p>
+<p><strong>Ketogenic diet:</strong> Marcé-Grau et al. reported <em>"our patient showed a sustained seizure reduction while on a ketogenic diet"</em> and flagged <em>"responsiveness of seizures to ketogenic diet"</em> as a <strong>novel feature</strong> of the condition (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/27072799/" target="_blank" rel="noopener noreferrer">PMID:27072799</a></strong>). Evidence remains anecdotal in GNAO1 specifically; general DEE evidence supports a trial. MAXO: <strong><a href="https://bioregistry.io/MAXO:0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a></strong> dietary intervention (a specific ketogenic-diet MAXO term did not resolve in my local build — verify against a current MAXO release).</p>
 <h3>Surgical and interventional</h3>
-<p><strong>Deep brain stimulation</strong> — the single most effective intervention for the movement disorder. MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000943" target="_blank" rel="noopener noreferrer">MAXO:0000943</a></strong> deep brain stimulation; <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a></strong> surgical procedure.</p>
+<p><strong>Deep brain stimulation</strong> — the single most effective intervention for the movement disorder. MAXO: <strong><a href="https://bioregistry.io/MAXO:0000943" target="_blank" rel="noopener noreferrer">MAXO:0000943</a></strong> deep brain stimulation; <strong><a href="https://bioregistry.io/MAXO:0000004" target="_blank" rel="noopener noreferrer">MAXO:0000004</a></strong> surgical procedure.</p>
 <p>Systematic review and meta-analysis (Aarts et al., <em>Neuromodulation</em> 2024, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/37999699/" target="_blank" rel="noopener noreferrer">PMID:37999699</a></strong>), verbatim results:</p>
 <blockquote>
 <p>"The mean age of onset of symptoms was 2.4 years (SD 3.8); 16 of 28 patients were male, and dystonia was nearly always generalized (20/22 patients)... Our meta-analysis focused on pallidal DBS and found an absolute and relative improvement in Burke-Fahn-Marsden Dystonia Rating Scale (BFMDRS) of 32.5 points (37.9%; motor part; p = 0.001) and 5.8 points (21.5%; disability part; p = 0.043) at last follow-up compared with preoperative state; 80% of patients were considered responders (BFMDRS-M reduction by ≥25%). Although worsening over time does occur, an improvement was still observed in patients after &gt;10 years. All reported cases of status dystonicus resolved after DBS surgery. Skin erosion and infection were observed in 18% of patients."</p>
@@ -1573,10 +1735,10 @@
 <li><strong>Timing:</strong> the Delphi consensus says <em>"Deep brain stimulation should be considered early in the treatment of refractory or prolonged dyskinetic crisis"</em> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38903163/" target="_blank" rel="noopener noreferrer">PMID:38903163</a></strong>). Recent work addresses severity-based and family-centered indication frameworks (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41459622/" target="_blank" rel="noopener noreferrer">PMID:41459622</a></strong>) and caregiver decision-making (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/40544367/" target="_blank" rel="noopener noreferrer">PMID:40544367</a></strong>).</li>
 <li><strong>Alternatives:</strong> MR-guided focused ultrasound pallidotomy has been reported bilaterally and simultaneously (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38641910/" target="_blank" rel="noopener noreferrer">PMID:38641910</a></strong>).</li>
 </ul>
-<p><strong>Other surgical:</strong> gastrostomy for dysphagia (<strong><a href="http://purl.obolibrary.org/obo/MAXO_0001346" target="_blank" rel="noopener noreferrer">MAXO:0001346</a></strong>); orthopedic surgery for scoliosis and hip dysplasia; intrathecal baclofen pump.</p>
+<p><strong>Other surgical:</strong> gastrostomy for dysphagia (<strong><a href="https://bioregistry.io/MAXO:0001346" target="_blank" rel="noopener noreferrer">MAXO:0001346</a></strong>); orthopedic surgery for scoliosis and hip dysplasia; intrathecal baclofen pump.</p>
 <h3>Supportive and rehabilitative</h3>
 <p>GeneReviews: <em>"Supportive care to improve quality of life, maximize function, and reduce complications can include multidisciplinary care by specialists in child neurology, adult neurology, neurosurgery, physical medicine and rehabilitation, physical therapy, occupational therapy, orthopedic surgery, speech-language therapy, and psychology."</em></p>
-<p>MAXO anchors: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a></strong> supportive care · <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a></strong> physical therapy · <strong><a href="http://purl.obolibrary.org/obo/MAXO_0001351" target="_blank" rel="noopener noreferrer">MAXO:0001351</a></strong> occupational therapy · <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a></strong> speech therapy · <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000010" target="_blank" rel="noopener noreferrer">MAXO:0000010</a></strong> cognitive and behavioral intervention · <strong><a href="http://purl.obolibrary.org/obo/MAXO_0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a></strong> genetic counseling · <strong><a href="http://purl.obolibrary.org/obo/MAXO_0001346" target="_blank" rel="noopener noreferrer">MAXO:0001346</a></strong> gastrostomy.</p>
+<p>MAXO anchors: <strong><a href="https://bioregistry.io/MAXO:0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a></strong> supportive care · <strong><a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a></strong> physical therapy · <strong><a href="https://bioregistry.io/MAXO:0001351" target="_blank" rel="noopener noreferrer">MAXO:0001351</a></strong> occupational therapy · <strong><a href="https://bioregistry.io/MAXO:0000930" target="_blank" rel="noopener noreferrer">MAXO:0000930</a></strong> speech therapy · <strong><a href="https://bioregistry.io/MAXO:0000010" target="_blank" rel="noopener noreferrer">MAXO:0000010</a></strong> cognitive and behavioral intervention · <strong><a href="https://bioregistry.io/MAXO:0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a></strong> genetic counseling · <strong><a href="https://bioregistry.io/MAXO:0001346" target="_blank" rel="noopener noreferrer">MAXO:0001346</a></strong> gastrostomy.</p>
 <p>Also: trigger avoidance and caregiver education. The Delphi consensus emphasizes <em>"the importance of targeted parental and caregiver education, which enables early recognition and intervention, thereby potentially minimizing both short- and long-term complications."</em></p>
 <h3>Emerging / experimental — the interesting frontier</h3>
 <p><strong>1. Zinc — the furthest along, and the first mechanism-stratified therapy.</strong></p>
@@ -1589,7 +1751,7 @@
 <p><strong>3. AAV-RNAi allele silencing.</strong></p>
 <p>Lunev et al. (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/40229422/" target="_blank" rel="noopener noreferrer">PMID:40229422</a></strong>) targeted c.607G&gt;A (p.G203R): <em>"We selected the short hairpin RNA (sh1500) that suppressed the c.607G&gt;A transcripts, resulting in a 3.8-fold increase in the ratio of wild-type to mutant GNAO1 transcripts in patient-specific neurons... We improved the AAV construct by using an artificial miRNA (miR1500) and the neuron-specific hSyn promoter. Systemic administration of AAV9-hSyn-miR1500 did not cause pathological changes in Gnao1-GGA mice."</em> Honest about limitations: <em>"We also detected off-target effects of sh1500 as well as transcriptome changes associated with AAV transduction and RNAi activation."</em> Earlier in vitro work: <strong><a href="https://pubmed.ncbi.nlm.nih.gov/38215303/" target="_blank" rel="noopener noreferrer">PMID:38215303</a></strong>.</p>
 <p><strong>4. AAV gene supplementation.</strong></p>
-<p>Roy et al. (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38866563/" target="_blank" rel="noopener noreferrer">PMID:38866563</a></strong>): <em>"Bilateral intrastriatal injections of either scAAV9-GNAO1.1 or scAAV9-GNAO1.2 significantly reversed mutation-associated hyperactivity"</em> in R209H mice, without increasing seizure risk — described as <em>"the first report of successful preclinical gene therapy for GNAO1 encephalopathy applied in vivo."</em> MAXO: <strong><a href="http://purl.obolibrary.org/obo/MAXO_0001001" target="_blank" rel="noopener noreferrer">MAXO:0001001</a></strong> gene therapy.</p>
+<p>Roy et al. (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38866563/" target="_blank" rel="noopener noreferrer">PMID:38866563</a></strong>): <em>"Bilateral intrastriatal injections of either scAAV9-GNAO1.1 or scAAV9-GNAO1.2 significantly reversed mutation-associated hyperactivity"</em> in R209H mice, without increasing seizure risk — described as <em>"the first report of successful preclinical gene therapy for GNAO1 encephalopathy applied in vivo."</em> MAXO: <strong><a href="https://bioregistry.io/MAXO:0001001" target="_blank" rel="noopener noreferrer">MAXO:0001001</a></strong> gene therapy.</p>
 <p><strong>5. Small-molecule Gαo inhibitor.</strong></p>
 <p>Larasati et al. (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/42024408/" target="_blank" rel="noopener noreferrer">PMID:42024408</a></strong>) screened 54,080 compounds against the constitutively-active Gαo[insPQ] and found <em>"a novel compound, N-[5-(2-methylpropyl)-1,3,4-thiadiazol-2-yl]-1H-1,2,3-benzotriazole-5-carboxamide, that decreases the GTP binding rate of Gαo, likely acting as a competitive inhibitor with higher selectivity to the pathogenic protein."</em> Preclinical only.</p>
 <p><strong>6. Caffeine — repurposing, with two independent lines of support.</strong></p>
@@ -1607,7 +1769,7 @@
 7. Consider trial enrollment (zinc, ASO) and, where accessible, mechanism-based compassionate use.</p>
 <hr />
 <h2>13. Prevention</h2>
-<p><strong>Primary prevention:</strong> Not possible for <em>de novo</em> mutation. There is no modifiable exposure. The only meaningful primary-prevention lever is reproductive: for families with a known variant, <strong>preimplantation genetic testing</strong> or <strong>prenatal diagnosis</strong> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/37956232/" target="_blank" rel="noopener noreferrer">PMID:37956232</a></strong>). Genetic counseling (<strong><a href="http://purl.obolibrary.org/obo/MAXO_0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a></strong>) is essential, including explicit discussion of germline mosaicism recurrence risk, which is not zero even with negative parental testing.</p>
+<p><strong>Primary prevention:</strong> Not possible for <em>de novo</em> mutation. There is no modifiable exposure. The only meaningful primary-prevention lever is reproductive: for families with a known variant, <strong>preimplantation genetic testing</strong> or <strong>prenatal diagnosis</strong> (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/37956232/" target="_blank" rel="noopener noreferrer">PMID:37956232</a></strong>). Genetic counseling (<strong><a href="https://bioregistry.io/MAXO:0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a></strong>) is essential, including explicit discussion of germline mosaicism recurrence risk, which is not zero even with negative parental testing.</p>
 <p><strong>Secondary prevention (early detection):</strong> No newborn or population screening exists or is justified — no presymptomatic treatment. The realistic secondary-prevention goal is <strong>shortening the diagnostic odyssey</strong>: early genomic testing in any infant with DEE, or any child with an unexplained hyperkinetic movement disorder plus developmental delay. The 609-patient study argues exactly this: the findings <em>"underscore the need for early recognition of movement disorders within epilepsy cohorts."</em> Cascade testing in mild vertically-transmitted families is appropriate.</p>
 <p><strong>Tertiary prevention (preventing complications) — where the real work is:</strong>
 - <strong>Crisis prevention:</strong> trigger avoidance (aggressive fever management, prompt treatment of intercurrent infection, temperature control, minimizing emotional stress), caregiver education for early recognition. The Delphi consensus frames this as the central preventive intervention (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/38903163/" target="_blank" rel="noopener noreferrer">PMID:38903163</a></strong>).
