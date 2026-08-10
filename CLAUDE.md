@@ -1661,6 +1661,17 @@ check is implemented in `src/dismech/preflight_dr.py` and exposed as `just prefl
 (see above); the two are complementary — the audit flags NEC-prone disease *classes*,
 the preflight checks an individual *report*.
 
+The same risk classes are computed per candidate on the **MONDO curation priority
+dashboard** (`just gen-priority-dashboard` → `dashboard/priority.html`), which is where
+a curator picks the next disease *before* any DR report exists. A candidate whose label
+sits in a numbered series, shares a surname with another MONDO or `kb/disorders` entity,
+or carries a synonym pointing at a different eponym gets a `NEC risk` badge; hover it for
+the trigger, and check the full flag list under *Selected Candidate*. The shared
+classifier is `src/dismech/nec_risk.py`. Treat a badge as "run `just preflight-dr` on the
+report before curating from it", not as evidence that a confusion has occurred — it is a
+name-shaped risk signal, and an unbadged candidate is not thereby cleared (the
+surname detector only fires when the eponym sits directly before a disease head-noun).
+
 ### 3. Validation Workflow
 
 There are two loops here, and mixing them up is what makes people skip checks
