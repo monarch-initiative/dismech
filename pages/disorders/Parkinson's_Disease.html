@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 41</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 43</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Parkinson%27s%20Disease"
@@ -3701,6 +3785,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3754,7 +3840,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">41</div>
+                <div class="stat-value">43</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -6945,6 +7031,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7120,6 +7207,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     </span>
 
                 </div>
+
 
 
 
@@ -7317,6 +7405,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Computational models</div>
                     <div class="crosslink-list">
@@ -7467,6 +7556,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -7640,6 +7730,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -7863,6 +7954,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -8144,6 +8236,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -8297,6 +8390,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -8536,6 +8630,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -8733,6 +8828,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -8960,6 +9056,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9141,6 +9238,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9283,6 +9381,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -9484,6 +9583,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -9648,6 +9748,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
                     </span>
 
                 </div>
+
 
 
 
@@ -9858,6 +9959,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10050,6 +10152,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10207,6 +10310,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -10378,6 +10482,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10536,6 +10641,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -10687,6 +10793,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
                 </div>
+
 
 
 
@@ -10902,6 +11009,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -11006,6 +11114,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -11085,7 +11194,7 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Synuclein Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misfolded alpha-synuclein protein accumulates to form Lewy bodies and Lewy neurites. These aggregates spread through the nervous system in a prion-like manner, contributing to neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"inclusion body assembly\"], \"computational_models\": [{\"name\": \"Alpha-Synuclein Aggregation BST Model\", \"model_type\": \"KINETIC\", \"description\": \"Models alpha-synuclein aggregation kinetics and degradation-pathway effects in dopaminergic neurons.\"}, {\"name\": \"Alpha-Synuclein Prion-like Spreading Model\", \"model_type\": \"AGENT_BASED\", \"description\": \"Models connectome-based propagation of misfolded alpha-synuclein pathology.\"}]}}, {\"id\": \"Alpha-Synuclein Aggregation BST Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Biochemical Systems Theory (BST) model of alpha-synuclein aggregation kinetics in dopaminergic neurons. Integrates dopamine metabolism, ubiquitin-proteasome system, and lysosomal degradation pathways. Simulates effects of oxidative stress and proteasome inhibition on synuclein accumulation.\\n\", \"meta\": {\"model_type\": \"KINETIC\", \"publication\": \"PMID:19136028\"}}, {\"id\": \"Alpha-Synuclein Prion-like Spreading Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Network diffusion model simulating prion-like propagation of misfolded alpha-synuclein through brain connectome. Uses graph-theoretical approach to predict spatial patterns of neurodegeneration from initial seeding sites.\\n\", \"meta\": {\"model_type\": \"AGENT_BASED\"}}, {\"id\": \"Autophagy-Lysosome Pathway Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impairment of the autophagy-lysosome pathway disrupts clearance of misfolded proteins including alpha-synuclein. Multiple PD genes (GBA, LRRK2, VPS35, ATP13A2) regulate lysosomal function, and their mutations impair protein degradation capacity leading to toxic protein accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Autophagy\", \"Chaperone-mediated Autophagy\"]}}, {\"id\": \"Basal Ganglia Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Striatal dopamine loss shifts the basal ganglia-thalamocortical motor circuit toward excessive inhibitory output: the indirect pathway becomes hyperactive and the direct pathway hypoactive, increasing inhibitory drive from the globus pallidus pars interna onto the motor thalamus and cortex. This aberrant circuit activity, rather than neuron loss alone, generates the cardinal motor signs of Parkinson\u0027s disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Striatal medium spiny neuron\", \"GABAergic neuron\"], \"biological_processes\": [\"GABAergic synaptic transmission\"], \"locations\": [\"basal ganglia\"], \"computational_models\": [{\"name\": \"Basal Ganglia Spiking Neural Network\", \"model_type\": \"PHYSIOLOGICAL\", \"description\": \"Models dopamine-modulated basal ganglia circuit dynamics, beta-band oscillations, and DBS effects.\"}]}}, {\"id\": \"Basal Ganglia Spiking Neural Network\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Computational model of the basal ganglia circuit capturing dopamine-modulated dynamics between striatum, globus pallidus, subthalamic nucleus, and substantia nigra. Simulates pathological beta-band oscillations and motor dysfunction in PD.\\n\", \"meta\": {\"model_type\": \"PHYSIOLOGICAL\", \"publication\": \"PMID:29666208\"}}, {\"id\": \"Blood-Brain Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered tight junction proteins, transporter dysfunction, and alpha-synuclein accumulation compromise BBB integrity. BBB breakdown allows infiltration of peripheral immune cells and blood-borne molecules, amplifying neuroinflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Brain Endothelial Cell\", \"Pericyte\", \"Astrocyte\"], \"biological_processes\": [\"BBB Maintenance\", \"Vascular Permeability\"]}}, {\"id\": \"Botulinum Neurotoxin A (BoNT/A) for Depression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin type A alleviates depression in Parkinson\u0027s disease by inhibiting the complement C3-C3aR signaling axis and reducing microglial synaptic phagocytosis. This represents a novel complement-targeted approach to managing depression as a non-motor symptom in PD, distinct from BoNT/A\u0027s canonical motor symptom applications.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"COMT Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Extend levodopa duration (entacapone).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Calcium Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Substantia nigra dopaminergic neurons rely on L-type calcium channels (CaV1.3) for autonomous pacemaking, making them uniquely vulnerable to calcium-mediated toxicity. Disrupted calcium homeostasis in mitochondria, ER, and lysosomes contributes to oxidative stress and cell death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Calcium Ion Homeostasis\", \"Calcium Ion Transport\"]}}, {\"id\": \"Central Alpha-Synuclein Initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the brain-first model, the initial alpha-synuclein pathology begins in central sites such as the olfactory bulb or amygdala, then spreads through connected brain regions and later to peripheral autonomic structures. This node captures the competing central-origin route without asserting that it applies to all Parkinson disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"inclusion body assembly\"], \"locations\": [\"olfactory bulb\", \"amygdala\"]}}, {\"id\": \"Complement C3-C3aR Activation in Depression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated complement cascade activation, particularly the C3-C3aR signaling axis, drives microglial synaptic engulfment and loss. In depression associated with Parkinson disease, hippocampal complement components (C1Q, C3, C3aR) and downstream signaling (p-STAT3, p-P65) are upregulated, promoting microglial phagocytosis of synapses and contributing to depressive symptoms. This represents a distinct complement-mediated pathogenic pathway in depression, separable from canonical dopaminergic motor circuit involvement.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Microglia\"], \"biological_processes\": [\"complement activation\", \"synapse pruning\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Deep Brain Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical therapy for advanced motor fluctuations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Dopamine Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Directly stimulate dopamine receptors.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dopaminergic Neuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta is the core neuropathological lesion of Parkinson\u0027s disease. Motor signs emerge once an estimated 60-80% of these neurons are lost and the resulting loss of nigrostriatal dopamine input can no longer be compensated.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Dopamine Biosynthesis\"], \"locations\": [\"substantia nigra\"]}}, {\"id\": \"Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of misfolded proteins in the ER activates the unfolded protein response (UPR). Chronic ER stress overwhelms protective mechanisms, triggering apoptotic pathways. Alpha-synuclein aggregates and GBA mutations directly impair ER function.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"ER Stress Response\", \"Unfolded Protein Response\"]}}, {\"id\": \"Enteric Alpha-Synuclein Seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the body-first model, misfolded alpha-synuclein appears first in enteric or peripheral autonomic neural tissue and serves as the initiating seed for subsequent gut-to-brain spread. Direct causal support comes primarily from animal models that seed pathologic alpha-synuclein in the gastrointestinal wall.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Enteric Neuron\"], \"biological_processes\": [\"inclusion body assembly\"], \"locations\": [\"enteric nervous system\"]}}, {\"id\": \"Gut Microbiome Dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parkinson disease cohorts show reproducible but modest gut microbiome shifts, including depletion of short-chain-fatty-acid-producing taxa and enrichment of genera linked to mucin or inflammatory biology. In the body-first model, dysbiosis is modeled as a plausible upstream trigger or modifier of intestinal inflammation and barrier dysfunction, not as an established direct cause of alpha-synuclein initiation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Enteroendocrine Cell\"], \"locations\": [\"intestine\"]}}, {\"id\": \"Intestinal Inflammation and Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sporadic Parkinson disease is associated with elevated intestinal inflammatory and permeability markers. These changes may create a local milieu that increases alpha-synuclein expression or exposes enteric neurons to amyloidogenic microbial or dietary compounds, but whether they initiate body-first PD or arise secondary to gut autonomic dysfunction remains open.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Iron Accumulation and Ferroptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal iron deposition in the substantia nigra promotes ferroptosis, an iron-dependent form of cell death characterized by lipid peroxidation. Iron catalyzes Fenton reactions generating hydroxyl radicals, and dysregulated iron metabolism contributes to oxidative damage.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Iron Ion Homeostasis\", \"Ferroptosis\"]}}, {\"id\": \"LRRK2 GTPase Domain Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leucine-rich repeat kinase 2 (LRRK2) mutations disrupt the conformational dynamics of its ROC (Ras of complex proteins) G-domain, impairing GTPase activity and nucleotide (GTP/GDP) cycling. The arginine residue at position 1398 acts as a critical GTP-\\u03b3-phosphate sensor that regulates the ROC domain\u0027s active-to-inactive state transition. Pathogenic ROC/GTPase-domain mutations (e.g., R1441C/G/H) impair GTP hydrolysis, stabilize the constitutively active GTP-bound state, and enhance Rab29-dependent recruitment of LRRK2 to the trans-Golgi network. This dysregulation impairs vesicular trafficking, autophagosome-lysosome fusion, and clearance of alpha-synuclein aggregates, promoting neurodegeneration. Protective variants (e.g., R1398H) stabilize the GDP-bound inactive state and reduce disease risk, suggesting that GTPase domain normalization rather than kinase inhibition may be a disease-modifying therapeutic strategy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Dopaminergic neuron\", \"Neuron\"], \"biological_processes\": [\"Autophagy\", \"Intracellular protein localization\", \"Vesicle-mediated transport\"]}}, {\"id\": \"Levodopa/Carbidopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gold standard treatment, replaces dopamine precursor.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"MAO-B Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prevent dopamine breakdown (selegiline, rasagiline).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MAPK Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulation of mitogen-activated protein kinase (MAPK) signaling, particularly through overactivation of the JNK and p38 cascades, accelerates neurodegeneration and promotes alpha-synuclein accumulation and microglial activation. While basal MAPK activity is essential for neuroprotection and neuronal growth, pathological MAPK overactivation inhibits neuroprotective PI3K/AKT and PP2A pathways and activates detrimental GSK-3\\u03b2 and PTEN signaling, driving dopaminergic neurotoxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dopaminergic Neuron\", \"Microglia\"], \"biological_processes\": [\"MAPK cascade\", \"JNK cascade\", \"p38MAPK cascade\"]}}, {\"id\": \"Metabolic Dysfunction and Weight Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parkinson disease is associated with progressive weight loss and metabolic dysregulation through multiple interacting mechanisms. Reduced metabolic rate, dysregulated appetite-regulating hormones (leptin, ghrelin, GLP-1), gastrointestinal dysfunction, cognitive decline affecting appetite awareness, dopaminergic-medication effects, and dopamine-dependent regulation of feeding behavior all contribute to systemic metabolic failure and weight loss. Weight loss occurs in a substantial fraction of PD patients and exerts significant morbidity and mortality, yet mechanistic understanding remains incomplete.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Metabolic process\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial function, particularly complex I deficiency, leads to oxidative stress and neuronal death. Multiple PD genes (PINK1, Parkin, DJ-1) regulate mitochondrial quality control.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrion organization\"], \"computational_models\": [{\"name\": \"Whole Dopaminergic Neuron SBML Model\", \"model_type\": \"KINETIC\", \"model_format\": \"SBML\", \"description\": \"Models mitochondrial metabolism alongside dopamine handling in dopaminergic neurons.\"}]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated microglia and astrocytes contribute to neurodegeneration through release of pro-inflammatory cytokines and oxidative stress.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Microglia\", \"Astrocyte\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive reactive oxygen species from dopamine metabolism and mitochondrial dysfunction causes lipid peroxidation, protein carbonylation, and DNA damage. Dopamine auto-oxidation generates toxic quinones that preferentially damage substantia nigra neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Response to Oxidative Stress\", \"ROS Metabolic Process\"]}}, {\"id\": \"PGC-1alpha Transcriptional Program Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced activity of the PPARGC1A-encoded transcriptional coactivator PGC-1alpha downregulates the nuclear-encoded bioenergetic program it drives - mitochondrial biogenesis, respiratory-chain subunit expression, and antioxidant defenses - in nigral dopaminergic neurons. Two routes converge on this node. In the parkin-dependent route, loss of parkin E3 ligase function allows its substrate PARIS (ZNF746) to accumulate and transcriptionally repress the PPARGC1A promoter. In sporadic disease, PGC-1alpha-responsive bioenergetic gene sets are already underexpressed in laser-captured human nigral dopaminergic neurons at subclinical stages, placing this lesion early in the cascade rather than as a terminal consequence of neuron loss. The therapeutic corollary is not symmetric: restoring PGC-1alpha rescues dopaminergic neurons in cellular models, but sustained supraphysiological expression is itself toxic to the nigrostriatal system (see the HUMAN_MODEL_MISMATCH discussion pd_pgc1a_therapeutic_window).\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"nigral dopaminergic neuron\"], \"biological_processes\": [\"mitochondrial biogenesis program\"], \"molecular_functions\": [\"transcription coactivator activity\"]}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maintains mobility and reduces fall risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Postural Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002172\"}}, {\"id\": \"Resting Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002322\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Striatal Dopamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of nigrostriatal dopaminergic terminals depletes dopamine in the striatum, the principal input nucleus of the basal ganglia. Reduced striatal dopamine withdraws normal modulation of medium spiny projection neurons and is the proximate biochemical deficit linking nigral neuron loss to the motor features of Parkinson\u0027s disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Striatal medium spiny neuron\"], \"biological_processes\": [\"Dopaminergic synaptic transmission\", \"Dopamine Secretion\"], \"locations\": [\"striatum\"], \"computational_models\": [{\"name\": \"Whole Dopaminergic Neuron SBML Model\", \"model_type\": \"KINETIC\", \"model_format\": \"SBML\", \"description\": \"Models dopamine synthesis, storage, release, reuptake, and degradation in dopaminergic-neuron physiology.\"}]}}, {\"id\": \"Synaptic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired synaptic vesicle recycling, particularly defects in clathrin-mediated endocytosis, represents an early feature of PD. Multiple PD genes (DNAJC6, SYNJ1, LRRK2) regulate synaptic vesicle trafficking, and their dysfunction leads to synaptic failure before overt neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Synaptic Vesicle Cycle\", \"Synaptic Vesicle Endocytosis\"]}}, {\"id\": \"Vagal-Brainstem Alpha-Synuclein Propagation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathologic alpha-synuclein seeded in the gastrointestinal wall can propagate through vagal connections to the dorsal motor nucleus, nucleus tractus solitarius, caudal hindbrain, and ultimately midbrain and forebrain regions. Vagotomy experiments provide the strongest causal evidence for this body-first conduit.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vagus nerve\", \"midbrain\"]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}, {\"id\": \"Whole Dopaminergic Neuron SBML Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Large-scale Systems Biology Markup Language (SBML) model of dopaminergic neuron containing 139 reactions and 111 metabolites. Captures dopamine synthesis, vesicular storage, release, reuptake, and degradation alongside mitochondrial function and oxidative stress.\\n\", \"meta\": {\"model_type\": \"KINETIC\", \"model_format\": \"SBML\", \"publication\": \"PMID:24196439\"}}], \"edges\": [{\"source\": \"Dopaminergic Neuron Loss\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degeneration of substantia nigra pars compacta neurons removes the nigrostriatal projection, depleting dopamine in the striatum.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of striatal dopamine unbalances the direct and indirect basal ganglia pathways.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Resting Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Postural Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Alpha-Synuclein Aggregation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Synuclein Aggregation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PGC-1alpha Transcriptional Program Repression\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PGC-1alpha coactivation lowers expression of nuclear-encoded respiratory-chain subunits, producing the electron-transport deficit already curated on the Mitochondrial Dysfunction node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PGC-1alpha Transcriptional Program Repression\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PGC-1alpha coordinates the antioxidant arm of the mitochondrial stress response, so its repression lowers reactive-oxygen-species buffering capacity in nigral neurons.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK Dysregulation\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK dysregulation promotes alpha-synuclein accumulation.\"}, {\"source\": \"MAPK Dysregulation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK overactivation drives microglial activation and pro-inflammatory cytokine release.\"}, {\"source\": \"MAPK Dysregulation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK-driven oxidative stress, impaired neuroprotection, and neuroinflammation converge to promote dopaminergic neurotoxicity.\"}, {\"source\": \"Neuroinflammation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Complement C3-C3aR Activation in Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microglial neuroinflammation drives complement cascade activation (C3-C3aR axis) as part of the broader innate immune response, with convergent upregulation of complement and coagulation pathways in depression associated with PD. This complement-mediated branch contributes to depression-like behavior via microglial synaptic pruning, distinct from dopaminergic motor pathology.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complement C3-C3aR Activation in Depression\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement C3-C3aR-mediated microglial synaptic engulfment leads to hippocampal synaptic loss and dysfunction, manifesting as depression and mood disturbance in Parkinson disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autophagy-Lysosome Pathway Dysfunction\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autophagy-Lysosome Pathway Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LRRK2 GTPase Domain Dysregulation\", \"target\": \"Autophagy-Lysosome Pathway Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated LRRK2 GTPase activity impairs Rab29-dependent autophagosome-lysosome fusion and alpha-synuclein clearance.\"}, {\"source\": \"LRRK2 GTPase Domain Dysregulation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired protein clearance and autophagy promote accumulation of toxic protein aggregates and neuronal death.\"}, {\"source\": \"Gut Microbiome Dysbiosis\", \"target\": \"Intestinal Inflammation and Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PD-associated dysbiosis may promote a pro-inflammatory intestinal state and barrier dysfunction, but the direction and necessity of this link remain unresolved in humans.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intestinal Inflammation and Barrier Dysfunction\", \"target\": \"Enteric Alpha-Synuclein Seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local gut inflammation and barrier leakiness may increase enteric alpha-synuclein expression or amyloidogenic exposure, providing a permissive setting for enteric alpha-synuclein seeding.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enteric Alpha-Synuclein Seeding\", \"target\": \"Vagal-Brainstem Alpha-Synuclein Propagation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric alpha-synuclein seeds can propagate first to vagal brainstem nuclei and then to additional brain regions.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enteric Alpha-Synuclein Seeding\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric or autonomic involvement is a plausible contributor to early constipation in body-first PD, but this edge remains clinically inferred.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Vagal-Brainstem Alpha-Synuclein Propagation\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vagal-brainstem propagation links gut-origin pathology to the broader central alpha-synuclein aggregation cascade.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dorsal motor nucleus and nucleus tractus solitarius involvement\", \"caudal hindbrain and higher brain region propagation\"]}, {\"source\": \"Central Alpha-Synuclein Initiation\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central initiation feeds into the broader alpha-synuclein aggregation and propagation cascade through connected brain networks.\\n\", \"hypothesis_groups\": [\"brain_first_central_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central network propagation from olfactory bulb or amygdala\"]}, {\"source\": \"Oxidative Stress\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Dysregulation\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Dysregulation\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Dysregulation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endoplasmic Reticulum Stress\", \"target\": \"Autophagy-Lysosome Pathway Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endoplasmic Reticulum Stress\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Iron Accumulation and Ferroptosis\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Iron Accumulation and Ferroptosis\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic Dysfunction and Weight Loss\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolic dysregulation, reduced energy expenditure, neuroendocrine hormone imbalances, and gastrointestinal dysfunction converge to cause progressive weight loss and nutritional decline in PD.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine Agonists\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MAO-B Inhibitors\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COMT Inhibitors\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deep Brain Stimulation\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum Neurotoxin A (BoNT/A) for Depression\", \"target\": \"Complement C3-C3aR Activation in Depression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alpha-Synuclein Aggregation BST Model\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Whole Dopaminergic Neuron SBML Model\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Whole Dopaminergic Neuron SBML Model\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Basal Ganglia Spiking Neural Network\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Alpha-Synuclein Prion-like Spreading Model\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alpha-Synuclein Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misfolded alpha-synuclein protein accumulates to form Lewy bodies and Lewy neurites. These aggregates spread through the nervous system in a prion-like manner, contributing to neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"inclusion body assembly\"], \"computational_models\": [{\"name\": \"Alpha-Synuclein Aggregation BST Model\", \"model_type\": \"KINETIC\", \"description\": \"Models alpha-synuclein aggregation kinetics and degradation-pathway effects in dopaminergic neurons.\"}, {\"name\": \"Alpha-Synuclein Prion-like Spreading Model\", \"model_type\": \"AGENT_BASED\", \"description\": \"Models connectome-based propagation of misfolded alpha-synuclein pathology.\"}]}}, {\"id\": \"Alpha-Synuclein Aggregation BST Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Biochemical Systems Theory (BST) model of alpha-synuclein aggregation kinetics in dopaminergic neurons. Integrates dopamine metabolism, ubiquitin-proteasome system, and lysosomal degradation pathways. Simulates effects of oxidative stress and proteasome inhibition on synuclein accumulation.\\n\", \"meta\": {\"model_type\": \"KINETIC\", \"publication\": \"PMID:19136028\"}}, {\"id\": \"Alpha-Synuclein Prion-like Spreading Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Network diffusion model simulating prion-like propagation of misfolded alpha-synuclein through brain connectome. Uses graph-theoretical approach to predict spatial patterns of neurodegeneration from initial seeding sites.\\n\", \"meta\": {\"model_type\": \"AGENT_BASED\"}}, {\"id\": \"Autophagy-Lysosome Pathway Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impairment of the autophagy-lysosome pathway disrupts clearance of misfolded proteins including alpha-synuclein. Multiple PD genes (GBA, LRRK2, VPS35, ATP13A2) regulate lysosomal function, and their mutations impair protein degradation capacity leading to toxic protein accumulation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Autophagy\", \"Chaperone-mediated Autophagy\"]}}, {\"id\": \"Basal Ganglia Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Striatal dopamine loss shifts the basal ganglia-thalamocortical motor circuit toward excessive inhibitory output: the indirect pathway becomes hyperactive and the direct pathway hypoactive, increasing inhibitory drive from the globus pallidus pars interna onto the motor thalamus and cortex. This aberrant circuit activity, rather than neuron loss alone, generates the cardinal motor signs of Parkinson\u0027s disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Striatal medium spiny neuron\", \"GABAergic neuron\"], \"biological_processes\": [\"GABAergic synaptic transmission\"], \"locations\": [\"basal ganglia\"], \"computational_models\": [{\"name\": \"Basal Ganglia Spiking Neural Network\", \"model_type\": \"PHYSIOLOGICAL\", \"description\": \"Models dopamine-modulated basal ganglia circuit dynamics, beta-band oscillations, and DBS effects.\"}]}}, {\"id\": \"Basal Ganglia Spiking Neural Network\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Computational model of the basal ganglia circuit capturing dopamine-modulated dynamics between striatum, globus pallidus, subthalamic nucleus, and substantia nigra. Simulates pathological beta-band oscillations and motor dysfunction in PD.\\n\", \"meta\": {\"model_type\": \"PHYSIOLOGICAL\", \"publication\": \"PMID:29666208\"}}, {\"id\": \"Blood-Brain Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered tight junction proteins, transporter dysfunction, and alpha-synuclein accumulation compromise BBB integrity. BBB breakdown allows infiltration of peripheral immune cells and blood-borne molecules, amplifying neuroinflammation.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Brain Endothelial Cell\", \"Pericyte\", \"Astrocyte\"], \"biological_processes\": [\"BBB Maintenance\", \"Vascular Permeability\"]}}, {\"id\": \"Botulinum Neurotoxin A (BoNT/A) for Depression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Botulinum toxin type A alleviates depression in Parkinson\u0027s disease by inhibiting the complement C3-C3aR signaling axis and reducing microglial synaptic phagocytosis. This represents a novel complement-targeted approach to managing depression as a non-motor symptom in PD, distinct from BoNT/A\u0027s canonical motor symptom applications.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bradykinesia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002067\"}}, {\"id\": \"COMT Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Extend levodopa duration (entacapone).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Calcium Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Substantia nigra dopaminergic neurons rely on L-type calcium channels (CaV1.3) for autonomous pacemaking, making them uniquely vulnerable to calcium-mediated toxicity. Disrupted calcium homeostasis in mitochondria, ER, and lysosomes contributes to oxidative stress and cell death.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Calcium Ion Homeostasis\", \"Calcium Ion Transport\"]}}, {\"id\": \"Central Alpha-Synuclein Initiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the brain-first model, the initial alpha-synuclein pathology begins in central sites such as the olfactory bulb or amygdala, then spreads through connected brain regions and later to peripheral autonomic structures. This node captures the competing central-origin route without asserting that it applies to all Parkinson disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"inclusion body assembly\"], \"locations\": [\"olfactory bulb\", \"amygdala\"]}}, {\"id\": \"Complement C3-C3aR Activation in Depression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated complement cascade activation, particularly the C3-C3aR signaling axis, drives microglial synaptic engulfment and loss. In depression associated with Parkinson disease, hippocampal complement components (C1Q, C3, C3aR) and downstream signaling (p-STAT3, p-P65) are upregulated, promoting microglial phagocytosis of synapses and contributing to depressive symptoms. This represents a distinct complement-mediated pathogenic pathway in depression, separable from canonical dopaminergic motor circuit involvement.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Microglia\"], \"biological_processes\": [\"complement activation\", \"synapse pruning\"], \"locations\": [\"hippocampal formation\"]}}, {\"id\": \"Constipation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002019\"}}, {\"id\": \"Deep Brain Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical therapy for advanced motor fluctuations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Depression\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000716\"}}, {\"id\": \"Dopamine Agonists\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Directly stimulate dopamine receptors.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dopaminergic Neuron Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive degeneration of dopaminergic neurons in the substantia nigra pars compacta is the core neuropathological lesion of Parkinson\u0027s disease. Motor signs emerge once an estimated 60-80% of these neurons are lost and the resulting loss of nigrostriatal dopamine input can no longer be compensated.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Dopamine Biosynthesis\"], \"locations\": [\"substantia nigra\"]}}, {\"id\": \"Endoplasmic Reticulum Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Accumulation of misfolded proteins in the ER activates the unfolded protein response (UPR). Chronic ER stress overwhelms protective mechanisms, triggering apoptotic pathways. Alpha-synuclein aggregates and GBA mutations directly impair ER function.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"ER Stress Response\", \"Unfolded Protein Response\"]}}, {\"id\": \"Enteric Alpha-Synuclein Seeding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the body-first model, misfolded alpha-synuclein appears first in enteric or peripheral autonomic neural tissue and serves as the initiating seed for subsequent gut-to-brain spread. Direct causal support comes primarily from animal models that seed pathologic alpha-synuclein in the gastrointestinal wall.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Enteric Neuron\"], \"biological_processes\": [\"inclusion body assembly\"], \"locations\": [\"enteric nervous system\"]}}, {\"id\": \"Gut Microbiome Dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parkinson disease cohorts show reproducible but modest gut microbiome shifts, including depletion of short-chain-fatty-acid-producing taxa and enrichment of genera linked to mucin or inflammatory biology. In the body-first model, dysbiosis is modeled as a plausible upstream trigger or modifier of intestinal inflammation and barrier dysfunction, not as an established direct cause of alpha-synuclein initiation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Enteroendocrine Cell\"], \"locations\": [\"intestine\"]}}, {\"id\": \"Head Trauma\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intestinal Inflammation and Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sporadic Parkinson disease is associated with elevated intestinal inflammatory and permeability markers. These changes may create a local milieu that increases alpha-synuclein expression or exposes enteric neurons to amyloidogenic microbial or dietary compounds, but whether they initiate body-first PD or arise secondary to gut autonomic dysfunction remains open.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\"]}}, {\"id\": \"Iron Accumulation and Ferroptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal iron deposition in the substantia nigra promotes ferroptosis, an iron-dependent form of cell death characterized by lipid peroxidation. Iron catalyzes Fenton reactions generating hydroxyl radicals, and dysregulated iron metabolism contributes to oxidative damage.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Iron Ion Homeostasis\", \"Ferroptosis\"]}}, {\"id\": \"LRRK2 GTPase Domain Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leucine-rich repeat kinase 2 (LRRK2) mutations disrupt the conformational dynamics of its ROC (Ras of complex proteins) G-domain, impairing GTPase activity and nucleotide (GTP/GDP) cycling. The arginine residue at position 1398 acts as a critical GTP-\\u03b3-phosphate sensor that regulates the ROC domain\u0027s active-to-inactive state transition. Pathogenic ROC/GTPase-domain mutations (e.g., R1441C/G/H) impair GTP hydrolysis, stabilize the constitutively active GTP-bound state, and enhance Rab29-dependent recruitment of LRRK2 to the trans-Golgi network. This dysregulation impairs vesicular trafficking, autophagosome-lysosome fusion, and clearance of alpha-synuclein aggregates, promoting neurodegeneration. Protective variants (e.g., R1398H) stabilize the GDP-bound inactive state and reduce disease risk, suggesting that GTPase domain normalization rather than kinase inhibition may be a disease-modifying therapeutic strategy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Dopaminergic neuron\", \"Neuron\"], \"biological_processes\": [\"Autophagy\", \"Intracellular protein localization\", \"Vesicle-mediated transport\"]}}, {\"id\": \"Levodopa/Carbidopa\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gold standard treatment, replaces dopamine precursor.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levodopa\", \"carbidopa\"]}}, {\"id\": \"MAO-B Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prevent dopamine breakdown (selegiline, rasagiline).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MAPK Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysregulation of mitogen-activated protein kinase (MAPK) signaling, particularly through overactivation of the JNK and p38 cascades, accelerates neurodegeneration and promotes alpha-synuclein accumulation and microglial activation. While basal MAPK activity is essential for neuroprotection and neuronal growth, pathological MAPK overactivation inhibits neuroprotective PI3K/AKT and PP2A pathways and activates detrimental GSK-3\\u03b2 and PTEN signaling, driving dopaminergic neurotoxicity.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Dopaminergic Neuron\", \"Microglia\"], \"biological_processes\": [\"MAPK cascade\", \"JNK cascade\", \"p38MAPK cascade\"]}}, {\"id\": \"Metabolic Dysfunction and Weight Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Parkinson disease is associated with progressive weight loss and metabolic dysregulation through multiple interacting mechanisms. Reduced metabolic rate, dysregulated appetite-regulating hormones (leptin, ghrelin, GLP-1), gastrointestinal dysfunction, cognitive decline affecting appetite awareness, dopaminergic-medication effects, and dopamine-dependent regulation of feeding behavior all contribute to systemic metabolic failure and weight loss. Weight loss occurs in a substantial fraction of PD patients and exerts significant morbidity and mortality, yet mechanistic understanding remains incomplete.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Metabolic process\"]}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial function, particularly complex I deficiency, leads to oxidative stress and neuronal death. Multiple PD genes (PINK1, Parkin, DJ-1) regulate mitochondrial quality control.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"mitochondrion organization\"], \"computational_models\": [{\"name\": \"Whole Dopaminergic Neuron SBML Model\", \"model_type\": \"KINETIC\", \"model_format\": \"SBML\", \"description\": \"Models mitochondrial metabolism alongside dopamine handling in dopaminergic neurons.\"}]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated microglia and astrocytes contribute to neurodegeneration through release of pro-inflammatory cytokines and oxidative stress.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Microglia\", \"Astrocyte\"]}}, {\"id\": \"Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive reactive oxygen species from dopamine metabolism and mitochondrial dysfunction causes lipid peroxidation, protein carbonylation, and DNA damage. Dopamine auto-oxidation generates toxic quinones that preferentially damage substantia nigra neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Response to Oxidative Stress\", \"ROS Metabolic Process\"]}}, {\"id\": \"PGC-1alpha Transcriptional Program Repression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced activity of the PPARGC1A-encoded transcriptional coactivator PGC-1alpha downregulates the nuclear-encoded bioenergetic program it drives - mitochondrial biogenesis, respiratory-chain subunit expression, and antioxidant defenses - in nigral dopaminergic neurons. Two routes converge on this node. In the parkin-dependent route, loss of parkin E3 ligase function allows its substrate PARIS (ZNF746) to accumulate and transcriptionally repress the PPARGC1A promoter. In sporadic disease, PGC-1alpha-responsive bioenergetic gene sets are already underexpressed in laser-captured human nigral dopaminergic neurons at subclinical stages, placing this lesion early in the cascade rather than as a terminal consequence of neuron loss. The therapeutic corollary is not symmetric: restoring PGC-1alpha rescues dopaminergic neurons in cellular models, but sustained supraphysiological expression is itself toxic to the nigrostriatal system (see the HUMAN_MODEL_MISMATCH discussion pd_pgc1a_therapeutic_window).\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"nigral dopaminergic neuron\"], \"biological_processes\": [\"mitochondrial biogenesis program\"], \"molecular_functions\": [\"transcription coactivator activity\"]}}, {\"id\": \"Pesticide Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Physical Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Maintains mobility and reduces fall risk.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Postural Instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002172\"}}, {\"id\": \"Resting Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002322\"}}, {\"id\": \"Rigidity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002063\"}}, {\"id\": \"Striatal Dopamine Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Degeneration of nigrostriatal dopaminergic terminals depletes dopamine in the striatum, the principal input nucleus of the basal ganglia. Reduced striatal dopamine withdraws normal modulation of medium spiny projection neurons and is the proximate biochemical deficit linking nigral neuron loss to the motor features of Parkinson\u0027s disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Striatal medium spiny neuron\"], \"biological_processes\": [\"Dopaminergic synaptic transmission\", \"Dopamine Secretion\"], \"locations\": [\"striatum\"], \"computational_models\": [{\"name\": \"Whole Dopaminergic Neuron SBML Model\", \"model_type\": \"KINETIC\", \"model_format\": \"SBML\", \"description\": \"Models dopamine synthesis, storage, release, reuptake, and degradation in dopaminergic-neuron physiology.\"}]}}, {\"id\": \"Synaptic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired synaptic vesicle recycling, particularly defects in clathrin-mediated endocytosis, represents an early feature of PD. Multiple PD genes (DNAJC6, SYNJ1, LRRK2) regulate synaptic vesicle trafficking, and their dysfunction leads to synaptic failure before overt neurodegeneration.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Dopaminergic Neuron\"], \"biological_processes\": [\"Synaptic Vesicle Cycle\", \"Synaptic Vesicle Endocytosis\"]}}, {\"id\": \"Vagal-Brainstem Alpha-Synuclein Propagation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathologic alpha-synuclein seeded in the gastrointestinal wall can propagate through vagal connections to the dorsal motor nucleus, nucleus tractus solitarius, caudal hindbrain, and ultimately midbrain and forebrain regions. Vagotomy experiments provide the strongest causal evidence for this body-first conduit.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"vagus nerve\", \"midbrain\"]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}, {\"id\": \"Whole Dopaminergic Neuron SBML Model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Large-scale Systems Biology Markup Language (SBML) model of dopaminergic neuron containing 139 reactions and 111 metabolites. Captures dopamine synthesis, vesicular storage, release, reuptake, and degradation alongside mitochondrial function and oxidative stress.\\n\", \"meta\": {\"model_type\": \"KINETIC\", \"model_format\": \"SBML\", \"publication\": \"PMID:24196439\"}}], \"edges\": [{\"source\": \"Dopaminergic Neuron Loss\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Degeneration of substantia nigra pars compacta neurons removes the nigrostriatal projection, depleting dopamine in the striatum.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Striatal Dopamine Deficiency\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of striatal dopamine unbalances the direct and indirect basal ganglia pathways.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Resting Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Bradykinesia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Basal Ganglia Circuit Dysfunction\", \"target\": \"Postural Instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Alpha-Synuclein Aggregation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Synuclein Aggregation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Mitochondrial Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"PGC-1alpha Transcriptional Program Repression\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of PGC-1alpha coactivation lowers expression of nuclear-encoded respiratory-chain subunits, producing the electron-transport deficit already curated on the Mitochondrial Dysfunction node.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PGC-1alpha Transcriptional Program Repression\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PGC-1alpha coordinates the antioxidant arm of the mitochondrial stress response, so its repression lowers reactive-oxygen-species buffering capacity in nigral neurons.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"MAPK Dysregulation\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK dysregulation promotes alpha-synuclein accumulation.\"}, {\"source\": \"MAPK Dysregulation\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK overactivation drives microglial activation and pro-inflammatory cytokine release.\"}, {\"source\": \"MAPK Dysregulation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"MAPK-driven oxidative stress, impaired neuroprotection, and neuroinflammation converge to promote dopaminergic neurotoxicity.\"}, {\"source\": \"Neuroinflammation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neuroinflammation\", \"target\": \"Complement C3-C3aR Activation in Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microglial neuroinflammation drives complement cascade activation (C3-C3aR axis) as part of the broader innate immune response, with convergent upregulation of complement and coagulation pathways in depression associated with PD. This complement-mediated branch contributes to depression-like behavior via microglial synaptic pruning, distinct from dopaminergic motor pathology.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Complement C3-C3aR Activation in Depression\", \"target\": \"Depression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Complement C3-C3aR-mediated microglial synaptic engulfment leads to hippocampal synaptic loss and dysfunction, manifesting as depression and mood disturbance in Parkinson disease.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Autophagy-Lysosome Pathway Dysfunction\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Autophagy-Lysosome Pathway Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"LRRK2 GTPase Domain Dysregulation\", \"target\": \"Autophagy-Lysosome Pathway Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated LRRK2 GTPase activity impairs Rab29-dependent autophagosome-lysosome fusion and alpha-synuclein clearance.\"}, {\"source\": \"LRRK2 GTPase Domain Dysregulation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired protein clearance and autophagy promote accumulation of toxic protein aggregates and neuronal death.\"}, {\"source\": \"Gut Microbiome Dysbiosis\", \"target\": \"Intestinal Inflammation and Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PD-associated dysbiosis may promote a pro-inflammatory intestinal state and barrier dysfunction, but the direction and necessity of this link remain unresolved in humans.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Intestinal Inflammation and Barrier Dysfunction\", \"target\": \"Enteric Alpha-Synuclein Seeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local gut inflammation and barrier leakiness may increase enteric alpha-synuclein expression or amyloidogenic exposure, providing a permissive setting for enteric alpha-synuclein seeding.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Enteric Alpha-Synuclein Seeding\", \"target\": \"Vagal-Brainstem Alpha-Synuclein Propagation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric alpha-synuclein seeds can propagate first to vagal brainstem nuclei and then to additional brain regions.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enteric Alpha-Synuclein Seeding\", \"target\": \"Constipation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enteric or autonomic involvement is a plausible contributor to early constipation in body-first PD, but this edge remains clinically inferred.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"UNKNOWN\"}, {\"source\": \"Vagal-Brainstem Alpha-Synuclein Propagation\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vagal-brainstem propagation links gut-origin pathology to the broader central alpha-synuclein aggregation cascade.\\n\", \"hypothesis_groups\": [\"body_first_enteric_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"dorsal motor nucleus and nucleus tractus solitarius involvement\", \"caudal hindbrain and higher brain region propagation\"]}, {\"source\": \"Central Alpha-Synuclein Initiation\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central initiation feeds into the broader alpha-synuclein aggregation and propagation cascade through connected brain networks.\\n\", \"hypothesis_groups\": [\"brain_first_central_alpha_synuclein_model\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"central network propagation from olfactory bulb or amygdala\"]}, {\"source\": \"Oxidative Stress\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Oxidative Stress\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Dysregulation\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Dysregulation\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Calcium Dysregulation\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endoplasmic Reticulum Stress\", \"target\": \"Autophagy-Lysosome Pathway Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Endoplasmic Reticulum Stress\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Iron Accumulation and Ferroptosis\", \"target\": \"Oxidative Stress\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Iron Accumulation and Ferroptosis\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Blood-Brain Barrier Dysfunction\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Metabolic Dysfunction and Weight Loss\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metabolic dysregulation, reduced energy expenditure, neuroendocrine hormone imbalances, and gastrointestinal dysfunction converge to cause progressive weight loss and nutritional decline in PD.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pesticide Exposure\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Rotenone is a complex I inhibitor, and complex I deficiency is what this node is built around, so in the animal model the exposure acts on the node with nothing in between. The directness is taken from that model and not from the human data, which is worth stating rather than leaving to inference: the human evidence here reaches only the association between pesticide exposure and developing the disease, and both items are graded partial for that reason. The same rat study also reproduced alpha-synuclein-containing nigral inclusions, which would support an edge into the aggregation node, but that arm is not drawn because rodent inclusion pathology would then be its only support.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Head Trauma\", \"target\": \"Dopaminergic Neuron Loss\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Traumatic brain injury raises later risk of the disease by about half again. Pointed at the core neuropathological lesion rather than at a mechanism node because no cited sentence follows the injury to any particular step: neuroinflammation is the usual proposal and this entry holds a node for it, but nothing here measures that route, so the intermediates stay unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Levodopa/Carbidopa\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dopamine Agonists\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"MAO-B Inhibitors\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COMT Inhibitors\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Deep Brain Stimulation\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Physical Therapy\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum Neurotoxin A (BoNT/A) for Depression\", \"target\": \"Complement C3-C3aR Activation in Depression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alpha-Synuclein Aggregation BST Model\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models alpha-synuclein aggregation kinetics and degradation-pathway effects in dopaminergic neurons.\"}, {\"source\": \"Whole Dopaminergic Neuron SBML Model\", \"target\": \"Striatal Dopamine Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models dopamine synthesis, storage, release, reuptake, and degradation in dopaminergic-neuron physiology.\"}, {\"source\": \"Whole Dopaminergic Neuron SBML Model\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models mitochondrial metabolism alongside dopamine handling in dopaminergic neurons.\"}, {\"source\": \"Basal Ganglia Spiking Neural Network\", \"target\": \"Basal Ganglia Circuit Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models dopamine-modulated basal ganglia circuit dynamics, beta-band oscillations, and DBS effects.\"}, {\"source\": \"Alpha-Synuclein Prion-like Spreading Model\", \"target\": \"Alpha-Synuclein Aggregation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models connectome-based propagation of misfolded alpha-synuclein pathology.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -13295,6 +13404,80 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Mitochondrial Dysfunction</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Rotenone is a complex I inhibitor, and complex I deficiency is what this node is built around, so in the animal model the exposure acts on the node with nothing in between. The directness is taken from that model and not from the human data, which is worth stating rather than leaving to inference: the human evidence here reaches only the association between pesticide exposure and developing the disease, and both items are graded partial for that reason. The same rat study also reproduced alpha-synuclein-containing nigral inclusions, which would support an edge into the aggregation node, but that arm is not drawn because rodent inclusion pathology would then be its only support.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11100151" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11100151" target="_blank">PMID:11100151</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report that chronic, systemic inhibition of complex I by the lipophilic pesticide, rotenone, causes highly selective nigrostriatal dopaminergic degeneration that is associated behaviorally with hypokinesia and rigidity"</div>
+
+
+                <div class="evidence-explanation">Names the pesticide, the complex I inhibition this node holds, and the nigrostriatal degeneration downstream of it. Rat work, so it carries the mechanism without establishing it in human disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15177059" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15177059" target="_blank">PMID:15177059</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"there is general agreement that smoking and exposure to pesticides affect the probability of developing PD."</div>
+
+
+                <div class="evidence-explanation">Review reporting general agreement that pesticide exposure affects the probability of developing the disease. It establishes the exposure at the level of the disease and says nothing about mitochondria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-rural-living" data-dismech-node="Rural Living" data-dismech-type="environmental">
@@ -13380,6 +13563,58 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Dopaminergic Neuron Loss</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Traumatic brain injury raises later risk of the disease by about half again. Pointed at the core neuropathological lesion rather than at a mechanism node because no cited sentence follows the injury to any particular step: neuroinflammation is the usual proposal and this entry holds a node for it, but nothing here measures that route, so the intermediates stay unknown.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36781627" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36781627" target="_blank">PMID:36781627</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The risk ratio of TBI among PD and controls by a combination of 15 studies using a random-effect model was 1.48 (95% CI 1.22-1.74)."</div>
+
+
+                <div class="evidence-explanation">Meta-analysis of 15 studies giving a risk ratio of 1.48 for traumatic brain injury. It quantifies the exposure-disease association and not the neuronal loss this link targets.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -14145,6 +14380,9 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
         <div class="card" id="models">
@@ -14184,22 +14422,28 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-alpha-synuclein-aggregation">Alpha-Synuclein Aggregation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models alpha-synuclein aggregation kinetics and degradation-pathway effects in dopaminergic neurons.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-alpha-synuclein-aggregation">Alpha-Synuclein Aggregation</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Models alpha-synuclein aggregation kinetics and degradation-pathway effects in dopaminergic neurons.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -14244,32 +14488,42 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-striatal-dopamine-deficiency">Striatal Dopamine Deficiency</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models dopamine synthesis, storage, release, reuptake, and degradation in dopaminergic-neuron physiology.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-striatal-dopamine-deficiency">Striatal Dopamine Deficiency</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-mitochondrial-dysfunction">Mitochondrial Dysfunction</a>
-
-                            <span class="crosslink-desc">Models mitochondrial metabolism alongside dopamine handling in dopaminergic neurons.</span>
+                <span class="crosslink-desc">Models dopamine synthesis, storage, release, reuptake, and degradation in dopaminergic-neuron physiology.</span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-mitochondrial-dysfunction">Mitochondrial Dysfunction</a>
+
+
+
+                <span class="crosslink-desc">Models mitochondrial metabolism alongside dopamine handling in dopaminergic neurons.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -14310,22 +14564,28 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-basal-ganglia-circuit-dysfunction">Basal Ganglia Circuit Dysfunction</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models dopamine-modulated basal ganglia circuit dynamics, beta-band oscillations, and DBS effects.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-basal-ganglia-circuit-dysfunction">Basal Ganglia Circuit Dysfunction</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Models dopamine-modulated basal ganglia circuit dynamics, beta-band oscillations, and DBS effects.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -14359,22 +14619,28 @@ The 2026 OpenScientist hypothesis-search report (kb/hypotheses/Parkinsons_Diseas
 
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-alpha-synuclein-aggregation">Alpha-Synuclein Aggregation</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models connectome-based propagation of misfolded alpha-synuclein pathology.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-alpha-synuclein-aggregation">Alpha-Synuclein Aggregation</a>
 
 
 
-                        </div>
+                <span class="crosslink-desc">Models connectome-based propagation of misfolded alpha-synuclein pathology.</span>
 
-                    </div>
-                </div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -16377,6 +16643,40 @@ genetic:
     explanation: ClinGen classifies the VPS35-Parkinson disease gene-disease relationship as definitive with autosomal dominant inheritance.
 environmental:
 - name: Pesticide Exposure
+  influences_mechanisms:
+  - target: Mitochondrial Dysfunction
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Rotenone is a complex I inhibitor, and complex I deficiency is what this
+      node is built around, so in the animal model the exposure acts on the
+      node with nothing in between. The directness is taken from that model
+      and not from the human data, which is worth stating rather than leaving
+      to inference: the human evidence here reaches only the association
+      between pesticide exposure and developing the disease, and both items
+      are graded partial for that reason. The same rat study also reproduced
+      alpha-synuclein-containing nigral inclusions, which would support an
+      edge into the aggregation node, but that arm is not drawn because rodent
+      inclusion pathology would then be its only support.
+    evidence:
+    - reference: PMID:11100151
+      reference_title: &#34;Chronic systemic pesticide exposure reproduces features of Parkinson&#39;s disease.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;We report that chronic, systemic inhibition of complex I by the lipophilic pesticide, rotenone, causes highly selective nigrostriatal dopaminergic degeneration that is associated behaviorally with hypokinesia and rigidity&#34;
+      explanation: &gt;-
+        Names the pesticide, the complex I inhibition this node holds, and the
+        nigrostriatal degeneration downstream of it. Rat work, so it carries
+        the mechanism without establishing it in human disease.
+    - reference: PMID:15177059
+      reference_title: &#34;Occupational and environmental risk factors for Parkinson&#39;s disease.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;there is general agreement that smoking and exposure to pesticides affect the probability of developing PD.&#34;
+      explanation: &gt;-
+        Review reporting general agreement that pesticide exposure affects the
+        probability of developing the disease. It establishes the exposure at
+        the level of the disease and says nothing about mitochondria.
   notes: Rotenone and paraquat linked to increased risk
   evidence:
   - reference: PMID:15177059
@@ -16393,6 +16693,27 @@ environmental:
     snippet: &#34;While clear links to rural living, dietary factors, exposure to metals, head injury, and exposure to infectious diseases during childhood have not been established, there is general agreement that smoking and exposure to pesticides affect the probability of developing PD.&#34;
     explanation: This review notes that clear links to rural living are not established, indicating mixed evidence for this risk factor.
 - name: Head Trauma
+  influences_mechanisms:
+  - target: Dopaminergic Neuron Loss
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Traumatic brain injury raises later risk of the disease by about half
+      again. Pointed at the core neuropathological lesion rather than at a
+      mechanism node because no cited sentence follows the injury to any
+      particular step: neuroinflammation is the usual proposal and this entry
+      holds a node for it, but nothing here measures that route, so the
+      intermediates stay unknown.
+    evidence:
+    - reference: PMID:36781627
+      reference_title: &#34;Traumatic brain injury and risk of Parkinson&#39;s disease: a meta-analysis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The risk ratio of TBI among PD and controls by a combination of 15 studies using a random-effect model was 1.48 (95% CI 1.22-1.74).&#34;
+      explanation: &gt;-
+        Meta-analysis of 15 studies giving a risk ratio of 1.48 for traumatic
+        brain injury. It quantifies the exposure-disease association and not
+        the neuronal loss this link targets.
   notes: Possible risk factor
   evidence:
   - reference: PMID:36781627
@@ -17673,7 +17994,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Parkinson\u0027s Disease", "mondoId": "MONDO:0005180", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parkinson\u0027s_Disease", "yamlRevision": "edfc85c25b76"};
+        const OS_CONFIG = {"diseaseName": "Parkinson\u0027s Disease", "mondoId": "MONDO:0005180", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parkinson\u0027s_Disease", "yamlRevision": "9e50643df118"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
