@@ -138,6 +138,9 @@ prefixes:
   cellxgene:
     prefix_prefix: cellxgene
     prefix_reference: https://cellxgene.cziscience.com/collections/
+  scea:
+    prefix_prefix: scea
+    prefix_reference: https://www.ebi.ac.uk/gxa/sc/experiments/
   phenopacket-store:
     prefix_prefix: phenopacket-store
     prefix_reference: https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/
@@ -2218,6 +2221,115 @@ enums:
       OTHER:
         text: OTHER
         description: Other experimental model type not covered above
+  ModelMechanismRelationshipEnum:
+    name: ModelMechanismRelationshipEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelMechanismRelationshipEnum
+    description: Controlled relationship between an experimental, animal, or computational
+      model and the pathophysiology node it is linked to. Distinguishes a model that
+      reproduces a mechanism from one that merely manipulates or measures it, and
+      gives negative results (a model that does NOT reproduce the human mechanism)
+      a first-class home rather than leaving them in prose.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      RECAPITULATES:
+        text: RECAPITULATES
+        description: The model reproduces the linked mechanism, such that observations
+          in the model are taken to be informative about the human mechanism.
+        title: Recapitulates
+      PARTIALLY_RECAPITULATES:
+        text: PARTIALLY_RECAPITULATES
+        description: The model reproduces some but not all of the linked mechanism.
+          Use `limitations` to state which facets are and are not reproduced.
+        title: Partially recapitulates
+      FAILS_TO_RECAPITULATE:
+        text: FAILS_TO_RECAPITULATE
+        description: The model does NOT reproduce the linked mechanism. This is a
+          substantive negative claim and the structural signal for a HUMAN_MODEL_MISMATCH
+          discussion; it requires `limitations` and supporting `evidence`.
+        title: Fails to recapitulate
+      PERTURBS:
+        text: PERTURBS
+        description: The model manipulates the linked mechanism (knockout, knockdown,
+          overexpression, chemical challenge) without itself being a claim that the
+          full mechanism is reproduced.
+        title: Perturbs
+      MEASURES:
+        text: MEASURES
+        description: The model provides a readout of the linked mechanism without
+          claiming to reproduce or perturb it.
+        title: Measures
+      RESCUES:
+        text: RESCUES
+        description: The model demonstrates reversal or correction of the linked mechanism,
+          typically a genetic-correction, drug-rescue, or isogenic-repair arm.
+        title: Rescues
+  ModelFidelityEnum:
+    name: ModelFidelityEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelFidelityEnum
+    description: 'Curator assessment of how faithfully a model captures the linked
+      human mechanism. Deliberately coarse: this is a translational-validity caveat,
+      not a metric. Pair with `limitations` for the specific caveat.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      HIGH:
+        text: HIGH
+        description: Human-derived or otherwise closely matched system reproducing
+          the mechanism with well-characterized correspondence to human disease.
+        title: High
+      MODERATE:
+        text: MODERATE
+        description: Reproduces the mechanism with known and material divergences
+          from human biology (species differences, supraphysiological expression,
+          reduced cellular complexity).
+        title: Moderate
+      LOW:
+        text: LOW
+        description: Informative but with divergences substantial enough that findings
+          should not be transferred to human disease without corroboration.
+        title: Low
+      UNKNOWN:
+        text: UNKNOWN
+        description: Correspondence to the human mechanism has not been established.
+          Prefer this over guessing a tier.
+        title: Unknown
+  ModelReadoutDirectionEnum:
+    name: ModelReadoutDirectionEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ModelReadoutDirectionEnum
+    description: Direction of a measured effect in an experimental, animal, or computational
+      model, relative to the model's control or comparator arm. Complements BiomarkerReadoutDirectionEnum,
+      which describes the direction of a clinical biomarker's *association* with an
+      endpoint rather than the direction of an experimental measurement.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      INCREASED:
+        text: INCREASED
+        description: The readout is higher in the model condition than in the comparator
+        title: Increased
+      DECREASED:
+        text: DECREASED
+        description: The readout is lower in the model condition than in the comparator
+        title: Decreased
+      UNCHANGED:
+        text: UNCHANGED
+        description: The readout does not differ materially from the comparator. A
+          genuine negative result, not missing data; omit `direction` entirely when
+          the measurement was not made or not reported.
+        title: Unchanged
+      RESTORED:
+        text: RESTORED
+        description: The readout returns toward the comparator/wild-type value, typically
+          in a rescue, correction, or treatment arm.
+        title: Restored
+      ABOLISHED:
+        text: ABOLISHED
+        description: The readout is lost or reduced to background in the model condition
+        title: Abolished
+      ALTERED:
+        text: ALTERED
+        description: The readout differs from the comparator in a way that is not
+          monotonic (e.g. a shifted distribution or changed kinetics). Prefer a directional
+          value when one applies.
+        title: Altered
   CurationActionEnum:
     name: CurationActionEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/CurationActionEnum
@@ -5691,6 +5803,7 @@ slots:
     - Disease
     - Stage
     - AgentLifeCycleStage
+    - AnimalModel
     - Treatment
     - InfectiousAgent
     - Transmission
@@ -6643,6 +6756,7 @@ slots:
     - Stage
     - AgentLifeCycle
     - AgentLifeCycleStage
+    - AnimalModel
     - Treatment
     - Transmission
     - Diagnosis
@@ -7173,6 +7287,7 @@ slots:
     owner: Biochemical
     domain_of:
     - Experiment
+    - ModelMechanismLink
     - Biochemical
     range: BiomarkerReadout
     multivalued: true
@@ -7187,6 +7302,7 @@ slots:
     slot_uri: dismech:relationship
     owner: PhenotypeReadout
     domain_of:
+    - ModelMechanismLink
     - BiomarkerReadout
     - PhenotypeReadout
     range: BiomarkerReadoutRelationshipEnum
@@ -9174,18 +9290,42 @@ slots:
     - Target names should match pathophysiology entry names in the same disease file
     - Use description to capture the specific assayable or modeled assertion, not
       just the node label
-    - Kept intentionally lightweight so it can later align more explicitly with NAMO
-      relations
+    - Use readouts on each link to record the outcome measures that ground the assertion
+    - Applies to experimental (NAM), animal, and computational models alike
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:modeled_mechanisms
-    owner: ComputationalModel
+    owner: AnimalModel
     domain_of:
     - ExperimentalModel
     - ComputationalModel
+    - AnimalModel
     range: ModelMechanismLink
     multivalued: true
     inlined: true
     inlined_as_list: true
+  fidelity:
+    name: fidelity
+    definition_uri: https://w3id.org/monarch-initiative/dismech/fidelity
+    description: Curator assessment of how faithfully this model captures the linked
+      human mechanism. A translational-validity caveat, not a metric.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:fidelity
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    range: ModelFidelityEnum
+  limitations:
+    name: limitations
+    definition_uri: https://w3id.org/monarch-initiative/dismech/limitations
+    description: 'Specific caveats on transferring findings from this model to the
+      human mechanism: species divergence, supraphysiological expression, absent cell
+      types, missing immune or vascular compartments, and similar.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:limitations
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    range: string
   influences_mechanisms:
     name: influences_mechanisms
     definition_uri: https://w3id.org/monarch-initiative/dismech/influences_mechanisms
@@ -9508,11 +9648,12 @@ slots:
     description: Associated publication (PMID)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:publication
-    owner: ComputationalModel
+    owner: AnimalModel
     domain_of:
     - Dataset
     - ExperimentalModel
     - ComputationalModel
+    - AnimalModel
     range: PMID
   tissue_term:
     name: tissue_term
@@ -12083,11 +12224,36 @@ slots:
     usage_slot_name: target
     range: string
     required: true
+  ExperimentalReadout_direction:
+    name: ExperimentalReadout_direction
+    definition_uri: https://w3id.org/monarch-initiative/dismech/direction
+    description: Direction of the measured or expected effect. Accepts ModelReadoutDirectionEnum
+      (INCREASED, DECREASED, UNCHANGED, RESTORED, ABOLISHED, ALTERED) for an experimental
+      measurement relative to its comparator, and BiomarkerReadoutDirectionEnum for
+      a readout expressed as the direction of association with an endpoint. Prefer
+      the model enum for a measurement made in a model system.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: direction
+    domain: ExperimentalReadout
+    slot_uri: dismech:direction
+    alias: direction
+    owner: ExperimentalReadout
+    domain_of:
+    - ExperimentalReadout
+    is_usage_slot: true
+    usage_slot_name: direction
+    range: Any
+    inlined: true
+    inlined_as_list: true
+    any_of:
+    - range: ModelReadoutDirectionEnum
+    - range: BiomarkerReadoutDirectionEnum
   ExperimentalReadout_interpretation:
     name: ExperimentalReadout_interpretation
     definition_uri: https://w3id.org/monarch-initiative/dismech/interpretation
     description: Curator-facing explanation of how this readout would be interpreted
-      relative to the experiment's decision criterion.
+      relative to the experiment's decision criterion, or of what the measured value
+      says about the linked mechanism.
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: interpretation
     domain: ExperimentalReadout
@@ -12560,6 +12726,22 @@ slots:
     usage_slot_name: target
     range: string
     required: true
+  ModelMechanismLink_relationship:
+    name: ModelMechanismLink_relationship
+    definition_uri: https://w3id.org/monarch-initiative/dismech/relationship
+    description: 'What this model does to the linked mechanism: reproduces it, manipulates
+      it, measures it, rescues it, or fails to reproduce it.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: relationship
+    domain: ModelMechanismLink
+    slot_uri: dismech:relationship
+    alias: relationship
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    is_usage_slot: true
+    usage_slot_name: relationship
+    range: ModelMechanismRelationshipEnum
   ModelMechanismLink_description:
     name: ModelMechanismLink_description
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
@@ -12576,6 +12758,35 @@ slots:
     is_usage_slot: true
     usage_slot_name: description
     range: string
+  ModelMechanismLink_readouts:
+    name: ModelMechanismLink_readouts
+    definition_uri: https://w3id.org/monarch-initiative/dismech/readouts
+    description: Outcome measures through which this model reports on the linked mechanism,
+      each optionally grounded to an OBI assay, an HP phenotype, a biomarker, or a
+      GO process, with a measured direction and its own evidence. Each readout's own
+      `target` is required and must repeat the link's `target`, so a readout stays
+      self-describing when lifted out of its link by the graph and KGX exporters.
+    comments:
+    - Target names should match pathophysiology or phenotype entry names in the same
+      disease file
+    - Readout links are observational/associative, not causal disease-progression
+      edges
+    - Use evidence on the readout link when the biomarker-to-mechanism mapping is
+      distinct from the biomarker's own evidence
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: readouts
+    domain: ModelMechanismLink
+    slot_uri: dismech:readouts
+    alias: readouts
+    owner: ModelMechanismLink
+    domain_of:
+    - ModelMechanismLink
+    is_usage_slot: true
+    usage_slot_name: readouts
+    range: ExperimentalReadout
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ModelMechanismLink_evidence:
     name: ModelMechanismLink_evidence
     definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
@@ -13751,6 +13962,68 @@ slots:
     range: string
     recommended: false
     pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$
+  AnimalModel_name:
+    name: AnimalModel_name
+    definition_uri: https://w3id.org/monarch-initiative/dismech/name
+    description: Short stable label for the model, e.g. "SOD1-G93A transgenic mouse".
+      Used as the pathograph node label and in-page anchor.
+    examples:
+    - value: Adolescent Nephronophthisis
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: name
+    domain: AnimalModel
+    slot_uri: dismech:name
+    identifier: true
+    alias: name
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    is_usage_slot: true
+    usage_slot_name: name
+    range: string
+    required: true
+    recommended: true
+  AnimalModel_publication:
+    name: AnimalModel_publication
+    definition_uri: https://w3id.org/monarch-initiative/dismech/publication
+    description: Primary publication describing the model, when one paper is the canonical
+      reference for it. Per-claim citations still go in `evidence`.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: publication
+    domain: AnimalModel
+    slot_uri: dismech:publication
+    alias: publication
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    is_usage_slot: true
+    usage_slot_name: publication
+    range: PMID
+  AnimalModel_modeled_mechanisms:
+    name: AnimalModel_modeled_mechanisms
+    definition_uri: https://w3id.org/monarch-initiative/dismech/modeled_mechanisms
+    description: Pathophysiology mechanism nodes this animal model recapitulates,
+      perturbs, measures, rescues, or fails to recapitulate.
+    comments:
+    - Target names should match pathophysiology entry names in the same disease file
+    - Use description to capture the specific assayable or modeled assertion, not
+      just the node label
+    - Use readouts on each link to record the outcome measures that ground the assertion
+    - Applies to experimental (NAM), animal, and computational models alike
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: modeled_mechanisms
+    domain: AnimalModel
+    slot_uri: dismech:modeled_mechanisms
+    alias: modeled_mechanisms
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    is_usage_slot: true
+    usage_slot_name: modeled_mechanisms
+    range: ModelMechanismLink
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ICDOMorphologyAssignment_classification_value:
     name: ICDOMorphologyAssignment_classification_value
     definition_uri: https://w3id.org/monarch-initiative/dismech/classification_value
@@ -15641,11 +15914,15 @@ classes:
   ExperimentalModel:
     name: ExperimentalModel
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentalModel
-    description: A disease-relevant non-animal experimental model system. This is
-      a disease-centric bridge class inspired by NAMO, intended to capture the model
-      itself while keeping dismech focused on disease mechanisms rather than study-level
-      model registries.
+    description: "A disease-relevant non-animal experimental model system \u2014 a\
+      \ New Approach Methodology (NAM) such as an organoid, organ-on-chip, cell line,\
+      \ iPSC-derived model, or primary culture. This is a disease-centric bridge class\
+      \ inspired by NAMO, intended to capture the model itself while keeping dismech\
+      \ focused on disease mechanisms rather than study-level model registries."
     comments:
+    - 'Whole-organism animal models belong in `animal_models` as AnimalModel, which
+      carries the same `modeled_mechanisms` pathograph link. Do not route an animal
+      model here via `experimental_model_type: OTHER`.'
     - Use `namo_type` to map to a corresponding NAMO class when applicable
     - Prefer `experimental_model_type` for broad local categorization and `description`
       or `notes` for disease-specific nuance
@@ -15758,9 +16035,14 @@ classes:
   ExperimentalReadout:
     name: ExperimentalReadout
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentalReadout
-    description: A structured readout or outcome measured in an experiment. Use descriptor
-      slots to ground readouts to phenotypes, biomarkers, biological processes, and
-      assays.
+    description: A structured readout or outcome measured in an experiment or reported
+      by a model. Use descriptor slots to ground readouts to phenotypes, biomarkers,
+      biological processes, and assays.
+    comments:
+    - Reached from Experiment.readouts for a proposed or executed experiment, and
+      from ModelMechanismLink.readouts for the outcome measures a curated model reports
+      on a pathophysiology node. Reusing one class keeps a proposed experiment and
+      a realized model directly comparable.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - name
@@ -15770,7 +16052,7 @@ classes:
     - biomarker_term
     - biological_processes
     - assays
-    - direction
+    - ExperimentalReadout_direction
     - ExperimentalReadout_interpretation
     - evidence
     - notes
@@ -15779,10 +16061,22 @@ classes:
         name: target
         description: Entity reference for the pathograph node, phenotype, or other
           modeled object that this readout measures or adjudicates.
+      direction:
+        name: direction
+        description: Direction of the measured or expected effect. Accepts ModelReadoutDirectionEnum
+          (INCREASED, DECREASED, UNCHANGED, RESTORED, ABOLISHED, ALTERED) for an experimental
+          measurement relative to its comparator, and BiomarkerReadoutDirectionEnum
+          for a readout expressed as the direction of association with an endpoint.
+          Prefer the model enum for a measurement made in a model system.
+        range: Any
+        any_of:
+        - range: ModelReadoutDirectionEnum
+        - range: BiomarkerReadoutDirectionEnum
       interpretation:
         name: interpretation
         description: Curator-facing explanation of how this readout would be interpreted
-          relative to the experiment's decision criterion.
+          relative to the experiment's decision criterion, or of what the measured
+          value says about the linked mechanism.
     class_uri: dismech:ExperimentalReadout
   ExperimentalControl:
     name: ExperimentalControl
@@ -16112,26 +16406,56 @@ classes:
   ModelMechanismLink:
     name: ModelMechanismLink
     definition_uri: https://w3id.org/monarch-initiative/dismech/ModelMechanismLink
-    description: Links an experimental model to a specific pathophysiology mechanism
-      node, with optional assertion text describing the aspect of the mechanism that
-      the model recapitulates, perturbs, or reads out.
+    description: Links an experimental (NAM), animal, or computational model to a
+      specific pathophysiology mechanism node, recording which facet of that mechanism
+      the model recapitulates, perturbs, or reads out; how faithfully it does so;
+      and the outcome measures that ground the claim.
+    comments:
+    - Two evidence layers, deliberately separate. Evidence on the link attests that
+      the model is informative for the node; evidence on each readout attests that
+      a specific measurement was made, in a specific direction.
+    - Readouts belong on the link rather than on the model, because one model typically
+      measures different things for different mechanism nodes.
+    - A FAILS_TO_RECAPITULATE link is a substantive negative claim and should carry
+      both `limitations` and `evidence`; it usually pairs with a HUMAN_MODEL_MISMATCH
+      discussion.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - ModelMechanismLink_target
+    - ModelMechanismLink_relationship
     - ModelMechanismLink_description
+    - ModelMechanismLink_readouts
+    - fidelity
+    - limitations
     - ModelMechanismLink_evidence
     slot_usage:
       target:
         name: target
         description: Name of the pathophysiology entry this model is linked to. Must
           match a pathophysiology name in the same disease file.
+      relationship:
+        name: relationship
+        description: 'What this model does to the linked mechanism: reproduces it,
+          manipulates it, measures it, rescues it, or fails to reproduce it.'
+        range: ModelMechanismRelationshipEnum
       description:
         name: description
         description: Brief assertion-level note describing what facet of the linked
           mechanism the model captures or assays.
+      readouts:
+        name: readouts
+        description: Outcome measures through which this model reports on the linked
+          mechanism, each optionally grounded to an OBI assay, an HP phenotype, a
+          biomarker, or a GO process, with a measured direction and its own evidence.
+          Each readout's own `target` is required and must repeat the link's `target`,
+          so a readout stays self-describing when lifted out of its link by the graph
+          and KGX exporters.
+        range: ExperimentalReadout
+        inlined_as_list: true
       evidence:
         name: evidence
         description: Evidence that this model is informative for the linked mechanism
+        recommended: true
     class_uri: dismech:ModelMechanismLink
   BiomarkerReadout:
     name: BiomarkerReadout
@@ -17046,8 +17370,23 @@ classes:
   AnimalModel:
     name: AnimalModel
     definition_uri: https://w3id.org/monarch-initiative/dismech/AnimalModel
+    description: A whole-organism animal model of the disease. This is the home for
+      animal models; non-animal systems (organoids, organ-chips, cell lines, iPSC-derived
+      and primary cultures) belong in `experimental_models` as ExperimentalModel.
+    comments:
+    - Use `modeled_mechanisms` to link the model to the pathophysiology nodes it recapitulates,
+      perturbs, measures, or fails to recapitulate, so the model appears in the pathograph
+      rather than as a disconnected list.
+    - '`name` is optional but recommended once `modeled_mechanisms` is populated:
+      it is the stable label used for pathograph nodes and in-page anchors. When absent,
+      renderers fall back to a label derived from genotype and species, which is not
+      stable across edits and collides when one entry file carries two models of the
+      same genotype.'
+    - 'Animal-model evidence should carry `evidence_source: MODEL_ORGANISM` and should
+      not be the sole support for a human phenotype.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
+    - AnimalModel_name
     - species
     - genotype
     - background
@@ -17055,8 +17394,25 @@ classes:
     - category
     - alleles
     - description
+    - AnimalModel_publication
     - associated_phenotypes
+    - AnimalModel_modeled_mechanisms
     - evidence
+    - notes
+    slot_usage:
+      name:
+        name: name
+        description: Short stable label for the model, e.g. "SOD1-G93A transgenic
+          mouse". Used as the pathograph node label and in-page anchor.
+        recommended: true
+      publication:
+        name: publication
+        description: Primary publication describing the model, when one paper is the
+          canonical reference for it. Per-claim citations still go in `evidence`.
+      modeled_mechanisms:
+        name: modeled_mechanisms
+        description: Pathophysiology mechanism nodes this animal model recapitulates,
+          perturbs, measures, rescues, or fails to recapitulate.
     class_uri: dismech:AnimalModel
   Treatment:
     name: Treatment
@@ -18045,6 +18401,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 258508
+source_file_size: 268500
 generation_date: '2025-01-01T00:00:00'
 

@@ -235,3 +235,151 @@ heuristics:
 
     html_report = (dashboard_dir / "priority.html").read_text(encoding="utf-8")
     assert "Category View" not in html_report
+
+
+def test_priority_dashboard_annotates_nec_risk_candidates(tmp_path: Path) -> None:
+    """NEC-risk annotation on the candidates a curator is about to pick up.
+
+    Acceptance-criterion item 3 of #3889 asks for the high-NEC-risk disease
+    classes to be surfaced on the priority dashboard. The collision corpus
+    deliberately spans both the uncurated candidates and the curated KB, since
+    the documented Temtamy incident had one member of the pair already curated.
+    """
+    kb_dir = tmp_path / "kb" / "disorders"
+    dashboard_dir = tmp_path / "dashboard"
+    candidates = tmp_path / "candidates.json"
+    config = tmp_path / "config.yaml"
+
+    _write_yaml(
+        kb_dir / "Marden-Walker_Syndrome.yaml",
+        {
+            "name": "Marden-Walker Syndrome",
+            "disease_term": {
+                "term": {"id": "MONDO:0008708", "label": "Marden-Walker syndrome"}
+            },
+        },
+    )
+    _write_json(
+        candidates,
+        [
+            {
+                "mondo_id": "MONDO:0018150",
+                "label": "Walker-Warburg syndrome",
+                "definition": "Severe congenital muscular dystrophy.",
+                "synonyms": ["WWS"],
+                "parents": ["congenital muscular dystrophy"],
+                "xrefs": ["OMIM:236670"],
+                "child_count": 2,
+            },
+            {
+                "mondo_id": "MONDO:0007947",
+                "label": "Marfan syndrome",
+                "definition": "Systemic connective tissue disease.",
+                "synonyms": ["marfan syndrome, classic form"],
+                "parents": ["connective tissue disease"],
+                "xrefs": ["OMIM:154700"],
+                "child_count": 1,
+            },
+        ],
+    )
+    _write(
+        config,
+        """
+weights: {}
+caps: {}
+thresholds:
+  broad_parent_min_children: 4
+  subtype_series_min_family_size: 2
+  over_specific_leaf_min_words: 7
+heuristics:
+  grouping_term_patterns: []
+  subtype_series_patterns: []
+""",
+    )
+
+    generate_priority_dashboard_report(
+        candidates_path=candidates,
+        kb_dir=kb_dir,
+        dashboard_dir=dashboard_dir,
+        config_path=config,
+    )
+
+    payload = json.loads((dashboard_dir / "priority.json").read_text(encoding="utf-8"))
+    rows = {row["mondo_id"]: row for row in payload["rows"]}
+
+    walker = rows["MONDO:0018150"]["nec_risk"]
+    classes = {flag["risk_class"] for flag in walker}
+    # "Walker" is shared with the curated Marden-Walker entry, which is only
+    # visible if the corpus reaches into kb/ as well as the candidate export.
+    assert "EPONYM_COLLISION" in classes
+    assert "ACRONYM_AMBIGUITY" in classes
+    collision = next(f for f in walker if f["risk_class"] == "EPONYM_COLLISION")
+    assert collision["detail"] == ["Walker"]
+
+    assert rows["MONDO:0007947"]["nec_risk"] == []
+    assert payload["summary"]["nec_risk_candidates"] == 1
+
+    html_report = (dashboard_dir / "priority.html").read_text(encoding="utf-8")
+    assert "nec-pill" in html_report
+    assert "research/nec_risk_disease_classes.md" in html_report
+    assert "just preflight-dr" in html_report
+    # Table rows are rendered client-side from the embedded payload, so the
+    # trigger has to survive into that payload and into the pill helper the
+    # row renderer calls -- a flag with no visible trigger would be useless.
+    assert "necRiskPill" in html_report
+    assert "EPONYM_COLLISION" in html_report
+
+
+def test_acronym_only_candidates_are_recorded_but_not_badged(tmp_path: Path) -> None:
+    """A badge on half the table would warn about nothing.
+
+    A short all-caps synonym is a genuine NEC risk only if the DR query is made
+    with the acronym, and a large share of MONDO terms carry one, so an
+    acronym-only candidate stays out of the table badge and the headline count
+    while remaining fully present in the payload.
+    """
+    kb_dir = tmp_path / "kb" / "disorders"
+    dashboard_dir = tmp_path / "dashboard"
+    candidates = tmp_path / "candidates.json"
+    config = tmp_path / "config.yaml"
+
+    _write_json(
+        candidates,
+        [
+            {
+                "mondo_id": "MONDO:0004979",
+                "label": "asthma",
+                "definition": "Chronic airway inflammation.",
+                "synonyms": ["BA"],
+                "parents": ["respiratory system disease"],
+                "xrefs": ["OMIM:600807"],
+                "child_count": 3,
+            }
+        ],
+    )
+    _write(
+        config,
+        """
+weights: {}
+caps: {}
+thresholds:
+  broad_parent_min_children: 4
+  subtype_series_min_family_size: 2
+  over_specific_leaf_min_words: 7
+heuristics:
+  grouping_term_patterns: []
+  subtype_series_patterns: []
+""",
+    )
+
+    generate_priority_dashboard_report(
+        candidates_path=candidates,
+        kb_dir=kb_dir,
+        dashboard_dir=dashboard_dir,
+        config_path=config,
+    )
+
+    payload = json.loads((dashboard_dir / "priority.json").read_text(encoding="utf-8"))
+    row = payload["rows"][0]
+    assert [flag["risk_class"] for flag in row["nec_risk"]] == ["ACRONYM_AMBIGUITY"]
+    assert payload["summary"]["nec_risk_candidates"] == 0
