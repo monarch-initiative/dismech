@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03713203"
+reference_id: clinicaltrials:NCT03713203
 title: "An Interventional, Phase II, Non Randomized, Mono-centric Study on the Clinical Efficacy and Safety of the Medical Device PAGETEX® as a Photodynamic Therapy Device in the Treatment of Extra-Mammary Paget's Disease of the Vulva (EMPV)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # An Interventional, Phase II, Non Randomized, Mono-centric Study on the Clinical Efficacy and Safety of the Medical Device PAGETEX® as a Photodynamic Therapy Device in the Treatment of Extra-Mammary Paget's Disease of the Vulva (EMPV)
