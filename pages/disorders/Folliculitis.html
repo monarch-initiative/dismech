@@ -2639,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2722,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2751,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2760,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2911,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3605,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Folliculitis"
@@ -3697,6 +3781,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3734,7 +3820,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">25</div>
+                <div class="stat-value">27</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4503,6 +4589,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4560,6 +4647,7 @@
 
                 <div class="item-desc">S. aureus expresses cytolytic, superantigenic, and immune-evasion factors that enable progression from colonization to tissue-level inflammation.
 </div>
+
 
 
 
@@ -4707,6 +4795,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4838,6 +4927,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4933,6 +5023,7 @@
 
 
                 </div>
+
 
 
 
@@ -5045,6 +5136,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5102,6 +5194,7 @@
 
                 <div class="item-desc">Extended broad-spectrum antibiotic exposure can create conditions that favor gram-negative follicular infection.
 </div>
+
 
 
 
@@ -5207,6 +5300,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5296,6 +5390,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5353,6 +5448,7 @@
 
                 <div class="item-desc">Follicles containing Demodex mites frequently show inflammatory changes, supporting a mite-associated inflammatory folliculitis pathway.
 </div>
+
 
 
 
@@ -5443,6 +5539,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5516,6 +5613,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5573,6 +5671,7 @@
 
                 <div class="item-desc">Symptomatic Malassezia folliculitis manifests as inflammatory pruritic papulopustular follicular lesions.
 </div>
+
 
 
 
@@ -5699,6 +5798,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5788,6 +5888,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5845,6 +5946,7 @@
 
                 <div class="item-desc">Patients with folliculitis decalvans show reduced cytokine responses to bacterial stimulation.
 </div>
+
 
 
 
@@ -6007,6 +6109,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6102,6 +6205,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6159,6 +6263,7 @@
 
                 <div class="item-desc">EGFR-deficient follicular cells develop heightened JAK-STAT1 signaling sensitivity.
 </div>
+
 
 
 
@@ -6248,6 +6353,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6305,6 +6411,7 @@
 
                 <div class="item-desc">Compromised follicular stem-cell niche integrity and associated signaling changes culminate in scarring follicular injury.
 </div>
+
 
 
 
@@ -6609,7 +6716,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute suppurative follicular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Follicular inflammation progresses to acute suppuration with histologic evidence of neutrophil-rich tissue injury.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scarring alopecia can occur in chronic folliculitis decalvans/tufted hair folliculitis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Folliculitis decalvans\"], \"term_id\": \"HP:0001596\"}}, {\"id\": \"Demodex follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Demodex mites are present in a subset of follicles and are associated with inflammatory follicular histopathology.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Demodex-associated follicular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Follicles containing Demodex mites frequently show inflammatory changes, supporting a mite-associated inflammatory folliculitis pathway.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"EGFR pathway disruption in follicular stem-cell niche\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EGFR pathway loss removes protective signaling in the follicular stem-cell niche and predisposes to inflammatory tissue injury.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}, {\"id\": \"Eosinophilic follicular inflammation in advanced HIV\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In advanced HIV infection, a culture-negative eosinophilic folliculitis pattern can occur with chronic pruritic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"]}}, {\"id\": \"Erythematous papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Papular follicular eruption on hair-bearing skin, especially trunk and extremities in some subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030350\"}}, {\"id\": \"Folliculitis decalvans follicular dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Folliculitis decalvans exhibits a disease-associated shift in follicular bacterial community structure.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Folliculitis decalvans\"], \"locations\": [\"hair follicle\"]}}, {\"id\": \"Gram-negative follicular overgrowth and infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gram-negative organisms including Klebsiella, Escherichia coli, Enterobacter, and Proteus can overgrow and infect follicles.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Impaired antibacterial cytokine response in folliculitis decalvans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients with folliculitis decalvans show reduced cytokine responses to bacterial stimulation.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Folliculitis decalvans\"]}}, {\"id\": \"Interferon-\\u03b3 CD8 T-cell and NK-cell inflammatory amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interferon-\\u03b3-expressing CD8 T cells and NK cells amplify follicular inflammatory injury in EGFR-deficient settings.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}, {\"id\": \"JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EGFR-deficient follicular cells develop heightened JAK-STAT1 signaling sensitivity.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}, {\"id\": \"Keratinocyte innate immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocytes act as early epithelial sentinels and initiate innate immune responses after bacterial challenge.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Malassezia follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malassezia yeast exists as part of the normal follicular mycobiome before symptomatic disease develops.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Malassezia-associated follicular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Symptomatic Malassezia folliculitis manifests as inflammatory pruritic papulopustular follicular lesions.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neutrophil recruitment and activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils are recruited and activated, amplifying follicular inflammatory injury.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil activation\"]}}, {\"id\": \"Neutrophilic scarring follicular inflammation in folliculitis decalvans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Folliculitis decalvans is characterized by chronic neutrophilic follicular inflammation with scarring progression.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"subtypes\": [\"Folliculitis decalvans\"]}}, {\"id\": \"Non-staphylococcal microbial follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gram-negative bacterial, fungal, parasitic, and viral pathogens can also colonize follicles and converge on inflammatory papulopustular disease.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Pathogenic Malassezia transition with virulence factor production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Host-agent interactions can drive Malassezia transition from commensal to pathogenic states with production of inflammatory virulence factors.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prolonged broad-spectrum antibiotic exposure in acne or rosacea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extended broad-spectrum antibiotic exposure can create conditions that favor gram-negative follicular infection.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itching is common and can be severe in eosinophilic and Malassezia-associated variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Follicular pustules are common in infectious and yeast-associated forms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0200039\"}}, {\"id\": \"Staphylococcal virulence factor activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S. aureus expresses cytolytic, superantigenic, and immune-evasion factors that enable progression from colonization to tissue-level inflammation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Staphylococcus aureus follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S. aureus colonization of hair follicles is a common proximal trigger for infectious folliculitis.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Stem-cell niche compromise and scarring follicle destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compromised follicular stem-cell niche integrity and associated signaling changes culminate in scarring follicular injury.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}], \"edges\": [{\"source\": \"Staphylococcus aureus follicular colonization\", \"target\": \"Staphylococcal virulence factor activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonization permits expression of bacterial factors that promote tissue invasion and immune modulation.\"}, {\"source\": \"Staphylococcal virulence factor activity\", \"target\": \"Keratinocyte innate immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virulence factors trigger early host epithelial danger responses.\"}, {\"source\": \"Keratinocyte innate immune activation\", \"target\": \"Neutrophil recruitment and activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early epithelial immune activation precedes and supports neutrophil-dominant inflammatory influx.\"}, {\"source\": \"Neutrophil recruitment and activation\", \"target\": \"Acute suppurative follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated neutrophils drive suppurative follicular pathology.\"}, {\"source\": \"Acute suppurative follicular inflammation\", \"target\": \"Erythematous papules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppurative follicular inflammation produces papular lesions.\"}, {\"source\": \"Acute suppurative follicular inflammation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purulent follicular lesions emerge with ongoing suppurative inflammation.\"}, {\"source\": \"Acute suppurative follicular inflammation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory follicular lesions frequently produce itch.\"}, {\"source\": \"Non-staphylococcal microbial follicular colonization\", \"target\": \"Acute suppurative follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diverse folliculotropic pathogens can trigger convergent inflammatory pathways.\"}, {\"source\": \"Prolonged broad-spectrum antibiotic exposure in acne or rosacea\", \"target\": \"Gram-negative follicular overgrowth and infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antibiotic pressure can precede overgrowth of gram-negative folliculotropic organisms.\"}, {\"source\": \"Gram-negative follicular overgrowth and infection\", \"target\": \"Acute suppurative follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gram-negative follicular infection converges on suppurative follicular inflammation.\"}, {\"source\": \"Demodex follicular colonization\", \"target\": \"Demodex-associated follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonized follicles show higher rates of histologic inflammation.\"}, {\"source\": \"Malassezia follicular colonization\", \"target\": \"Pathogenic Malassezia transition with virulence factor production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Commensal colonization can shift toward pathogenic behavior under permissive host-agent conditions.\"}, {\"source\": \"Pathogenic Malassezia transition with virulence factor production\", \"target\": \"Malassezia-associated follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virulence factor production promotes symptomatic follicular inflammatory disease.\"}, {\"source\": \"Malassezia-associated follicular inflammation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malassezia-driven inflammation contributes to follicular pustule formation.\"}, {\"source\": \"Malassezia-associated follicular inflammation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malassezia-associated inflammatory lesions are characteristically pruritic.\"}, {\"source\": \"Eosinophilic follicular inflammation in advanced HIV\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic inflammatory lesions are strongly pruritic.\"}, {\"source\": \"Folliculitis decalvans follicular dysbiosis\", \"target\": \"Impaired antibacterial cytokine response in folliculitis decalvans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysbiotic follicular microbiota is associated with abnormal host immune response profiles.\"}, {\"source\": \"Impaired antibacterial cytokine response in folliculitis decalvans\", \"target\": \"Neutrophilic scarring follicular inflammation in folliculitis decalvans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant immune response contributes to persistent neutrophilic inflammatory disease with scarring outcomes.\"}, {\"source\": \"Neutrophilic scarring follicular inflammation in folliculitis decalvans\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive scarring follicular inflammation causes permanent hair loss.\"}, {\"source\": \"EGFR pathway disruption in follicular stem-cell niche\", \"target\": \"JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGFR pathway disruption triggers cell-intrinsic hypersensitivity to inflammatory signaling.\"}, {\"source\": \"JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles\", \"target\": \"Interferon-\\u03b3 CD8 T-cell and NK-cell inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heightened JAK-STAT1 signaling synergizes with interferon-\\u03b3-driven lymphoid inflammation.\"}, {\"source\": \"Interferon-\\u03b3 CD8 T-cell and NK-cell inflammatory amplification\", \"target\": \"Stem-cell niche compromise and scarring follicle destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory amplification damages the follicular stem-cell niche and drives scarring destruction.\"}, {\"source\": \"Stem-cell niche compromise and scarring follicle destruction\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scarring follicular destruction leads to permanent hair loss phenotypes.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute suppurative follicular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Follicular inflammation progresses to acute suppuration with histologic evidence of neutrophil-rich tissue injury.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Advanced HIV immunosuppression\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Low CD4 counts are associated with eosinophilic folliculitis in HIV infection.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Alopecia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scarring alopecia can occur in chronic folliculitis decalvans/tufted hair folliculitis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Folliculitis decalvans\"], \"term_id\": \"HP:0001596\"}}, {\"id\": \"Contaminated recreational water exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Exposure to inadequately disinfected hot tubs/spa pools can trigger Pseudomonas folliculitis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Demodex follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Demodex mites are present in a subset of follicles and are associated with inflammatory follicular histopathology.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Demodex-associated follicular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Follicles containing Demodex mites frequently show inflammatory changes, supporting a mite-associated inflammatory folliculitis pathway.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"EGFR pathway disruption in follicular stem-cell niche\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EGFR pathway loss removes protective signaling in the follicular stem-cell niche and predisposes to inflammatory tissue injury.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}, {\"id\": \"Eosinophilic follicular inflammation in advanced HIV\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In advanced HIV infection, a culture-negative eosinophilic folliculitis pattern can occur with chronic pruritic disease.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"]}}, {\"id\": \"Erythematous papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Papular follicular eruption on hair-bearing skin, especially trunk and extremities in some subtypes.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030350\"}}, {\"id\": \"Folliculitis decalvans follicular dysbiosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Folliculitis decalvans exhibits a disease-associated shift in follicular bacterial community structure.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Folliculitis decalvans\"], \"locations\": [\"hair follicle\"]}}, {\"id\": \"Gram-negative follicular overgrowth and infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gram-negative organisms including Klebsiella, Escherichia coli, Enterobacter, and Proteus can overgrow and infect follicles.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Impaired antibacterial cytokine response in folliculitis decalvans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patients with folliculitis decalvans show reduced cytokine responses to bacterial stimulation.\\n\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"Folliculitis decalvans\"]}}, {\"id\": \"Interferon-\\u03b3 CD8 T-cell and NK-cell inflammatory amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interferon-\\u03b3-expressing CD8 T cells and NK cells amplify follicular inflammatory injury in EGFR-deficient settings.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}, {\"id\": \"JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EGFR-deficient follicular cells develop heightened JAK-STAT1 signaling sensitivity.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}, {\"id\": \"Keratinocyte innate immune activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Keratinocytes act as early epithelial sentinels and initiate innate immune responses after bacterial challenge.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"response to bacterium\"]}}, {\"id\": \"Malassezia follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malassezia yeast exists as part of the normal follicular mycobiome before symptomatic disease develops.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Malassezia-associated follicular inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Symptomatic Malassezia folliculitis manifests as inflammatory pruritic papulopustular follicular lesions.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neutrophil recruitment and activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils are recruited and activated, amplifying follicular inflammatory injury.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"neutrophil activation\"]}}, {\"id\": \"Neutrophilic scarring follicular inflammation in folliculitis decalvans\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Folliculitis decalvans is characterized by chronic neutrophilic follicular inflammation with scarring progression.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"subtypes\": [\"Folliculitis decalvans\"]}}, {\"id\": \"Non-staphylococcal microbial follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gram-negative bacterial, fungal, parasitic, and viral pathogens can also colonize follicles and converge on inflammatory papulopustular disease.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Pathogenic Malassezia transition with virulence factor production\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Host-agent interactions can drive Malassezia transition from commensal to pathogenic states with production of inflammatory virulence factors.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Prolonged broad-spectrum antibiotic exposure in acne or rosacea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Extended broad-spectrum antibiotic exposure can create conditions that favor gram-negative follicular infection.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Itching is common and can be severe in eosinophilic and Malassezia-associated variants.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Pustules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Follicular pustules are common in infectious and yeast-associated forms.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0200039\"}}, {\"id\": \"Staphylococcal virulence factor activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S. aureus expresses cytolytic, superantigenic, and immune-evasion factors that enable progression from colonization to tissue-level inflammation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Staphylococcus aureus follicular colonization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"S. aureus colonization of hair follicles is a common proximal trigger for infectious folliculitis.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"hair follicle\"]}}, {\"id\": \"Stem-cell niche compromise and scarring follicle destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Compromised follicular stem-cell niche integrity and associated signaling changes culminate in scarring follicular injury.\\n\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"EGFR inhibitor-induced folliculitis decalvans\"]}}], \"edges\": [{\"source\": \"Staphylococcus aureus follicular colonization\", \"target\": \"Staphylococcal virulence factor activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonization permits expression of bacterial factors that promote tissue invasion and immune modulation.\"}, {\"source\": \"Staphylococcal virulence factor activity\", \"target\": \"Keratinocyte innate immune activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virulence factors trigger early host epithelial danger responses.\"}, {\"source\": \"Keratinocyte innate immune activation\", \"target\": \"Neutrophil recruitment and activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early epithelial immune activation precedes and supports neutrophil-dominant inflammatory influx.\"}, {\"source\": \"Neutrophil recruitment and activation\", \"target\": \"Acute suppurative follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated neutrophils drive suppurative follicular pathology.\"}, {\"source\": \"Acute suppurative follicular inflammation\", \"target\": \"Erythematous papules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Suppurative follicular inflammation produces papular lesions.\"}, {\"source\": \"Acute suppurative follicular inflammation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purulent follicular lesions emerge with ongoing suppurative inflammation.\"}, {\"source\": \"Acute suppurative follicular inflammation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory follicular lesions frequently produce itch.\"}, {\"source\": \"Non-staphylococcal microbial follicular colonization\", \"target\": \"Acute suppurative follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Diverse folliculotropic pathogens can trigger convergent inflammatory pathways.\"}, {\"source\": \"Prolonged broad-spectrum antibiotic exposure in acne or rosacea\", \"target\": \"Gram-negative follicular overgrowth and infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antibiotic pressure can precede overgrowth of gram-negative folliculotropic organisms.\"}, {\"source\": \"Gram-negative follicular overgrowth and infection\", \"target\": \"Acute suppurative follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gram-negative follicular infection converges on suppurative follicular inflammation.\"}, {\"source\": \"Demodex follicular colonization\", \"target\": \"Demodex-associated follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Colonized follicles show higher rates of histologic inflammation.\"}, {\"source\": \"Malassezia follicular colonization\", \"target\": \"Pathogenic Malassezia transition with virulence factor production\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Commensal colonization can shift toward pathogenic behavior under permissive host-agent conditions.\"}, {\"source\": \"Pathogenic Malassezia transition with virulence factor production\", \"target\": \"Malassezia-associated follicular inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Virulence factor production promotes symptomatic follicular inflammatory disease.\"}, {\"source\": \"Malassezia-associated follicular inflammation\", \"target\": \"Pustules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malassezia-driven inflammation contributes to follicular pustule formation.\"}, {\"source\": \"Malassezia-associated follicular inflammation\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malassezia-associated inflammatory lesions are characteristically pruritic.\"}, {\"source\": \"Eosinophilic follicular inflammation in advanced HIV\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic inflammatory lesions are strongly pruritic.\"}, {\"source\": \"Folliculitis decalvans follicular dysbiosis\", \"target\": \"Impaired antibacterial cytokine response in folliculitis decalvans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysbiotic follicular microbiota is associated with abnormal host immune response profiles.\"}, {\"source\": \"Impaired antibacterial cytokine response in folliculitis decalvans\", \"target\": \"Neutrophilic scarring follicular inflammation in folliculitis decalvans\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant immune response contributes to persistent neutrophilic inflammatory disease with scarring outcomes.\"}, {\"source\": \"Neutrophilic scarring follicular inflammation in folliculitis decalvans\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive scarring follicular inflammation causes permanent hair loss.\"}, {\"source\": \"EGFR pathway disruption in follicular stem-cell niche\", \"target\": \"JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGFR pathway disruption triggers cell-intrinsic hypersensitivity to inflammatory signaling.\"}, {\"source\": \"JAK-STAT1 pathway hypersensitivity in EGFR-deficient follicles\", \"target\": \"Interferon-\\u03b3 CD8 T-cell and NK-cell inflammatory amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Heightened JAK-STAT1 signaling synergizes with interferon-\\u03b3-driven lymphoid inflammation.\"}, {\"source\": \"Interferon-\\u03b3 CD8 T-cell and NK-cell inflammatory amplification\", \"target\": \"Stem-cell niche compromise and scarring follicle destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflammatory amplification damages the follicular stem-cell niche and drives scarring destruction.\"}, {\"source\": \"Stem-cell niche compromise and scarring follicle destruction\", \"target\": \"Alopecia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Scarring follicular destruction leads to permanent hair loss phenotypes.\"}, {\"source\": \"Contaminated recreational water exposure\", \"target\": \"Non-staphylococcal microbial follicular colonization\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This entry separates staphylococcal from non-staphylococcal follicular colonisation as distinct nodes, and the hot-tub organism belongs to the second, which is why the link points there rather than at the entry\u0027s opening staphylococcal node. The evidence is unusually clean for an exposure link: it names the organism, the facility, and a latency of eight to forty-eight hours, so the temporal sequence is measured rather than assumed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Advanced HIV immunosuppression\", \"target\": \"Eosinophilic follicular inflammation in advanced HIV\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The node is named for this exposure, so nothing intervenes between them. Recorded as predisposing rather than triggering because immunosuppression permits the eosinophilic phenotype rather than initiating an episode of it, and because the cited sentence frames the association as a marker of a CD4 threshold rather than as an event with an onset.\", \"causal_link_type\": \"DIRECT\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7500,6 +7607,58 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Non-staphylococcal microbial follicular colonization</strong>
+
+                        <span style="color: #0d9488;"> &mdash; This entry separates staphylococcal from non-staphylococcal follicular colonisation as distinct nodes, and the hot-tub organism belongs to the second, which is why the link points there rather than at the entry&#39;s opening staphylococcal node. The evidence is unusually clean for an exposure link: it names the organism, the facility, and a latency of eight to forty-eight hours, so the temporal sequence is measured rather than assumed.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:6402527" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/6402527" target="_blank">PMID:6402527</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pseudomonas folliculitis resulting from the use of spa pools, whirlpools, and hot tubs is a newly described disease that typically develops 8 to 48 hours after exposure in a contaminated facility."</div>
+
+
+                <div class="evidence-explanation">Names the organism, ties it to spa pools, whirlpools and hot tubs, and gives a latency of eight to forty-eight hours after exposure. Colonisation by a non-staphylococcal organism is this node&#39;s own content.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-advanced-hiv-immunosuppression" data-dismech-node="Advanced HIV immunosuppression" data-dismech-type="environmental">
@@ -7544,6 +7703,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Eosinophilic follicular inflammation in advanced HIV</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node is named for this exposure, so nothing intervenes between them. Recorded as predisposing rather than triggering because immunosuppression permits the eosinophilic phenotype rather than initiating an episode of it, and because the cited sentence frames the association as a marker of a CD4 threshold rather than as an event with an onset.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:1671328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/1671328" target="_blank">PMID:1671328</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of special importance, because it is associated with CD4 counts of less than 250 to 300 cells per cubic millimeter, eosinophilic folliculitis appears to be an important clinical marker of HIV infection and, particularly, of patients at increased risk of developing opportunistic infections."</div>
+
+
+                <div class="evidence-explanation">Ties the eosinophilic form to CD4 counts below 250 to 300 cells per cubic millimetre and treats it as a marker of advanced infection, which is the threshold this node names.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8587,6 +8798,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -9552,6 +9766,29 @@ biochemical: []
 genetic: []
 environmental:
 - name: Contaminated recreational water exposure
+  influences_mechanisms:
+  - target: Non-staphylococcal microbial follicular colonization
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      This entry separates staphylococcal from non-staphylococcal follicular
+      colonisation as distinct nodes, and the hot-tub organism belongs to the
+      second, which is why the link points there rather than at the entry&#39;s
+      opening staphylococcal node. The evidence is unusually clean for an
+      exposure link: it names the organism, the facility, and a latency of
+      eight to forty-eight hours, so the temporal sequence is measured rather
+      than assumed.
+    evidence:
+    - reference: PMID:6402527
+      reference_title: &#34;Hot tub dermatitis: a familial outbreak of Pseudomonas folliculitis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Pseudomonas folliculitis resulting from the use of spa pools, whirlpools, and hot tubs is a newly described disease that typically develops 8 to 48 hours after exposure in a contaminated facility.&#34;
+      explanation: &gt;-
+        Names the organism, ties it to spa pools, whirlpools and hot tubs, and
+        gives a latency of eight to forty-eight hours after exposure.
+        Colonisation by a non-staphylococcal organism is this node&#39;s own
+        content.
   description: Exposure to inadequately disinfected hot tubs/spa pools can trigger Pseudomonas folliculitis.
   effect: Triggers acute exposure-associated folliculitis
   evidence:
@@ -9562,6 +9799,27 @@ environmental:
     snippet: &#34;Pseudomonas folliculitis resulting from the use of spa pools, whirlpools, and hot tubs is a newly described disease that typically develops 8 to 48 hours after exposure in a contaminated facility.&#34;
     explanation: Supports contaminated water exposure as an environmental trigger.
 - name: Advanced HIV immunosuppression
+  influences_mechanisms:
+  - target: Eosinophilic follicular inflammation in advanced HIV
+    environmental_effect: PREDISPOSES
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node is named for this exposure, so nothing intervenes between them.
+      Recorded as predisposing rather than triggering because
+      immunosuppression permits the eosinophilic phenotype rather than
+      initiating an episode of it, and because the cited sentence frames the
+      association as a marker of a CD4 threshold rather than as an event with
+      an onset.
+    evidence:
+    - reference: PMID:1671328
+      reference_title: &#34;Human immunodeficiency virus-associated eosinophilic folliculitis. A unique dermatosis associated with advanced human immunodeficiency virus infection.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Of special importance, because it is associated with CD4 counts of less than 250 to 300 cells per cubic millimeter, eosinophilic folliculitis appears to be an important clinical marker of HIV infection and, particularly, of patients at increased risk of developing opportunistic infections.&#34;
+      explanation: &gt;-
+        Ties the eosinophilic form to CD4 counts below 250 to 300 cells per
+        cubic millimetre and treats it as a marker of advanced infection,
+        which is the threshold this node names.
   description: Low CD4 counts are associated with eosinophilic folliculitis in HIV infection.
   effect: Predisposes to chronic eosinophilic folliculitis phenotype
   evidence:
@@ -10545,7 +10803,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Folliculitis", "mondoId": "MONDO:0006552", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Folliculitis", "yamlRevision": "d00eaffcd2d5"};
+        const OS_CONFIG = {"diseaseName": "Folliculitis", "mondoId": "MONDO:0006552", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Folliculitis", "yamlRevision": "cb09d374da2b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
