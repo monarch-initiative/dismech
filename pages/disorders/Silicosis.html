@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Silicosis"
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3495,7 +3726,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3508,6 +3739,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3528,6 +3760,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -3642,11 +3882,87 @@
 
                     </div>
 
-                    <div class="item-desc">The classic form, developing after 10-30 years of relatively low-level exposure. Characterized by small (&lt;10 mm) rounded upper-zone nodules (simple nodular silicosis) that may coalesce into progressive massive fibrosis (complicated silicosis / conglomerate masses &gt;10 mm).</div>
+                    <div class="item-desc">The classic and most common form, following prolonged relatively low-level exposure and usually appearing 10–30 years after first exposure. Characterized by small rounded upper-zone nodules (simple nodular silicosis) that may coalesce into progressive massive fibrosis (complicated silicosis / conglomerate masses). The three silicosis forms are separated by exposure intensity and time from exposure to symptom onset.</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25191413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25191413" target="_blank">PMID:25191413</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to the intensity of exposures and onset of initiation of clinical symptoms silicosis is classified into three groups of acute, chronic and accelerated forms."</div>
+
+
+                <div class="evidence-explanation">Sources the three-way subtype division used here, and the two axes (exposure intensity and time to symptom onset) that separate the forms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30053129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30053129" target="_blank">PMID:30053129</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Silicosis, caused by inhaling dust containing free crystalline silica, typically has a chronic course, with the numbers of silicosis patients declining globally."</div>
+
+
+                <div class="evidence-explanation">Confirms the chronic course as the typical form against which the accelerated and acute forms are the rarer exceptions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25191413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25191413" target="_blank">PMID:25191413</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chronic simple silicosis (resulting from long-term exposure to relatively low concentrations of silica dust and also usually appearing 10-30 years after first exposure)"</div>
+
+
+                <div class="evidence-explanation">Defines the standard chronic-silicosis exposure pattern and 10–30-year latency window.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -3670,11 +3986,89 @@
 
                     </div>
 
-                    <div class="item-desc">Develops 5-10 years after heavier exposure, with more rapid radiographic and functional progression than chronic silicosis. Increasingly reported in engineered-stone fabrication workers.</div>
+                    <div class="item-desc">Follows higher-concentration exposure and conventionally develops 5–10 years after first exposure. A histologically confirmed case after roughly two years of very intense unprotected sandblasting illustrates an unusually fast extreme, rather than defining the subtype. Accelerated disease has correspondingly rapid radiographic and functional progression and a poor prognosis. Increasingly reported in engineered-stone fabrication workers.</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25191413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25191413" target="_blank">PMID:25191413</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to the intensity of exposures and onset of initiation of clinical symptoms silicosis is classified into three groups of acute, chronic and accelerated forms."</div>
+
+
+                <div class="evidence-explanation">Sources the three-way subtype division used here, and the two axes (exposure intensity and time to symptom onset) that separate the forms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30053129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30053129" target="_blank">PMID:30053129</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The condition resulted from ~2 years of very intense exposure without appropriate personal protective equipment while sandblasting."</div>
+
+
+                <div class="evidence-explanation">Histologically confirmed accelerated silicosis after only two years of very intense exposure, illustrating a fast extreme beyond the conventional 5–10-year window.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25191413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25191413" target="_blank">PMID:25191413</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"accelerated silicosis that develops 5–10 years after first exposure to higher concentrations of silica dust"</div>
+
+
+                <div class="evidence-explanation">Defines accelerated silicosis by higher exposure intensity and the standard 5–10-year latency window.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
                 </div>
@@ -3698,11 +4092,87 @@
 
                     </div>
 
-                    <div class="item-desc">Develops within weeks to a few years of intense exposure to fine silica. Characterized histologically by alveolar filling with lipoproteinaceous material resembling pulmonary alveolar proteinosis (silicoproteinosis), rapidly progressive dyspnea, and high mortality.</div>
+                    <div class="item-desc">The rarest form, developing a few weeks to five years after intense exposure to fine silica. Characterized histologically by alveolar filling with lipoproteinaceous material resembling pulmonary alveolar proteinosis (silicoproteinosis), rapidly progressive dyspnea, and high mortality. Note that the silicoproteinosis histology and mortality claims rest on the wider clinical literature rather than on a source curated in this entry.</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25191413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25191413" target="_blank">PMID:25191413</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"According to the intensity of exposures and onset of initiation of clinical symptoms silicosis is classified into three groups of acute, chronic and accelerated forms."</div>
+
+
+                <div class="evidence-explanation">Sources the three-way subtype division used here, and the two axes (exposure intensity and time to symptom onset) that separate the forms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30053129" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30053129" target="_blank">PMID:30053129</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Much rarer are the acute and subacute forms."</div>
+
+
+                <div class="evidence-explanation">Supports the rarity of the acute form relative to chronic silicosis; does not itself document the silicoproteinosis histology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25191413" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25191413" target="_blank">PMID:25191413</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"acute silicosis that develops a few weeks to five years after exposure to high concentrations of repairable silica dust"</div>
+
+
+                <div class="evidence-explanation">Defines acute silicosis by high-intensity exposure and a latency of weeks to five years.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -5118,7 +5588,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Respirable crystalline silica particles (aerodynamic diameter \u003c10 microns) deposit in the terminal bronchioles and alveoli, where they are recognized and internalized by alveolar macrophages via scavenger receptors. This uptake is the initiating event of silicosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"role\": \"trigger\", \"locations\": [\"pulmonary alveolus\"]}}, {\"id\": \"Excess Collagen Deposition and Silicotic Nodule Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated myofibroblasts deposit excess type I and III collagen and other extracellular matrix, producing the pathognomonic silicotic nodule \\u2014 a concentric, whorled, hyalinized collagen nodule containing birefringent silica particles \\u2014 that coalesces into progressive massive fibrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myofibroblast\"], \"biological_processes\": [\"collagen biosynthetic process\", \"extracellular matrix organization\"], \"role\": \"effector\", \"locations\": [\"lung\"]}}, {\"id\": \"Fibroblast-to-Myofibroblast Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pro-fibrotic mediators (TGF-beta, PDGF, TNF-alpha) released by activated macrophages recruit and activate lung fibroblasts, driving their differentiation into collagen-secreting myofibroblasts \\u2014 the central effector step of silicotic fibrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\", \"myofibroblast\"], \"biological_processes\": [\"TGF-beta receptor signaling\"], \"role\": \"central_effector\", \"locations\": [\"lung\"]}}, {\"id\": \"IL-1beta and IL-18 Maturation and Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active caspase-1 cleaves pro-IL-1beta and pro-IL-18 into their mature forms, which are secreted to drive the downstream inflammatory response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"interleukin-1 beta production\"], \"role\": \"driver\"}}, {\"id\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silica is cytotoxic to macrophages, triggering inflammatory cell death (pyroptosis/apoptosis). Dying macrophages release their silica load, which is re-engulfed by newly recruited macrophages \\u2014 a self-perpetuating \\\"frustrated phagocytosis\\\" cycle that sustains inflammation even after exposure ends.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"pyroptotic inflammatory response\", \"macrophage apoptotic process\"], \"role\": \"driver\"}}, {\"id\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lysosomal rupture/cathepsin B and reactive oxygen species converge to drive assembly of the NLRP3-ASC-caspase-1 inflammasome in silica-laden macrophages, activating caspase-1.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"role\": \"driver\"}}, {\"id\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secreted IL-1beta, IL-18, TNF-alpha, and chemokines recruit neutrophils and monocytes into the alveolar space, amplifying a chronic inflammatory response (alveolitis) that drives the transition to fibrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\", \"neutrophil chemotaxis\"], \"role\": \"driver\"}}, {\"id\": \"Phagolysosomal Membrane Rupture and Cathepsin B Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The reactive silanol-rich surface of internalized silica damages the phagolysosomal membrane, causing lysosomal destabilization and rupture with leakage of the protease cathepsin B into the cytosol.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"role\": \"driver\"}}, {\"id\": \"Pirfenidone (Investigational Antifibrotic)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pirfenidone, an oral antifibrotic approved for idiopathic pulmonary fibrosis, is being investigated for silicosis on the rationale that silicosis shares TGF-beta-driven fibrogenic mechanisms with IPF. It is investigational and not yet standard-of-care for silicosis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pirfenidone\"]}}, {\"id\": \"Reactive Oxygen Species Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silica surface radicals and mitochondrial dysfunction in silica-laden macrophages generate reactive oxygen species, which (together with potassium efflux) provide a second signal for inflammasome activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"response to reactive oxygen species\"], \"role\": \"driver\"}}], \"edges\": [{\"source\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"target\": \"Phagolysosomal Membrane Rupture and Cathepsin B Release\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"target\": \"Reactive Oxygen Species Generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phagolysosomal Membrane Rupture and Cathepsin B Release\", \"target\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive Oxygen Species Generation\", \"target\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"target\": \"IL-1beta and IL-18 Maturation and Secretion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"target\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IL-1beta and IL-18 Maturation and Secretion\", \"target\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"target\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"target\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"target\": \"Fibroblast-to-Myofibroblast Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast-to-Myofibroblast Activation\", \"target\": \"Excess Collagen Deposition and Silicotic Nodule Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pirfenidone (Investigational Antifibrotic)\", \"target\": \"Fibroblast-to-Myofibroblast Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Respirable crystalline silica particles (aerodynamic diameter \u003c10 microns) deposit in the terminal bronchioles and alveoli, where they are recognized and internalized by alveolar macrophages via scavenger receptors. This uptake is the initiating event of silicosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"phagocytosis\"], \"role\": \"trigger\", \"locations\": [\"pulmonary alveolus\"]}}, {\"id\": \"Excess Collagen Deposition and Silicotic Nodule Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated myofibroblasts deposit excess type I and III collagen and other extracellular matrix, producing the pathognomonic silicotic nodule \\u2014 a concentric, whorled, hyalinized collagen nodule containing birefringent silica particles \\u2014 that coalesces into progressive massive fibrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"myofibroblast\"], \"biological_processes\": [\"collagen biosynthetic process\", \"extracellular matrix organization\"], \"role\": \"effector\", \"locations\": [\"lung\"]}}, {\"id\": \"Fibroblast-to-Myofibroblast Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pro-fibrotic mediators (TGF-beta, PDGF, TNF-alpha) released by activated macrophages recruit and activate lung fibroblasts, driving their differentiation into collagen-secreting myofibroblasts \\u2014 the central effector step of silicotic fibrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\", \"myofibroblast\"], \"biological_processes\": [\"TGF-beta receptor signaling\"], \"role\": \"central_effector\", \"locations\": [\"lung\"]}}, {\"id\": \"IL-1beta and IL-18 Maturation and Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active caspase-1 cleaves pro-IL-1beta and pro-IL-18 into their mature forms, which are secreted to drive the downstream inflammatory response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"interleukin-1 beta production\"], \"role\": \"driver\"}}, {\"id\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silica is cytotoxic to macrophages, triggering inflammatory cell death (pyroptosis/apoptosis). Dying macrophages release their silica load, which is re-engulfed by newly recruited macrophages \\u2014 a self-perpetuating \\\"frustrated phagocytosis\\\" cycle that sustains inflammation even after exposure ends.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"pyroptotic inflammatory response\", \"macrophage apoptotic process\"], \"role\": \"driver\"}}, {\"id\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lysosomal rupture/cathepsin B and reactive oxygen species converge to drive assembly of the NLRP3-ASC-caspase-1 inflammasome in silica-laden macrophages, activating caspase-1.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"role\": \"driver\"}}, {\"id\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Secreted IL-1beta, IL-18, TNF-alpha, and chemokines recruit neutrophils and monocytes into the alveolar space, amplifying a chronic inflammatory response (alveolitis) that drives the transition to fibrosis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"inflammatory response\", \"neutrophil chemotaxis\"], \"role\": \"driver\"}}, {\"id\": \"Occupational Respirable Crystalline Silica Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Phagolysosomal Membrane Rupture and Cathepsin B Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The reactive silanol-rich surface of internalized silica damages the phagolysosomal membrane, causing lysosomal destabilization and rupture with leakage of the protease cathepsin B into the cytosol.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"role\": \"driver\"}}, {\"id\": \"Pirfenidone (Investigational Antifibrotic)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pirfenidone, an oral antifibrotic approved for idiopathic pulmonary fibrosis, is being investigated for silicosis on the rationale that silicosis shares TGF-beta-driven fibrogenic mechanisms with IPF. It is investigational and not yet standard-of-care for silicosis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pirfenidone\"]}}, {\"id\": \"Reactive Oxygen Species Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silica surface radicals and mitochondrial dysfunction in silica-laden macrophages generate reactive oxygen species, which (together with potassium efflux) provide a second signal for inflammasome activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"alveolar macrophage\"], \"biological_processes\": [\"response to reactive oxygen species\"], \"role\": \"driver\"}}], \"edges\": [{\"source\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"target\": \"Phagolysosomal Membrane Rupture and Cathepsin B Release\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"target\": \"Reactive Oxygen Species Generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Phagolysosomal Membrane Rupture and Cathepsin B Release\", \"target\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Reactive Oxygen Species Generation\", \"target\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"target\": \"IL-1beta and IL-18 Maturation and Secretion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"NLRP3 Inflammasome Assembly and Caspase-1 Activation\", \"target\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"IL-1beta and IL-18 Maturation and Secretion\", \"target\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"target\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Macrophage Pyroptosis and Silica Re-uptake\", \"target\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Neutrophilic Alveolitis and Inflammatory Amplification\", \"target\": \"Fibroblast-to-Myofibroblast Activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibroblast-to-Myofibroblast Activation\", \"target\": \"Excess Collagen Deposition and Silicotic Nodule Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Occupational Respirable Crystalline Silica Exposure\", \"target\": \"Alveolar Macrophage Phagocytosis of Respirable Silica\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Dust-generating work liberates crystalline silica in the respirable size range, which is what reaches the terminal bronchioles and alveoli to be internalized by alveolar macrophages.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pirfenidone (Investigational Antifibrotic)\", \"target\": \"Fibroblast-to-Myofibroblast Activation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5154,7 +5624,7 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnea
 
@@ -5193,13 +5663,45 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30053129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30053129" target="_blank">PMID:30053129</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient&#39;s initial symptoms were progressive cough, dyspnoea and weight loss."</div>
+
+
+                <div class="evidence-explanation">Histologically confirmed silicosis presenting with progressive cough and dyspnoea as the initial symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cough
 
@@ -5238,13 +5740,45 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30053129" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30053129" target="_blank">PMID:30053129</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient&#39;s initial symptoms were progressive cough, dyspnoea and weight loss."</div>
+
+
+                <div class="evidence-explanation">Histologically confirmed silicosis presenting with progressive cough and dyspnoea as the initial symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
 
 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary Fibrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Fibrosis
 
@@ -5303,7 +5837,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-restrictive-ventilatory-defect" data-dismech-node="Restrictive Ventilatory Defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Restrictive Ventilatory Defect
 
@@ -5362,7 +5896,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory Insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Insufficiency
 
@@ -5416,7 +5950,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-lung-cancer-risk" data-dismech-node="Increased Lung Cancer Risk" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased Lung Cancer Risk
 
@@ -5484,7 +6018,7 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-susceptibility-to-tuberculosis" data-dismech-node="Increased Susceptibility to Tuberculosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased Susceptibility to Tuberculosis
 
@@ -5565,7 +6099,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-airway-obstruction" data-dismech-node="Airway Obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Airway Obstruction
 
@@ -5624,7 +6158,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autoantibody-positivity-and-connective-tissue-disease-association" data-dismech-node="Autoantibody Positivity and Connective-Tissue Disease Association" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autoantibody Positivity and Connective-Tissue Disease Association
 
@@ -5722,7 +6256,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnf" data-dismech-node="TNF" data-dismech-type="genetic">
                 <div class="item-name">
                     TNF
 
@@ -5809,9 +6343,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5823,7 +6361,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-silica-exposure-cessation-and-dust-control" data-dismech-node="Silica Exposure Cessation and Dust Control" data-dismech-type="treatment">
                 <div class="item-name">
                     Silica Exposure Cessation and Dust Control
                 </div>
@@ -5869,7 +6407,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-care" data-dismech-node="Supportive Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Care
                 </div>
@@ -5947,7 +6485,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-whole-lung-lavage" data-dismech-node="Whole-Lung Lavage" data-dismech-type="treatment">
                 <div class="item-name">
                     Whole-Lung Lavage
                 </div>
@@ -5993,7 +6531,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lung-transplantation" data-dismech-node="Lung Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Lung Transplantation
                 </div>
@@ -6036,10 +6574,42 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30053129" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30053129" target="_blank">PMID:30053129</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient was a candidate for lung transplantation."</div>
+
+
+                <div class="evidence-explanation">A single case report documents transplant candidacy in advanced silicosis; it does not provide transplantation outcomes.</div>
+
+
 
             </div>
 
-            <div class="item-box treatment-box">
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-pirfenidone-investigational-antifibrotic" data-dismech-node="Pirfenidone (Investigational Antifibrotic)" data-dismech-type="treatment">
                 <div class="item-name">
                     Pirfenidone (Investigational Antifibrotic)
                 </div>
@@ -6163,7 +6733,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-occupational-respirable-crystalline-silica-exposure" data-dismech-node="Occupational Respirable Crystalline Silica Exposure" data-dismech-type="environmental">
                 <div class="item-name">Occupational Respirable Crystalline Silica Exposure</div>
 
 
@@ -6205,6 +6775,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Alveolar Macrophage Phagocytosis of Respirable Silica</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Dust-generating work liberates crystalline silica in the respirable size range, which is what reaches the terminal bronchioles and alveoli to be internalized by alveolar macrophages.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39134395" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39134395" target="_blank">PMID:39134395</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A modern epidemic of silicosis is emerging internationally, associated with dry processing of engineered stone with high (&gt;90%) RCS content."</div>
+
+
+                <div class="evidence-explanation">Ties the occupational process to the respirable crystalline silica content of the dust generated, the particulate species the alveolar macrophage then phagocytoses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -6217,6 +6840,101 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Iron-induced oxidative stress alters the transcriptome of bronchoalveolar lavage cells in silicosis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE264182" target="_blank">geo:GSE264182</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Elevated iron levels are observed in silicosis patients, leading alveolar macrophages to increase ferritin production in response to this cellular stress. Our study employed a multi-omic approach to investigate how excess iron/ferritin influences the molecular profile of bronchoalveolar lavage (BAL) cells. Thirty-one participants were included, with RNA sequencing conducted on BAL cells from stone benchtop industry workers diagnosed with simple or complicated silicosis, compared to a cohort with no disease. BAL fluid (BALF) was analysed using gas chromatography-mass spectrometry (GC-MS) to screen for 498 volatile organic compounds (VOCs).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=19</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39485079" target="_blank" style="color: var(--secondary);">PMID:39485079</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Silicosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Pulmonary osteoclast-like cells in silica induced pulmonary fibrosis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE288887" target="_blank">geo:GSE288887</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The pathophysiology of silicosis is poorly understood, limiting development of therapies for those who have been exposed to the respirable particle. We explored mechanisms of silica-induced pulmonary fibrosis in human lung samples collected from patients with occupational exposure to silica and in a longitudinal mouse model of silicosis using multiple modalities including whole-lung single-cell RNA sequencing and histological, biochemical, and physiologic assessments.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=10</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38985878" target="_blank" style="color: var(--secondary);">PMID:38985878</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Silicosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -6357,22 +7075,92 @@ has_subtypes:
 - name: Chronic Silicosis
   display_name: Chronic (Simple) Silicosis
   description: &gt;-
-    The classic form, developing after 10-30 years of relatively low-level
-    exposure. Characterized by small (&lt;10 mm) rounded upper-zone nodules
-    (simple nodular silicosis) that may coalesce into progressive massive
-    fibrosis (complicated silicosis / conglomerate masses &gt;10 mm).
+    The classic and most common form, following prolonged relatively low-level
+    exposure and usually appearing 10–30 years after first exposure.
+    Characterized by small rounded upper-zone nodules (simple nodular
+    silicosis) that may coalesce into progressive massive fibrosis (complicated
+    silicosis / conglomerate masses). The three silicosis forms are separated by
+    exposure intensity and time from exposure to symptom onset.
+  evidence:
+  - reference: PMID:25191413
+    reference_title: &#34;Silicosis among Stone- Cutter Workers: A Cross-Sectional Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;According to the intensity of exposures and onset of initiation of clinical symptoms silicosis is classified into three groups of acute, chronic and accelerated forms.&#34;
+    explanation: &#34;Sources the three-way subtype division used here, and the two axes (exposure intensity and time to symptom onset) that separate the forms.&#34;
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Silicosis, caused by inhaling dust containing free crystalline silica, typically has a chronic course, with the numbers of silicosis patients declining globally.&#34;
+    explanation: &#34;Confirms the chronic course as the typical form against which the accelerated and acute forms are the rarer exceptions.&#34;
+  - reference: PMID:25191413
+    reference_title: &#34;Silicosis among Stone- Cutter Workers: A Cross-Sectional Study.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Chronic simple silicosis (resulting from long-term exposure to relatively low concentrations of silica dust and also usually appearing 10-30 years after first exposure)&#34;
+    explanation: Defines the standard chronic-silicosis exposure pattern and 10–30-year latency window.
 - name: Accelerated Silicosis
   description: &gt;-
-    Develops 5-10 years after heavier exposure, with more rapid radiographic
-    and functional progression than chronic silicosis. Increasingly reported in
-    engineered-stone fabrication workers.
+    Follows higher-concentration exposure and conventionally develops 5–10 years
+    after first exposure. A histologically confirmed case after roughly two years
+    of very intense unprotected sandblasting illustrates an unusually fast extreme,
+    rather than defining the subtype. Accelerated disease has correspondingly rapid
+    radiographic and functional progression and a poor prognosis. Increasingly
+    reported in engineered-stone fabrication workers.
+  evidence:
+  - reference: PMID:25191413
+    reference_title: &#34;Silicosis among Stone- Cutter Workers: A Cross-Sectional Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;According to the intensity of exposures and onset of initiation of clinical symptoms silicosis is classified into three groups of acute, chronic and accelerated forms.&#34;
+    explanation: &#34;Sources the three-way subtype division used here, and the two axes (exposure intensity and time to symptom onset) that separate the forms.&#34;
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The condition resulted from ~2 years of very intense exposure without appropriate personal protective equipment while sandblasting.&#34;
+    explanation: &#34;Histologically confirmed accelerated silicosis after only two years of very intense exposure, illustrating a fast extreme beyond the conventional 5–10-year window.&#34;
+  - reference: PMID:25191413
+    reference_title: &#34;Silicosis among Stone- Cutter Workers: A Cross-Sectional Study.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;accelerated silicosis that develops 5–10 years after first exposure to higher concentrations of silica dust&#34;
+    explanation: Defines accelerated silicosis by higher exposure intensity and the standard 5–10-year latency window.
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The case demonstrates a rare but largely preventable disease with serious health effects and a poor prognosis.&#34;
+    explanation: &#34;Supports the rarity and poor prognosis of the accelerated form.&#34;
 - name: Acute Silicosis
   display_name: Acute Silicosis (Silicoproteinosis)
   description: &gt;-
-    Develops within weeks to a few years of intense exposure to fine silica.
-    Characterized histologically by alveolar filling with lipoproteinaceous
-    material resembling pulmonary alveolar proteinosis (silicoproteinosis),
-    rapidly progressive dyspnea, and high mortality.
+    The rarest form, developing a few weeks to five years after intense exposure
+    to fine silica. Characterized histologically by alveolar filling with
+    lipoproteinaceous material resembling pulmonary alveolar proteinosis
+    (silicoproteinosis), rapidly progressive dyspnea, and high mortality. Note
+    that the silicoproteinosis histology and mortality claims rest on the wider
+    clinical literature rather than on a source curated in this entry.
+  evidence:
+  - reference: PMID:25191413
+    reference_title: &#34;Silicosis among Stone- Cutter Workers: A Cross-Sectional Study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;According to the intensity of exposures and onset of initiation of clinical symptoms silicosis is classified into three groups of acute, chronic and accelerated forms.&#34;
+    explanation: &#34;Sources the three-way subtype division used here, and the two axes (exposure intensity and time to symptom onset) that separate the forms.&#34;
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Much rarer are the acute and subacute forms.&#34;
+    explanation: &#34;Supports the rarity of the acute form relative to chronic silicosis; does not itself document the silicoproteinosis histology.&#34;
+  - reference: PMID:25191413
+    reference_title: &#34;Silicosis among Stone- Cutter Workers: A Cross-Sectional Study.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;acute silicosis that develops a few weeks to five years after exposure to high concentrations of repairable silica dust&#34;
+    explanation: Defines acute silicosis by high-intensity exposure and a latency of weeks to five years.
 pathophysiology:
 - name: Alveolar Macrophage Phagocytosis of Respirable Silica
   description: &gt;-
@@ -6727,6 +7515,26 @@ environmental:
       Documents the contemporary engineered/artificial-stone exposure driving a
       resurgent silicosis epidemic, and the very high respirable crystalline
       silica (RCS) content of the material.
+  influences_mechanisms:
+  - target: Alveolar Macrophage Phagocytosis of Respirable Silica
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Dust-generating work liberates crystalline silica in the respirable size
+      range, which is what reaches the terminal bronchioles and alveoli to be
+      internalized by alveolar macrophages.
+    evidence:
+    - reference: PMID:39134395
+      reference_title: &#34;Autoimmune diseases, autoantibody status and silicosis in a cohort of 1238 workers from the artificial stone benchtop industry.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        A modern epidemic of silicosis is emerging internationally, associated
+        with dry processing of engineered stone with high (&gt;90%) RCS content.
+      explanation: &gt;-
+        Ties the occupational process to the respirable crystalline silica
+        content of the dust generated, the particulate species the alveolar
+        macrophage then phagocytoses.
 genetic:
 - name: TNF
   gene_term:
@@ -6782,6 +7590,13 @@ phenotypes:
       id: HP:0002094
       label: Dyspnea
     clinical_course: PROGRESSIVE
+  evidence:
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The patient&#39;s initial symptoms were progressive cough, dyspnoea and weight loss.&#34;
+    explanation: &#34;Histologically confirmed silicosis presenting with progressive cough and dyspnoea as the initial symptoms.&#34;
 - category: Respiratory
   name: Cough
   description: Chronic cough, often with sputum production.
@@ -6791,6 +7606,13 @@ phenotypes:
       id: HP:0012735
       label: Cough
     temporality: CHRONIC
+  evidence:
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The patient&#39;s initial symptoms were progressive cough, dyspnoea and weight loss.&#34;
+    explanation: &#34;Histologically confirmed silicosis presenting with progressive cough and dyspnoea as the initial symptoms.&#34;
 - category: Respiratory
   name: Pulmonary Fibrosis
   description: &gt;-
@@ -6987,6 +7809,13 @@ treatments:
     term:
       id: NCIT:C15289
       label: Organ Transplantation
+  evidence:
+  - reference: PMID:30053129
+    reference_title: &#34;A case of accelerated silicosis.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The patient was a candidate for lung transplantation.&#34;
+    explanation: &#34;A single case report documents transplant candidacy in advanced silicosis; it does not provide transplantation outcomes.&#34;
 - name: Pirfenidone (Investigational Antifibrotic)
   description: &gt;-
     Pirfenidone, an oral antifibrotic approved for idiopathic pulmonary
@@ -7046,6 +7875,31 @@ clinical_trials:
     explanation: &gt;-
       The trial rationale confirms the absence of curative therapy and motivates
       investigating antifibrotic pirfenidone in silicosis/PMF.
+datasets:
+- accession: geo:GSE264182
+  title: Iron-induced oxidative stress alters the transcriptome of bronchoalveolar lavage cells in silicosis
+  description: Elevated iron levels are observed in silicosis patients, leading alveolar macrophages to increase ferritin production in response to this cellular stress. Our study employed a multi-omic approach to investigate how excess iron/ferritin influences the molecular profile of bronchoalveolar lavage (BAL) cells. Thirty-one participants were included, with RNA sequencing conducted on BAL cells from stone benchtop industry workers diagnosed with simple or complicated silicosis, compared to a cohort with no disease. BAL fluid (BALF) was analysed using gas chromatography-mass spectrometry (GC-MS) to screen for 498 volatile organic compounds (VOCs).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 19
+  publication: PMID:39485079
+  notes: Identified by GEO DataSets index search for Silicosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE288887
+  title: Pulmonary osteoclast-like cells in silica induced pulmonary fibrosis
+  description: The pathophysiology of silicosis is poorly understood, limiting development of therapies for those who have been exposed to the respirable particle. We explored mechanisms of silica-induced pulmonary fibrosis in human lung samples collected from patients with occupational exposure to silica and in a longitudinal mouse model of silicosis using multiple modalities including whole-lung single-cell RNA sequencing and histological, biochemical, and physiologic assessments.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 10
+  publication: PMID:38985878
+  notes: Identified by GEO DataSets index search for Silicosis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -7483,7 +8337,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Silicosis", "mondoId": "MONDO:0005960", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Silicosis", "yamlRevision": "90eb92eb58ef"};
+        const OS_CONFIG = {"diseaseName": "Silicosis", "mondoId": "MONDO:0005960", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Silicosis", "yamlRevision": "5f692f561bef"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

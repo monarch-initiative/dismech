@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Carbon%20Monoxide%20Poisoning"
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3529,10 +3760,11 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">22</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
+
 
 
 
@@ -3554,6 +3786,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -6004,7 +6244,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain lipid peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive oxygen species peroxidize brain membrane and myelin lipids. Peroxidation products such as malondialdehyde form adducts with myelin basic protein, generating the antigenic modification that initiates delayed injury.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lipid oxidation\"]}}, {\"id\": \"Carboxyhemoglobin formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inhaled carbon monoxide binds hemoglobin at the same heme iron sites used by oxygen, with an affinity roughly 200 times that of oxygen, forming carboxyhemoglobin (COHb). This reduces the oxygen-carrying capacity of blood.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"oxygen transport\"]}}, {\"id\": \"Cellular energy failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inhibition of oxidative phosphorylation, together with tissue hypoxia, depletes cellular ATP and forces a shift to anaerobic metabolism, producing lactic acidosis and cellular energy failure across multiple organs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"aerobic respiration\"]}}, {\"id\": \"Cerebral hypoxic-ischemic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute hypoxia preferentially injures metabolically demanding regions of the brain, including the basal ganglia (especially the globus pallidus) and deep white matter, producing acute encephalopathy and a substrate for later parkinsonism and cognitive dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"positive regulation of neuron apoptotic process\"]}}, {\"id\": \"Cytochrome c oxidase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Carbon monoxide binds the ferrous iron of mitochondrial cytochrome c oxidase (Complex IV of the electron transport chain), directly inhibiting oxidative phosphorylation. This produces histotoxic (cellular) hypoxia independent of oxygen delivery, impairing ATP generation even where oxygen is present, and helps explain the persistence of symptoms after carboxyhemoglobin normalizes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"mitochondrial electron transport, cytochrome c to oxygen\"]}}, {\"id\": \"Delayed demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Days to weeks after acute poisoning, immune-mediated demyelination of cerebral white matter produces the leukoencephalopathy characteristic of delayed neurological sequelae.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"]}}, {\"id\": \"Delayed neuronal injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune-mediated and hypoxic-ischemic injury converge on neuronal loss, particularly in basal ganglia and hippocampus, producing the delayed neuropsychiatric sequelae of cognitive impairment, memory loss, and parkinsonism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron apoptotic process\"]}}, {\"id\": \"Exposure removal and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immediate removal from the CO source and supportive care, including airway management, cardiac monitoring, and hemodynamic support, are essential first steps.\"}, {\"id\": \"Hyperbaric oxygen therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hyperbaric oxygen delivered at greater than atmospheric pressure further accelerates carboxyhemoglobin elimination, increases dissolved plasma oxygen, and is proposed to reduce delayed neurological sequelae. It is considered for severe poisoning, loss of consciousness, neurological deficits, myocardial ischemia, or pregnancy, though its exact indications remain debated.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Immune-mediated neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemically modified myelin basic protein becomes antigenic, provoking an adaptive immune response with macrophage and CD4+ lymphocyte influx and microglial activation that drives delayed central nervous system injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Impaired tissue oxygen delivery\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of reduced carboxyhemoglobin-limited oxygen carriage and impaired oxygen offloading produces systemic tissue hypoxia, most severely affecting the oxygen-dependent brain and heart.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cellular response to hypoxia\"]}}, {\"id\": \"Leftward shift of the oxyhemoglobin dissociation curve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Binding of CO to one or more heme sites increases the oxygen affinity of the remaining sites on the hemoglobin tetramer, shifting the oxyhemoglobin dissociation curve to the left so that bound oxygen is released less readily at the tissues, worsening tissue hypoxia beyond what the reduced oxygen-carrying capacity alone would cause.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Myocardial ischemic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced oxygen delivery, direct binding of CO to myoglobin, and mitochondrial dysfunction impair cardiac oxygen supply and utilization, producing myocardial stunning, ischemia, left ventricular dysfunction, and arrhythmia; myocardial injury predicts increased short- and long-term mortality.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cellular response to hypoxia\"]}}, {\"id\": \"Normobaric high-flow oxygen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-concentration oxygen delivered at normal atmospheric pressure is the first-line treatment. It accelerates dissociation of CO from hemoglobin, shortening the elimination half-life of carboxyhemoglobin from several hours on room air to roughly 60-90 minutes. It is usually delivered via a non-rebreather mask.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oxidative stress and free radical generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction and the displacement of nitric oxide from hemoproteins generate reactive oxygen species, free radicals, and nitric-oxide-derived species, producing oxidative injury across multiple organs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Platelet-neutrophil activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute CO poisoning triggers intravascular platelet-neutrophil aggregation and neutrophil activation with myeloperoxidase release, initiating a reperfusion-injury-like oxidative cascade in the cerebral microvasculature.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"platelet aggregation\", \"inflammatory response\"]}}, {\"id\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy deprivation and neutrophil-driven signaling convert xanthine dehydrogenase to xanthine oxidase, which generates reactive oxygen species and drives a postischemic reperfusion-like oxidative injury in the brain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"reactive oxygen species metabolic process\"]}}], \"edges\": [{\"source\": \"Carboxyhemoglobin formation\", \"target\": \"Impaired tissue oxygen delivery\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced oxygen-carrying capacity and leftward-shifted dissociation curve limit oxygen delivery and offloading to tissues.\"}, {\"source\": \"Leftward shift of the oxyhemoglobin dissociation curve\", \"target\": \"Impaired tissue oxygen delivery\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The impaired oxygen release compounds the hypoxic insult.\"}, {\"source\": \"Impaired tissue oxygen delivery\", \"target\": \"Cerebral hypoxic-ischemic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoxia in the brain produces neuronal injury and encephalopathy.\"}, {\"source\": \"Impaired tissue oxygen delivery\", \"target\": \"Myocardial ischemic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoxia in the heart produces myocardial ischemia and injury.\"}, {\"source\": \"Cytochrome c oxidase inhibition\", \"target\": \"Cellular energy failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inhibition of oxidative phosphorylation depletes cellular ATP.\"}, {\"source\": \"Cytochrome c oxidase inhibition\", \"target\": \"Oxidative stress and free radical generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction generates reactive oxygen species and free radicals.\"}, {\"source\": \"Cellular energy failure\", \"target\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy deprivation and purine catabolism drive conversion of xanthine dehydrogenase to reactive-oxygen-species-generating xanthine oxidase.\"}, {\"source\": \"Oxidative stress and free radical generation\", \"target\": \"Platelet-neutrophil activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nitric-oxide displacement and oxidative changes promote intravascular platelet-neutrophil activation.\"}, {\"source\": \"Oxidative stress and free radical generation\", \"target\": \"Brain lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive oxygen species peroxidize brain membrane and myelin lipids.\"}, {\"source\": \"Platelet-neutrophil activation\", \"target\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil adherence to the cerebral microvasculature drives conversion of xanthine dehydrogenase to xanthine oxidase.\"}, {\"source\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"target\": \"Brain lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Xanthine oxidase-derived reactive oxygen species peroxidize brain lipids.\"}, {\"source\": \"Brain lipid peroxidation\", \"target\": \"Immune-mediated neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adducts between peroxidation products and myelin basic protein become antigenic and initiate an immune response.\"}, {\"source\": \"Immune-mediated neuroinflammation\", \"target\": \"Delayed demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The adaptive immune response against modified myelin basic protein drives demyelination.\"}, {\"source\": \"Cerebral hypoxic-ischemic injury\", \"target\": \"Delayed neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute ischemic injury and ongoing oxidative-inflammatory injury converge on delayed neuronal injury.\"}, {\"source\": \"Delayed demyelination\", \"target\": \"Delayed neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter demyelination contributes to delayed neuronal dysfunction and injury.\"}, {\"source\": \"Normobaric high-flow oxygen\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperbaric oxygen therapy\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperbaric oxygen therapy\", \"target\": \"Platelet-neutrophil activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exposure removal and supportive care\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Brain lipid peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive oxygen species peroxidize brain membrane and myelin lipids. Peroxidation products such as malondialdehyde form adducts with myelin basic protein, generating the antigenic modification that initiates delayed injury.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"lipid oxidation\"]}}, {\"id\": \"Carboxyhemoglobin formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inhaled carbon monoxide binds hemoglobin at the same heme iron sites used by oxygen, with an affinity roughly 200 times that of oxygen, forming carboxyhemoglobin (COHb). This reduces the oxygen-carrying capacity of blood.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"oxygen transport\"]}}, {\"id\": \"Cellular energy failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inhibition of oxidative phosphorylation, together with tissue hypoxia, depletes cellular ATP and forces a shift to anaerobic metabolism, producing lactic acidosis and cellular energy failure across multiple organs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"aerobic respiration\"]}}, {\"id\": \"Cerebral hypoxic-ischemic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute hypoxia preferentially injures metabolically demanding regions of the brain, including the basal ganglia (especially the globus pallidus) and deep white matter, producing acute encephalopathy and a substrate for later parkinsonism and cognitive dysfunction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"positive regulation of neuron apoptotic process\"]}}, {\"id\": \"Cytochrome c oxidase inhibition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Carbon monoxide binds the ferrous iron of mitochondrial cytochrome c oxidase (Complex IV of the electron transport chain), directly inhibiting oxidative phosphorylation. This produces histotoxic (cellular) hypoxia independent of oxygen delivery, impairing ATP generation even where oxygen is present, and helps explain the persistence of symptoms after carboxyhemoglobin normalizes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"mitochondrial electron transport, cytochrome c to oxygen\"]}}, {\"id\": \"Delayed demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Days to weeks after acute poisoning, immune-mediated demyelination of cerebral white matter produces the leukoencephalopathy characteristic of delayed neurological sequelae.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"oligodendrocyte\"], \"biological_processes\": [\"myelination\"]}}, {\"id\": \"Delayed neuronal injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune-mediated and hypoxic-ischemic injury converge on neuronal loss, particularly in basal ganglia and hippocampus, producing the delayed neuropsychiatric sequelae of cognitive impairment, memory loss, and parkinsonism.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuron apoptotic process\"]}}, {\"id\": \"Exposure removal and supportive care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immediate removal from the CO source and supportive care, including airway management, cardiac monitoring, and hemodynamic support, are essential first steps.\"}, {\"id\": \"Faulty heating appliances\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Malfunctioning or improperly ventilated furnaces, boilers, water heaters, and space heaters are a leading source of unintentional CO poisoning, especially in cold weather.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fire smoke inhalation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Smoke from structure fires contains high concentrations of CO and is a major cause of CO poisoning in fire victims.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hyperbaric oxygen therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hyperbaric oxygen delivered at greater than atmospheric pressure further accelerates carboxyhemoglobin elimination, increases dissolved plasma oxygen, and is proposed to reduce delayed neurological sequelae. It is considered for severe poisoning, loss of consciousness, neurological deficits, myocardial ischemia, or pregnancy, though its exact indications remain debated.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Immune-mediated neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemically modified myelin basic protein becomes antigenic, provoking an adaptive immune response with macrophage and CD4+ lymphocyte influx and microglial activation that drives delayed central nervous system injury.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"microglial cell\"], \"biological_processes\": [\"adaptive immune response\"]}}, {\"id\": \"Impaired tissue oxygen delivery\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of reduced carboxyhemoglobin-limited oxygen carriage and impaired oxygen offloading produces systemic tissue hypoxia, most severely affecting the oxygen-dependent brain and heart.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cellular response to hypoxia\"]}}, {\"id\": \"Leftward shift of the oxyhemoglobin dissociation curve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Binding of CO to one or more heme sites increases the oxygen affinity of the remaining sites on the hemoglobin tetramer, shifting the oxyhemoglobin dissociation curve to the left so that bound oxygen is released less readily at the tissues, worsening tissue hypoxia beyond what the reduced oxygen-carrying capacity alone would cause.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"]}}, {\"id\": \"Methylene chloride exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Inhaled methylene chloride (dichloromethane), used in paint strippers and solvents, is metabolized in the liver to carbon monoxide, raising carboxyhemoglobin; high-dose exposure can produce delayed and prolonged CO toxicity from this endogenous source.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Motor vehicle exhaust\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Engine exhaust from motor vehicles, including running vehicles in enclosed spaces, is a common source of both accidental and intentional CO poisoning.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myocardial ischemic injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced oxygen delivery, direct binding of CO to myoglobin, and mitochondrial dysfunction impair cardiac oxygen supply and utilization, producing myocardial stunning, ischemia, left ventricular dysfunction, and arrhythmia; myocardial injury predicts increased short- and long-term mortality.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cellular response to hypoxia\"]}}, {\"id\": \"Normobaric high-flow oxygen\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-concentration oxygen delivered at normal atmospheric pressure is the first-line treatment. It accelerates dissociation of CO from hemoglobin, shortening the elimination half-life of carboxyhemoglobin from several hours on room air to roughly 60-90 minutes. It is usually delivered via a non-rebreather mask.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Oxidative stress and free radical generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction and the displacement of nitric oxide from hemoproteins generate reactive oxygen species, free radicals, and nitric-oxide-derived species, producing oxidative injury across multiple organs.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"response to oxidative stress\"]}}, {\"id\": \"Platelet-neutrophil activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Acute CO poisoning triggers intravascular platelet-neutrophil aggregation and neutrophil activation with myeloperoxidase release, initiating a reperfusion-injury-like oxidative cascade in the cerebral microvasculature.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"platelet aggregation\", \"inflammatory response\"]}}, {\"id\": \"Portable generators and indoor combustion\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Portable gasoline generators, charcoal grills, and other fuel-burning devices used indoors or in poorly ventilated spaces are important sources of CO poisoning, notably during power outages after storms.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Energy deprivation and neutrophil-driven signaling convert xanthine dehydrogenase to xanthine oxidase, which generates reactive oxygen species and drives a postischemic reperfusion-like oxidative injury in the brain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"reactive oxygen species metabolic process\"]}}], \"edges\": [{\"source\": \"Carboxyhemoglobin formation\", \"target\": \"Impaired tissue oxygen delivery\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced oxygen-carrying capacity and leftward-shifted dissociation curve limit oxygen delivery and offloading to tissues.\"}, {\"source\": \"Leftward shift of the oxyhemoglobin dissociation curve\", \"target\": \"Impaired tissue oxygen delivery\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The impaired oxygen release compounds the hypoxic insult.\"}, {\"source\": \"Impaired tissue oxygen delivery\", \"target\": \"Cerebral hypoxic-ischemic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoxia in the brain produces neuronal injury and encephalopathy.\"}, {\"source\": \"Impaired tissue oxygen delivery\", \"target\": \"Myocardial ischemic injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypoxia in the heart produces myocardial ischemia and injury.\"}, {\"source\": \"Cytochrome c oxidase inhibition\", \"target\": \"Cellular energy failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inhibition of oxidative phosphorylation depletes cellular ATP.\"}, {\"source\": \"Cytochrome c oxidase inhibition\", \"target\": \"Oxidative stress and free radical generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitochondrial dysfunction generates reactive oxygen species and free radicals.\"}, {\"source\": \"Cellular energy failure\", \"target\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Energy deprivation and purine catabolism drive conversion of xanthine dehydrogenase to reactive-oxygen-species-generating xanthine oxidase.\"}, {\"source\": \"Oxidative stress and free radical generation\", \"target\": \"Platelet-neutrophil activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nitric-oxide displacement and oxidative changes promote intravascular platelet-neutrophil activation.\"}, {\"source\": \"Oxidative stress and free radical generation\", \"target\": \"Brain lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reactive oxygen species peroxidize brain membrane and myelin lipids.\"}, {\"source\": \"Platelet-neutrophil activation\", \"target\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophil adherence to the cerebral microvasculature drives conversion of xanthine dehydrogenase to xanthine oxidase.\"}, {\"source\": \"Xanthine oxidase-mediated reactive oxygen species generation\", \"target\": \"Brain lipid peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Xanthine oxidase-derived reactive oxygen species peroxidize brain lipids.\"}, {\"source\": \"Brain lipid peroxidation\", \"target\": \"Immune-mediated neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adducts between peroxidation products and myelin basic protein become antigenic and initiate an immune response.\"}, {\"source\": \"Immune-mediated neuroinflammation\", \"target\": \"Delayed demyelination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The adaptive immune response against modified myelin basic protein drives demyelination.\"}, {\"source\": \"Cerebral hypoxic-ischemic injury\", \"target\": \"Delayed neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute ischemic injury and ongoing oxidative-inflammatory injury converge on delayed neuronal injury.\"}, {\"source\": \"Delayed demyelination\", \"target\": \"Delayed neuronal injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"White-matter demyelination contributes to delayed neuronal dysfunction and injury.\"}, {\"source\": \"Faulty heating appliances\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"A malfunctioning or unvented appliance releases carbon monoxide into occupied indoor air, where it is inhaled and binds hemoglobin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fire smoke inhalation\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Structure-fire smoke carries high concentrations of carbon monoxide, which victims inhale directly at the scene.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Motor vehicle exhaust\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Engine exhaust in an enclosed space accumulates carbon monoxide to inhaled concentrations far above those the ambient air would give.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Portable generators and indoor combustion\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Fuel-burning devices run indoors or in poorly ventilated spaces vent carbon monoxide into breathing air rather than outdoors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Methylene chloride exposure\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Unlike the combustion sources, no carbon monoxide is inhaled here: the inhaled solvent is metabolized by hepatic CYP2E1 to carbon monoxide, so the carboxyhemoglobin arises from an endogenous source. That extra step is why the rise is delayed and prolonged relative to a direct CO exposure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Normobaric high-flow oxygen\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperbaric oxygen therapy\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hyperbaric oxygen therapy\", \"target\": \"Platelet-neutrophil activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exposure removal and supportive care\", \"target\": \"Carboxyhemoglobin formation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6046,11 +6286,9 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
                     <div class="item-name">
                         Syncope
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6107,7 +6345,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-injury" data-dismech-node="Myocardial injury" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myocardial injury
 
@@ -6152,7 +6390,7 @@
                 <div class="evidence-snippet">"Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction."</div>
 
 
-                <div class="evidence-explanation">Supports myocardial injury and cardiac dysfunction in roughly one-third of moderate-to-severe cases.</div>
+                <div class="evidence-explanation">Supports myocardial injury and cardiac dysfunction in roughly one-third of moderate-to-severe cases. The OCCASIONAL band departs downward from that figure deliberately: the one-third denominator is the moderate-to-severely poisoned subgroup, not all CO-poisoned patients, and that subgroup is a minority of presentations, so the share of the whole disease population falls in the OCCASIONAL range (5-29%) rather than FREQUENT (30-79%).</div>
 
 
 
@@ -6177,7 +6415,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nausea-and-vomiting" data-dismech-node="Nausea and vomiting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nausea and vomiting
 
@@ -6245,7 +6483,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dizziness" data-dismech-node="Dizziness" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dizziness
 
@@ -6313,11 +6551,11 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
                         Headache
 
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
                     <span class="phenotype-id">
@@ -6358,7 +6596,7 @@
                 <div class="evidence-snippet">"The initial symptoms with CO exposure when COHb is 15-30% are nonspecific, namely, headache, dizziness, nausea, fatigue, and impaired manual dexterity."</div>
 
 
-                <div class="evidence-explanation">Supports headache as a common early symptom of CO exposure.</div>
+                <div class="evidence-explanation">Supports headache as an initial symptom of CO exposure (the D2P association). The snippet carries no frequency content, so the FREQUENT band is a documented clinical estimate consistent with headache being listed first among the nonspecific initial symptoms (docs/frequency-evidence-guidelines.md, Pattern D) rather than a value extracted from the citation.</div>
 
 
 
@@ -6374,11 +6612,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6435,11 +6671,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coma" data-dismech-node="Coma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coma
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6496,7 +6730,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-confusion" data-dismech-node="Confusion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Confusion
 
@@ -6555,7 +6789,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive impairment
 
@@ -6600,7 +6834,7 @@
                 <div class="evidence-snippet">"Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction."</div>
 
 
-                <div class="evidence-explanation">Supports long-term neurocognitive deficits in a substantial fraction of patients.</div>
+                <div class="evidence-explanation">Supports long-term neurocognitive deficits in a substantial fraction of patients. The reported 15-40% range straddles the OCCASIONAL (5-29%) and FREQUENT (30-79%) boundary; FREQUENT is banded on the upper end of the range, consistent with the cited review treating long-term neurocognitive deficit as a hallmark sequela rather than an uncommon outcome. The lower end of the reported range would band as OCCASIONAL.</div>
 
 
 
@@ -6616,11 +6850,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-memory-impairment" data-dismech-node="Memory impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Memory impairment
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6677,11 +6909,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Parkinsonism
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6747,11 +6977,9 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory failure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6817,7 +7045,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -6876,11 +7104,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest pain
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -6970,6 +7196,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6979,7 +7208,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-normobaric-high-flow-oxygen" data-dismech-node="Normobaric high-flow oxygen" data-dismech-type="treatment">
                 <div class="item-name">
                     Normobaric high-flow oxygen
                 </div>
@@ -7129,7 +7358,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hyperbaric-oxygen-therapy" data-dismech-node="Hyperbaric oxygen therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Hyperbaric oxygen therapy
                 </div>
@@ -7346,7 +7575,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-exposure-removal-and-supportive-care" data-dismech-node="Exposure removal and supportive care" data-dismech-type="treatment">
                 <div class="item-name">
                     Exposure removal and supportive care
                 </div>
@@ -7422,7 +7651,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-faulty-heating-appliances" data-dismech-node="Faulty heating appliances" data-dismech-type="environmental">
                 <div class="item-name">Faulty heating appliances</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7482,9 +7711,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Carboxyhemoglobin formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A malfunctioning or unvented appliance releases carbon monoxide into occupied indoor air, where it is inhaled and binds hemoglobin.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26563790" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia."</div>
+
+
+                <div class="evidence-explanation">Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the step this source feeds; the four combustion sources differ in where the CO comes from, not in how it is taken up.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-fire-smoke-inhalation" data-dismech-node="Fire smoke inhalation" data-dismech-type="environmental">
                 <div class="item-name">Fire smoke inhalation</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7544,9 +7826,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Carboxyhemoglobin formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Structure-fire smoke carries high concentrations of carbon monoxide, which victims inhale directly at the scene.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26563790" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia."</div>
+
+
+                <div class="evidence-explanation">Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the step this source feeds; the four combustion sources differ in where the CO comes from, not in how it is taken up.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-motor-vehicle-exhaust" data-dismech-node="Motor vehicle exhaust" data-dismech-type="environmental">
                 <div class="item-name">Motor vehicle exhaust</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7618,9 +7953,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Carboxyhemoglobin formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Engine exhaust in an enclosed space accumulates carbon monoxide to inhaled concentrations far above those the ambient air would give.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26563790" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia."</div>
+
+
+                <div class="evidence-explanation">Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the step this source feeds; the four combustion sources differ in where the CO comes from, not in how it is taken up.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-portable-generators-and-indoor-combustion" data-dismech-node="Portable generators and indoor combustion" data-dismech-type="environmental">
                 <div class="item-name">Portable generators and indoor combustion</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7680,9 +8068,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Carboxyhemoglobin formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Fuel-burning devices run indoors or in poorly ventilated spaces vent carbon monoxide into breathing air rather than outdoors.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26563790" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26563790" target="_blank">PMID:26563790</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia."</div>
+
+
+                <div class="evidence-explanation">Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the step this source feeds; the four combustion sources differ in where the CO comes from, not in how it is taken up.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-methylene-chloride-exposure" data-dismech-node="Methylene chloride exposure" data-dismech-type="environmental">
                 <div class="item-name">Methylene chloride exposure</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -7742,6 +8183,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Carboxyhemoglobin formation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Unlike the combustion sources, no carbon monoxide is inhaled here: the inhaled solvent is metabolized by hepatic CYP2E1 to carbon monoxide, so the carboxyhemoglobin arises from an endogenous source. That extra step is why the rise is delayed and prolonged relative to a direct CO exposure.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8925320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8925320" target="_blank">PMID:8925320</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Part of the rationale for lowering the standard is a concern over potentially adverse cardiac effects secondary to elevated carboxyhemoglobin (COHb) levels as a by-product of methylene chloride metabolism."</div>
+
+
+                <div class="evidence-explanation">Names carboxyhemoglobin as a by-product of methylene chloride metabolism, establishing metabolism as the intermediate between the solvent exposure and the carboxyhemoglobin it produces.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -7756,7 +8250,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-carboxyhemoglobin" data-dismech-node="Carboxyhemoglobin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Carboxyhemoglobin
 
@@ -7803,7 +8297,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-lactate" data-dismech-node="Lactate" data-dismech-type="biochemical">
                 <div class="item-name">
                     Lactate
 
@@ -7825,6 +8319,54 @@
 
 
         <!-- Datasets -->
+
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Gene expression in rat striatum following carbon monoxide poisoning and hypoxic hypoxia
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE94780" target="_blank">geo:GSE94780</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We have proposed the existence of a threshold for brain damage, in terms of hydroxyl radical production in rat striatum, between poisoning of carbon monoxide (CO) at 1000 ppm and 3000 ppm, where blood CO-hemoglobin levels reach approximately 50% and over 70%, respectively. To search for factors involved in brain damage, we examined the effects of air, 1000 ppm CO, 3000 ppm CO and 5% O2 (hypoxic conditions comparable with those by 3000 ppm CO) on gene expression in rat striatum, using microarray analysis.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">rat</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=12</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Carbon Monoxide Poisoning (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
 
 
         <!-- Clinical Trials -->
@@ -8373,7 +8915,7 @@ pathophysiology:
 phenotypes:
 - category: Nervous System
   name: Headache
-  frequency: VERY_FREQUENT
+  frequency: FREQUENT
   description: &gt;-
     Headache is the most common presenting symptom of carbon monoxide poisoning,
     reflecting cerebral hypoxia.
@@ -8388,7 +8930,13 @@ phenotypes:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;The initial symptoms with CO exposure when COHb is 15-30% are nonspecific, namely, headache, dizziness, nausea, fatigue, and impaired manual dexterity.&#34;
-    explanation: Supports headache as a common early symptom of CO exposure.
+    explanation: &gt;-
+      Supports headache as an initial symptom of CO exposure (the D2P
+      association). The snippet carries no frequency content, so the FREQUENT
+      band is a documented clinical estimate consistent with headache being
+      listed first among the nonspecific initial symptoms
+      (docs/frequency-evidence-guidelines.md, Pattern D) rather than a value
+      extracted from the citation.
 - category: Nervous System
   name: Dizziness
   description: &gt;-
@@ -8443,7 +8991,6 @@ phenotypes:
     explanation: Supports fatigue as an early manifestation within the CO poisoning symptom spectrum.
 - category: Nervous System
   name: Syncope
-  frequency: OCCASIONAL
   description: &gt;-
     Loss of consciousness or syncope occurs with more severe exposure and is an
     indicator of significant poisoning.
@@ -8461,7 +9008,6 @@ phenotypes:
     explanation: Supports loss of consciousness/syncope as a marker of severe poisoning.
 - category: Nervous System
   name: Seizures
-  frequency: OCCASIONAL
   description: &gt;-
     Seizures can occur in severe acute CO poisoning.
   phenotype_term:
@@ -8478,7 +9024,6 @@ phenotypes:
     explanation: Supports seizures as a clinical effect of severe CO poisoning.
 - category: Nervous System
   name: Coma
-  frequency: OCCASIONAL
   description: &gt;-
     Coma occurs in severe poisoning and portends risk of death or delayed
     neurological sequelae.
@@ -8530,10 +9075,15 @@ phenotypes:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction.&#34;
-    explanation: Supports long-term neurocognitive deficits in a substantial fraction of patients.
+    explanation: &gt;-
+      Supports long-term neurocognitive deficits in a substantial fraction of
+      patients. The reported 15-40% range straddles the OCCASIONAL (5-29%) and
+      FREQUENT (30-79%) boundary; FREQUENT is banded on the upper end of the
+      range, consistent with the cited review treating long-term neurocognitive
+      deficit as a hallmark sequela rather than an uncommon outcome. The lower
+      end of the reported range would band as OCCASIONAL.
 - category: Nervous System
   name: Memory impairment
-  frequency: OCCASIONAL
   description: &gt;-
     Memory deficits are among the most frequent delayed neuropsychiatric
     sequelae after CO poisoning.
@@ -8551,7 +9101,6 @@ phenotypes:
     explanation: Supports memory loss as a delayed neuropsychiatric sequela of CO poisoning.
 - category: Nervous System
   name: Parkinsonism
-  frequency: OCCASIONAL
   description: &gt;-
     Delayed parkinsonism and other movement disorders can follow CO poisoning,
     associated with basal-ganglia (globus pallidus) injury.
@@ -8585,10 +9134,15 @@ phenotypes:
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Long-term neurocognitive deficits occur in 15-40% of patients, whereas approximately one-third of moderate to severely poisoned patients exhibit cardiac dysfunction, including arrhythmia, left ventricular systolic dysfunction, and myocardial infarction.&#34;
-    explanation: Supports myocardial injury and cardiac dysfunction in roughly one-third of moderate-to-severe cases.
+    explanation: &gt;-
+      Supports myocardial injury and cardiac dysfunction in roughly one-third of
+      moderate-to-severe cases. The OCCASIONAL band departs downward from that
+      figure deliberately: the one-third denominator is the moderate-to-severely
+      poisoned subgroup, not all CO-poisoned patients, and that subgroup is a
+      minority of presentations, so the share of the whole disease population
+      falls in the OCCASIONAL range (5-29%) rather than FREQUENT (30-79%).
 - category: Cardiovascular
   name: Chest pain
-  frequency: OCCASIONAL
   description: &gt;-
     Chest pain can accompany CO-induced myocardial ischemia, especially in
     individuals with underlying ischemic heart disease.
@@ -8606,7 +9160,6 @@ phenotypes:
     explanation: Supports chest pain from myocardial ischemia at low COHb levels in susceptible individuals.
 - category: Respiratory
   name: Respiratory failure
-  frequency: OCCASIONAL
   description: &gt;-
     Severe CO poisoning can progress to respiratory failure, sometimes with
     noncardiogenic pulmonary edema.
@@ -8678,6 +9231,23 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;Vehicle exhaust, smoke from fires and improperly maintained heating systems are included as common sources.&#34;
     explanation: Supports improperly maintained heating systems as a common exposure source.
+  influences_mechanisms:
+  - target: Carboxyhemoglobin formation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      A malfunctioning or unvented appliance releases carbon monoxide into
+      occupied indoor air, where it is inhaled and binds hemoglobin.
+    evidence:
+    - reference: PMID:26563790
+      reference_title: &#34;Carbon monoxide intoxication.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia.&#34;
+      explanation: &gt;-
+        Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the
+        step this source feeds; the four combustion sources differ in where the
+        CO comes from, not in how it is taken up.
 - name: Fire smoke inhalation
   exposure_term:
     preferred_term: exposure to carbon monoxide
@@ -8694,6 +9264,23 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;Vehicle exhaust, smoke from fires and improperly maintained heating systems are included as common sources.&#34;
     explanation: Supports smoke from fires as a common exposure source.
+  influences_mechanisms:
+  - target: Carboxyhemoglobin formation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Structure-fire smoke carries high concentrations of carbon monoxide,
+      which victims inhale directly at the scene.
+    evidence:
+    - reference: PMID:26563790
+      reference_title: &#34;Carbon monoxide intoxication.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia.&#34;
+      explanation: &gt;-
+        Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the
+        step this source feeds; the four combustion sources differ in where the
+        CO comes from, not in how it is taken up.
 - name: Motor vehicle exhaust
   exposure_term:
     preferred_term: exposure to carbon monoxide
@@ -8715,6 +9302,23 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;Vehicle exhaust, smoke from fires and improperly maintained heating systems are included as common sources.&#34;
     explanation: Supports vehicle exhaust as a common exposure source.
+  influences_mechanisms:
+  - target: Carboxyhemoglobin formation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Engine exhaust in an enclosed space accumulates carbon monoxide to
+      inhaled concentrations far above those the ambient air would give.
+    evidence:
+    - reference: PMID:26563790
+      reference_title: &#34;Carbon monoxide intoxication.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia.&#34;
+      explanation: &gt;-
+        Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the
+        step this source feeds; the four combustion sources differ in where the
+        CO comes from, not in how it is taken up.
 - name: Portable generators and indoor combustion
   exposure_term:
     preferred_term: exposure to carbon monoxide
@@ -8732,6 +9336,23 @@ environmental:
     evidence_source: OTHER
     snippet: &#34;gasoline-powered generators that are not in correct locations&#34;
     explanation: Supports improperly located gasoline-powered generators as an exposure source.
+  influences_mechanisms:
+  - target: Carboxyhemoglobin formation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Fuel-burning devices run indoors or in poorly ventilated spaces vent
+      carbon monoxide into breathing air rather than outdoors.
+    evidence:
+    - reference: PMID:26563790
+      reference_title: &#34;Carbon monoxide intoxication.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Once CO is inhaled it binds with hemoglobin to form carboxyhemoglobin (COHb) with an affinity 200 times greater than oxygen that leads to decreased oxygen-carrying capacity and decreased release of oxygen to tissues leading to tissue hypoxia.&#34;
+      explanation: &gt;-
+        Inhaled carbon monoxide binds hemoglobin to form carboxyhemoglobin, the
+        step this source feeds; the four combustion sources differ in where the
+        CO comes from, not in how it is taken up.
 - name: Methylene chloride exposure
   exposure_term:
     preferred_term: exposure to carbon monoxide
@@ -8750,6 +9371,25 @@ environmental:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Part of the rationale for lowering the standard is a concern over potentially adverse cardiac effects secondary to elevated carboxyhemoglobin (COHb) levels as a by-product of methylene chloride metabolism.&#34;
     explanation: Supports methylene chloride metabolism to carbon monoxide raising carboxyhemoglobin.
+  influences_mechanisms:
+  - target: Carboxyhemoglobin formation
+    environmental_effect: TRIGGERS
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Unlike the combustion sources, no carbon monoxide is inhaled here: the
+      inhaled solvent is metabolized by hepatic CYP2E1 to carbon monoxide, so
+      the carboxyhemoglobin arises from an endogenous source. That extra step is
+      why the rise is delayed and prolonged relative to a direct CO exposure.
+    evidence:
+    - reference: PMID:8925320
+      reference_title: &#34;Carboxyhemoglobin levels in methylene chloride-exposed employees.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Part of the rationale for lowering the standard is a concern over potentially adverse cardiac effects secondary to elevated carboxyhemoglobin (COHb) levels as a by-product of methylene chloride metabolism.&#34;
+      explanation: &gt;-
+        Names carboxyhemoglobin as a by-product of methylene chloride
+        metabolism, establishing metabolism as the intermediate between the
+        solvent exposure and the carboxyhemoglobin it produces.
 treatments:
 - name: Normobaric high-flow oxygen
   description: &gt;-
@@ -8902,7 +9542,18 @@ discussions:
     evidence_source: MODEL_ORGANISM
     snippet: &#34;These results demonstrate that delayed CO-mediated neuropathology is linked to an adaptive immunological response to chemically modified MBP.&#34;
     explanation: Establishes the immune-mediated mechanism in the rat model whose translational validity to humans is the open question.
-datasets: []
+datasets:
+- accession: geo:GSE94780
+  title: Gene expression in rat striatum following carbon monoxide poisoning and hypoxic hypoxia
+  description: We have proposed the existence of a threshold for brain damage, in terms of hydroxyl radical production in rat striatum, between poisoning of carbon monoxide (CO) at 1000 ppm and 3000 ppm, where blood CO-hemoglobin levels reach approximately 50% and over 70%, respectively. To search for factors involved in brain damage, we examined the effects of air, 1000 ppm CO, 3000 ppm CO and 5% O2 (hypoxic conditions comparable with those by 3000 ppm CO) on gene expression in rat striatum, using microarray analysis.
+  organism:
+    preferred_term: rat
+    term:
+      id: NCBITaxon:10116
+      label: Rattus norvegicus
+  data_type: MICROARRAY
+  sample_count: 12
+  notes: Identified by GEO DataSets index search for Carbon Monoxide Poisoning (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -9476,7 +10127,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Carbon Monoxide Poisoning", "mondoId": "MONDO:0800373", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carbon_Monoxide_Poisoning", "yamlRevision": "3bfebd8f8a10"};
+        const OS_CONFIG = {"diseaseName": "Carbon Monoxide Poisoning", "mondoId": "MONDO:0800373", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Carbon_Monoxide_Poisoning", "yamlRevision": "96a2181e7d2f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

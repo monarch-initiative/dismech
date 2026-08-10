@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 16</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Alternating%20Hemiplegia%20of%20Childhood"
@@ -3468,6 +3697,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3484,7 +3715,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3494,7 +3725,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3505,7 +3736,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">16</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3520,10 +3751,11 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3734,7 +3966,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp1a3-dependent-neuronal-membrane-transport-dysfunction" data-dismech-node="ATP1A3-dependent neuronal membrane transport dysfunction" data-dismech-type="pathophysiology">
@@ -3898,6 +4130,14 @@
 	                            <span class="crosslink-meta">Epileptogenic cortical network dysfunction</span>
 
 	                            <span class="crosslink-desc">Disrupted ionic homeostasis increases seizure susceptibility in a subset of patients.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">ATP1A3-Dependent Cardiac Conduction Dysfunction</span>
+
+	                            <span class="crosslink-desc">ATP1A3 is also expressed in cardiac conduction tissue, so the same pump lesion produces a parallel cardiac conduction phenotype alongside the neurologic disease.</span>
 
 
 	                        </div>
@@ -4557,6 +4797,149 @@
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp1a3-dependent-cardiac-conduction-dysfunction" data-dismech-node="ATP1A3-Dependent Cardiac Conduction Dysfunction" data-dismech-type="pathophysiology">
+                <div class="item-name">ATP1A3-Dependent Cardiac Conduction Dysfunction</div>
+
+                <div class="item-desc">ATP1A3 is expressed in cardiac conduction tissue in addition to neurons. A multicenter cohort found frequent resting and Holter ECG repolarization or conduction abnormalities across the ATP1A3-related syndrome spectrum (AHC, RDP, CAPOS), with dynamic serial-ECG changes and normal echocardiography (a primary electrical, not structural, disease). An Atp1a3 knock-in mouse showed baseline intracardiac conduction delay that progressed to heart block or complete sinus arrest during induced seizures, causing sudden death - a seizure-triggered mechanism for sudden cardiac death that parallels the human life-threatening-arrhythmia risk identified in this cohort.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-bio">
+                        cardiac conduction
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061337">GO:0061337</a>
+
+
+
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↕ DYSREGULATED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-location">
+                        cardiac conduction system
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002350" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002350">UBERON:0002350</a>
+
+
+
+                    </span>
+
+                </div>
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abnormal EKG</span>
+
+	                            <span class="crosslink-desc">Impaired Na+/K+-ATPase function in cardiac conduction tissue produces resting and Holter ECG abnormalities.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913013" target="_blank">PMID:32913013</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The first Holter ECG was abnormal in 24 of 65 (37%) cases with AHC and RDP with either repolarization or conduction abnormalities."</div>
+
+
+                <div class="evidence-explanation">Documents frequent conduction/repolarization ECG abnormalities across the ATP1A3-related syndrome spectrum, consistent with a shared pump-driven cardiac conduction lesion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913013" target="_blank">PMID:32913013</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the mouse model, resting ECGs showed intracardiac conduction delay; during induced seizures, heart block or complete sinus arrest led to death."</div>
+
+
+                <div class="evidence-explanation">An Atp1a3 knock-in mouse model directly demonstrates the causal mechanism linking seizures to fatal cardiac conduction failure, distinct from the human cohort&#39;s ECG association data.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
         </div>
 
 
@@ -4582,7 +4965,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"association\": \"Causative\"}}, {\"id\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic ATP1A3 variants impair the neuronal alpha-3 subunit of the P-type sodium:potassium-exchanging transporter, weakening ATPase function and disrupting maintenance of transmembrane ionic gradients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"establishment or maintenance of transmembrane electrochemical gradient\"], \"molecular_functions\": [\"P-type sodium:potassium-exchanging transporter activity\"], \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}]}}, {\"id\": \"Antiseizure therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-seizure medication is used when epilepsy is present, although seizures are frequently drug resistant and may require escalation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is a common chronic motor manifestation that can persist between attacks.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autonomic dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory and broader autonomic dysregulation are part of the classic paroxysmal AHC presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002270\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreoathetosis can persist between attacks as part of the chronic movement disorder phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Chronic neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent attacks, epilepsy, and ATP1A3 dysfunction converge on persistent cognitive, motor, and behavioral disability.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"locations\": [\"cerebellum\", \"cerebral cortex\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal dystonic posturing and tonic attacks are typical, sometimes accompanying hemiplegic spells.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epileptogenic cortical network dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AHC can produce focal or generalized seizures, status epilepticus, and nonepileptic reduced-awareness spells that require EEG-based distinction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuronal action potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Episodic hemiplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent transient hemiplegic attacks are the defining feature of AHC and may alternate sides or become bilateral.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012194\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor, language, and cognitive development are common and may be persistent, especially in more severe ATP1A3-related disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal eye movements, particularly nystagmus, are common early clinical clues and may precede hemiplegic attacks.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Paroxysmal motor and oculomotor network instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP1A3 pump failure produces episodic instability in motor and oculomotor circuits, yielding hemiplegic attacks, dystonia, nystagmus, and autonomic spell clustering.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuronal action potential\"], \"locations\": [\"brainstem\", \"cerebral cortex\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is common in AHC, can emerge early or later in the disease course, and is often drug resistant.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"target\": \"Paroxysmal motor and oculomotor network instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Na+/K+-ATPase function destabilizes neuronal firing in attack-generating circuits.\"}, {\"source\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"target\": \"Epileptogenic cortical network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted ionic homeostasis increases seizure susceptibility in a subset of patients.\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Epileptogenic cortical network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent circuit instability increases the chance of clinically overt epilepsy.\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Chronic neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent early attacks and ongoing dysfunction contribute to later persistent deficits.\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Episodic hemiplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attack-generating motor network instability produces recurrent hemiplegic episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Paroxysmal motor circuit instability produces dystonic attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oculomotor network instability produces nystagmus and related eye-movement abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Autonomic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem and autonomic circuit instability explains autonomic spell features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptogenic cortical network dysfunction\", \"target\": \"Chronic neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent epilepsy and status epilepticus can worsen persistent neurologic outcomes.\"}, {\"source\": \"Epileptogenic cortical network dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptogenic cortical network dysfunction produces the seizure phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic neurodevelopmental impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent early ATP1A3-related neurologic dysfunction produces developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic neurodevelopmental impairment\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic cerebellar and long-tract involvement produces ataxia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic neurodevelopmental impairment\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic motor network dysfunction produces choreoathetosis between attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure therapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP1A3\", \"target\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATP1A3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}], \"association\": \"Causative\"}}, {\"id\": \"ATP1A3-Dependent Cardiac Conduction Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP1A3 is expressed in cardiac conduction tissue in addition to neurons. A multicenter cohort found frequent resting and Holter ECG repolarization or conduction abnormalities across the ATP1A3-related syndrome spectrum (AHC, RDP, CAPOS), with dynamic serial-ECG changes and normal echocardiography (a primary electrical, not structural, disease). An Atp1a3 knock-in mouse showed baseline intracardiac conduction delay that progressed to heart block or complete sinus arrest during induced seizures, causing sudden death - a seizure-triggered mechanism for sudden cardiac death that parallels the human life-threatening-arrhythmia risk identified in this cohort.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cardiac conduction\"], \"locations\": [\"cardiac conduction system\"]}}, {\"id\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic ATP1A3 variants impair the neuronal alpha-3 subunit of the P-type sodium:potassium-exchanging transporter, weakening ATPase function and disrupting maintenance of transmembrane ionic gradients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"establishment or maintenance of transmembrane electrochemical gradient\"], \"molecular_functions\": [\"P-type sodium:potassium-exchanging transporter activity\"], \"genes\": [\"ATP1A3\"], \"gene_terms\": [{\"label\": \"ATP1A3\", \"id\": \"hgnc:801\"}]}}, {\"id\": \"Abnormal EKG\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A multicenter ATP1A3-related-syndrome cohort found frequent resting ECG abnormalities in AHC, with dynamic changes on serial ECGs and a small but life-threatening subset requiring cardiac intervention. Echocardiography was normal, indicating a primary conduction/repolarization disturbance rather than structural cardiomyopathy. Generated by the ATP1A3-Dependent Cardiac Conduction Dysfunction pathophysiology node.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003115\"}}, {\"id\": \"Antiseizure therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-seizure medication is used when epilepsy is present, although seizures are frequently drug resistant and may require escalation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ataxia is a common chronic motor manifestation that can persist between attacks.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001251\"}}, {\"id\": \"Autonomic dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Respiratory and broader autonomic dysregulation are part of the classic paroxysmal AHC presentation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002270\"}}, {\"id\": \"Choreoathetosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Choreoathetosis can persist between attacks as part of the chronic movement disorder phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001266\"}}, {\"id\": \"Chronic neurodevelopmental impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent attacks, epilepsy, and ATP1A3 dysfunction converge on persistent cognitive, motor, and behavioral disability.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"locations\": [\"cerebellum\", \"cerebral cortex\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Paroxysmal dystonic posturing and tonic attacks are typical, sometimes accompanying hemiplegic spells.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001332\"}}, {\"id\": \"Epileptogenic cortical network dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AHC can produce focal or generalized seizures, status epilepticus, and nonepileptic reduced-awareness spells that require EEG-based distinction.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuronal action potential\"], \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"Episodic hemiplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent transient hemiplegic attacks are the defining feature of AHC and may alternate sides or become bilateral.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012194\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed motor, language, and cognitive development are common and may be persistent, especially in more severe ATP1A3-related disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormal eye movements, particularly nystagmus, are common early clinical clues and may precede hemiplegic attacks.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000639\"}}, {\"id\": \"Paroxysmal motor and oculomotor network instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ATP1A3 pump failure produces episodic instability in motor and oculomotor circuits, yielding hemiplegic attacks, dystonia, nystagmus, and autonomic spell clustering.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neuronal action potential\"], \"locations\": [\"brainstem\", \"cerebral cortex\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is common in AHC, can emerge early or later in the disease course, and is often drug resistant.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"target\": \"Paroxysmal motor and oculomotor network instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced Na+/K+-ATPase function destabilizes neuronal firing in attack-generating circuits.\"}, {\"source\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"target\": \"Epileptogenic cortical network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted ionic homeostasis increases seizure susceptibility in a subset of patients.\"}, {\"source\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"target\": \"ATP1A3-Dependent Cardiac Conduction Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATP1A3 is also expressed in cardiac conduction tissue, so the same pump lesion produces a parallel cardiac conduction phenotype alongside the neurologic disease.\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Epileptogenic cortical network dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent circuit instability increases the chance of clinically overt epilepsy.\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Chronic neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent early attacks and ongoing dysfunction contribute to later persistent deficits.\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Episodic hemiplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attack-generating motor network instability produces recurrent hemiplegic episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Paroxysmal motor circuit instability produces dystonic attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Nystagmus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oculomotor network instability produces nystagmus and related eye-movement abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Paroxysmal motor and oculomotor network instability\", \"target\": \"Autonomic dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Brainstem and autonomic circuit instability explains autonomic spell features.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Epileptogenic cortical network dysfunction\", \"target\": \"Chronic neurodevelopmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent epilepsy and status epilepticus can worsen persistent neurologic outcomes.\"}, {\"source\": \"Epileptogenic cortical network dysfunction\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Epileptogenic cortical network dysfunction produces the seizure phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic neurodevelopmental impairment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent early ATP1A3-related neurologic dysfunction produces developmental delay.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic neurodevelopmental impairment\", \"target\": \"Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic cerebellar and long-tract involvement produces ataxia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic neurodevelopmental impairment\", \"target\": \"Choreoathetosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic motor network dysfunction produces choreoathetosis between attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ATP1A3-Dependent Cardiac Conduction Dysfunction\", \"target\": \"Abnormal EKG\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired Na+/K+-ATPase function in cardiac conduction tissue produces resting and Holter ECG abnormalities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Antiseizure therapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATP1A3\", \"target\": \"ATP1A3-dependent neuronal membrane transport dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4595,7 +4978,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
 
 
@@ -4605,7 +4988,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4618,7 +5001,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nystagmus" data-dismech-node="Nystagmus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nystagmus
 
@@ -4688,7 +5071,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global developmental delay
 
@@ -4749,7 +5132,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dystonia
 
@@ -4810,7 +5193,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizure
 
@@ -4871,7 +5254,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autonomic-dysfunction" data-dismech-node="Autonomic dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autonomic dysfunction
 
@@ -4932,7 +5315,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ataxia
 
@@ -4993,7 +5376,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-choreoathetosis" data-dismech-node="Choreoathetosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Choreoathetosis
 
@@ -5060,10 +5443,10 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-hemiplegia" data-dismech-node="Episodic hemiplegia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Episodic hemiplegia
 
@@ -5124,6 +5507,111 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-ekg" data-dismech-node="Abnormal EKG" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal EKG
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-id">
+                        Abnormal EKG
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003115" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003115">HP:0003115</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913013" target="_blank">PMID:32913013</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Resting ECG abnormalities were found in 52 of 87 (60%) with AHC, 2 of 3 (67%) with CAPOS, and 6 of 9 (67%) with RDP."</div>
+
+
+                <div class="evidence-explanation">A multicenter ATP1A3-related-syndrome cohort found resting ECG abnormalities in the majority of assessed AHC patients, supporting a FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913013" target="_blank">PMID:32913013</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Echocardiography was normal. Cardiac intervention was required in 3 of 98 (≈3%) patients with AHC."</div>
+
+
+                <div class="evidence-explanation">Echocardiography was normal (ruling out structural cardiomyopathy), and a small minority of AHC patients required cardiac intervention such as pacemaker or ICD placement for their conduction abnormality.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301294" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301294" target="_blank">PMID:20301294</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other system involvement may include cardiovascular (cardiac conduction abnormalities) and gastrointestinal (constipation, vomiting, anorexia, diarrhea, nausea, and abdominal pain) manifestations."</div>
+
+
+                <div class="evidence-explanation">GeneReviews independently corroborates cardiac conduction abnormalities as a recognized component of ATP1A3-related disorder, the same authoritative source already cited for the ECG-surveillance treatment below.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <script>
@@ -5163,7 +5651,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atp1a3" data-dismech-node="ATP1A3" data-dismech-type="genetic">
                 <div class="item-name">
                     ATP1A3
 
@@ -5246,9 +5734,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5257,10 +5749,10 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-flunarizine-prophylaxis" data-dismech-node="Flunarizine prophylaxis" data-dismech-type="treatment">
                 <div class="item-name">
                     Flunarizine prophylaxis
                 </div>
@@ -5359,7 +5851,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-trigger-avoidance-and-sleep-induction" data-dismech-node="Supportive trigger avoidance and sleep induction" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive trigger avoidance and sleep induction
                 </div>
@@ -5437,7 +5929,109 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cardiac-conduction-surveillance" data-dismech-node="Cardiac conduction surveillance" data-dismech-type="treatment">
+                <div class="item-name">
+                    Cardiac conduction surveillance
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
+                    <span class="tag tag-treatment">Monitoring</span>
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
+                    <span class="tag tag-treatment">electrocardiography</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Electrocardiography</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38053" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C38053">NCIT:C38053</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Given the risk of life-threatening cardiac rhythm abnormalities identified in a multicenter ATP1A3-related-syndrome cohort, periodic electrocardiographic evaluation is warranted to identify patients at higher risk of conduction-related sudden cardiac death who may benefit from a pacemaker or implantable cardioverter-defibrillator.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301294" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301294" target="_blank">PMID:20301294</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clarification of the genetic status of apparently asymptomatic older and younger at-risk relatives is appropriate to identify as early as possible those who should be evaluated for cardiac conduction abnormalities and who should be advised about agents/circumstances to avoid."</div>
+
+
+                <div class="evidence-explanation">GeneReviews recommends evaluation for cardiac conduction abnormalities in ATP1A3-related disorder, supporting periodic ECG assessment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32913013" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32913013" target="_blank">PMID:32913013</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We provide guidance to identify patients potentially at higher risk of sudden cardiac death who may benefit from insertion of a pacemaker or implantable cardioverter-defibrillator."</div>
+
+
+                <div class="evidence-explanation">Provides the clinical rationale for ECG-based cardiac surveillance: identifying AHC patients at higher risk of sudden cardiac death who may need device therapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-antiseizure-therapy" data-dismech-node="Antiseizure therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiseizure therapy
                 </div>
@@ -6231,6 +6825,50 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pervasive neurological disabilities (e.g., developmental delay, learning disabilities, choreoathetosis, and ataxia).&#34;
     explanation: Supports choreoathetosis as a chronic non-paroxysmal manifestation of AHC.
+- name: Abnormal EKG
+  category: Cardiovascular
+  frequency: FREQUENT
+  description: &gt;-
+    A multicenter ATP1A3-related-syndrome cohort found frequent resting ECG
+    abnormalities in AHC, with dynamic changes on serial ECGs and a small but
+    life-threatening subset requiring cardiac intervention. Echocardiography
+    was normal, indicating a primary conduction/repolarization disturbance
+    rather than structural cardiomyopathy. Generated by the ATP1A3-Dependent
+    Cardiac Conduction Dysfunction pathophysiology node.
+  phenotype_term:
+    preferred_term: resting ECG abnormality
+    term:
+      id: HP:0003115
+      label: Abnormal EKG
+  evidence:
+  - reference: PMID:32913013
+    reference_title: &#34;Cardiac phenotype in ATP1A3-related syndromes: A multicenter cohort study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Resting ECG abnormalities were found in 52 of 87 (60%) with AHC, 2 of 3 (67%) with CAPOS, and 6 of 9 (67%) with RDP.&#34;
+    explanation: &gt;-
+      A multicenter ATP1A3-related-syndrome cohort found resting ECG
+      abnormalities in the majority of assessed AHC patients, supporting a
+      FREQUENT band.
+  - reference: PMID:32913013
+    reference_title: &#34;Cardiac phenotype in ATP1A3-related syndromes: A multicenter cohort study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Echocardiography was normal. Cardiac intervention was required in 3 of 98 (≈3%) patients with AHC.&#34;
+    explanation: &gt;-
+      Echocardiography was normal (ruling out structural cardiomyopathy), and
+      a small minority of AHC patients required cardiac intervention such as
+      pacemaker or ICD placement for their conduction abnormality.
+  - reference: PMID:20301294
+    reference_title: &#34;ATP1A3-Related Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Other system involvement may include cardiovascular (cardiac conduction abnormalities) and gastrointestinal (constipation, vomiting, anorexia, diarrhea, nausea, and abdominal pain) manifestations.&#34;
+    explanation: &gt;-
+      GeneReviews independently corroborates cardiac conduction abnormalities
+      as a recognized component of ATP1A3-related disorder, the same
+      authoritative source already cited for the ECG-surveillance treatment
+      below.
 pathophysiology:
 - name: ATP1A3-dependent neuronal membrane transport dysfunction
   description: &gt;-
@@ -6263,6 +6901,11 @@ pathophysiology:
     description: Reduced Na+/K+-ATPase function destabilizes neuronal firing in attack-generating circuits.
   - target: Epileptogenic cortical network dysfunction
     description: Disrupted ionic homeostasis increases seizure susceptibility in a subset of patients.
+  - target: ATP1A3-Dependent Cardiac Conduction Dysfunction
+    description: &gt;-
+      ATP1A3 is also expressed in cardiac conduction tissue, so the same
+      pump lesion produces a parallel cardiac conduction phenotype alongside
+      the neurologic disease.
   evidence:
   - reference: PMID:22842232
     reference_title: De novo mutations in ATP1A3 cause alternating hemiplegia of childhood.
@@ -6417,6 +7060,55 @@ pathophysiology:
   - target: Choreoathetosis
     causal_link_type: DIRECT
     description: Chronic motor network dysfunction produces choreoathetosis between attacks.
+- name: ATP1A3-Dependent Cardiac Conduction Dysfunction
+  biological_scale: TISSUE
+  description: &gt;-
+    ATP1A3 is expressed in cardiac conduction tissue in addition to neurons.
+    A multicenter cohort found frequent resting and Holter ECG repolarization
+    or conduction abnormalities across the ATP1A3-related syndrome spectrum
+    (AHC, RDP, CAPOS), with dynamic serial-ECG changes and normal
+    echocardiography (a primary electrical, not structural, disease). An
+    Atp1a3 knock-in mouse showed baseline intracardiac conduction delay that
+    progressed to heart block or complete sinus arrest during induced
+    seizures, causing sudden death - a seizure-triggered mechanism for sudden
+    cardiac death that parallels the human life-threatening-arrhythmia risk
+    identified in this cohort.
+  locations:
+  - preferred_term: cardiac conduction system
+    term:
+      id: UBERON:0002350
+      label: conducting system of heart
+  biological_processes:
+  - preferred_term: cardiac conduction
+    term:
+      id: GO:0061337
+      label: cardiac conduction
+    modifier: DYSREGULATED
+  evidence:
+  - reference: PMID:32913013
+    reference_title: &#34;Cardiac phenotype in ATP1A3-related syndromes: A multicenter cohort study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The first Holter ECG was abnormal in 24 of 65 (37%) cases with AHC and RDP with either repolarization or conduction abnormalities.&#34;
+    explanation: &gt;-
+      Documents frequent conduction/repolarization ECG abnormalities across
+      the ATP1A3-related syndrome spectrum, consistent with a shared
+      pump-driven cardiac conduction lesion.
+  - reference: PMID:32913013
+    reference_title: &#34;Cardiac phenotype in ATP1A3-related syndromes: A multicenter cohort study.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;In the mouse model, resting ECGs showed intracardiac conduction delay; during induced seizures, heart block or complete sinus arrest led to death.&#34;
+    explanation: &gt;-
+      An Atp1a3 knock-in mouse model directly demonstrates the causal
+      mechanism linking seizures to fatal cardiac conduction failure,
+      distinct from the human cohort&#39;s ECG association data.
+  downstream:
+  - target: Abnormal EKG
+    causal_link_type: DIRECT
+    description: &gt;-
+      Impaired Na+/K+-ATPase function in cardiac conduction tissue produces
+      resting and Holter ECG abnormalities.
 genetic:
 - name: ATP1A3
   gene_term:
@@ -6620,6 +7312,37 @@ treatments:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Management of patients with AHC includes the rapid induction of sleep during paroxysmal attacks and the avoidance of identified triggers.&#34;
     explanation: Supports core supportive management for acute attacks.
+- name: Cardiac conduction surveillance
+  action_category: MONITORING
+  description: &gt;-
+    Given the risk of life-threatening cardiac rhythm abnormalities
+    identified in a multicenter ATP1A3-related-syndrome cohort, periodic
+    electrocardiographic evaluation is warranted to identify patients at
+    higher risk of conduction-related sudden cardiac death who may benefit
+    from a pacemaker or implantable cardioverter-defibrillator.
+  treatment_term:
+    preferred_term: electrocardiography
+    term:
+      id: NCIT:C38053
+      label: Electrocardiography
+  evidence:
+  - reference: PMID:20301294
+    reference_title: &#34;ATP1A3-Related Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Clarification of the genetic status of apparently asymptomatic older and younger at-risk relatives is appropriate to identify as early as possible those who should be evaluated for cardiac conduction abnormalities and who should be advised about agents/circumstances to avoid.&#34;
+    explanation: &gt;-
+      GeneReviews recommends evaluation for cardiac conduction abnormalities
+      in ATP1A3-related disorder, supporting periodic ECG assessment.
+  - reference: PMID:32913013
+    reference_title: &#34;Cardiac phenotype in ATP1A3-related syndromes: A multicenter cohort study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We provide guidance to identify patients potentially at higher risk of sudden cardiac death who may benefit from insertion of a pacemaker or implantable cardioverter-defibrillator.&#34;
+    explanation: &gt;-
+      Provides the clinical rationale for ECG-based cardiac surveillance:
+      identifying AHC patients at higher risk of sudden cardiac death who
+      may need device therapy.
 - name: Antiseizure therapy
   description: &gt;-
     Anti-seizure medication is used when epilepsy is present, although seizures
@@ -7163,7 +7886,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alternating Hemiplegia of Childhood", "mondoId": "MONDO:0016241", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alternating_Hemiplegia_of_Childhood", "yamlRevision": "9fdecabd9982"};
+        const OS_CONFIG = {"diseaseName": "Alternating Hemiplegia of Childhood", "mondoId": "MONDO:0016241", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alternating_Hemiplegia_of_Childhood", "yamlRevision": "66a8faf6e8c5"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

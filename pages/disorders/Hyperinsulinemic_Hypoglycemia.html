@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2639,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2652,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2664,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2676,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2716,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2781,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2833,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2899,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3092,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3110,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3270,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3405,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3438,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3599,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3650,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 45</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 49</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hyperinsulinemic%20Hypoglycemia"
@@ -3466,6 +3779,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3519,7 +3836,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">45</div>
+                <div class="stat-value">49</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3532,6 +3849,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4895,6 +5213,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5113,6 +5432,7 @@
 
 
                 </div>
+
 
 
 
@@ -5353,6 +5673,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5578,6 +5899,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5796,6 +6118,7 @@
 
 
                 </div>
+
 
 
 
@@ -6076,6 +6399,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6267,6 +6591,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6469,6 +6794,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -6736,6 +7062,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6995,6 +7322,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7180,6 +7508,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -7382,6 +7711,7 @@
                     </span>
 
                 </div>
+
 
 
 
@@ -7636,7 +7966,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"18F-DOPA PET-Guided Focal Lesionectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one curative intervention in the disorder. When genetics indicate a single paternally inherited K-ATP variant and 18F-DOPA PET/CT localizes a discrete lesion, a limited resection with intraoperative frozen-section confirmation removes the entire disease. This is why the focal/diffuse distinction is worth the diagnostic effort: the same clinical picture leads either to cure or to a near-total pancreatectomy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ABCC8 (SUR1) loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ABCC8\"], \"gene_terms\": [{\"label\": \"ABCC8\", \"id\": \"hgnc:59\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two lesions that let fuels which should be invisible to the beta cell drive secretion. SLC16A1 (MCT1) is normally silenced in beta cells precisely so that pyruvate and lactate cannot act as secretagogues; dominant promoter variants de-silence it, so monocarboxylates generated during anaerobic exercise enter the cell and trigger insulin release \\u2014 giving hypoglycemia specifically after strenuous exercise. UCP2 normally leaks protons across the inner mitochondrial membrane, damping ATP generation and thereby restraining glucose-stimulated secretion; inactivating variants remove that brake, though the UCP2 association remains disputed.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"SLC16A1\", \"UCP2\"], \"gene_terms\": [{\"label\": \"SLC16A1\", \"id\": \"hgnc:10922\"}, {\"label\": \"UCP2\", \"id\": \"hgnc:12518\"}], \"role\": \"trigger\"}}, {\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apnea and respiratory compromise as a neonatal neuroglycopenic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002104\"}}, {\"id\": \"Cerebral Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent motor disability from hypoglycemic injury to the developing brain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100021\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma from profound cerebral fuel failure; death can occur.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Decreased Circulating Free Fatty Acids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Suppressed plasma free fatty acids during hypoglycemia. Together with suppressed ketones this distinguishes hyperinsulinism from fatty acid oxidation defects, in which free fatty acids are high while ketones are still low.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040299\"}}, {\"id\": \"Diazoxide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line and the only drug approved for hyperinsulinism, designated a WHO essential medicine. Diazoxide binds SUR1 and holds the K-ATP channel open, hyperpolarizing the beta cell and switching insulin secretion off \\u2014 which means it can only work when a functional channel exists, and characteristically fails in recessive ABCC8/KCNJ11 disease. Dosing is 5-15 (up to 20) mg/kg/day orally, usually with chlorothiazide to counter fluid retention. Safety monitoring matters: fluid retention and cardiac failure are the dose-limiting toxicities, and hypertrichosis, neutropenia, thrombocytopenia, hyperuricemia and pulmonary hypertension are recognised adverse effects \\u2014 an echocardiogram about a week after starting and periodic blood counts are advised. Response is confirmed by a safety fast, not by impression.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"diazoxide\"]}}, {\"id\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanistic keystone of the disorder, and the explicit reason hyperinsulinemic hypoglycemia injures the brain more than other hypoglycemias of equivalent glucose depth. The neonatal and infant brain has a disproportionately high obligate glucose requirement, and its physiological safeguard against a falling glucose is to switch to ketone bodies. In hyperinsulinemic hypoglycemia both fuels fail simultaneously and for the same reason: the excess insulin that lowers glucose also abolishes the ketone supply. Cerebral energy failure therefore begins earlier, deepens faster, and is less forgiving of diagnostic delay than in ketotic hypoglycemias, where a partial ketone rescue buffers the brain. This node is also the therapeutic rationale for the (still experimental) strategy of supplying exogenous beta-hydroxybutyrate, and the rationale for proposals to screen newborns by measuring ketones rather than glucose alone.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glucose homeostasis\"], \"role\": \"central_effector\", \"locations\": [\"brain\"]}}, {\"id\": \"Dysregulated Beta-Cell Insulin Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent core of the disorder, reached from every etiology above: insulin is secreted at plasma glucose concentrations at which secretion should be fully suppressed. In health serum insulin becomes undetectable once plasma glucose falls below about 3 mmol/L; in hyperinsulinemic hypoglycemia it remains detectable, and it is this failure of suppression \\u2014 rather than an absolute insulin concentration \\u2014 that defines the disease. Everything clinically distinctive about hyperinsulinemic hypoglycemia flows from this single node, because insulin is not merely a glucose-lowering hormone but a simultaneous suppressor of every counter-regulatory fuel pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"insulin secretion\", \"membrane depolarization\"], \"role\": \"central_effector\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding, food aversion, impaired suck/swallow and frequent tube dependence. Feeding dysfunction is one of the heaviest chronic burdens in this disorder, driven by the disease, by diazoxide, and by the high-carbohydrate/continuous-feeding regimens used to prevent hypoglycemia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal hyperinsulinism is generated by two hits at the same locus. A paternally inherited recessive ABCC8 or KCNJ11 variant (both genes sit at 11p15.1) is clinically silent while the maternal allele is present. In a single pancreatic progenitor a post-zygotic mitotic recombination event replaces the maternal 11p15 region with a second copy of the paternal one (segmental paternal isodisomy), rendering the K-ATP variant homozygous in that clone while parental heterozygosity is preserved everywhere else. The same event leaves the neighbouring 11p15 imprinted domain paternal-only \\u2014 doubling active IGF2 and removing the growth-suppressing maternal H19 and CDKN1C (p57) contributions \\u2014 so the affected clone also proliferates, producing a discrete nodule of hyperfunctional, hypersecreting beta cells embedded in a normal pancreas. Every clinically decisive feature of focal disease follows from this architecture: it is anatomically bounded, so 18F-DOPA PET can localise it and resecting it is curative; and it is sporadic in inheritance terms, because the somatic hit is not transmitted.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"insulin secretion\"], \"genes\": [\"ABCC8\", \"KCNJ11\", \"CDKN1C\"], \"gene_terms\": [{\"label\": \"ABCC8\", \"id\": \"hgnc:59\"}, {\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}, {\"label\": \"CDKN1C\", \"id\": \"hgnc:1786\"}], \"role\": \"trigger\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"GCK activating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GCK\"], \"gene_terms\": [{\"label\": \"GCK\", \"id\": \"hgnc:4195\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"GLUD1 activating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLUD1\"], \"gene_terms\": [{\"label\": \"GLUD1\", \"id\": \"hgnc:4335\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Genotype-Specific Trigger Avoidance and Dietary Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because several subtypes have a specific precipitant, management is partly behavioural and genotype-directed: protein/leucine restriction in GLUD1 and HADH disease, avoidance of anaerobic/strenuous exercise in SLC16A1 disease, and \\u2014 universally \\u2014 avoidance of prolonged fasting, with a written emergency regimen for intercurrent illness.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay and cognitive impairment from permanent hypoglycemic brain injury; reported in roughly half of probands in a nationwide cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glucagon Rescue and Continuous Glucagon Infusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucagon is the counter-regulatory hormone whose action insulin is blocking, so giving it exogenously (0.5-1 mg IM/SC) raises glucose within minutes and is the first-line rescue when intravenous access is unavailable. Continuous subcutaneous infusion is used to reduce dextrose and fluid requirements. Doses above 1 mg can cause rebound hypoglycemia through paradoxical insulin release.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"glucagon\"]}}, {\"id\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The protein/leucine-sensitive arm. Dominant activating GLUD1 variants escape GTP inhibition of glutamate dehydrogenase, and recessive HADH (SCHAD) deficiency removes an inhibitory SCHAD-GDH protein-protein interaction; both leave glutamate dehydrogenase inappropriately active, so leucine-driven glutamate oxidation feeds the TCA cycle, raises the beta-cell ATP/ADP ratio and closes a structurally intact K-ATP channel. This is the only arm that also produces hyperammonemia, because the same unrestrained GDH activity in liver and kidney generates ammonia \\u2014 which is why an elevated plasma ammonia in hyperinsulinemic hypoglycemia is close to specific for the GLUD1 (HI/HA) subtype and not a general feature of the disorder.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"GLUD1\", \"HADH\"], \"gene_terms\": [{\"label\": \"GLUD1\", \"id\": \"hgnc:4335\"}, {\"label\": \"HADH\", \"id\": \"hgnc:4799\"}], \"role\": \"trigger\"}}, {\"id\": \"HADH (SCHAD) loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HADH\"], \"gene_terms\": [{\"label\": \"HADH\", \"id\": \"hgnc:4799\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"HK1 non-coding de-silencing variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HK1\"], \"gene_terms\": [{\"label\": \"HK1\", \"id\": \"hgnc:4922\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HNF1A loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HNF1A\"], \"gene_terms\": [{\"label\": \"HNF1A\", \"id\": \"hgnc:11621\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"HNF4A loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HNF4A\"], \"gene_terms\": [{\"label\": \"HNF4A\", \"id\": \"hgnc:5024\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement from insulin-driven hepatic glycogen accumulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent mild elevation of plasma ammonia, the biochemical marker of the GLUD1 hyperinsulinism-hyperammonemia subtype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HI/HA Syndrome\"], \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sweating with pallor, palpitations and jitteriness \\u2014 the adrenergic counter-regulatory warning signs of falling glucose, characteristically blunted in neonates and in patients with recurrent hypoglycemia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inappropriately detectable or frankly elevated plasma insulin and C-peptide measured at the time of documented hypoglycemia. A normal-looking absolute insulin value is still abnormal if glucose is low.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000842\"}}, {\"id\": \"Hyperinsulinemic Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining state: a low plasma glucose with biochemical evidence of unsuppressed insulin action \\u2014 detectable insulin and C-peptide together with suppressed beta-hydroxybutyrate and free fatty acids.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000825\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial hypertrophy in a minority of patients, attributed to the same fetal anabolic insulin effect that produces macrosomia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypoketotic Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia with inappropriately absent ketone bodies. This is the discriminating laboratory phenotype of the disorder and the mechanistic reason for its neurological severity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin acts on the two arms of glucose homeostasis at once: it accelerates glucose uptake into muscle, liver and adipose tissue and it shuts down the liver\u0027s ability to release glucose by inhibiting glycogenolysis and gluconeogenesis while stimulating glycogen synthesis. The result is hypoglycemia that cannot be defended endogenously, and that clinically requires glucose infusion rates far above normal \\u2014 a requirement above about 8 mg/kg/min in a neonate is itself close to diagnostic. Hepatic glycogen accumulation from this same signal contributes to the hepatomegaly seen in some patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glucose homeostasis\", \"gluconeogenesis\", \"glycogen catabolic process\"], \"role\": \"effector\", \"locations\": [\"liver\"]}}, {\"id\": \"Intravenous Dextrose and High-Rate Carbohydrate Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The immediate treatment: continuous intravenous dextrose starting at 6-8 mg/kg/min and escalated as required \\u2014 patients may need more than 25 mg/kg/min \\u2014 to hold plasma glucose in the normal range. Chronically this becomes frequent high-calorie carbohydrate feeds, continuous gastric dextrose, and often a gastrostomy because diazoxide-treated children develop food aversion.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"glucose (dextrose)\"]}}, {\"id\": \"K-ATP Channel Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inactivating variants in ABCC8 (SUR1) or KCNJ11 (Kir6.2), the two subunits of the beta-cell ATP-sensitive potassium channel, remove the channel that normally holds the beta-cell membrane hyperpolarized when glucose is low. Because the channel is the switch that couples fuel metabolism to secretion, its loss uncouples insulin release from the glucose signal entirely. This is the single most common molecular cause of hyperinsulinemic hypoglycemia and underlies both diffuse and focal histological disease. It is also why the first-line drug fails in this group: diazoxide works by holding a functional channel open, so a broken channel is pharmacologically unreachable.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"potassium ion transmembrane transport\", \"regulation of insulin secretion\"], \"genes\": [\"ABCC8\", \"KCNJ11\"], \"gene_terms\": [{\"label\": \"ABCC8\", \"id\": \"hgnc:59\"}, {\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}], \"role\": \"trigger\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"KCNJ11 (Kir6.2) loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNJ11\"], \"gene_terms\": [{\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Large for Gestational Age\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrosomia from the growth-factor action of intrauterine hyperinsulinemia. Its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001520\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed level of consciousness as a neuroglycopenic manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lowered Beta-Cell Glucose Set-Point\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The glucose-sensing arm. Glucokinase is the beta cell\u0027s glucose sensor, the step that sets the plasma glucose concentration at which secretion begins. Activating GCK variants (and, rarely, GCK duplication) shift that threshold downward, so the whole homeostatic system defends an inappropriately low glucose rather than failing to switch off. A non-coding HK1 variant that fails to silence hexokinase 1 in the beta cell does the same thing by a different route, installing a low-Km hexokinase that phosphorylates glucose at concentrations far below the normal threshold. Because a reset set-point is not the same as an absent brake, GCK disease can uniquely show a ketotic response on prolonged fasting.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"GCK\", \"HK1\"], \"gene_terms\": [{\"label\": \"GCK\", \"id\": \"hgnc:4195\"}, {\"label\": \"HK1\", \"id\": \"hgnc:4922\"}], \"role\": \"trigger\"}}, {\"id\": \"Near-Total Pancreatectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved for medically uncontrollable diffuse disease. Removing 90-98% of the pancreas trades one disease for another: hypoglycemia frequently persists, diabetes mellitus becomes highly likely with time, and exocrine insufficiency follows resection above about half the gland. It is a control measure, not a cure, and lifelong HbA1c, fecal elastase and fat-soluble vitamin monitoring follow.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent hypoglycemia beginning in the neonatal period, characteristically refractory to routine intravenous dextrose and requiring glucose infusion rates well above the normal 4-6 mg/kg/min.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001998\"}}, {\"id\": \"Neuroglycopenic Brain Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent or prolonged dual-fuel deprivation causes permanent injury to the developing brain, with a predilection for the parieto-occipital cortex and white matter. This is the outcome that defines the clinical stakes of the disorder and it is substantially preventable: the international consensus guideline states its own purpose as reducing the prevalence of hypoglycemia-caused brain injury through earlier recognition and treatment. Neurological sequelae were reported in about half of probands in a nationwide cohort, which is a direct measure of how often recognition currently comes too late.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"role\": \"consequence\", \"locations\": [\"brain\"]}}, {\"id\": \"Octreotide and Long-Acting Somatostatin Analogs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-line, off-label therapy for diazoxide-unresponsive disease. Octreotide acts through SSTR2/SSTR5 to suppress insulin gene promoter activity, inhibit calcium mobilisation and act on the beta-cell K-ATP channel, all of which reduce insulin secretion. Started at about 5 \\u00b5g/kg/day subcutaneously and titrated; tachyphylaxis after about 48 hours is expected and requires dose adjustment. Patients are often transitioned to monthly lanreotide. Necrotizing enterocolitis in unstable premature infants and biliary sludge are the safety concerns that shape monitoring.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"octreotide\"]}}, {\"id\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In acquired perinatal-stress hyperinsulinism there is no germline lesion. Instead, maternal diabetes, birth asphyxia/hypoxia, intrauterine growth restriction or intrapartum maternal dextrose appear to reset the beta-cell glucose threshold for suppressing insulin downward, so that secretion continues at plasma glucose values that would normally silence it. In the infant of a diabetic mother the fetal islet has additionally been chronically over-stimulated in utero by transplacental maternal glucose. The same downstream chain follows as in genetic disease, but the trigger is self-limited: most cases remit within days to two weeks as the stress resolves.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"role\": \"trigger\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"SLC16A1 (MCT1) promoter gain-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC16A1\"], \"gene_terms\": [{\"label\": \"SLC16A1\", \"id\": \"hgnc:10922\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized seizures from acute neuroglycopenia, frequently the presenting event and a driver of the epilepsy seen in long-term follow-up.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Suppression of Lipolysis and Ketogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the arm that makes hyperinsulinemic hypoglycemia different from every other hypoglycemia. Insulin is anabolic on adipose tissue: it stimulates lipogenesis, blocks hormone-sensitive-lipase-mediated free fatty acid release, and therefore removes the substrate for hepatic beta-oxidation and ketone body synthesis. In any other fasting hypoglycemia the falling glucose would unleash lipolysis and ketogenesis, and the resulting beta-hydroxybutyrate would partially rescue the brain. Here that rescue is disabled by the same hormone that caused the hypoglycemia. The biochemical signature \\u2014 low glucose with simultaneously LOW beta-hydroxybutyrate AND LOW free fatty acids \\u2014 is both the diagnostic fingerprint of the disorder and the reason its neurological toll is so high.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\", \"hepatocyte\"], \"biological_processes\": [\"lipid catabolic process\", \"ketone body biosynthetic process\"], \"role\": \"effector\", \"locations\": [\"adipose tissue\"]}}, {\"id\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A developmental/transcriptional rather than metabolic route. HNF4A and HNF1A are nuclear transcription factors expressed in the beta cell that regulate glucose-dependent insulin secretion. Heterozygous loss of function produces a biphasic phenotype that is diagnostically distinctive: macrosomia with diazoxide-responsive neonatal hyperinsulinism, then maturity-onset diabetes of the young decades later. The mechanism is neither an amino-acid amplifier nor a shifted glucose set-point, which is why it is modelled as its own node.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"HNF4A\", \"HNF1A\"], \"gene_terms\": [{\"label\": \"HNF4A\", \"id\": \"hgnc:5024\"}, {\"label\": \"HNF1A\", \"id\": \"hgnc:11621\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"K-ATP Channel Loss of Function\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With no functional K-ATP channel the beta-cell membrane stays depolarized despite low glucose, voltage-gated calcium channels remain open, cytosolic calcium stays high, and insulin granules are exocytosed continuously.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leucine-driven glutamate oxidation raises ATP/ADP and closes a structurally intact K-ATP channel, converging on the same depolarization-to-exocytosis pathway as channel loss of function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unrestrained glutamate oxidation raises the beta-cell ATP/ADP ratio.\", \"Rising ATP/ADP closes an intact K-ATP channel and depolarizes the membrane.\"]}, {\"source\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained glutamate dehydrogenase activity in liver and kidney generates ammonia, producing the persistent mild hyperammonemia that marks the GLUD1 HI/HA subtype specifically. This edge is deliberately attached only to this node: the other amplifier and channel lesions do not cause hyperammonemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lowered Beta-Cell Glucose Set-Point\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A downward-shifted glucose threshold means the intact K-ATP channel closes, and insulin is released, at plasma glucose values that should silence secretion entirely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both lesions raise ATP/ADP in the presence of an intact K-ATP channel, converging on the same depolarization-to-exocytosis pathway.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Imported pyruvate/lactate or an unopposed proton gradient raises the beta-cell ATP/ADP ratio.\", \"Rising ATP/ADP closes an intact K-ATP channel and depolarizes the membrane.\"]}, {\"source\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional dysregulation of the beta-cell secretory program produces glucose-inappropriate insulin release in the newborn period, typically with an intact and therefore diazoxide-responsive K-ATP channel.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of HNF-dependent transcriptional control of the beta-cell secretory program.\"]}, {\"source\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the lesion the K-ATP channel is homozygously defective, so the clone\u0027s beta cells secrete insulin continuously; the surrounding pancreas remains normal, which is why removing the lesion cures the disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A downward-reset secretion threshold produces the same glucose-inappropriate insulin release as a germline channel or amplifier lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Perinatal hypoxic or metabolic stress lowers the beta-cell glucose threshold for suppressing insulin.\"]}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating insulin drives glucose into muscle, liver and adipose tissue while simultaneously blocking glycogenolysis and gluconeogenesis, so plasma glucose falls and cannot be defended.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Suppression of Lipolysis and Ketogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same insulin signal acts anabolically on adipose tissue, blocking free fatty acid release and hence hepatic ketone body production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin and C-peptide remain inappropriately detectable at the time of hypoglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Large for Gestational Age\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin is a fetal growth factor, so intrauterine hyperinsulinemia produces macrosomia at birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some infants with hyperinsulinism have hypertrophic cardiomyopathy, thought to reflect the same fetal anabolic insulin effect that causes macrosomia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fetal hyperinsulinemia acts as an anabolic growth signal on the myocardium.\"]}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Falling plasma glucose removes the brain\u0027s obligate primary fuel; this arm alone would produce neuroglycopenia, and it is compounded by the parallel loss of ketone fuel.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Hyperinsulinemic Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The defining biochemical state \\u2014 a low plasma glucose with unsuppressed insulin action.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Neonatal Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In most patients the hypoglycemia first manifests during the neonatal period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic glycogen accumulation under sustained insulin action enlarges the liver in some patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Insulin stimulates hepatic glycogen synthesis and blocks glycogenolysis, so glycogen accumulates.\"]}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adrenergic (autonomic) symptoms \\u2014 sweating, pallor, palpitations, jitteriness, hunger \\u2014 are the earliest warning of falling glucose, and are characteristically blunted or absent in neonates and in patients with recurrent hypoglycemia, which is part of why the disorder is missed.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Falling plasma glucose triggers a counter-regulatory adrenergic response.\"]}, {\"source\": \"Suppression of Lipolysis and Ketogenesis\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Removing ketone bodies removes the brain\u0027s only substantial alternative fuel, converting a glucose deficit into an absolute cerebral fuel failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppression of Lipolysis and Ketogenesis\", \"target\": \"Hypoketotic Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The combination of low glucose with inappropriately absent ketones is the biochemical hallmark used to recognise the disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppression of Lipolysis and Ketogenesis\", \"target\": \"Decreased Circulating Free Fatty Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked lipolysis lowers plasma free fatty acids at the time of hypoglycemia \\u2014 the finding that distinguishes hyperinsulinism from fatty acid oxidation defects, where free fatty acids are high but ketones are still low.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Neuroglycopenic Brain Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Simultaneous loss of glucose and ketone substrate produces cerebral energy failure and neuronal injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute cerebral fuel failure manifests as generalized seizures, frequently the presenting event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depressed consciousness is a core neuroglycopenic sign.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor feeding is both an early symptom of neuroglycopenia and, later, a major chronic burden compounded by diazoxide-associated food aversion and tube feeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Profound cerebral fuel failure can progress to coma and death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apnea and respiratory distress can be the presenting neonatal manifestation of neuroglycopenia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neuroglycopenia depresses brainstem respiratory control in the neonate.\"]}, {\"source\": \"Neuroglycopenic Brain Injury\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Permanent hypoglycemic brain injury manifests as developmental delay and cognitive impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroglycopenic Brain Injury\", \"target\": \"Cerebral Palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Permanent motor sequelae including cerebral palsy are among the recognised complications of untreated or late-treated hyperinsulinemic hypoglycemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypoglycemic injury to developing motor pathways and white matter.\"]}, {\"source\": \"Diazoxide\", \"target\": \"K-ATP Channel Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Octreotide and Long-Acting Somatostatin Analogs\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glucagon Rescue and Continuous Glucagon Infusion\", \"target\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Dextrose and High-Rate Carbohydrate Support\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"18F-DOPA PET-Guided Focal Lesionectomy\", \"target\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Near-Total Pancreatectomy\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Genotype-Specific Trigger Avoidance and Dietary Management\", \"target\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ABCC8 (SUR1) loss-of-function variants\", \"target\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCC8 (SUR1) loss-of-function variants\", \"target\": \"K-ATP Channel Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNJ11 (Kir6.2) loss-of-function variants\", \"target\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNJ11 (Kir6.2) loss-of-function variants\", \"target\": \"K-ATP Channel Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLUD1 activating variants\", \"target\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCK activating variants\", \"target\": \"Lowered Beta-Cell Glucose Set-Point\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADH (SCHAD) loss-of-function variants\", \"target\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HNF4A loss-of-function variants\", \"target\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HNF1A loss-of-function variants\", \"target\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC16A1 (MCT1) promoter gain-of-function variants\", \"target\": \"Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HK1 non-coding de-silencing variants\", \"target\": \"Lowered Beta-Cell Glucose Set-Point\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"18F-DOPA PET-Guided Focal Lesionectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The one curative intervention in the disorder. When genetics indicate a single paternally inherited K-ATP variant and 18F-DOPA PET/CT localizes a discrete lesion, a limited resection with intraoperative frozen-section confirmation removes the entire disease. This is why the focal/diffuse distinction is worth the diagnostic effort: the same clinical picture leads either to cure or to a near-total pancreatectomy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ABCC8 (SUR1) loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ABCC8\"], \"gene_terms\": [{\"label\": \"ABCC8\", \"id\": \"hgnc:59\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two lesions that let fuels which should be invisible to the beta cell drive secretion. SLC16A1 (MCT1) is normally silenced in beta cells precisely so that pyruvate and lactate cannot act as secretagogues; dominant promoter variants de-silence it, so monocarboxylates generated during anaerobic exercise enter the cell and trigger insulin release \\u2014 giving hypoglycemia specifically after strenuous exercise. UCP2 normally leaks protons across the inner mitochondrial membrane, damping ATP generation and thereby restraining glucose-stimulated secretion; inactivating variants remove that brake, though the UCP2 association remains disputed.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"SLC16A1\", \"UCP2\"], \"gene_terms\": [{\"label\": \"SLC16A1\", \"id\": \"hgnc:10922\"}, {\"label\": \"UCP2\", \"id\": \"hgnc:12518\"}], \"role\": \"trigger\"}}, {\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Apnea and respiratory compromise as a neonatal neuroglycopenic presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002104\"}}, {\"id\": \"Cerebral Palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Permanent motor disability from hypoglycemic injury to the developing brain.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100021\"}}, {\"id\": \"Coma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coma from profound cerebral fuel failure; death can occur.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001259\"}}, {\"id\": \"Decreased Circulating Free Fatty Acids\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Suppressed plasma free fatty acids during hypoglycemia. Together with suppressed ketones this distinguishes hyperinsulinism from fatty acid oxidation defects, in which free fatty acids are high while ketones are still low.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0040299\"}}, {\"id\": \"Diazoxide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line and the only drug approved for hyperinsulinism, designated a WHO essential medicine. Diazoxide binds SUR1 and holds the K-ATP channel open, hyperpolarizing the beta cell and switching insulin secretion off \\u2014 which means it can only work when a functional channel exists, and characteristically fails in recessive ABCC8/KCNJ11 disease. Dosing is 5-15 (up to 20) mg/kg/day orally, usually with chlorothiazide to counter fluid retention. Safety monitoring matters: fluid retention and cardiac failure are the dose-limiting toxicities, and hypertrichosis, neutropenia, thrombocytopenia, hyperuricemia and pulmonary hypertension are recognised adverse effects \\u2014 an echocardiogram about a week after starting and periodic blood counts are advised. Response is confirmed by a safety fast, not by impression.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"diazoxide\"]}}, {\"id\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The mechanistic keystone of the disorder, and the explicit reason hyperinsulinemic hypoglycemia injures the brain more than other hypoglycemias of equivalent glucose depth. The neonatal and infant brain has a disproportionately high obligate glucose requirement, and its physiological safeguard against a falling glucose is to switch to ketone bodies. In hyperinsulinemic hypoglycemia both fuels fail simultaneously and for the same reason: the excess insulin that lowers glucose also abolishes the ketone supply. Cerebral energy failure therefore begins earlier, deepens faster, and is less forgiving of diagnostic delay than in ketotic hypoglycemias, where a partial ketone rescue buffers the brain. This node is also the therapeutic rationale for the (still experimental) strategy of supplying exogenous beta-hydroxybutyrate, and the rationale for proposals to screen newborns by measuring ketones rather than glucose alone.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"glucose homeostasis\"], \"role\": \"central_effector\", \"locations\": [\"brain\"]}}, {\"id\": \"Dysregulated Beta-Cell Insulin Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent core of the disorder, reached from every etiology above: insulin is secreted at plasma glucose concentrations at which secretion should be fully suppressed. In health serum insulin becomes undetectable once plasma glucose falls below about 3 mmol/L; in hyperinsulinemic hypoglycemia it remains detectable, and it is this failure of suppression \\u2014 rather than an absolute insulin concentration \\u2014 that defines the disease. Everything clinically distinctive about hyperinsulinemic hypoglycemia flows from this single node, because insulin is not merely a glucose-lowering hormone but a simultaneous suppressor of every counter-regulatory fuel pathway.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"insulin secretion\", \"membrane depolarization\"], \"role\": \"central_effector\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Poor feeding, food aversion, impaired suck/swallow and frequent tube dependence. Feeding dysfunction is one of the heaviest chronic burdens in this disorder, driven by the disease, by diazoxide, and by the high-carbohydrate/continuous-feeding regimens used to prevent hypoglycemia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Focal hyperinsulinism is generated by two hits at the same locus. A paternally inherited recessive ABCC8 or KCNJ11 variant (both genes sit at 11p15.1) is clinically silent while the maternal allele is present. In a single pancreatic progenitor a post-zygotic mitotic recombination event replaces the maternal 11p15 region with a second copy of the paternal one (segmental paternal isodisomy), rendering the K-ATP variant homozygous in that clone while parental heterozygosity is preserved everywhere else. The same event leaves the neighbouring 11p15 imprinted domain paternal-only \\u2014 doubling active IGF2 and removing the growth-suppressing maternal H19 and CDKN1C (p57) contributions \\u2014 so the affected clone also proliferates, producing a discrete nodule of hyperfunctional, hypersecreting beta cells embedded in a normal pancreas. Every clinically decisive feature of focal disease follows from this architecture: it is anatomically bounded, so 18F-DOPA PET can localise it and resecting it is curative; and it is sporadic in inheritance terms, because the somatic hit is not transmitted.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"insulin secretion\"], \"genes\": [\"ABCC8\", \"KCNJ11\", \"CDKN1C\"], \"gene_terms\": [{\"label\": \"ABCC8\", \"id\": \"hgnc:59\"}, {\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}, {\"label\": \"CDKN1C\", \"id\": \"hgnc:1786\"}], \"role\": \"trigger\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"GCK activating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GCK\"], \"gene_terms\": [{\"label\": \"GCK\", \"id\": \"hgnc:4195\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"GLUD1 activating variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GLUD1\"], \"gene_terms\": [{\"label\": \"GLUD1\", \"id\": \"hgnc:4335\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Genotype-Specific Trigger Avoidance and Dietary Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Because several subtypes have a specific precipitant, management is partly behavioural and genotype-directed: protein/leucine restriction in GLUD1 and HADH disease, avoidance of anaerobic/strenuous exercise in SLC16A1 disease, and \\u2014 universally \\u2014 avoidance of prolonged fasting, with a written emergency regimen for intercurrent illness.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Global Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay and cognitive impairment from permanent hypoglycemic brain injury; reported in roughly half of probands in a nationwide cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Glucagon Rescue and Continuous Glucagon Infusion\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Glucagon is the counter-regulatory hormone whose action insulin is blocking, so giving it exogenously (0.5-1 mg IM/SC) raises glucose within minutes and is the first-line rescue when intravenous access is unavailable. Continuous subcutaneous infusion is used to reduce dextrose and fluid requirements. Doses above 1 mg can cause rebound hypoglycemia through paradoxical insulin release.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"glucagon\"]}}, {\"id\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The protein/leucine-sensitive arm. Dominant activating GLUD1 variants escape GTP inhibition of glutamate dehydrogenase, and recessive HADH (SCHAD) deficiency removes an inhibitory SCHAD-GDH protein-protein interaction; both leave glutamate dehydrogenase inappropriately active, so leucine-driven glutamate oxidation feeds the TCA cycle, raises the beta-cell ATP/ADP ratio and closes a structurally intact K-ATP channel. This is the only arm that also produces hyperammonemia, because the same unrestrained GDH activity in liver and kidney generates ammonia \\u2014 which is why an elevated plasma ammonia in hyperinsulinemic hypoglycemia is close to specific for the GLUD1 (HI/HA) subtype and not a general feature of the disorder.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"GLUD1\", \"HADH\"], \"gene_terms\": [{\"label\": \"GLUD1\", \"id\": \"hgnc:4335\"}, {\"label\": \"HADH\", \"id\": \"hgnc:4799\"}], \"role\": \"trigger\"}}, {\"id\": \"HADH (SCHAD) loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HADH\"], \"gene_terms\": [{\"label\": \"HADH\", \"id\": \"hgnc:4799\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"HK1 non-coding de-silencing variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HK1\"], \"gene_terms\": [{\"label\": \"HK1\", \"id\": \"hgnc:4922\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HNF1A loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HNF1A\"], \"gene_terms\": [{\"label\": \"HNF1A\", \"id\": \"hgnc:11621\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"HNF4A loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"HNF4A\"], \"gene_terms\": [{\"label\": \"HNF4A\", \"id\": \"hgnc:5024\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Liver enlargement from insulin-driven hepatic glycogen accumulation.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"Hyperammonemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent mild elevation of plasma ammonia, the biochemical marker of the GLUD1 hyperinsulinism-hyperammonemia subtype.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"HI/HA Syndrome\"], \"term_id\": \"HP:0001987\"}}, {\"id\": \"Hyperhidrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sweating with pallor, palpitations and jitteriness \\u2014 the adrenergic counter-regulatory warning signs of falling glucose, characteristically blunted in neonates and in patients with recurrent hypoglycemia.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000975\"}}, {\"id\": \"Hyperinsulinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Inappropriately detectable or frankly elevated plasma insulin and C-peptide measured at the time of documented hypoglycemia. A normal-looking absolute insulin value is still abnormal if glucose is low.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000842\"}}, {\"id\": \"Hyperinsulinemic Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining state: a low plasma glucose with biochemical evidence of unsuppressed insulin action \\u2014 detectable insulin and C-peptide together with suppressed beta-hydroxybutyrate and free fatty acids.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000825\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Myocardial hypertrophy in a minority of patients, attributed to the same fetal anabolic insulin effect that produces macrosomia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001639\"}}, {\"id\": \"Hypoketotic Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoglycemia with inappropriately absent ketone bodies. This is the discriminating laboratory phenotype of the disorder and the mechanistic reason for its neurological severity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001985\"}}, {\"id\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin acts on the two arms of glucose homeostasis at once: it accelerates glucose uptake into muscle, liver and adipose tissue and it shuts down the liver\u0027s ability to release glucose by inhibiting glycogenolysis and gluconeogenesis while stimulating glycogen synthesis. The result is hypoglycemia that cannot be defended endogenously, and that clinically requires glucose infusion rates far above normal \\u2014 a requirement above about 8 mg/kg/min in a neonate is itself close to diagnostic. Hepatic glycogen accumulation from this same signal contributes to the hepatomegaly seen in some patients.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"glucose homeostasis\", \"gluconeogenesis\", \"glycogen catabolic process\"], \"role\": \"effector\", \"locations\": [\"liver\"]}}, {\"id\": \"Intrapartum maternal dextrose infusion\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"High-rate maternal dextrose during labour transiently drives fetal insulin secretion and can produce neonatal hyperinsulinemic hypoglycemia in the hours after delivery.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Intravenous Dextrose and High-Rate Carbohydrate Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The immediate treatment: continuous intravenous dextrose starting at 6-8 mg/kg/min and escalated as required \\u2014 patients may need more than 25 mg/kg/min \\u2014 to hold plasma glucose in the normal range. Chronically this becomes frequent high-calorie carbohydrate feeds, continuous gastric dextrose, and often a gastrostomy because diazoxide-treated children develop food aversion.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"glucose (dextrose)\"]}}, {\"id\": \"K-ATP Channel Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inactivating variants in ABCC8 (SUR1) or KCNJ11 (Kir6.2), the two subunits of the beta-cell ATP-sensitive potassium channel, remove the channel that normally holds the beta-cell membrane hyperpolarized when glucose is low. Because the channel is the switch that couples fuel metabolism to secretion, its loss uncouples insulin release from the glucose signal entirely. This is the single most common molecular cause of hyperinsulinemic hypoglycemia and underlies both diffuse and focal histological disease. It is also why the first-line drug fails in this group: diazoxide works by holding a functional channel open, so a broken channel is pharmacologically unreachable.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"potassium ion transmembrane transport\", \"regulation of insulin secretion\"], \"genes\": [\"ABCC8\", \"KCNJ11\"], \"gene_terms\": [{\"label\": \"ABCC8\", \"id\": \"hgnc:59\"}, {\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}], \"role\": \"trigger\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"KCNJ11 (Kir6.2) loss-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"KCNJ11\"], \"gene_terms\": [{\"label\": \"KCNJ11\", \"id\": \"hgnc:6257\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Large for Gestational Age\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Macrosomia from the growth-factor action of intrauterine hyperinsulinemia. Its absence does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001520\"}}, {\"id\": \"Lethargy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Depressed level of consciousness as a neuroglycopenic manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001254\"}}, {\"id\": \"Lowered Beta-Cell Glucose Set-Point\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The glucose-sensing arm. Glucokinase is the beta cell\u0027s glucose sensor, the step that sets the plasma glucose concentration at which secretion begins. Activating GCK variants (and, rarely, GCK duplication) shift that threshold downward, so the whole homeostatic system defends an inappropriately low glucose rather than failing to switch off. A non-coding HK1 variant that fails to silence hexokinase 1 in the beta cell does the same thing by a different route, installing a low-Km hexokinase that phosphorylates glucose at concentrations far below the normal threshold. Because a reset set-point is not the same as an absent brake, GCK disease can uniquely show a ketotic response on prolonged fasting.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"GCK\", \"HK1\"], \"gene_terms\": [{\"label\": \"GCK\", \"id\": \"hgnc:4195\"}, {\"label\": \"HK1\", \"id\": \"hgnc:4922\"}], \"role\": \"trigger\"}}, {\"id\": \"Maternal diabetes mellitus\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Chronic transplacental glucose exposure over-stimulates the fetal islet, so the infant of a diabetic mother is born with an over-primed insulin-secretory apparatus that continues secreting once the maternal glucose supply is cut at delivery. This is a leading cause of neonatal hyperinsulinemic hypoglycemia overall and is usually transient.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Near-Total Pancreatectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reserved for medically uncontrollable diffuse disease. Removing 90-98% of the pancreas trades one disease for another: hypoglycemia frequently persists, diabetes mellitus becomes highly likely with time, and exocrine insufficiency follows resection above about half the gland. It is a control measure, not a cure, and lifelong HbA1c, fecal elastase and fat-soluble vitamin monitoring follow.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Neonatal Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent hypoglycemia beginning in the neonatal period, characteristically refractory to routine intravenous dextrose and requiring glucose infusion rates well above the normal 4-6 mg/kg/min.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001998\"}}, {\"id\": \"Neuroglycopenic Brain Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent or prolonged dual-fuel deprivation causes permanent injury to the developing brain, with a predilection for the parieto-occipital cortex and white matter. This is the outcome that defines the clinical stakes of the disorder and it is substantially preventable: the international consensus guideline states its own purpose as reducing the prevalence of hypoglycemia-caused brain injury through earlier recognition and treatment. Neurological sequelae were reported in about half of probands in a nationwide cohort, which is a direct measure of how often recognition currently comes too late.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"role\": \"consequence\", \"locations\": [\"brain\"]}}, {\"id\": \"Octreotide and Long-Acting Somatostatin Analogs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Second-line, off-label therapy for diazoxide-unresponsive disease. Octreotide acts through SSTR2/SSTR5 to suppress insulin gene promoter activity, inhibit calcium mobilisation and act on the beta-cell K-ATP channel, all of which reduce insulin secretion. Started at about 5 \\u00b5g/kg/day subcutaneously and titrated; tachyphylaxis after about 48 hours is expected and requires dose adjustment. Patients are often transitioned to monthly lanreotide. Necrotizing enterocolitis in unstable premature infants and biliary sludge are the safety concerns that shape monitoring.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"octreotide\"]}}, {\"id\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In acquired perinatal-stress hyperinsulinism there is no germline lesion. Instead, maternal diabetes, birth asphyxia/hypoxia, intrauterine growth restriction or intrapartum maternal dextrose appear to reset the beta-cell glucose threshold for suppressing insulin downward, so that secretion continues at plasma glucose values that would normally silence it. In the infant of a diabetic mother the fetal islet has additionally been chronically over-stimulated in utero by transplacental maternal glucose. The same downstream chain follows as in genetic disease, but the trigger is self-limited: most cases remit within days to two weeks as the stress resolves.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"role\": \"trigger\", \"locations\": [\"islet of Langerhans\"]}}, {\"id\": \"Perinatal asphyxia and intrauterine growth restriction\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Perinatal hypoxic-ischaemic stress and IUGR appear to reset the beta-cell glucose threshold downward. Most cases resolve within days, but a protracted form requires weeks of diazoxide \\u2014 and, because these infants are already at neurological risk from the asphyxia itself, the added hypoglycemia is particularly damaging.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"Prolonged fasting\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Fasting is the universal precipitant across every etiology of hyperinsulinemic hypoglycemia and is the one exposure that must be actively engineered out of a patient\u0027s life. GeneReviews states in its Agents/Circumstances to Avoid section that prolonged fasting of any sort should be avoided; this drives the frequent-feeding, continuous-dextrose and gastrostomy strategies used in management, and means that any incidental fast (illness, pre-operative starvation) is a hazard requiring a written emergency plan.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"PRESENT\"}}, {\"id\": \"SLC16A1 (MCT1) promoter gain-of-function variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SLC16A1\"], \"gene_terms\": [{\"label\": \"SLC16A1\", \"id\": \"hgnc:10922\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized seizures from acute neuroglycopenia, frequently the presenting event and a driver of the epilepsy seen in long-term follow-up.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Suppression of Lipolysis and Ketogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This is the arm that makes hyperinsulinemic hypoglycemia different from every other hypoglycemia. Insulin is anabolic on adipose tissue: it stimulates lipogenesis, blocks hormone-sensitive-lipase-mediated free fatty acid release, and therefore removes the substrate for hepatic beta-oxidation and ketone body synthesis. In any other fasting hypoglycemia the falling glucose would unleash lipolysis and ketogenesis, and the resulting beta-hydroxybutyrate would partially rescue the brain. Here that rescue is disabled by the same hormone that caused the hypoglycemia. The biochemical signature \\u2014 low glucose with simultaneously LOW beta-hydroxybutyrate AND LOW free fatty acids \\u2014 is both the diagnostic fingerprint of the disorder and the reason its neurological toll is so high.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"adipocyte\", \"hepatocyte\"], \"biological_processes\": [\"lipid catabolic process\", \"ketone body biosynthetic process\"], \"role\": \"effector\", \"locations\": [\"adipose tissue\"]}}, {\"id\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A developmental/transcriptional rather than metabolic route. HNF4A and HNF1A are nuclear transcription factors expressed in the beta cell that regulate glucose-dependent insulin secretion. Heterozygous loss of function produces a biphasic phenotype that is diagnostically distinctive: macrosomia with diazoxide-responsive neonatal hyperinsulinism, then maturity-onset diabetes of the young decades later. The mechanism is neither an amino-acid amplifier nor a shifted glucose set-point, which is why it is modelled as its own node.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"biological_processes\": [\"regulation of insulin secretion\"], \"genes\": [\"HNF4A\", \"HNF1A\"], \"gene_terms\": [{\"label\": \"HNF4A\", \"id\": \"hgnc:5024\"}, {\"label\": \"HNF1A\", \"id\": \"hgnc:11621\"}], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"K-ATP Channel Loss of Function\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With no functional K-ATP channel the beta-cell membrane stays depolarized despite low glucose, voltage-gated calcium channels remain open, cytosolic calcium stays high, and insulin granules are exocytosed continuously.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leucine-driven glutamate oxidation raises ATP/ADP and closes a structurally intact K-ATP channel, converging on the same depolarization-to-exocytosis pathway as channel loss of function.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Unrestrained glutamate oxidation raises the beta-cell ATP/ADP ratio.\", \"Rising ATP/ADP closes an intact K-ATP channel and depolarizes the membrane.\"]}, {\"source\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"target\": \"Hyperammonemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unrestrained glutamate dehydrogenase activity in liver and kidney generates ammonia, producing the persistent mild hyperammonemia that marks the GLUD1 HI/HA subtype specifically. This edge is deliberately attached only to this node: the other amplifier and channel lesions do not cause hyperammonemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lowered Beta-Cell Glucose Set-Point\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A downward-shifted glucose threshold means the intact K-ATP channel closes, and insulin is released, at plasma glucose values that should silence secretion entirely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both lesions raise ATP/ADP in the presence of an intact K-ATP channel, converging on the same depolarization-to-exocytosis pathway.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Imported pyruvate/lactate or an unopposed proton gradient raises the beta-cell ATP/ADP ratio.\", \"Rising ATP/ADP closes an intact K-ATP channel and depolarizes the membrane.\"]}, {\"source\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transcriptional dysregulation of the beta-cell secretory program produces glucose-inappropriate insulin release in the newborn period, typically with an intact and therefore diazoxide-responsive K-ATP channel.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Loss of HNF-dependent transcriptional control of the beta-cell secretory program.\"]}, {\"source\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the lesion the K-ATP channel is homozygously defective, so the clone\u0027s beta cells secrete insulin continuously; the surrounding pancreas remains normal, which is why removing the lesion cures the disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A downward-reset secretion threshold produces the same glucose-inappropriate insulin release as a germline channel or amplifier lesion.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Perinatal hypoxic or metabolic stress lowers the beta-cell glucose threshold for suppressing insulin.\"]}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Circulating insulin drives glucose into muscle, liver and adipose tissue while simultaneously blocking glycogenolysis and gluconeogenesis, so plasma glucose falls and cannot be defended.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Suppression of Lipolysis and Ketogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same insulin signal acts anabolically on adipose tissue, blocking free fatty acid release and hence hepatic ketone body production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Hyperinsulinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin and C-peptide remain inappropriately detectable at the time of hypoglycemia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Large for Gestational Age\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Insulin is a fetal growth factor, so intrauterine hyperinsulinemia produces macrosomia at birth.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated Beta-Cell Insulin Secretion\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Some infants with hyperinsulinism have hypertrophic cardiomyopathy, thought to reflect the same fetal anabolic insulin effect that causes macrosomia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fetal hyperinsulinemia acts as an anabolic growth signal on the myocardium.\"]}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Falling plasma glucose removes the brain\u0027s obligate primary fuel; this arm alone would produce neuroglycopenia, and it is compounded by the parallel loss of ketone fuel.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Hyperinsulinemic Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The defining biochemical state \\u2014 a low plasma glucose with unsuppressed insulin action.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Neonatal Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In most patients the hypoglycemia first manifests during the neonatal period.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic glycogen accumulation under sustained insulin action enlarges the liver in some patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Insulin stimulates hepatic glycogen synthesis and blocks glycogenolysis, so glycogen accumulates.\"]}, {\"source\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"target\": \"Hyperhidrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adrenergic (autonomic) symptoms \\u2014 sweating, pallor, palpitations, jitteriness, hunger \\u2014 are the earliest warning of falling glucose, and are characteristically blunted or absent in neonates and in patients with recurrent hypoglycemia, which is part of why the disorder is missed.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Falling plasma glucose triggers a counter-regulatory adrenergic response.\"]}, {\"source\": \"Suppression of Lipolysis and Ketogenesis\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Removing ketone bodies removes the brain\u0027s only substantial alternative fuel, converting a glucose deficit into an absolute cerebral fuel failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppression of Lipolysis and Ketogenesis\", \"target\": \"Hypoketotic Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The combination of low glucose with inappropriately absent ketones is the biochemical hallmark used to recognise the disorder.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Suppression of Lipolysis and Ketogenesis\", \"target\": \"Decreased Circulating Free Fatty Acids\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked lipolysis lowers plasma free fatty acids at the time of hypoglycemia \\u2014 the finding that distinguishes hyperinsulinism from fatty acid oxidation defects, where free fatty acids are high but ketones are still low.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Neuroglycopenic Brain Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Simultaneous loss of glucose and ketone substrate produces cerebral energy failure and neuronal injury.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Acute cerebral fuel failure manifests as generalized seizures, frequently the presenting event.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Lethargy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depressed consciousness is a core neuroglycopenic sign.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Poor feeding is both an early symptom of neuroglycopenia and, later, a major chronic burden compounded by diazoxide-associated food aversion and tube feeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Coma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Profound cerebral fuel failure can progress to coma and death.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Apnea and respiratory distress can be the presenting neonatal manifestation of neuroglycopenia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neuroglycopenia depresses brainstem respiratory control in the neonate.\"]}, {\"source\": \"Neuroglycopenic Brain Injury\", \"target\": \"Global Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Permanent hypoglycemic brain injury manifests as developmental delay and cognitive impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroglycopenic Brain Injury\", \"target\": \"Cerebral Palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Permanent motor sequelae including cerebral palsy are among the recognised complications of untreated or late-treated hyperinsulinemic hypoglycemia.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Hypoglycemic injury to developing motor pathways and white matter.\"]}, {\"source\": \"Maternal diabetes mellitus\", \"target\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"This node holds the acquired form of the disorder in which there is no germline lesion, and it names maternal diabetes in its own text as one of the stresses that resets the beta-cell threshold downward. Recorded as direct because the transplacental glucose load acts on the fetal islet itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Perinatal asphyxia and intrauterine growth restriction\", \"target\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Named at this node alongside maternal diabetes and graded identically to it. The cited sentence carries a little more than a listing: it reports that these infants can have a severe and protracted form requiring diazoxide, which is a statement about the beta-cell state this node describes rather than only about risk.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intrapartum maternal dextrose infusion\", \"target\": \"Perinatal Stress Lowering of the Beta-Cell Glucose Threshold\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The third of the perinatal stresses named at this node, and the most clearly iatrogenic of them. Graded with the other two, since all three appear in the same risk-factor sentence and act by the same route of driving fetal insulin secretion before delivery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Prolonged fasting\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"exacerbates\", \"is_orphan\": false, \"description\": \"Fasting does not cause the secretory defect; it converts a defect that is always present into clinical harm, which is why this is the one exposure in this entry recorded as exacerbating rather than triggering. The intervening step is the suppression of both glucose output and ketogenesis that this entry models explicitly. The evidence runs in the opposite direction, reporting that frequent feeding reduces episodes, and it stops at hypoglycaemic episodes rather than reaching the brain substrate deprivation at this node, so it is graded partial on both counts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Diazoxide\", \"target\": \"K-ATP Channel Loss of Function\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Octreotide and Long-Acting Somatostatin Analogs\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Glucagon Rescue and Continuous Glucagon Infusion\", \"target\": \"Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intravenous Dextrose and High-Rate Carbohydrate Support\", \"target\": \"Dual Glucose and Ketone Substrate Deprivation of the Brain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"18F-DOPA PET-Guided Focal Lesionectomy\", \"target\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Near-Total Pancreatectomy\", \"target\": \"Dysregulated Beta-Cell Insulin Secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Genotype-Specific Trigger Avoidance and Dietary Management\", \"target\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"ABCC8 (SUR1) loss-of-function variants\", \"target\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ABCC8 (SUR1) loss-of-function variants\", \"target\": \"K-ATP Channel Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNJ11 (Kir6.2) loss-of-function variants\", \"target\": \"Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"KCNJ11 (Kir6.2) loss-of-function variants\", \"target\": \"K-ATP Channel Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLUD1 activating variants\", \"target\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GCK activating variants\", \"target\": \"Lowered Beta-Cell Glucose Set-Point\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HADH (SCHAD) loss-of-function variants\", \"target\": \"Glutamate Dehydrogenase Amino-Acid Amplifier Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HNF4A loss-of-function variants\", \"target\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HNF1A loss-of-function variants\", \"target\": \"Transcription Factor Dysregulation of the Beta-Cell Secretory Program\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SLC16A1 (MCT1) promoter gain-of-function variants\", \"target\": \"Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HK1 non-coding de-silencing variants\", \"target\": \"Lowered Beta-Cell Glucose Set-Point\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7684,7 +8014,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrophic-cardiomyopathy" data-dismech-node="Hypertrophic Cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertrophic Cardiomyopathy
 
@@ -7754,7 +8084,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding Difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
                         Feeding Difficulties
 
@@ -7813,7 +8143,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatomegaly
 
@@ -7883,7 +8213,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperinsulinemia" data-dismech-node="Hyperinsulinemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperinsulinemia
 
@@ -7951,7 +8281,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperhidrosis" data-dismech-node="Hyperhidrosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperhidrosis
 
@@ -8019,7 +8349,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoketotic-hypoglycemia" data-dismech-node="Hypoketotic Hypoglycemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoketotic Hypoglycemia
 
@@ -8080,7 +8410,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperammonemia" data-dismech-node="Hyperammonemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperammonemia
 
@@ -8148,7 +8478,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
@@ -8207,7 +8537,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lethargy" data-dismech-node="Lethargy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Lethargy
 
@@ -8266,7 +8596,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coma" data-dismech-node="Coma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coma
 
@@ -8325,7 +8655,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Developmental Delay
 
@@ -8395,7 +8725,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-apnea" data-dismech-node="Apnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Apnea
 
@@ -8463,7 +8793,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-large-for-gestational-age" data-dismech-node="Large for Gestational Age" data-dismech-type="phenotype">
                     <div class="item-name">
                         Large for Gestational Age
 
@@ -8531,7 +8861,7 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperinsulinemic-hypoglycemia" data-dismech-node="Hyperinsulinemic Hypoglycemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperinsulinemic Hypoglycemia
 
@@ -8610,7 +8940,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-circulating-free-fatty-acids" data-dismech-node="Decreased Circulating Free Fatty Acids" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased Circulating Free Fatty Acids
 
@@ -8669,7 +8999,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-hypoglycemia" data-dismech-node="Neonatal Hypoglycemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neonatal Hypoglycemia
 
@@ -8730,7 +9060,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-palsy" data-dismech-node="Cerebral Palsy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral Palsy
 
@@ -8828,7 +9158,7 @@
                 <span class="card-count">10</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-abcc8-sur1-loss-of-function-variants" data-dismech-node="ABCC8 (SUR1) loss-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
                     ABCC8 (SUR1) loss-of-function variants
 
@@ -8913,9 +9243,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-kcnj11-kir6-2-loss-of-function-variants" data-dismech-node="KCNJ11 (Kir6.2) loss-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
                     KCNJ11 (Kir6.2) loss-of-function variants
 
@@ -9000,9 +9331,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-glud1-activating-variants" data-dismech-node="GLUD1 activating variants" data-dismech-type="genetic">
                 <div class="item-name">
                     GLUD1 activating variants
 
@@ -9065,9 +9397,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gck-activating-variants" data-dismech-node="GCK activating variants" data-dismech-type="genetic">
                 <div class="item-name">
                     GCK activating variants
 
@@ -9152,9 +9485,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hadh-schad-loss-of-function-variants" data-dismech-node="HADH (SCHAD) loss-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
                     HADH (SCHAD) loss-of-function variants
 
@@ -9217,9 +9551,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hnf4a-loss-of-function-variants" data-dismech-node="HNF4A loss-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
                     HNF4A loss-of-function variants
 
@@ -9304,9 +9639,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hnf1a-loss-of-function-variants" data-dismech-node="HNF1A loss-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
                     HNF1A loss-of-function variants
 
@@ -9391,9 +9727,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-slc16a1-mct1-promoter-gain-of-function-variants" data-dismech-node="SLC16A1 (MCT1) promoter gain-of-function variants" data-dismech-type="genetic">
                 <div class="item-name">
                     SLC16A1 (MCT1) promoter gain-of-function variants
 
@@ -9456,9 +9793,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ucp2-inactivating-variants" data-dismech-node="UCP2 inactivating variants" data-dismech-type="genetic">
                 <div class="item-name">
                     UCP2 inactivating variants
 
@@ -9521,9 +9859,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hk1-non-coding-de-silencing-variants" data-dismech-node="HK1 non-coding de-silencing variants" data-dismech-type="genetic">
                 <div class="item-name">
                     HK1 non-coding de-silencing variants
 
@@ -9610,9 +9949,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -9624,7 +9967,7 @@
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-diazoxide" data-dismech-node="Diazoxide" data-dismech-type="treatment">
                 <div class="item-name">
                     Diazoxide
                 </div>
@@ -9812,7 +10155,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-octreotide-and-long-acting-somatostatin-analogs" data-dismech-node="Octreotide and Long-Acting Somatostatin Analogs" data-dismech-type="treatment">
                 <div class="item-name">
                     Octreotide and Long-Acting Somatostatin Analogs
                 </div>
@@ -9978,7 +10321,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-glucagon-rescue-and-continuous-glucagon-infusion" data-dismech-node="Glucagon Rescue and Continuous Glucagon Infusion" data-dismech-type="treatment">
                 <div class="item-name">
                     Glucagon Rescue and Continuous Glucagon Infusion
                 </div>
@@ -10144,7 +10487,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-intravenous-dextrose-and-high-rate-carbohydrate-support" data-dismech-node="Intravenous Dextrose and High-Rate Carbohydrate Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Intravenous Dextrose and High-Rate Carbohydrate Support
                 </div>
@@ -10310,7 +10653,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-18f-dopa-pet-guided-focal-lesionectomy" data-dismech-node="18F-DOPA PET-Guided Focal Lesionectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     18F-DOPA PET-Guided Focal Lesionectomy
                 </div>
@@ -10460,7 +10803,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-near-total-pancreatectomy" data-dismech-node="Near-Total Pancreatectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Near-Total Pancreatectomy
                 </div>
@@ -10588,7 +10931,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nifedipine-not-recommended-for-routine-use" data-dismech-node="Nifedipine (not recommended for routine use)" data-dismech-type="treatment">
                 <div class="item-name">
                     Nifedipine (not recommended for routine use)
                 </div>
@@ -10704,7 +11047,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-sirolimus-not-recommended-outside-research-protocols" data-dismech-node="Sirolimus (not recommended outside research protocols)" data-dismech-type="treatment">
                 <div class="item-name">
                     Sirolimus (not recommended outside research protocols)
                 </div>
@@ -10820,7 +11163,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genotype-specific-trigger-avoidance-and-dietary-management" data-dismech-node="Genotype-Specific Trigger Avoidance and Dietary Management" data-dismech-type="treatment">
                 <div class="item-name">
                     Genotype-Specific Trigger Avoidance and Dietary Management
                 </div>
@@ -10982,7 +11325,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-maternal-diabetes-mellitus" data-dismech-node="Maternal diabetes mellitus" data-dismech-type="environmental">
                 <div class="item-name">Maternal diabetes mellitus</div>
 
 
@@ -11024,9 +11367,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Perinatal Stress Lowering of the Beta-Cell Glucose Threshold</strong>
+
+                        <span style="color: #0d9488;"> &mdash; This node holds the acquired form of the disorder in which there is no germline lesion, and it names maternal diabetes in its own text as one of the stresses that resets the beta-cell threshold downward. Recorded as direct because the transplacental glucose load acts on the fetal islet itself.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29280746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29280746" target="_blank">PMID:29280746</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HH can be transient due to certain risk factors, such as birth asphyxia, intra-uterine growth retardation, maternal diabetes mellitus"</div>
+
+
+                <div class="evidence-explanation">Names maternal diabetes among the risk factors for the transient form, which is the acquired perinatal-stress route this node describes rather than a genetic one.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-perinatal-asphyxia-and-intrauterine-growth-restriction" data-dismech-node="Perinatal asphyxia and intrauterine growth restriction" data-dismech-type="environmental">
                 <div class="item-name">Perinatal asphyxia and intrauterine growth restriction</div>
 
 
@@ -11068,9 +11464,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Perinatal Stress Lowering of the Beta-Cell Glucose Threshold</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Named at this node alongside maternal diabetes and graded identically to it. The cited sentence carries a little more than a listing: it reports that these infants can have a severe and protracted form requiring diazoxide, which is a statement about the beta-cell state this node describes rather than only about risk.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29280746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29280746" target="_blank">PMID:29280746</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Some newborns with IUGR and asphyxia have a severe and protracted form of HH which requires treatment with diazoxide"</div>
+
+
+                <div class="evidence-explanation">Reports a severe and protracted form of the disorder in newborns with growth restriction and asphyxia, requiring diazoxide. Severity and drug requirement speak to the secretory state this node holds.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-intrapartum-maternal-dextrose-infusion" data-dismech-node="Intrapartum maternal dextrose infusion" data-dismech-type="environmental">
                 <div class="item-name">Intrapartum maternal dextrose infusion</div>
 
 
@@ -11112,9 +11561,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Perinatal Stress Lowering of the Beta-Cell Glucose Threshold</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The third of the perinatal stresses named at this node, and the most clearly iatrogenic of them. Graded with the other two, since all three appear in the same risk-factor sentence and act by the same route of driving fetal insulin secretion before delivery.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29280746" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29280746" target="_blank">PMID:29280746</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the use of intravenous dextrose given during labour"</div>
+
+
+                <div class="evidence-explanation">Names intravenous dextrose given during labour among the risk factors for the transient form.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-prolonged-fasting" data-dismech-node="Prolonged fasting" data-dismech-type="environmental">
                 <div class="item-name">Prolonged fasting</div>
 
 
@@ -11158,6 +11660,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            EXACERBATES
+                        </span>
+
+                        <strong style="color: #115e59;">Dual Glucose and Ketone Substrate Deprivation of the Brain</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Fasting does not cause the secretory defect; it converts a defect that is always present into clinical harm, which is why this is the one exposure in this entry recorded as exacerbating rather than triggering. The intervening step is the suppression of both glucose output and ketogenesis that this entry models explicitly. The evidence runs in the opposite direction, reporting that frequent feeding reduces episodes, and it stops at hypoglycaemic episodes rather than reaching the brain substrate deprivation at this node, so it is graded partial on both counts.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29280746" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29280746" target="_blank">PMID:29280746</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Frequent feeding with high calorie carbohydrate feeds may reduce the frequency and severity of hypoglycaemic episodes."</div>
+
+
+                <div class="evidence-explanation">Frequent high-calorie carbohydrate feeding reduces the frequency and severity of hypoglycaemic episodes. Removing the exposure improves the outcome, which is the strongest design available here, but it measures episodes rather than this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -11172,7 +11727,7 @@
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-beta-hydroxybutyrate-at-the-time-of-hypoglycemia" data-dismech-node="Plasma beta-hydroxybutyrate at the time of hypoglycemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Plasma beta-hydroxybutyrate at the time of hypoglycemia
 
@@ -11308,7 +11863,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-free-fatty-acids-at-the-time-of-hypoglycemia" data-dismech-node="Plasma free fatty acids at the time of hypoglycemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Plasma free fatty acids at the time of hypoglycemia
 
@@ -11454,7 +12009,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-insulin-and-c-peptide-at-the-time-of-hypoglycemia" data-dismech-node="Plasma insulin and C-peptide at the time of hypoglycemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Plasma insulin and C-peptide at the time of hypoglycemia
 
@@ -11523,7 +12078,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-plasma-ammonia" data-dismech-node="Plasma ammonia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Plasma ammonia
 
@@ -11570,7 +12125,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-glycemic-response-to-glucagon-during-hypoglycemia" data-dismech-node="Glycemic response to glucagon during hypoglycemia" data-dismech-type="biochemical">
                 <div class="item-name">
                     Glycemic response to glucagon during hypoglycemia
 
@@ -12360,6 +12915,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -14691,6 +15249,26 @@ genetic:
       does not itself specify that the variant is noncoding, so support is partial.
 environmental:
 - name: Maternal diabetes mellitus
+  influences_mechanisms:
+  - target: Perinatal Stress Lowering of the Beta-Cell Glucose Threshold
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      This node holds the acquired form of the disorder in which there is no
+      germline lesion, and it names maternal diabetes in its own text as one
+      of the stresses that resets the beta-cell threshold downward. Recorded
+      as direct because the transplacental glucose load acts on the fetal
+      islet itself.
+    evidence:
+    - reference: PMID:29280746
+      reference_title: &#34;Congenital Hyperinsulinism: Diagnosis and Treatment Update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;HH can be transient due to certain risk factors, such as birth asphyxia, intra-uterine growth retardation, maternal diabetes mellitus&#34;
+      explanation: &gt;-
+        Names maternal diabetes among the risk factors for the transient form,
+        which is the acquired perinatal-stress route this node describes
+        rather than a genetic one.
   description: &gt;-
     Chronic transplacental glucose exposure over-stimulates the fetal islet, so
     the infant of a diabetic mother is born with an over-primed insulin-secretory
@@ -14707,6 +15285,26 @@ environmental:
     snippet: &#34;HH can be transient due to certain risk factors, such as birth asphyxia, intra-uterine growth retardation, maternal diabetes mellitus&#34;
     explanation: Names maternal diabetes among the risk factors for transient hyperinsulinemic hypoglycemia.
 - name: Perinatal asphyxia and intrauterine growth restriction
+  influences_mechanisms:
+  - target: Perinatal Stress Lowering of the Beta-Cell Glucose Threshold
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Named at this node alongside maternal diabetes and graded identically to
+      it. The cited sentence carries a little more than a listing: it reports
+      that these infants can have a severe and protracted form requiring
+      diazoxide, which is a statement about the beta-cell state this node
+      describes rather than only about risk.
+    evidence:
+    - reference: PMID:29280746
+      reference_title: &#34;Congenital Hyperinsulinism: Diagnosis and Treatment Update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Some newborns with IUGR and asphyxia have a severe and protracted form of HH which requires treatment with diazoxide&#34;
+      explanation: &gt;-
+        Reports a severe and protracted form of the disorder in newborns with
+        growth restriction and asphyxia, requiring diazoxide. Severity and
+        drug requirement speak to the secretory state this node holds.
   description: &gt;-
     Perinatal hypoxic-ischaemic stress and IUGR appear to reset the beta-cell
     glucose threshold downward. Most cases resolve within days, but a protracted
@@ -14723,6 +15321,24 @@ environmental:
     snippet: &#34;Some newborns with IUGR and asphyxia have a severe and protracted form of HH which requires treatment with diazoxide&#34;
     explanation: Documents IUGR and asphyxia as triggers of severe, protracted hyperinsulinism.
 - name: Intrapartum maternal dextrose infusion
+  influences_mechanisms:
+  - target: Perinatal Stress Lowering of the Beta-Cell Glucose Threshold
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The third of the perinatal stresses named at this node, and the most
+      clearly iatrogenic of them. Graded with the other two, since all three
+      appear in the same risk-factor sentence and act by the same route of
+      driving fetal insulin secretion before delivery.
+    evidence:
+    - reference: PMID:29280746
+      reference_title: &#34;Congenital Hyperinsulinism: Diagnosis and Treatment Update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;the use of intravenous dextrose given during labour&#34;
+      explanation: &gt;-
+        Names intravenous dextrose given during labour among the risk factors
+        for the transient form.
   description: &gt;-
     High-rate maternal dextrose during labour transiently drives fetal insulin
     secretion and can produce neonatal hyperinsulinemic hypoglycemia in the hours
@@ -14737,6 +15353,31 @@ environmental:
     snippet: &#34;the use of intravenous dextrose given during labour&#34;
     explanation: Names intrapartum intravenous dextrose among the transient-HH risk factors.
 - name: Prolonged fasting
+  influences_mechanisms:
+  - target: Dual Glucose and Ketone Substrate Deprivation of the Brain
+    environmental_effect: EXACERBATES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Fasting does not cause the secretory defect; it converts a defect that
+      is always present into clinical harm, which is why this is the one
+      exposure in this entry recorded as exacerbating rather than triggering.
+      The intervening step is the suppression of both glucose output and
+      ketogenesis that this entry models explicitly. The evidence runs in the
+      opposite direction, reporting that frequent feeding reduces episodes,
+      and it stops at hypoglycaemic episodes rather than reaching the brain
+      substrate deprivation at this node, so it is graded partial on both
+      counts.
+    evidence:
+    - reference: PMID:29280746
+      reference_title: &#34;Congenital Hyperinsulinism: Diagnosis and Treatment Update.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Frequent feeding with high calorie carbohydrate feeds may reduce the frequency and severity of hypoglycaemic episodes.&#34;
+      explanation: &gt;-
+        Frequent high-calorie carbohydrate feeding reduces the frequency and
+        severity of hypoglycaemic episodes. Removing the exposure improves the
+        outcome, which is the strongest design available here, but it measures
+        episodes rather than this node.
   description: &gt;-
     Fasting is the universal precipitant across every etiology of hyperinsulinemic
     hypoglycemia and is the one exposure that must be actively engineered out of a
@@ -15899,7 +16540,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hyperinsulinemic Hypoglycemia", "mondoId": "MONDO:0005803", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyperinsulinemic_Hypoglycemia", "yamlRevision": "0a454564663b"};
+        const OS_CONFIG = {"diseaseName": "Hyperinsulinemic Hypoglycemia", "mondoId": "MONDO:0005803", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hyperinsulinemic_Hypoglycemia", "yamlRevision": "cbf687c52e8b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

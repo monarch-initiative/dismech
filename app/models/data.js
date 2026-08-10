@@ -510,6 +510,49 @@ window.searchData = [
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
+    "model_key": "Atrial_Fibrillation--computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model--0",
+    "name": "Courtemanche-Ramirez-Nattel human atrial action-potential model",
+    "description": "Ionic-current kinetic model of the human atrial cardiomyocyte action potential used to examine rate adaptation and ion-current contributions to AF susceptibility. It models cellular electrophysiology, not whole-patient natural history or treatment outcomes.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "Courtemanche-1998-human-atrial-AP",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:9688927",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Atrial Fibrillation",
+    "disease_id": "MONDO:0004981",
+    "category": "Complex",
+    "parents": [
+      "Cardiovascular Disease",
+      "Cardiac Arrhythmia"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Atrial Electrical Remodeling"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:9688927"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Atrial_Fibrillation.html#computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model",
+    "source_file": "kb/disorders/Atrial_Fibrillation.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-deep-learning-fa-core-complex-structure--3",
     "name": "Deep Learning FA Core Complex Structure",
     "description": "Integration of deep-learned residue distance predictions with Rosetta folding and automated cryo-EM map-guided assembly to determine the near-complete atomic structure of the Fanconi Anemia core complex (FAcc) E3 ubiquitin ligase from a 4.6 angstrom resolution cryo-EM map. Placed 5182 of 6557 residues, greatly expanding the structural model and enabling interpretation of disease-related mutations.",
@@ -2084,8 +2127,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 43,
-  "total_source_entries": 16,
+  "total_models": 44,
+  "total_source_entries": 17,
   "total_model_types": 7,
   "total_runnable": 4,
   "total_with_repository": 20

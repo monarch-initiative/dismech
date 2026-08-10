@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Alveolar%20capillary%20dysplasia%20with%20misalignment%20of%20pulmonary%20veins"
@@ -3370,7 +3599,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Alveolar capillary dysplasia with misalignment of pulmonary veins (ACDMPV) is a lethal congenital lung developmental disorder caused by loss of the mesenchymal transcription factor FOXF1 or of its distant upstream lung enhancer. The alveolar capillary bed fails to form and appose itself to the alveolar epithelium, and pulmonary veins run misplaced alongside the arteries in the bronchovascular bundle rather than in the interlobular septa. Term infants present within hours to days with refractory hypoxaemia and suprasystemic pulmonary hypertension. Two features make it unusual among Mendelian disorders: the causal lesion is very often a deletion of a non-coding enhancer rather than of the gene itself, and the pathogenic events are overwhelmingly de novo on the maternally inherited chromosome, implicating genomic imprinting.
+                Alveolar capillary dysplasia with misalignment of pulmonary veins (ACDMPV) is a lethal congenital lung developmental disorder caused by loss of the mesenchymal transcription factor FOXF1 or of its distant upstream lung enhancer. The alveolar capillary bed fails to form and appose itself to the alveolar epithelium, and pulmonary veins run misplaced alongside the arteries in the bronchovascular bundle rather than in the interlobular septa. Term infants present within hours to days with refractory hypoxaemia and severe pulmonary hypertension. Two features make it unusual among Mendelian disorders: many causal lesions are deletions of a non-coding enhancer rather than of the gene itself. Enhancer deletions show a strong maternal-chromosome bias, but current evidence supports parent-specific enhancer activity rather than simple silencing of the entire paternal FOXF1 locus.
             </p>
 
         </header>
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3482,7 +3713,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3491,7 +3722,7 @@
             <a class="stat-link" href="#histopathology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">✶</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">Histopath.</div>
             </div>
             </a>
@@ -3500,17 +3731,25 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3519,7 +3758,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3534,10 +3773,11 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3560,7 +3800,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3607,7 +3847,7 @@
 
                 </div>
 
-                <div class="item-desc">ACDMPV results from heterozygous point mutations or deletion copy-number variants at the FOXF1 locus, so inheritance is formally autosomal dominant, but essentially all cases are de novo and parental transmission is exceptional given the lethality.</div>
+                <div class="item-desc">ACDMPV results from heterozygous FOXF1 sequence variants or deletion copy-number variants affecting FOXF1 or its distant enhancer, so inheritance is formally autosomal dominant. Most affected children have a de novo lesion, although parental transmission from an unaffected or mosaic parent and familial recurrence are documented.</div>
 
 
 
@@ -3622,12 +3862,12 @@
 
 
 
-        <span class="tag tag-classification">De novo rate: Essentially all reported cases are de novo</span>
+        <span class="tag tag-classification">De novo rate: All 31 parentally resolved pathogenic 16q24.1 deletions in the cited cohort were de novo; this estimate does not apply to every FOXF1 sequence variant.</span>
 
     </div>
 
 
-    <div class="item-desc"><strong>Parent-of-origin effect:</strong> Maternal-allele bias from imprinting of the FOXF1 locus in lung: 30 of 31 parentally resolved pathogenic 16q24.1 deletions arose on the maternally inherited chromosome 16. Four families with pathogenic paternal-chromosome lesions are known, so the imprint is not absolute.</div>
+    <div class="item-desc"><strong>Parent-of-origin effect:</strong> Thirty of 31 parentally resolved pathogenic 16q24.1 deletions arose on the maternally inherited chromosome 16. This strongly supports parent-specific regulation of the distant enhancer, but it does not establish complete paternal-allele silencing: pathogenic paternal-chromosome lesions occur, FOXF1 is transcribed from both alleles, and enhancer methylation studies do not support a simple whole-locus imprinting model.</div>
 
 
 
@@ -3678,6 +3918,150 @@
 
         <!-- Mechanistic Hypotheses -->
 
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-parent-specific-foxf1-enhancer-activity">
+                <div class="item-name">Parent-Specific FOXF1 Enhancer Activity</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">parent_specific_foxf1_enhancer_activity</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-EMERGING">EMERGING</span>
+
+
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">1 support</span>
+
+                    <span class="evidence-support support-PARTIAL">1 partial</span>
+
+                    <span class="evidence-support support-REFUTE">1 refute</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">The marked maternal-chromosome bias of pathogenic enhancer deletions is best treated as evidence for parent-specific functional asymmetry within the bipartite lung enhancer, not as proof that the paternal FOXF1 allele is globally silenced. Unit 1 may be more active on paternal chromosome 16 and Unit 2 on maternal chromosome 16; the molecular basis, developmental window, and penetrance of this asymmetry remain unresolved.</div>
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-parent-specific-foxf1-enhancer-activity">Parent-Specific FOXF1 Enhancer Activity</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-loss-of-mesenchymal-foxf1-transcriptional-output">Loss of Mesenchymal FOXF1 Transcriptional Output</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+                            <span class="crosslink-desc">Parent-specific enhancer activity may explain why otherwise similar deletions have different consequences depending on parental chromosome.</span>
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"all 31 genomic deletions in 16q24.1, pathogenic for ACDMPV, for which parental origin was determined, arose de novo with 30 of them occurring on the maternally inherited chromosome 16, strongly implicating genomic imprinting of the FOXF1 locus in human lungs"</div>
+
+
+                <div class="evidence-explanation">Establishes the parent-of-origin skew that motivated the hypothesis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34325731" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34325731" target="_blank">PMID:34325731</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FOXF1 seems to be similarly transcribed from both alleles, which opposes imprinting of the FOXF1 transcription region itself"</div>
+
+
+                <div class="evidence-explanation">Refutes the simple model of whole-locus or complete paternal-allele silencing while leaving enhancer-specific asymmetry possible.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37865798" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37865798" target="_blank">PMID:37865798</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recently, we proposed bimodal structure and parental functional dimorphism of the lung-specific FOXF1 enhancer, with Unit 1 having higher activity on the paternal chr16 and Unit 2 on the maternal chr16."</div>
+
+
+                <div class="evidence-explanation">Provides a more specific, testable parent-dependent enhancer model, but does not establish complete allelic silencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
 
@@ -3685,11 +4069,11 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_acdmpv_imprinting_mechanism">
-                <div class="item-name">What silences the paternal FOXF1 allele in human lung, and why do a minority of pathogenic lesions on the paternal chromosome still cause ACDMPV?</div>
+                <div class="item-name">What molecular mechanism creates parent-specific activity across the two FOXF1 enhancer units, and how does it vary by lung cell type and developmental stage?</div>
                 <div class="item-meta">
 
                     <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
@@ -3709,7 +4093,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#pathophysiology-genomic-imprinting-of-the-foxf1-locus">pathophysiology#Genomic Imprinting of the FOXF1 Locus</a>
+    <a class="entity-ref-chip" href="#pathophysiology-parent-specific-foxf1-enhancer-activity">pathophysiology#Parent-Specific FOXF1 Enhancer Activity</a>
 
 
 
@@ -3717,7 +4101,7 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">Thirty of thirty-one parentally resolved deletions arose on the maternal chromosome, which is a strong imprinting signal, yet four families carry pathogenic paternal-chromosome lesions. So the paternal allele is neither fully silenced nor fully active. The imprinting control element, the tissue and developmental window over which it operates, and what determines escape are all unresolved. This matters practically because it governs recurrence counselling and the interpretation of an apparently benign paternal deletion found incidentally.</div>
+                <div class="item-desc" style="margin-top: 10px;">Thirty of thirty-one parentally resolved deletions arose on the maternal chromosome, yet paternal-chromosome pathogenic lesions occur and FOXF1 is transcribed from both alleles. Methylation data exclude a simple maternal enhancer-imprinting model, while later work proposes a bipartite enhancer with opposing parent-specific activity. Resolving the mechanism matters for recurrence counselling and interpretation of inherited enhancer variants.</div>
 
 
                 <div class="experiment-section">
@@ -3736,7 +4120,7 @@
 
         </div>
 
-        <div class="item-desc" style="margin-top: 8px;">Perform allele-specific expression and methylation profiling across the 16q24.1 locus in human fetal lung at successive gestational ages, in parallel with the same measurements in intestine and heart, to map where and when the imprint is established and whether escape correlates with lesion position relative to the enhancer.</div>
+        <div class="item-desc" style="margin-top: 8px;">Perform allele-specific expression and methylation profiling across the 16q24.1 locus in human fetal lung at successive gestational ages, in parallel with the same measurements in intestine and heart, to map where and when enhancer-unit asymmetry is established and whether effect size correlates with deletion position.</div>
 
 
 
@@ -3746,7 +4130,7 @@
 
         <div class="experiment-section">
             <div class="experiment-section-title">Decision criterion</div>
-            <div class="experiment-decision">A developmental window or lesion-position dependence that separates the four paternal cases from the maternal majority would define the escape condition.</div>
+            <div class="experiment-decision">Reproducible parent-specific expression and chromatin activity that maps separately to enhancer Units 1 and 2 would support functional dimorphism.</div>
         </div>
 
 
@@ -3758,7 +4142,7 @@
 
 
 
-    <span class="entity-ref-chip">Paternal silencing is partial and window-dependent, so paternal lesions cause disease when they remove enhancer sequence needed by both alleles</span>
+    <span class="entity-ref-chip">Parent-specific enhancer-unit activity is cell-type- and developmental-stage-dependent</span>
 
 
 
@@ -3775,7 +4159,7 @@
 
 
 
-    <span class="entity-ref-chip">Paternal silencing is uniform, implicating a second modifier locus in the escape cases</span>
+    <span class="entity-ref-chip">Both enhancer units have equivalent activity on maternal and paternal chromosomes</span>
 
 
 
@@ -3798,6 +4182,60 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34325731" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34325731" target="_blank">PMID:34325731</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"FOXF1 seems to be similarly transcribed from both alleles, which opposes imprinting of the FOXF1 transcription region itself"</div>
+
+
+                <div class="evidence-explanation">Shows why complete paternal-locus silencing is not an adequate model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37865798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37865798" target="_blank">PMID:37865798</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recently, we proposed bimodal structure and parental functional dimorphism of the lung-specific FOXF1 enhancer, with Unit 1 having higher activity on the paternal chr16 and Unit 2 on the maternal chr16."</div>
+
+
+                <div class="evidence-explanation">Defines the more specific emerging model that future experiments need to test.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
             </div>
@@ -3923,6 +4361,196 @@
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="gap_acdmpv_direction_of_angiogenic_therapy">
+                <div class="item-name">Should experimental therapy restore capillary angiogenesis through STAT3, or suppress maladaptive intussusceptive angiogenesis and TIE2 signalling?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_acdmpv_direction_of_angiogenic_therapy</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-failed-pulmonary-microvascular-angiogenesis">pathophysiology#Failed Pulmonary Microvascular Angiogenesis</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">STAT3 delivery restored endothelial proliferation and stimulated lung angiogenesis in one Foxf1 S52F neonatal mouse model. Human ACD lung tissue, however, shows abundant intussusceptive angiogenesis with increased CXCR4, HIF1A and angiopoietin signalling and has prompted the opposite therapeutic proposal—anti-angiogenic intervention. These findings may reflect different vessel compartments, disease stages or productive versus nonproductive angiogenesis; treating them as interchangeable would be unsafe.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Compartment-resolved comparison of pro- and anti-angiogenic intervention</div>
+
+            </div>
+
+            <div class="experiment-id">exp_acdmpv_compartment_resolved_angiogenic_rescue</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Compare STAT3 restoration with selective CXCR4 or TIE2 modulation in patient-derived vascular organoids and Foxf1 S52F mice, separating alveolar capillary endothelial cells, systemic bronchial endothelium and intussusceptive pillars over developmental time.</div>
+
+
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">A useful intervention must increase correctly apposed alveolar capillaries and gas exchange without expanding dysfunctional bronchial or intussusceptive vessels.</div>
+        </div>
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">Productive capillary differentiation, rather than total angiogenic activity, is the therapeutic target</span>
+
+
+
+        </div>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would refute</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">Total angiogenic activity alone predicts restoration of gas exchange</span>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31199666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199666" target="_blank">PMID:31199666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"nanoparticle delivery of STAT3 cDNA into the neonatal circulation restored endothelial proliferation and stimulated lung angiogenesis in Foxf1WT/S52F mice."</div>
+
+
+                <div class="evidence-explanation">Supports pro-angiogenic rescue in a specific neonatal knock-in model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35649494" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35649494" target="_blank">PMID:35649494</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ACD is characterized by dysfunctional capillaries and a high prevalence of intussusceptive angiogenesis."</div>
+
+
+                <div class="evidence-explanation">Human tissue shows that abundant angiogenic activity can coexist with a dysfunctional capillary network, complicating simple pro-angiogenic rescue.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35649494" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35649494" target="_blank">PMID:35649494</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Future studies should address the use of anti-angiogenic agents in ACD, where TIE2 appears as a promising target."</div>
+
+
+                <div class="evidence-explanation">Directly supports the anti-angiogenic/TIE2 arm as a proposal for future study, not an established treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -3932,7 +4560,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">10</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-foxf1-coding-or-upstream-enhancer-lesion" data-dismech-node="FOXF1 Coding or Upstream Enhancer Lesion" data-dismech-type="pathophysiology">
@@ -4043,11 +4671,22 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-imprinting-of-the-foxf1-locus" data-dismech-node="Genomic Imprinting of the FOXF1 Locus" data-dismech-type="pathophysiology">
-                <div class="item-name">Genomic Imprinting of the FOXF1 Locus</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-parent-specific-foxf1-enhancer-activity" data-dismech-node="Parent-Specific FOXF1 Enhancer Activity" data-dismech-type="pathophysiology">
+                <div class="item-name">Parent-Specific FOXF1 Enhancer Activity</div>
 
-                <div class="item-desc">A striking parent-of-origin effect: of 31 pathogenic 16q24.1 deletions with determined parental origin, all arose de novo and 30 were on the maternally inherited chromosome 16. The paternal allele appears to be silenced in human lung, so only a maternally inherited hit removes the expressed copy. A small number of paternal-chromosome cases exist, so the imprint is not absolute. This also explains why maternal uniparental disomy 16 shares key phenotypic features.</div>
+                <div class="item-desc">Pathogenic deletions of the distant enhancer show a strong bias toward the maternally inherited chromosome. The current model assigns different activity to two enhancer units on the maternal and paternal chromosomes; this is more nuanced than whole-locus imprinting because FOXF1 is transcribed from both alleles and paternal-chromosome pathogenic lesions occur.</div>
 
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-parent-specific-foxf1-enhancer-activity">Parent-Specific FOXF1 Enhancer Activity</a>
+
+                    </span>
+
+                </div>
 
 
 
@@ -4068,18 +4707,21 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">FOXF1 Coding or Upstream Enhancer Lesion</span>
-
-	                            <span class="crosslink-desc">The imprint gates the lesion rather than following from it: silencing of the paternal allele in lung is what makes a maternally inherited hit sufficient to cause disease.</span>
-
-
-	                        </div>
-
-	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Loss of Mesenchymal FOXF1 Transcriptional Output</span>
 
-	                            <span class="crosslink-desc">A maternally inherited lesion removes the transcriptionally active copy in lung.</span>
+	                            <span class="crosslink-desc">Parent-specific enhancer activity may explain why otherwise similar deletions have different consequences depending on parental chromosome.</span>
 
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-parent-specific-foxf1-enhancer-activity">Parent-Specific FOXF1 Enhancer Activity</a>
+
+                                    </span>
+
+                                </span>
 
 	                        </div>
 
@@ -4090,7 +4732,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -4138,6 +4780,30 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:34325731" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34325731" target="_blank">PMID:34325731</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DNA methylation analyses in the FOXF1 locus excludes maternal imprinting of the 60 kb FOXF1 enhancer."</div>
+
+
+                <div class="evidence-explanation">Rules out one simple enhancer-imprinting model and requires a more qualified parent-specific regulatory interpretation.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -4161,6 +4827,31 @@
 
 
     <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        pericyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000669">CL:0000669</a>
 
 
 
@@ -4254,7 +4945,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4297,6 +4988,28 @@
 
 
                 <div class="evidence-explanation">Identifies VEGF signalling in endothelium as the transcriptional output through which FOXF1 builds the vasculature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37463497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37463497" target="_blank">PMID:37463497</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Distinct cell-autonomous roles for FOXF1 in capillary ECs and pericytes were identified."</div>
+
+
+                <div class="evidence-explanation">Human-lung single-cell multiomics localizes FOXF1-dependent dysfunction to capillary endothelial cells and pericytes.</div>
 
 
 
@@ -4396,6 +5109,14 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Expansion of Systemic Bronchial Endothelium</span>
+
+	                            <span class="crosslink-desc">Loss of the pulmonary microvasculature is accompanied by expansion of a COL15A1-expressing systemic bronchial endothelial population and increased VEGFA signalling, although the intermediates and functional consequence remain unresolved.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Impaired Alveolar Gas Exchange</span>
 
 	                            <span class="crosslink-desc">A capillary bed that is sparse and not apposed to alveolar epithelium cannot support gas exchange.</span>
@@ -4418,7 +5139,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4461,6 +5182,114 @@
 
 
                 <div class="evidence-explanation">Establishes a knock-in model carrying an actual patient allele rather than a generic null.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37463497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37463497" target="_blank">PMID:37463497</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic variants involving the FOXF1 gene locus disrupt gene expression in EC progenitors, inhibiting the differentiation or survival of capillary 2 ECs and cell-cell interactions necessary for both pulmonary vasculogenesis and alveolar type 1 cell differentiation."</div>
+
+
+                <div class="evidence-explanation">Human-lung single-cell evidence connects FOXF1 insufficiency to loss of a capillary endothelial lineage and impaired alveolar epithelial maturation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-expansion-of-systemic-bronchial-endothelium" data-dismech-node="Expansion of Systemic Bronchial Endothelium" data-dismech-type="pathophysiology">
+                <div class="item-name">Expansion of Systemic Bronchial Endothelium</div>
+
+                <div class="item-desc">Human single-cell lung data show marked expansion of systemic bronchial endothelial cells expressing COL15A1 alongside increased VEGFA signalling. This may be a compensatory or maladaptive response to loss of the alveolar microvasculature; its direction and contribution to disease are unresolved.</div>
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-cell">
+                        endothelial cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+
+
+
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37463497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37463497" target="_blank">PMID:37463497</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of the pulmonary microvasculature was associated with increased VEGFA (vascular endothelial growth factor A) signaling and marked expansion of systemic bronchial ECs expressing COL15A1 (collagen type XV α 1 chain)."</div>
+
+
+                <div class="evidence-explanation">Direct human single-cell evidence for the expanded bronchial endothelial population and its association with microvascular loss.</div>
 
 
 
@@ -4634,9 +5463,9 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Suprasystemic Pulmonary Arterial Hypertension</span>
+	                            <span class="crosslink-meta">Severe Refractory Pulmonary Arterial Hypertension</span>
 
-	                            <span class="crosslink-desc">Raised resistance across an absent distal bed drives pulmonary artery pressure above systemic.</span>
+	                            <span class="crosslink-desc">Raised resistance across a markedly reduced distal bed drives severe, treatment-refractory pulmonary arterial hypertension.</span>
 
 
 	                        </div>
@@ -4681,12 +5510,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-suprasystemic-pulmonary-arterial-hypertension" data-dismech-node="Suprasystemic Pulmonary Arterial Hypertension" data-dismech-type="pathophysiology">
-                <div class="item-name">Suprasystemic Pulmonary Arterial Hypertension</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-refractory-pulmonary-arterial-hypertension" data-dismech-node="Severe Refractory Pulmonary Arterial Hypertension" data-dismech-type="pathophysiology">
+                <div class="item-name">Severe Refractory Pulmonary Arterial Hypertension</div>
 
-                <div class="item-desc">Severe, typically suprasystemic pulmonary arterial hypertension with right-to-left shunting, presenting within hours to days of birth in a term infant and characteristically refractory to inhaled nitric oxide and other pulmonary vasodilators, because the problem is a missing vascular bed rather than a constricted one.</div>
-
-
+                <div class="item-desc">Severe pulmonary arterial hypertension presenting within hours to days of birth in a term infant and characteristically refractory to pulmonary vasodilators. The reduced capillary bed provides a structural explanation for why vasodilation cannot normalize the pulmonary circulation.</div>
 
 
 
@@ -4695,38 +5522,79 @@
 
 
 
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        cardiac muscle hypertrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Right Ventricular Pressure Overload and Hypertrophy</span>
+
+	                            <span class="crosslink-desc">Severe pulmonary arterial hypertension increases right ventricular afterload and drives compensatory hypertrophy.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
                     </span>
 
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-
-    <span class="tag tag-modifier">
-        ↑ INCREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
+
+                <div class="evidence-snippet">"Affected newborns typically present with severe respiratory failure and refractory pulmonary hypertension within a few hours after birth and die in the first month of life."</div>
+
+
+                <div class="evidence-explanation">Directly supports the severity, refractoriness and typical timing without asserting an unquoted suprasystemic pressure measurement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-ventricular-pressure-overload-and-hypertrophy" data-dismech-node="Right Ventricular Pressure Overload and Hypertrophy" data-dismech-type="pathophysiology">
+                <div class="item-name">Right Ventricular Pressure Overload and Hypertrophy</div>
+
+                <div class="item-desc">Pulmonary arterial hypertension raises right ventricular afterload, leading to compensatory right ventricular hypertrophy.</div>
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4742,23 +5610,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30058937" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:29540357" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30058937" target="_blank">PMID:30058937</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29540357" target="_blank">PMID:29540357</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The vast majority succumb to hypoxemic respiratory failure within days to weeks after presentation despite receiving supportive care including extracorporeal membrane oxygenation"</div>
+                <div class="evidence-snippet">"Obstructive pulmonary vascular remodeling in PAH increases right ventricular afterload causing right ventricular hypertrophy."</div>
 
 
-                <div class="evidence-explanation">Human outcome data showing that maximal supportive care, including ECMO, does not overcome the physiology.</div>
+                <div class="evidence-explanation">General PAH evidence supplies the conserved pressure-overload consequence downstream of ACDMPV pulmonary arterial hypertension.</div>
 
 
 
@@ -4780,7 +5648,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
                 <h2 class="card-title">Histopathology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">4</span>
             </div>
 
             <div class="item-box histopathology-box">
@@ -4940,6 +5808,51 @@
 
             </div>
 
+            <div class="item-box histopathology-box">
+                <div class="item-name">
+                    Aberrant intrapulmonary arteriovenous vessels
+
+                </div>
+
+                <div class="item-desc">Marked aberrant arteriovenous vessels within the lung are reported in cases with atypical clinical presentations. This finding is distinct from the focal-versus-diffuse distribution of classic ACDMPV lesions.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32949727" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32949727" target="_blank">PMID:32949727</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Marked intrapulmonary aberrant arteriovenous vessels were present in all atypical cases."</div>
+
+
+                <div class="evidence-explanation">Directly documents the vascular finding in the clinically atypical subgroup without conflating it with patchy histologic distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -4962,7 +5875,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"FOXF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal lesion is either a heterozygous point mutation in FOXF1 itself or, frequently, a deletion of the distant upstream enhancer region at 16q24.1 that contains the fetal lung-expressed long non-coding RNA genes LINC01081 and LINC01082. The enhancer route is what makes exome-only testing an incomplete strategy here: the coding sequence can be entirely normal while the gene is functionally silenced in lung.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}]}}, {\"id\": \"Failed Pulmonary Microvascular Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alveolar capillary bed fails to form in adequate density and, critically, fails to appose itself to the alveolar epithelium. FOXF1 acts through STAT3 to drive neonatal lung angiogenesis, and a knock-in mouse carrying the human S52F FOXF1 mutation recapitulates the histopathology, establishing that a single patient allele is sufficient.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Genomic Imprinting of the FOXF1 Locus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A striking parent-of-origin effect: of 31 pathogenic 16q24.1 deletions with determined parental origin, all arose de novo and 30 were on the maternally inherited chromosome 16. The paternal allele appears to be silenced in human lung, so only a maternally inherited hit removes the expressed copy. A small number of paternal-chromosome cases exist, so the imprint is not absolute. This also explains why maternal uniparental disomy 16 shares key phenotypic features.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Impaired Alveolar Gas Exchange\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the capillaries are neither numerous enough nor close enough to the alveolar epithelium, the diffusion barrier is effectively unusable. This produces the refractory hypoxaemia that does not respond to ventilation or oxygen, and is the reason ACDMPV is fatal without transplant.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Pulmonary Vascular Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACDMPV enters the conserved pulmonary hypertension pathway at this node rather than at its usual trigger. In the module, raised resistance follows obstructive remodeling of a vascular bed that formed normally and then degenerated; in ACDMPV the distal bed was never built, so the substitution is developmental absence in place of acquired obstruction, with muscularized arterioles compounding it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXF1 is expressed in lung mesenchyme and endothelium and drives the angiogenic programme that builds the pulmonary microvasculature. Mouse haploinsufficiency reproduces alveolar capillary dysplasia together with intestinal and gall bladder maldevelopment, matching the extrapulmonary anomalies seen in patients.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"endothelial cell\"], \"molecular_functions\": [\"DNA-binding transcription factor activity\"]}}, {\"id\": \"Lung transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention that alters survival. Everything else is supportive, and the pulmonary hypertension is characteristically refractory to vasodilator therapy because the vascular bed is absent rather than constricted.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Misalignment of Pulmonary Veins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The eponymous and diagnostically decisive lesion: pulmonary veins run anomalously within the bronchovascular bundle alongside the arteries, instead of in the interlobular septa where they belong. It is a patterning failure of the same mesenchymal programme, and it is what a pathologist looks for to confirm the diagnosis on lung biopsy or at autopsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nanoparticle STAT3 delivery (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Not a current therapy. Because FOXF1 drives neonatal lung angiogenesis through STAT3, nanoparticle delivery of STAT3 has been proposed as a strategy for the subset of ACDMPV with reduced STAT3 signalling. This is preclinical and mechanism-directed rather than supportive, which is what makes it notable in a disease whose only other option is transplant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Suprasystemic Pulmonary Arterial Hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe, typically suprasystemic pulmonary arterial hypertension with right-to-left shunting, presenting within hours to days of birth in a term infant and characteristically refractory to inhaled nitric oxide and other pulmonary vasodilators, because the problem is a missing vascular bed rather than a constricted one.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cardiac muscle hypertrophy\"]}}], \"edges\": [{\"source\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Either lesion class reduces FOXF1 protein available to drive its transcriptional programme in lung mesenchyme.\"}, {\"source\": \"Genomic Imprinting of the FOXF1 Locus\", \"target\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The imprint gates the lesion rather than following from it: silencing of the paternal allele in lung is what makes a maternally inherited hit sufficient to cause disease.\"}, {\"source\": \"Genomic Imprinting of the FOXF1 Locus\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A maternally inherited lesion removes the transcriptionally active copy in lung.\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the FOXF1-driven angiogenic programme prevents formation of the alveolar capillary network.\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Misalignment of Pulmonary Veins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same mesenchymal patterning programme positions the pulmonary veins, so its loss misplaces them into the bronchovascular bundle.\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A capillary bed that is sparse and not apposed to alveolar epithelium cannot support gas exchange.\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An absent distal capillary bed and abnormally muscularized arterioles raise resistance across the pulmonary circulation.\"}, {\"source\": \"Increased Pulmonary Vascular Resistance\", \"target\": \"Suprasystemic Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised resistance across an absent distal bed drives pulmonary artery pressure above systemic.\"}, {\"source\": \"Lung transplantation\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nanoparticle STAT3 delivery (investigational)\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXF1\", \"target\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Expansion of Systemic Bronchial Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human single-cell lung data show marked expansion of systemic bronchial endothelial cells expressing COL15A1 alongside increased VEGFA signalling. This may be a compensatory or maladaptive response to loss of the alveolar microvasculature; its direction and contribution to disease are unresolved.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell\"]}}, {\"id\": \"FOXF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}], \"association\": \"Pathogenic Variants\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The causal lesion is either a heterozygous point mutation in FOXF1 itself or, frequently, a deletion of the distant upstream enhancer region at 16q24.1 that contains the fetal lung-expressed long non-coding RNA genes LINC01081 and LINC01082. The enhancer route is what makes exome-only testing an incomplete strategy here: the coding sequence can be entirely normal while the gene is functionally silenced in lung.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FOXF1\"], \"gene_terms\": [{\"label\": \"FOXF1\", \"id\": \"hgnc:3809\"}]}}, {\"id\": \"Failed Pulmonary Microvascular Angiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The alveolar capillary bed fails to form in adequate density and, critically, fails to appose itself to the alveolar epithelium. FOXF1 acts through STAT3 to drive neonatal lung angiogenesis, and a knock-in mouse carrying the human S52F FOXF1 mutation recapitulates the histopathology, establishing that a single patient allele is sufficient.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\"], \"biological_processes\": [\"angiogenesis\"]}}, {\"id\": \"Impaired Alveolar Gas Exchange\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the capillaries are neither numerous enough nor close enough to the alveolar epithelium, the diffusion barrier is effectively unusable. This produces the refractory hypoxaemia that does not respond to ventilation or oxygen, and is the reason ACDMPV is fatal without transplant.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Increased Pulmonary Vascular Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ACDMPV enters the conserved pulmonary hypertension pathway at this node rather than at its usual trigger. In the module, raised resistance follows obstructive remodeling of a vascular bed that formed normally and then degenerated; in ACDMPV the distal bed was never built, so the substitution is developmental absence in place of acquired obstruction, with muscularized arterioles compounding it.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FOXF1 is expressed in lung mesenchyme and endothelium and drives the angiogenic programme that builds the pulmonary microvasculature. Mouse haploinsufficiency reproduces alveolar capillary dysplasia together with intestinal and gall bladder maldevelopment, matching the extrapulmonary anomalies seen in patients.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endothelial cell\", \"pericyte\"], \"molecular_functions\": [\"DNA-binding transcription factor activity\"]}}, {\"id\": \"Lung transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only disease-modifying intervention with published long-term survival, and an option only for selected infants\\u2014principally those with an atypical, slower course who can reach transplantation. Vasodilators and ECMO remain supportive or bridging measures rather than repairs of the malformed lung.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Misalignment of Pulmonary Veins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The eponymous and diagnostically decisive lesion: pulmonary veins run anomalously within the bronchovascular bundle alongside the arteries, instead of in the interlobular septa where they belong. It is a patterning failure of the same mesenchymal programme, and it is what a pathologist looks for to confirm the diagnosis on lung biopsy or at autopsy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nanoparticle STAT3 delivery (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Not a current therapy. Because FOXF1 drives neonatal lung angiogenesis through STAT3, nanoparticle delivery of STAT3 has been proposed as a strategy for the subset of ACDMPV with reduced STAT3 signalling. This is preclinical and mechanism-directed rather than supportive, which is what makes it notable in a disease whose only other option is transplant.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Parent-Specific FOXF1 Enhancer Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic deletions of the distant enhancer show a strong bias toward the maternally inherited chromosome. The current model assigns different activity to two enhancer units on the maternal and paternal chromosomes; this is more nuanced than whole-locus imprinting because FOXF1 is transcribed from both alleles and paternal-chromosome pathogenic lesions occur.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Right Ventricular Pressure Overload and Hypertrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary arterial hypertension raises right ventricular afterload, leading to compensatory right ventricular hypertrophy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe pulmonary arterial hypertension presenting within hours to days of birth in a term infant and characteristically refractory to pulmonary vasodilators. The reduced capillary bed provides a structural explanation for why vasodilation cannot normalize the pulmonary circulation.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical ventilation, inhaled nitric oxide and other pulmonary vasodilators can transiently stabilize oxygenation, while ECMO may provide short-term rescue or a bridge to transplantation. These measures do not correct the malformed capillary bed, and most infants with classic ACDMPV cannot be weaned from escalating support.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Either lesion class reduces FOXF1 protein available to drive its transcriptional programme in lung mesenchyme.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Parent-Specific FOXF1 Enhancer Activity\", \"target\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Parent-specific enhancer activity may explain why otherwise similar deletions have different consequences depending on parental chromosome.\", \"hypothesis_groups\": [\"parent_specific_foxf1_enhancer_activity\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the FOXF1-driven angiogenic programme prevents formation of the alveolar capillary network.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Mesenchymal FOXF1 Transcriptional Output\", \"target\": \"Misalignment of Pulmonary Veins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same mesenchymal patterning programme positions the pulmonary veins, so its loss misplaces them into the bronchovascular bundle.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Expansion of Systemic Bronchial Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the pulmonary microvasculature is accompanied by expansion of a COL15A1-expressing systemic bronchial endothelial population and increased VEGFA signalling, although the intermediates and functional consequence remain unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A capillary bed that is sparse and not apposed to alveolar epithelium cannot support gas exchange.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Pulmonary Microvascular Angiogenesis\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An absent distal capillary bed and abnormally muscularized arterioles raise resistance across the pulmonary circulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Pulmonary Vascular Resistance\", \"target\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Raised resistance across a markedly reduced distal bed drives severe, treatment-refractory pulmonary arterial hypertension.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Refractory Pulmonary Arterial Hypertension\", \"target\": \"Right Ventricular Pressure Overload and Hypertrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe pulmonary arterial hypertension increases right ventricular afterload and drives compensatory hypertrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung transplantation\", \"target\": \"Impaired Alveolar Gas Exchange\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nanoparticle STAT3 delivery (investigational)\", \"target\": \"Failed Pulmonary Microvascular Angiogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FOXF1\", \"target\": \"FOXF1 Coding or Upstream Enhancer Lesion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4975,7 +5888,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
 
@@ -4987,7 +5900,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5000,7 +5913,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary arterial hypertension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary arterial hypertension
 
@@ -5025,7 +5938,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5051,6 +5964,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Affected newborns typically present with severe respiratory failure and refractory pulmonary hypertension within a few hours after birth and die in the first month of life."</div>
+
+
+                <div class="evidence-explanation">Author wording &#34;typically&#34; maps to VERY_FREQUENT under the DisMech qualitative frequency guidelines; no quantitative whole-disease estimate is asserted.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5070,7 +6005,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-malrotation" data-dismech-node="Intestinal malrotation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intestinal malrotation
 
@@ -5097,23 +6032,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30058937" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30058937" target="_blank">PMID:30058937</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"These malformations predominantly affect the gastrointestinal tract, but also affect the cardiovascular and urogenital system."</div>
+                <div class="evidence-snippet">"multiple congenital malformations, including pulmonary hypoplasia, heart defects, tracheoesophageal fistula, gut malrotation, absent gall bladder, renal agenesis, hydronephrosis, imperforate anus, and single umbilical artery (SUA), seen in the vast majority of children with ACDMPV"</div>
 
 
-                <div class="evidence-explanation">Human cohort evidence that associated malformations are predominantly gastrointestinal; the specific malrotation phenotype is not named directly, hence PARTIAL.</div>
+                <div class="evidence-explanation">Explicitly lists gut malrotation among reported human ACDMPV malformations.</div>
 
 
 
@@ -5138,7 +6073,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-distress" data-dismech-node="Neonatal respiratory distress" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neonatal respiratory distress
 
@@ -5163,7 +6098,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5211,6 +6146,28 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Affected newborns typically present with severe respiratory failure and refractory pulmonary hypertension within a few hours after birth and die in the first month of life."</div>
+
+
+                <div class="evidence-explanation">Author wording &#34;typically&#34; maps severe neonatal respiratory failure to VERY_FREQUENT under the DisMech qualitative frequency guidelines; no quantitative whole-disease estimate is asserted.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -5227,14 +6184,12 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-left-ventricle" data-dismech-node="Hypoplastic left ventricle" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypoplastic left ventricle
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -5259,13 +6214,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5291,11 +6246,9 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-single-umbilical-artery" data-dismech-node="Single umbilical artery" data-dismech-type="phenotype">
                     <div class="item-name">
                         Single umbilical artery
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
                     <span class="phenotype-id">
@@ -5352,6 +6305,65 @@
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hydronephrosis" data-dismech-node="Hydronephrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hydronephrosis
+
+
+                    <span class="phenotype-id">
+                        Hydronephrosis
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000126" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000126">HP:0000126</a>
+
+
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"multiple congenital malformations, including pulmonary hypoplasia, heart defects, tracheoesophageal fistula, gut malrotation, absent gall bladder, renal agenesis, hydronephrosis, imperforate anus, and single umbilical artery (SUA), seen in the vast majority of children with ACDMPV"</div>
+
+
+                <div class="evidence-explanation">Explicitly identifies hydronephrosis in the human extrapulmonary malformation spectrum; the collective frequency does not quantify this individual phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <script>
@@ -5391,7 +6403,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-foxf1" data-dismech-node="FOXF1" data-dismech-type="genetic">
                 <div class="item-name">
                     FOXF1
 
@@ -5427,23 +6439,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25091710" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:27071622" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25091710" target="_blank">PMID:25091710</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27071622" target="_blank">PMID:27071622</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Inactivating mutations in the Forkhead Box transcription factor F1 (FOXF1) gene locus are frequently found in patients with alveolar capillary dysplasia with misalignment of pulmonary veins"</div>
+                <div class="evidence-snippet">"Heterozygous point mutations in FOXF1 (OMIM 601089) and genomic deletion copy-number variants (CNVs) at chromosomal region 16q24.1 including FOXF1 or its upstream regulatory region have been identified in the vast majority of patients with ACDMPV"</div>
 
 
-                <div class="evidence-explanation">Establishes FOXF1 locus inactivation as the recurrent cause of ACDMPV. Tagged OTHER because this is the framing sentence of a mouse study rather than a human result reported by it.</div>
+                <div class="evidence-explanation">Human genetic evidence establishes FOXF1 sequence variants and locus deletions as the recurrent cause of ACDMPV.</div>
 
 
 
@@ -5454,9 +6466,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-esrp1" data-dismech-node="ESRP1" data-dismech-type="genetic">
                 <div class="item-name">
                     ESRP1
 
@@ -5508,7 +6521,154 @@
                 <div class="evidence-snippet">"in one family, WES revealed a de novo missense variant in ESRP1, potentially implicating FGF signaling in the etiology of ACDMPV"</div>
 
 
-                <div class="evidence-explanation">The authors themselves frame this as a single-family, potential implication, so the association is recorded as partial and disputed.</div>
+                <div class="evidence-explanation">The authors themselves frame this as a single-family, potential implication, so the association is recorded as partial and unknown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+
+        <!-- Medical actions -->
+
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Medical Actions</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-cardiorespiratory-care-pulmonary-vasodilators-and-ecmo" data-dismech-node="Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO" data-dismech-type="treatment">
+                <div class="item-name">
+                    Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <span class="tag tag-treatment">supportive care</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15747" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15747">NCIT:C15747</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Mechanical ventilation, inhaled nitric oxide and other pulmonary vasodilators can transiently stabilize oxygenation, while ECMO may provide short-term rescue or a bridge to transplantation. These measures do not correct the malformed capillary bed, and most infants with classic ACDMPV cannot be weaned from escalating support.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+                        <strong style="color: #5b21b6;">Increased Pulmonary Vascular Resistance</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Pulmonary vasodilators can temporarily reduce vascular resistance but do not replace the missing distal capillary bed.</span>
+
+
+
+
+                    </div>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            BYPASSES
+                        </span>
+                        <strong style="color: #5b21b6;">Impaired Alveolar Gas Exchange</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; ECMO temporarily provides extracorporeal oxygenation while diagnosis or transplant candidacy is established.</span>
+
+
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30058937" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30058937" target="_blank">PMID:30058937</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the short term, this can improve the saturation levels, but literature shows that the dosage needs to be increased repeatedly and that eventually the severe hypoxemia will be fatal."</div>
+
+
+                <div class="evidence-explanation">Establishes that vasodilator benefit is temporary rather than disease-modifying.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30058937" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30058937" target="_blank">PMID:30058937</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ECMO therapy can provide an excellent bridge to lung transplantation in ACD/MPV patients with a mild phenotype."</div>
+
+
+                <div class="evidence-explanation">Supports the restricted bridging role of ECMO in selected patients.</div>
 
 
 
@@ -5521,19 +6681,7 @@
 
             </div>
 
-        </div>
-
-
-        <!-- Medical actions -->
-
-        <div class="card" id="treatments">
-            <div class="card-header">
-                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
-                <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">2</span>
-            </div>
-
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lung-transplantation" data-dismech-node="Lung transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Lung transplantation
                 </div>
@@ -5569,7 +6717,7 @@
 
 
 
-                <div class="item-desc">The only intervention that alters survival. Everything else is supportive, and the pulmonary hypertension is characteristically refractory to vasodilator therapy because the vascular bed is absent rather than constricted.</div>
+                <div class="item-desc">The only disease-modifying intervention with published long-term survival, and an option only for selected infants—principally those with an atypical, slower course who can reach transplantation. Vasodilators and ECMO remain supportive or bridging measures rather than repairs of the malformed lung.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -5577,7 +6725,7 @@
 
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            INHIBITS
+                            BYPASSES
                         </span>
                         <strong style="color: #5b21b6;">Impaired Alveolar Gas Exchange</strong>
 
@@ -5600,23 +6748,23 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31199666" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:29198536" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199666" target="_blank">PMID:31199666</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29198536" target="_blank">PMID:29198536</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"There are no effective treatments for ACDMPV other than lung transplant, and new therapeutic approaches are urgently needed."</div>
+                <div class="evidence-snippet">"Three transplanted children are alive at 5-16 years of age, similar to outcomes for infants transplanted for other indications."</div>
 
 
-                <div class="evidence-explanation">Establishes transplant as the only effective treatment. Tagged OTHER because this is the framing sentence of a mouse study rather than a clinical result reported by it.</div>
+                <div class="evidence-explanation">Directly documents durable post-transplant survival in selected infants with atypical ACDMPV.</div>
 
 
 
@@ -5629,20 +6777,20 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nanoparticle-stat3-delivery-investigational" data-dismech-node="Nanoparticle STAT3 delivery (investigational)" data-dismech-type="treatment">
                 <div class="item-name">
                     Nanoparticle STAT3 delivery (investigational)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">therapeutic procedure</span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Procedure</span>
+                    <span class="tag tag-treatment">gene therapy</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C49236" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C49236">NCIT:C49236</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
 
 
 
@@ -5673,7 +6821,7 @@
 
                     <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
-                            ACTIVATES
+                            RESTORES
                         </span>
                         <strong style="color: #5b21b6;">Failed Pulmonary Microvascular Angiogenesis</strong>
 
@@ -5751,12 +6899,11 @@
             <div class="item-box differential-box">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Idiopathic pulmonary arterial hypertension</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Idiopathic_Pulmonary_Arterial_Hypertension.html">Idiopathic pulmonary arterial hypertension</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0001999" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0001999" target="_blank">
                             MONDO:0001999
                         </a>
                     </span>
@@ -5856,11 +7003,12 @@ description: &gt;-
   alveolar capillary bed fails to form and appose itself to the alveolar
   epithelium, and pulmonary veins run misplaced alongside the arteries in the
   bronchovascular bundle rather than in the interlobular septa. Term infants
-  present within hours to days with refractory hypoxaemia and suprasystemic
+  present within hours to days with refractory hypoxaemia and severe
   pulmonary hypertension. Two features make it unusual among Mendelian disorders:
-  the causal lesion is very often a deletion of a non-coding enhancer rather than
-  of the gene itself, and the pathogenic events are overwhelmingly de novo on the
-  maternally inherited chromosome, implicating genomic imprinting.
+  many causal lesions are deletions of a non-coding enhancer rather than of the
+  gene itself. Enhancer deletions show a strong maternal-chromosome bias, but
+  current evidence supports parent-specific enhancer activity rather than simple
+  silencing of the entire paternal FOXF1 locus.
 category: Mendelian
 parents:
 - congenital lung disorder
@@ -5878,21 +7026,26 @@ disease_term:
 inheritance:
 - name: Autosomal dominant inheritance
   description: &gt;-
-    ACDMPV results from heterozygous point mutations or deletion copy-number
-    variants at the FOXF1 locus, so inheritance is formally autosomal dominant,
-    but essentially all cases are de novo and parental transmission is
-    exceptional given the lethality.
+    ACDMPV results from heterozygous FOXF1 sequence variants or deletion
+    copy-number variants affecting FOXF1 or its distant enhancer, so inheritance
+    is formally autosomal dominant. Most affected children have a de novo lesion,
+    although parental transmission from an unaffected or mosaic parent and
+    familial recurrence are documented.
   inheritance_term:
     preferred_term: Autosomal dominant inheritance
     term:
       id: HP:0000006
       label: Autosomal dominant inheritance
-  de_novo_rate: &#34;Essentially all reported cases are de novo&#34;
+  de_novo_rate: &gt;-
+    All 31 parentally resolved pathogenic 16q24.1 deletions in the cited cohort
+    were de novo; this estimate does not apply to every FOXF1 sequence variant.
   parent_of_origin_effect: &gt;-
-    Maternal-allele bias from imprinting of the FOXF1 locus in lung: 30 of 31
-    parentally resolved pathogenic 16q24.1 deletions arose on the maternally
-    inherited chromosome 16. Four families with pathogenic paternal-chromosome
-    lesions are known, so the imprint is not absolute.
+    Thirty of 31 parentally resolved pathogenic 16q24.1 deletions arose on the
+    maternally inherited chromosome 16. This strongly supports parent-specific
+    regulation of the distant enhancer, but it does not establish complete
+    paternal-allele silencing: pathogenic paternal-chromosome lesions occur,
+    FOXF1 is transcribed from both alleles, and enhancer methylation studies do
+    not support a simple whole-locus imprinting model.
   evidence:
   - reference: PMID:27071622
     reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
@@ -5902,6 +7055,41 @@ inheritance:
     explanation: &gt;-
       Establishes heterozygous coding and enhancer lesions at the FOXF1 locus as
       the cause, including the long non-coding RNA enhancer element.
+mechanistic_hypotheses:
+- hypothesis_group_id: parent_specific_foxf1_enhancer_activity
+  hypothesis_label: Parent-Specific FOXF1 Enhancer Activity
+  status: EMERGING
+  description: &gt;-
+    The marked maternal-chromosome bias of pathogenic enhancer deletions is best
+    treated as evidence for parent-specific functional asymmetry within the
+    bipartite lung enhancer, not as proof that the paternal FOXF1 allele is
+    globally silenced. Unit 1 may be more active on paternal chromosome 16 and
+    Unit 2 on maternal chromosome 16; the molecular basis, developmental window,
+    and penetrance of this asymmetry remain unresolved.
+  evidence:
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;all 31 genomic deletions in 16q24.1, pathogenic for ACDMPV, for which parental origin was determined, arose de novo with 30 of them occurring on the maternally inherited chromosome 16, strongly implicating genomic imprinting of the FOXF1 locus in human lungs&#34;
+    explanation: &gt;-
+      Establishes the parent-of-origin skew that motivated the hypothesis.
+  - reference: PMID:34325731
+    reference_title: &#34;Genome wide DNA methylation analysis of alveolar capillary dysplasia lung tissue reveals aberrant methylation of genes involved in development including the FOXF1 locus.&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;FOXF1 seems to be similarly transcribed from both alleles, which opposes imprinting of the FOXF1 transcription region itself&#34;
+    explanation: &gt;-
+      Refutes the simple model of whole-locus or complete paternal-allele
+      silencing while leaving enhancer-specific asymmetry possible.
+  - reference: PMID:37865798
+    reference_title: &#34;Further refinement of the differentially methylated distant lung-specific FOXF1 enhancer in a neonate with alveolar capillary dysplasia.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Recently, we proposed bimodal structure and parental functional dimorphism of the lung-specific FOXF1 enhancer, with Unit 1 having higher activity on the paternal chr16 and Unit 2 on the maternal chr16.&#34;
+    explanation: &gt;-
+      Provides a more specific, testable parent-dependent enhancer model, but
+      does not establish complete allelic silencing.
 pathophysiology:
 - name: FOXF1 Coding or Upstream Enhancer Lesion
   biological_scale: MOLECULAR
@@ -5928,19 +7116,19 @@ pathophysiology:
       large ACDMPV series.
   downstream:
   - target: Loss of Mesenchymal FOXF1 Transcriptional Output
+    causal_link_type: DIRECT
     description: &gt;-
       Either lesion class reduces FOXF1 protein available to drive its
       transcriptional programme in lung mesenchyme.
-- name: Genomic Imprinting of the FOXF1 Locus
+- name: Parent-Specific FOXF1 Enhancer Activity
   biological_scale: MOLECULAR
+  mechanism_confidence: HYPOTHETICAL
   description: &gt;-
-    A striking parent-of-origin effect: of 31 pathogenic 16q24.1 deletions with
-    determined parental origin, all arose de novo and 30 were on the maternally
-    inherited chromosome 16. The paternal allele appears to be silenced in human
-    lung, so only a maternally inherited hit removes the expressed copy. A small
-    number of paternal-chromosome cases exist, so the imprint is not absolute.
-    This also explains why maternal uniparental disomy 16 shares key phenotypic
-    features.
+    Pathogenic deletions of the distant enhancer show a strong bias toward the
+    maternally inherited chromosome. The current model assigns different
+    activity to two enhancer units on the maternal and paternal chromosomes;
+    this is more nuanced than whole-locus imprinting because FOXF1 is transcribed
+    from both alleles and paternal-chromosome pathogenic lesions occur.
   evidence:
   - reference: PMID:27071622
     reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
@@ -5958,16 +7146,30 @@ pathophysiology:
     explanation: &gt;-
       Qualifies the imprinting model: a minority of pathogenic lesions arise on
       the paternal chromosome, so silencing is incomplete.
+  - reference: PMID:34325731
+    reference_title: &#34;Genome wide DNA methylation analysis of alveolar capillary dysplasia lung tissue reveals aberrant methylation of genes involved in development including the FOXF1 locus.&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;DNA methylation analyses in the FOXF1 locus excludes maternal imprinting of the 60 kb FOXF1 enhancer.&#34;
+    explanation: &gt;-
+      Rules out one simple enhancer-imprinting model and requires a more
+      qualified parent-specific regulatory interpretation.
+  - reference: PMID:37865798
+    reference_title: &#34;Further refinement of the differentially methylated distant lung-specific FOXF1 enhancer in a neonate with alveolar capillary dysplasia.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Recently, we proposed bimodal structure and parental functional dimorphism of the lung-specific FOXF1 enhancer, with Unit 1 having higher activity on the paternal chr16 and Unit 2 on the maternal chr16.&#34;
+    explanation: &gt;-
+      Supports enhancer-unit asymmetry as an emerging replacement for simple
+      whole-locus imprinting.
   downstream:
-  - target: FOXF1 Coding or Upstream Enhancer Lesion
-    description: &gt;-
-      The imprint gates the lesion rather than following from it: silencing of
-      the paternal allele in lung is what makes a maternally inherited hit
-      sufficient to cause disease.
   - target: Loss of Mesenchymal FOXF1 Transcriptional Output
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - parent_specific_foxf1_enhancer_activity
     description: &gt;-
-      A maternally inherited lesion removes the transcriptionally active copy in
-      lung.
+      Parent-specific enhancer activity may explain why otherwise similar
+      deletions have different consequences depending on parental chromosome.
 - name: Loss of Mesenchymal FOXF1 Transcriptional Output
   biological_scale: CELLULAR
   description: &gt;-
@@ -5981,6 +7183,10 @@ pathophysiology:
     term:
       id: CL:0000115
       label: endothelial cell
+  - preferred_term: pericyte
+    term:
+      id: CL:0000669
+      label: pericyte
   molecular_functions:
   - preferred_term: DNA-binding transcription factor activity
     term:
@@ -6004,12 +7210,22 @@ pathophysiology:
     explanation: &gt;-
       Identifies VEGF signalling in endothelium as the transcriptional output
       through which FOXF1 builds the vasculature.
+  - reference: PMID:37463497
+    reference_title: &#34;Single Cell Multiomics Identifies Cells and Genetic Networks Underlying Alveolar Capillary Dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Distinct cell-autonomous roles for FOXF1 in capillary ECs and pericytes were identified.&#34;
+    explanation: &gt;-
+      Human-lung single-cell multiomics localizes FOXF1-dependent dysfunction to
+      capillary endothelial cells and pericytes.
   downstream:
   - target: Failed Pulmonary Microvascular Angiogenesis
+    causal_link_type: DIRECT
     description: &gt;-
       Loss of the FOXF1-driven angiogenic programme prevents formation of the
       alveolar capillary network.
   - target: Misalignment of Pulmonary Veins
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     description: &gt;-
       The same mesenchymal patterning programme positions the pulmonary veins,
       so its loss misplaces them into the bronchovascular bundle.
@@ -6049,15 +7265,54 @@ pathophysiology:
     explanation: &gt;-
       Establishes a knock-in model carrying an actual patient allele rather than
       a generic null.
+  - reference: PMID:37463497
+    reference_title: &#34;Single Cell Multiomics Identifies Cells and Genetic Networks Underlying Alveolar Capillary Dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Pathogenic variants involving the FOXF1 gene locus disrupt gene expression in EC progenitors, inhibiting the differentiation or survival of capillary 2 ECs and cell-cell interactions necessary for both pulmonary vasculogenesis and alveolar type 1 cell differentiation.&#34;
+    explanation: &gt;-
+      Human-lung single-cell evidence connects FOXF1 insufficiency to loss of a
+      capillary endothelial lineage and impaired alveolar epithelial maturation.
   downstream:
+  - target: Expansion of Systemic Bronchial Endothelium
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Loss of the pulmonary microvasculature is accompanied by expansion of a
+      COL15A1-expressing systemic bronchial endothelial population and increased
+      VEGFA signalling, although the intermediates and functional consequence
+      remain unresolved.
   - target: Impaired Alveolar Gas Exchange
+    causal_link_type: DIRECT
     description: &gt;-
       A capillary bed that is sparse and not apposed to alveolar epithelium
       cannot support gas exchange.
   - target: Increased Pulmonary Vascular Resistance
+    causal_link_type: DIRECT
     description: &gt;-
       An absent distal capillary bed and abnormally muscularized arterioles raise
       resistance across the pulmonary circulation.
+- name: Expansion of Systemic Bronchial Endothelium
+  biological_scale: CELLULAR
+  description: &gt;-
+    Human single-cell lung data show marked expansion of systemic bronchial
+    endothelial cells expressing COL15A1 alongside increased VEGFA signalling.
+    This may be a compensatory or maladaptive response to loss of the alveolar
+    microvasculature; its direction and contribution to disease are unresolved.
+  mechanism_confidence: HYPOTHETICAL
+  cell_types:
+  - preferred_term: endothelial cell
+    term:
+      id: CL:0000115
+      label: endothelial cell
+  evidence:
+  - reference: PMID:37463497
+    reference_title: &#34;Single Cell Multiomics Identifies Cells and Genetic Networks Underlying Alveolar Capillary Dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Loss of the pulmonary microvasculature was associated with increased VEGFA (vascular endothelial growth factor A) signaling and marked expansion of systemic bronchial ECs expressing COL15A1 (collagen type XV α 1 chain).&#34;
+    explanation: &gt;-
+      Direct human single-cell evidence for the expanded bronchial endothelial
+      population and its association with microvascular loss.
 - name: Misalignment of Pulmonary Veins
   biological_scale: TISSUE
   description: &gt;-
@@ -6120,39 +7375,53 @@ pathophysiology:
       compounds the resistance rise; the resistance measurement itself is
       supplied by the conserved module, hence PARTIAL.
   downstream:
-  - target: Suprasystemic Pulmonary Arterial Hypertension
+  - target: Severe Refractory Pulmonary Arterial Hypertension
+    causal_link_type: DIRECT
     description: &gt;-
-      Raised resistance across an absent distal bed drives pulmonary artery
-      pressure above systemic.
-- name: Suprasystemic Pulmonary Arterial Hypertension
+      Raised resistance across a markedly reduced distal bed drives severe,
+      treatment-refractory pulmonary arterial hypertension.
+- name: Severe Refractory Pulmonary Arterial Hypertension
   biological_scale: ORGANISM
   conforms_to: &#34;pulmonary_vascular_remodeling#Pulmonary Arterial Hypertension&#34;
-  biological_processes:
-  - preferred_term: cardiac muscle hypertrophy
-    term:
-      id: GO:0003300
-      label: cardiac muscle hypertrophy
-    modifier: INCREASED
   description: &gt;-
-    Severe, typically suprasystemic pulmonary arterial hypertension with
-    right-to-left shunting, presenting within hours to days of birth in a term
-    infant and characteristically refractory to inhaled nitric oxide and other
-    pulmonary vasodilators, because the problem is a missing vascular bed rather
-    than a constricted one.
+    Severe pulmonary arterial hypertension presenting within hours to days of
+    birth in a term infant and characteristically refractory to pulmonary
+    vasodilators. The reduced capillary bed provides a structural explanation
+    for why vasodilation cannot normalize the pulmonary circulation.
   evidence:
-  - reference: PMID:30058937
-    reference_title: &#34;Alveolar capillary dysplasia with misalignment of the pulmonary veins: clinical, histological, and genetic aspects.&#34;
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The vast majority succumb to hypoxemic respiratory failure within days to weeks after presentation despite receiving supportive care including extracorporeal membrane oxygenation&#34;
+    snippet: &#34;Affected newborns typically present with severe respiratory failure and refractory pulmonary hypertension within a few hours after birth and die in the first month of life.&#34;
     explanation: &gt;-
-      Human outcome data showing that maximal supportive care, including ECMO,
-      does not overcome the physiology.
+      Directly supports the severity, refractoriness and typical timing without
+      asserting an unquoted suprasystemic pressure measurement.
+  downstream:
+  - target: Right Ventricular Pressure Overload and Hypertrophy
+    causal_link_type: DIRECT
+    description: &gt;-
+      Severe pulmonary arterial hypertension increases right ventricular
+      afterload and drives compensatory hypertrophy.
+- name: Right Ventricular Pressure Overload and Hypertrophy
+  biological_scale: ORGANISM
+  description: &gt;-
+    Pulmonary arterial hypertension raises right ventricular afterload, leading
+    to compensatory right ventricular hypertrophy.
+  evidence:
+  - reference: PMID:29540357
+    reference_title: &#34;Pulmonary arterial hypertension: pathogenesis and clinical management.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;Obstructive pulmonary vascular remodeling in PAH increases right ventricular afterload causing right ventricular hypertrophy.&#34;
+    explanation: &gt;-
+      General PAH evidence supplies the conserved pressure-overload consequence
+      downstream of ACDMPV pulmonary arterial hypertension.
 phenotypes:
 - name: Pulmonary arterial hypertension
   category: Cardiovascular
   description: &gt;-
-    Severe, typically suprasystemic pulmonary hypertension presenting in the
+    Severe pulmonary hypertension presenting in the
     neonatal period and refractory to standard pulmonary vasodilator therapy.
   frequency: VERY_FREQUENT
   phenotype_term:
@@ -6169,6 +7438,15 @@ phenotypes:
     explanation: &gt;-
       Human clinical description establishing severe pulmonary hypertension as
       the presenting physiology.
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Affected newborns typically present with severe respiratory failure and refractory pulmonary hypertension within a few hours after birth and die in the first month of life.&#34;
+    explanation: &gt;-
+      Author wording &#34;typically&#34; maps to VERY_FREQUENT under the DisMech
+      qualitative frequency guidelines; no quantitative whole-disease estimate
+      is asserted.
 - name: Neonatal respiratory distress
   category: Respiratory
   description: &gt;-
@@ -6197,6 +7475,15 @@ phenotypes:
     explanation: &gt;-
       Establishes that affected infants are typically term with normal birth
       parameters, which is why the deterioration is so unexpected.
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Affected newborns typically present with severe respiratory failure and refractory pulmonary hypertension within a few hours after birth and die in the first month of life.&#34;
+    explanation: &gt;-
+      Author wording &#34;typically&#34; maps severe neonatal respiratory failure to
+      VERY_FREQUENT under the DisMech qualitative frequency guidelines; no
+      quantitative whole-disease estimate is asserted.
 - name: Hypoplastic left ventricle
   category: Cardiovascular
   description: &gt;-
@@ -6204,7 +7491,6 @@ phenotypes:
     the subgroup whose deletion removes both FOXF1 and its upstream enhancer,
     making the cardiac phenotype a marker of lesion extent rather than a general
     feature.
-  frequency: OCCASIONAL
   phenotype_term:
     preferred_term: Hypoplastic left ventricle
     term:
@@ -6213,7 +7499,7 @@ phenotypes:
   evidence:
   - reference: PMID:27071622
     reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a combination of the severe cardiac defects, including hypoplastic left heart, and single umbilical artery were observed only in children with deletion CNVs involving FOXF1 and its upstream enhancer&#34;
     explanation: &gt;-
@@ -6224,7 +7510,6 @@ phenotypes:
   description: &gt;-
     Seen together with the severe cardiac defects in the same enhancer-spanning
     deletion subgroup, and detectable prenatally.
-  frequency: OCCASIONAL
   phenotype_term:
     preferred_term: Single umbilical artery
     term:
@@ -6251,15 +7536,35 @@ phenotypes:
       id: HP:0002566
       label: Intestinal malrotation
   evidence:
-  - reference: PMID:30058937
-    reference_title: &#34;Alveolar capillary dysplasia with misalignment of the pulmonary veins: clinical, histological, and genetic aspects.&#34;
-    supports: PARTIAL
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;These malformations predominantly affect the gastrointestinal tract, but also affect the cardiovascular and urogenital system.&#34;
+    snippet: &#34;multiple congenital malformations, including pulmonary hypoplasia, heart defects, tracheoesophageal fistula, gut malrotation, absent gall bladder, renal agenesis, hydronephrosis, imperforate anus, and single umbilical artery (SUA), seen in the vast majority of children with ACDMPV&#34;
     explanation: &gt;-
-      Human cohort evidence that associated malformations are predominantly
-      gastrointestinal; the specific malrotation phenotype is not named
-      directly, hence PARTIAL.
+      Explicitly lists gut malrotation among reported human ACDMPV
+      malformations.
+- name: Hydronephrosis
+  category: Genitourinary
+  description: &gt;-
+    Hydronephrosis is one of the associated extrapulmonary congenital
+    malformations reported in children with ACDMPV; its individual frequency is
+    not established by the cited source.
+  phenotype_term:
+    preferred_term: Hydronephrosis
+    term:
+      id: HP:0000126
+      label: Hydronephrosis
+  evidence:
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;multiple congenital malformations, including pulmonary hypoplasia, heart defects, tracheoesophageal fistula, gut malrotation, absent gall bladder, renal agenesis, hydronephrosis, imperforate anus, and single umbilical artery (SUA), seen in the vast majority of children with ACDMPV&#34;
+    explanation: &gt;-
+      Explicitly identifies hydronephrosis in the human extrapulmonary
+      malformation spectrum; the collective frequency does not quantify this
+      individual phenotype.
 genetic:
 - name: FOXF1
   gene_term:
@@ -6273,18 +7578,18 @@ genetic:
     A forkhead box transcription factor expressed in lung mesenchyme and
     endothelium. Both coding point mutations and 16q24.1 deletion copy-number
     variants cause ACDMPV, and the deletions frequently spare the gene entirely
-    while removing its upstream enhancer. The locus is imprinted in human lung,
-    so parent of origin governs whether a lesion is pathogenic.
+    while removing its upstream enhancer. Parent-specific enhancer activity may
+    modify pathogenicity, but FOXF1 is not established to be monoallelically
+    expressed in human lung.
   evidence:
-  - reference: PMID:25091710
-    reference_title: &#34;FOXF1 transcription factor is required for formation of embryonic vasculature by regulating VEGF signaling in endothelial cells.&#34;
+  - reference: PMID:27071622
+    reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &#34;Inactivating mutations in the Forkhead Box transcription factor F1 (FOXF1) gene locus are frequently found in patients with alveolar capillary dysplasia with misalignment of pulmonary veins&#34;
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Heterozygous point mutations in FOXF1 (OMIM 601089) and genomic deletion copy-number variants (CNVs) at chromosomal region 16q24.1 including FOXF1 or its upstream regulatory region have been identified in the vast majority of patients with ACDMPV&#34;
     explanation: &gt;-
-      Establishes FOXF1 locus inactivation as the recurrent cause of ACDMPV.
-      Tagged OTHER because this is the framing sentence of a mouse study rather
-      than a human result reported by it.
+      Human genetic evidence establishes FOXF1 sequence variants and locus
+      deletions as the recurrent cause of ACDMPV.
 - name: ESRP1
   gene_term:
     preferred_term: ESRP1
@@ -6296,11 +7601,10 @@ genetic:
   notes: &gt;-
     A single de novo missense variant reported in one ACDMPV family, raising the
     possibility of FGF signalling involvement. Recorded as UNKNOWN rather than
-    DISPUTED: nobody has actively contested it, it is simply unreplicated, which
-    corresponds to a ClinGen Limited rather than Disputed classification. The
-    candidacy is weaker than a single variant implies, since ESRP1 was one of
-    four de novo variants in that same proband and the authors declined to
-    exclude any of them.
+    DISPUTED because it is unreplicated rather than actively refuted. The
+    candidacy is weaker than a single variant implies: ESRP1 was one of four de
+    novo variants in that proband and the authors did not establish which, if
+    any, was causal.
   evidence:
   - reference: PMID:27071622
     reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
@@ -6309,7 +7613,7 @@ genetic:
     snippet: &#34;in one family, WES revealed a de novo missense variant in ESRP1, potentially implicating FGF signaling in the etiology of ACDMPV&#34;
     explanation: &gt;-
       The authors themselves frame this as a single-family, potential
-      implication, so the association is recorded as partial and disputed.
+      implication, so the association is recorded as partial and unknown.
 histopathology:
 - name: Reduced and malpositioned alveolar capillaries
   description: &gt;-
@@ -6362,6 +7666,20 @@ histopathology:
     snippet: &#34;the majority of ACD/MPV patients present with peripheral veins in the bronchovascular bundle adjacent to the pulmonary arteries outside the interlobular septa while normally they are located within the septa&#34;
     explanation: &gt;-
       Defines the misalignment lesion against its normal comparator.
+- name: Aberrant intrapulmonary arteriovenous vessels
+  description: &gt;-
+    Marked aberrant arteriovenous vessels within the lung are reported in cases
+    with atypical clinical presentations. This finding is distinct from the
+    focal-versus-diffuse distribution of classic ACDMPV lesions.
+  evidence:
+  - reference: PMID:32949727
+    reference_title: &#34;Histopathologic features of alveolar capillary dysplasia with misalignment of pulmonary veins with atypical clinical presentation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Marked intrapulmonary aberrant arteriovenous vessels were present in all atypical cases.&#34;
+    explanation: &gt;-
+      Directly documents the vascular finding in the clinically atypical
+      subgroup without conflating it with patchy histologic distribution.
 prevalence:
 - population: Manitoba, Canada (autopsy-based)
   measure_type: ANNUAL_INCIDENCE
@@ -6413,6 +7731,20 @@ progression:
     explanation: &gt;-
       Establishes the mode and timing of death and the failure of maximal
       supportive care.
+- phase: Atypical delayed presentation and prolonged survival
+  notes: &gt;-
+    A minority present after the neonatal period and can survive long enough for
+    transplantation, so neonatal presentation and lethality must not be treated
+    as universal diagnostic criteria.
+  evidence:
+  - reference: PMID:29198536
+    reference_title: &#34;Infants with Atypical Presentations of Alveolar Capillary Dysplasia with Misalignment of the Pulmonary Veins Who Underwent Bilateral Lung Transplantation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Three other infants had no respiratory symptoms at birth and presented with hypoxemia and pulmonary hypertension at 2-3 months of age.&#34;
+    explanation: &gt;-
+      Documents delayed presentation in a transplant cohort with atypical
+      ACDMPV.
 diagnosis:
 - name: Lung biopsy histopathology
   description: &gt;-
@@ -6420,6 +7752,7 @@ diagnosis:
     veins within bronchovascular bundles together with a deficient, poorly
     apposed alveolar capillary bed. Historically this was made at autopsy; open
     lung biopsy is used antemortem when the diagnosis would change management.
+    Focal or patchy disease can produce a false-negative single-site biopsy.
   diagnosis_term:
     preferred_term: lung biopsy
     term:
@@ -6434,6 +7767,22 @@ diagnosis:
     explanation: &gt;-
       States the diagnostic gold standard directly, replacing a sentence about
       the review&#39;s own structure.
+  - reference: PMID:32949727
+    reference_title: &#34;Histopathologic features of alveolar capillary dysplasia with misalignment of pulmonary veins with atypical clinical presentation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ten of 16 cases exhibited classic diffuse abnormalities, while 6 of 16 had a nonclassic focal/patchy distribution.&#34;
+    explanation: &gt;-
+      Establishes sampling limitations for biopsy and the need to recognize
+      nonuniform histology.
+  - reference: PMID:32949727
+    reference_title: &#34;Histopathologic features of alveolar capillary dysplasia with misalignment of pulmonary veins with atypical clinical presentation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;clinical presentation is not always correlated with histopathology in ACD/MPV.&#34;
+    explanation: &gt;-
+      Establishes that focal or patchy histology is an independent diagnostic
+      axis and must not be assumed from delayed clinical presentation.
 - name: Molecular testing including copy-number analysis
   description: &gt;-
     Molecular confirmation requires sequencing FOXF1 together with copy-number
@@ -6450,17 +7799,56 @@ diagnosis:
     reference_title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Using custom-designed array comparative genomic hybridization, Sanger sequencing, whole exome sequencing (WES), and bioinformatic analyses, we studied 22 new unrelated families (20 postnatal and two prenatal) with clinically diagnosed ACDMPV.&#34;
+    snippet: &#34;Heterozygous point mutations in FOXF1 (OMIM 601089) and genomic deletion copy-number variants (CNVs) at chromosomal region 16q24.1 including FOXF1 or its upstream regulatory region have been identified in the vast majority of patients with ACDMPV&#34;
     explanation: &gt;-
-      Documents the combined copy-number and sequencing strategy required to
-      detect both lesion classes.
+      Establishes that both sequence variants and copy-number changes involving
+      the distant regulatory region must be covered by molecular testing.
 treatments:
+- name: Supportive cardiorespiratory care, pulmonary vasodilators, and ECMO
+  description: &gt;-
+    Mechanical ventilation, inhaled nitric oxide and other pulmonary
+    vasodilators can transiently stabilize oxygenation, while ECMO may provide
+    short-term rescue or a bridge to transplantation. These measures do not
+    correct the malformed capillary bed, and most infants with classic ACDMPV
+    cannot be weaned from escalating support.
+  treatment_term:
+    preferred_term: supportive care
+    term:
+      id: NCIT:C15747
+      label: Supportive Care
+  target_mechanisms:
+  - target: Increased Pulmonary Vascular Resistance
+    treatment_effect: MODULATES
+    description: &gt;-
+      Pulmonary vasodilators can temporarily reduce vascular resistance but do
+      not replace the missing distal capillary bed.
+  - target: Impaired Alveolar Gas Exchange
+    treatment_effect: BYPASSES
+    description: &gt;-
+      ECMO temporarily provides extracorporeal oxygenation while diagnosis or
+      transplant candidacy is established.
+  evidence:
+  - reference: PMID:30058937
+    reference_title: &#34;Alveolar capillary dysplasia with misalignment of the pulmonary veins: clinical, histological, and genetic aspects.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In the short term, this can improve the saturation levels, but literature shows that the dosage needs to be increased repeatedly and that eventually the severe hypoxemia will be fatal.&#34;
+    explanation: &gt;-
+      Establishes that vasodilator benefit is temporary rather than
+      disease-modifying.
+  - reference: PMID:30058937
+    reference_title: &#34;Alveolar capillary dysplasia with misalignment of the pulmonary veins: clinical, histological, and genetic aspects.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ECMO therapy can provide an excellent bridge to lung transplantation in ACD/MPV patients with a mild phenotype.&#34;
+    explanation: &gt;-
+      Supports the restricted bridging role of ECMO in selected patients.
 - name: Lung transplantation
   description: &gt;-
-    The only intervention that alters survival. Everything else is supportive,
-    and the pulmonary hypertension is characteristically refractory to
-    vasodilator therapy because the vascular bed is absent rather than
-    constricted.
+    The only disease-modifying intervention with published long-term survival,
+    and an option only for selected infants—principally those with an atypical,
+    slower course who can reach transplantation. Vasodilators and ECMO remain
+    supportive or bridging measures rather than repairs of the malformed lung.
   therapeutic_modality: SURGERY
   treatment_term:
     preferred_term: organ transplantation
@@ -6469,20 +7857,19 @@ treatments:
       label: Organ Transplantation
   target_mechanisms:
   - target: Impaired Alveolar Gas Exchange
-    treatment_effect: INHIBITS
+    treatment_effect: BYPASSES
     description: &gt;-
       Transplant replaces the maldeveloped gas-exchange surface rather than
       addressing the FOXF1 lesion.
   evidence:
-  - reference: PMID:31199666
-    reference_title: &#34;The S52F FOXF1 Mutation Inhibits STAT3 Signaling and Causes Alveolar Capillary Dysplasia.&#34;
+  - reference: PMID:29198536
+    reference_title: &#34;Infants with Atypical Presentations of Alveolar Capillary Dysplasia with Misalignment of the Pulmonary Veins Who Underwent Bilateral Lung Transplantation.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
-    snippet: &#34;There are no effective treatments for ACDMPV other than lung transplant, and new therapeutic approaches are urgently needed.&#34;
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Three transplanted children are alive at 5-16 years of age, similar to outcomes for infants transplanted for other indications.&#34;
     explanation: &gt;-
-      Establishes transplant as the only effective treatment. Tagged OTHER
-      because this is the framing sentence of a mouse study rather than a
-      clinical result reported by it.
+      Directly documents durable post-transplant survival in selected infants
+      with atypical ACDMPV.
 - name: Nanoparticle STAT3 delivery (investigational)
   description: &gt;-
     Not a current therapy. Because FOXF1 drives neonatal lung angiogenesis
@@ -6490,14 +7877,15 @@ treatments:
     for the subset of ACDMPV with reduced STAT3 signalling. This is preclinical
     and mechanism-directed rather than supportive, which is what makes it notable
     in a disease whose only other option is transplant.
+  therapeutic_modality: GENE_THERAPY
   treatment_term:
-    preferred_term: therapeutic procedure
+    preferred_term: gene therapy
     term:
-      id: NCIT:C49236
-      label: Therapeutic Procedure
+      id: NCIT:C15238
+      label: Gene Therapy
   target_mechanisms:
   - target: Failed Pulmonary Microvascular Angiogenesis
-    treatment_effect: ACTIVATES
+    treatment_effect: RESTORES
     description: &gt;-
       Restoring STAT3 signalling aims to reactivate the angiogenic programme that
       the FOXF1 lesion silenced.
@@ -6540,19 +7928,34 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   prompt: &gt;-
-    What silences the paternal FOXF1 allele in human lung, and why do a minority
-    of pathogenic lesions on the paternal chromosome still cause ACDMPV?
+    What molecular mechanism creates parent-specific activity across the two
+    FOXF1 enhancer units, and how does it vary by lung cell type and
+    developmental stage?
   attaches_to:
-  - pathophysiology#Genomic Imprinting of the FOXF1 Locus
+  - pathophysiology#Parent-Specific FOXF1 Enhancer Activity
   rationale: &gt;-
     Thirty of thirty-one parentally resolved deletions arose on the maternal
-    chromosome, which is a strong imprinting signal, yet four families carry
-    pathogenic paternal-chromosome lesions. So the paternal allele is neither
-    fully silenced nor fully active. The imprinting control element, the tissue
-    and developmental window over which it operates, and what determines
-    escape are all unresolved. This matters practically because it governs
-    recurrence counselling and the interpretation of an apparently benign
-    paternal deletion found incidentally.
+    chromosome, yet paternal-chromosome pathogenic lesions occur and FOXF1 is
+    transcribed from both alleles. Methylation data exclude a simple maternal
+    enhancer-imprinting model, while later work proposes a bipartite enhancer
+    with opposing parent-specific activity. Resolving the mechanism matters for
+    recurrence counselling and interpretation of inherited enhancer variants.
+  evidence:
+  - reference: PMID:34325731
+    reference_title: &#34;Genome wide DNA methylation analysis of alveolar capillary dysplasia lung tissue reveals aberrant methylation of genes involved in development including the FOXF1 locus.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;FOXF1 seems to be similarly transcribed from both alleles, which opposes imprinting of the FOXF1 transcription region itself&#34;
+    explanation: &gt;-
+      Shows why complete paternal-locus silencing is not an adequate model.
+  - reference: PMID:37865798
+    reference_title: &#34;Further refinement of the differentially methylated distant lung-specific FOXF1 enhancer in a neonate with alveolar capillary dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Recently, we proposed bimodal structure and parental functional dimorphism of the lung-specific FOXF1 enhancer, with Unit 1 having higher activity on the paternal chr16 and Unit 2 on the maternal chr16.&#34;
+    explanation: &gt;-
+      Defines the more specific emerging model that future experiments need to
+      test.
   proposed_experiments:
   - experiment_id: exp_acdmpv_allele_specific_lung_expression
     name: Allele-specific FOXF1 expression across human fetal lung development
@@ -6560,16 +7963,15 @@ discussions:
       Perform allele-specific expression and methylation profiling across the
       16q24.1 locus in human fetal lung at successive gestational ages, in
       parallel with the same measurements in intestine and heart, to map where
-      and when the imprint is established and whether escape correlates with
-      lesion position relative to the enhancer.
+      and when enhancer-unit asymmetry is established and whether effect size
+      correlates with deletion position.
     decision_criterion: &gt;-
-      A developmental window or lesion-position dependence that separates the
-      four paternal cases from the maternal majority would define the escape
-      condition.
+      Reproducible parent-specific expression and chromatin activity that maps
+      separately to enhancer Units 1 and 2 would support functional dimorphism.
     would_support:
-    - Paternal silencing is partial and window-dependent, so paternal lesions cause disease when they remove enhancer sequence needed by both alleles
+    - Parent-specific enhancer-unit activity is cell-type- and developmental-stage-dependent
     would_refute:
-    - Paternal silencing is uniform, implicating a second modifier locus in the escape cases
+    - Both enhancer units have equivalent activity on maternal and paternal chromosomes
 - discussion_id: gap_acdmpv_developmental_window_for_rescue
   kind: KNOWLEDGE_GAP
   status: OPEN
@@ -6605,11 +8007,86 @@ discussions:
     - Capillary density is rate-limiting and postnatal angiogenic rescue is viable
     would_refute:
     - Venous misalignment alone sustains lethal physiology, confining treatment to transplant
+- discussion_id: gap_acdmpv_direction_of_angiogenic_therapy
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  prompt: &gt;-
+    Should experimental therapy restore capillary angiogenesis through STAT3,
+    or suppress maladaptive intussusceptive angiogenesis and TIE2 signalling?
+  attaches_to:
+  - pathophysiology#Failed Pulmonary Microvascular Angiogenesis
+  rationale: &gt;-
+    STAT3 delivery restored endothelial proliferation and stimulated lung
+    angiogenesis in one Foxf1 S52F neonatal mouse model. Human ACD lung tissue,
+    however, shows abundant intussusceptive angiogenesis with increased CXCR4,
+    HIF1A and angiopoietin signalling and has prompted the opposite therapeutic
+    proposal—anti-angiogenic intervention. These findings may reflect different
+    vessel compartments, disease stages or productive versus nonproductive
+    angiogenesis; treating them as interchangeable would be unsafe.
+  evidence:
+  - reference: PMID:31199666
+    reference_title: &#34;The S52F FOXF1 Mutation Inhibits STAT3 Signaling and Causes Alveolar Capillary Dysplasia.&#34;
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &#34;nanoparticle delivery of STAT3 cDNA into the neonatal circulation restored endothelial proliferation and stimulated lung angiogenesis in Foxf1WT/S52F mice.&#34;
+    explanation: &gt;-
+      Supports pro-angiogenic rescue in a specific neonatal knock-in model.
+  - reference: PMID:35649494
+    reference_title: &#34;A Morphomolecular Approach to Alveolar Capillary Dysplasia.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;ACD is characterized by dysfunctional capillaries and a high prevalence of intussusceptive angiogenesis.&#34;
+    explanation: &gt;-
+      Human tissue shows that abundant angiogenic activity can coexist with a
+      dysfunctional capillary network, complicating simple pro-angiogenic rescue.
+  - reference: PMID:35649494
+    reference_title: &#34;A Morphomolecular Approach to Alveolar Capillary Dysplasia.&#34;
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Future studies should address the use of anti-angiogenic agents in ACD, where TIE2 appears as a promising target.&#34;
+    explanation: &gt;-
+      Directly supports the anti-angiogenic/TIE2 arm as a proposal for future
+      study, not an established treatment.
+  proposed_experiments:
+  - experiment_id: exp_acdmpv_compartment_resolved_angiogenic_rescue
+    name: Compartment-resolved comparison of pro- and anti-angiogenic intervention
+    description: &gt;-
+      Compare STAT3 restoration with selective CXCR4 or TIE2 modulation in
+      patient-derived vascular organoids and Foxf1 S52F mice, separating
+      alveolar capillary endothelial cells, systemic bronchial endothelium and
+      intussusceptive pillars over developmental time.
+    decision_criterion: &gt;-
+      A useful intervention must increase correctly apposed alveolar capillaries
+      and gas exchange without expanding dysfunctional bronchial or
+      intussusceptive vessels.
+    would_support:
+    - Productive capillary differentiation, rather than total angiogenic activity, is the therapeutic target
+    would_refute:
+    - Total angiogenic activity alone predicts restoration of gas exchange
+clinical_trials: []
 references:
 - reference: PMID:27071622
   title: &#34;Pathogenetics of alveolar capillary dysplasia with misalignment of pulmonary veins&#34;
 - reference: PMID:30058937
   title: &#34;Alveolar capillary dysplasia with misalignment of the pulmonary veins: clinical, histological, and genetic aspects&#34;
+- reference: PMID:25091710
+  title: &#34;FOXF1 transcription factor is required for formation of embryonic vasculature by regulating VEGF signaling in endothelial cells&#34;
+- reference: PMID:31199666
+  title: &#34;The S52F FOXF1 Mutation Inhibits STAT3 Signaling and Causes Alveolar Capillary Dysplasia&#34;
+- reference: PMID:34325731
+  title: &#34;Genome wide DNA methylation analysis of alveolar capillary dysplasia lung tissue reveals aberrant methylation of genes involved in development including the FOXF1 locus&#34;
+- reference: PMID:37865798
+  title: &#34;Further refinement of the differentially methylated distant lung-specific FOXF1 enhancer in a neonate with alveolar capillary dysplasia&#34;
+- reference: PMID:32949727
+  title: &#34;Histopathologic features of alveolar capillary dysplasia with misalignment of pulmonary veins with atypical clinical presentation&#34;
+- reference: PMID:29198536
+  title: &#34;Infants with Atypical Presentations of Alveolar Capillary Dysplasia with Misalignment of the Pulmonary Veins Who Underwent Bilateral Lung Transplantation&#34;
+- reference: PMID:37463497
+  title: &#34;Single Cell Multiomics Identifies Cells and Genetic Networks Underlying Alveolar Capillary Dysplasia&#34;
+- reference: PMID:35649494
+  title: &#34;A Morphomolecular Approach to Alveolar Capillary Dysplasia&#34;
+- reference: PMID:29540357
+  title: &#34;Pulmonary arterial hypertension: pathogenesis and clinical management&#34;
 </pre>
             </div>
         </div>
@@ -6625,7 +8102,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">2</span>
+                    <span class="card-count">11</span>
                 </div>
 
                 <div class="reference-entry">
@@ -6653,6 +8130,159 @@ references:
                             </div>
 
                             <div class="reference-title">Alveolar capillary dysplasia with misalignment of the pulmonary veins: clinical, histological, and genetic aspects</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/25091710" target="_blank">PMID:25091710</a>
+                            </div>
+
+                            <div class="reference-title">FOXF1 transcription factor is required for formation of embryonic vasculature by regulating VEGF signaling in endothelial cells</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/31199666" target="_blank">PMID:31199666</a>
+                            </div>
+
+                            <div class="reference-title">The S52F FOXF1 Mutation Inhibits STAT3 Signaling and Causes Alveolar Capillary Dysplasia</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/34325731" target="_blank">PMID:34325731</a>
+                            </div>
+
+                            <div class="reference-title">Genome wide DNA methylation analysis of alveolar capillary dysplasia lung tissue reveals aberrant methylation of genes involved in development including the FOXF1 locus</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37865798" target="_blank">PMID:37865798</a>
+                            </div>
+
+                            <div class="reference-title">Further refinement of the differentially methylated distant lung-specific FOXF1 enhancer in a neonate with alveolar capillary dysplasia</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/32949727" target="_blank">PMID:32949727</a>
+                            </div>
+
+                            <div class="reference-title">Histopathologic features of alveolar capillary dysplasia with misalignment of pulmonary veins with atypical clinical presentation</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29198536" target="_blank">PMID:29198536</a>
+                            </div>
+
+                            <div class="reference-title">Infants with Atypical Presentations of Alveolar Capillary Dysplasia with Misalignment of the Pulmonary Veins Who Underwent Bilateral Lung Transplantation</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/37463497" target="_blank">PMID:37463497</a>
+                            </div>
+
+                            <div class="reference-title">Single Cell Multiomics Identifies Cells and Genetic Networks Underlying Alveolar Capillary Dysplasia</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/35649494" target="_blank">PMID:35649494</a>
+                            </div>
+
+                            <div class="reference-title">A Morphomolecular Approach to Alveolar Capillary Dysplasia</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/29540357" target="_blank">PMID:29540357</a>
+                            </div>
+
+                            <div class="reference-title">Pulmonary arterial hypertension: pathogenesis and clinical management</div>
 
                         </div>
 
@@ -7737,7 +9367,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alveolar capillary dysplasia with misalignment of pulmonary veins", "mondoId": "MONDO:0009934", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_capillary_dysplasia_with_misalignment_of_pulmonary_veins", "yamlRevision": "b7f92a404b62"};
+        const OS_CONFIG = {"diseaseName": "Alveolar capillary dysplasia with misalignment of pulmonary veins", "mondoId": "MONDO:0009934", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alveolar_capillary_dysplasia_with_misalignment_of_pulmonary_veins", "yamlRevision": "4e18fc111541"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

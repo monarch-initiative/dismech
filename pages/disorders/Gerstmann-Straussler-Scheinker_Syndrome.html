@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3366,7 +3595,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Gerstmann-Straussler-Scheinker syndrome (GSS) is a very rare, invariably fatal, autosomal dominant genetic prion disease caused by germline variants in the prion protein gene PRNP. It is one of the three classic inherited prion phenotypes (alongside genetic Creutzfeldt-Jakob disease and fatal familial insomnia). A pathogenic PRNP variant lowers the energy barrier between the normal cellular prion protein (PrP-C) and a self-templating misfolded conformer (PrP-Sc), so that over decades a stochastic nucleation event propagates autocatalytically. The clinical signature is a slowly progressive cerebellar ataxia beginning in midlife followed by dementia, and the neuropathological hallmark is multicentric PrP amyloid plaques with a distinctive ~8 kDa protease-resistant PrP fragment. GSS is the rare Mendelian disease whose product is also, under laboratory inoculation, an infectious agent.
+                Gerstmann-Straussler-Scheinker syndrome (GSS) is a very rare, invariably fatal, autosomal dominant genetic prion disease caused by germline variants in the prion protein gene PRNP. It is one of the three classic inherited prion phenotypes (alongside genetic Creutzfeldt-Jakob disease and fatal familial insomnia). A pathogenic PRNP variant renders PrP-C susceptible to conversion into a self-templating misfolded conformer (PrP-Sc), so that over decades a stochastic nucleation event propagates autocatalytically. (For the classic P102L variant this is not explained by loss of native-state thermodynamic stability - see the deprecated `native_state_destabilization` mechanistic hypothesis.) The clinical signature is a slowly progressive cerebellar ataxia beginning in midlife followed by dementia, and the neuropathological hallmark is multicentric PrP amyloid plaques with a distinctive ~8 kDa protease-resistant PrP fragment. GSS is the rare Mendelian disease whose product is also, under laboratory inoculation, an infectious agent.
             </p>
 
         </header>
@@ -3462,6 +3691,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3494,6 +3725,14 @@
             </a>
 
 
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
@@ -3520,6 +3759,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3851,6 +4091,120 @@
 
         <!-- Mechanistic Hypotheses -->
 
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target hypothesis-deprecated" id="hypothesis-native-state-destabilization">
+                <div class="item-name">Native-State Thermodynamic/Kinetic Destabilization Model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">native_state_destabilization</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-DEPRECATED">⚠ DEPRECATED</span>
+
+
+                </div>
+
+                <div class="hypothesis-overturned">
+                    <div class="hypothesis-overturned-title">⚠ Overturned model &mdash; shown for reference, not as current mechanism</div>
+                    <p>
+                        DisMech records superseded hypotheses explicitly rather than deleting
+                        them, so that claims still circulating in reviews, textbooks and older
+                        diagnostic criteria can be checked against an assessment. This model is
+                        <strong>not</strong> part of the disease mechanism DisMech asserts.
+                    </p>
+                    <p>
+                        Citation volume does not decide standing here. A hypothesis may retain
+                        more supporting than refuting citations simply because the supporting
+                        literature accumulated for decades before the refutation landed; where
+                        the two conflict, DisMech follows the more recent and more direct
+                        evidence. Supporting citations below are retained for the historical
+                        record.
+                    </p>
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-REFUTE">2 refute</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">Familial PRNP substitutions cause disease by lowering the thermodynamic and/or kinetic barrier separating the native alpha-helical PrP-C fold from beta-sheet-rich conformers, so that a stochastic misfolding event becomes possible.</div>
+
+
+                <div class="mapping-notes">Deprecated for the GSS P102L variant specifically, not just as a general caveat: this is the one familial PRNP substitution in this literature that was directly assayed and found not to be thermodynamically destabilized. Swietnicki et al. (PMID:9813003) recovered recombinant P102L PrP(90-231) in soluble form with wild-type-like secondary structure and stability. Liemann and Glockshuber (PMID:10079068) independently found, across all eight C-terminal familial substitutions tested, that thermodynamic stability does not correlate with disease phenotype - not that no variant is destabilized: five of the eight substitutions they tested (none of them P102L) do destabilize PrP(121-231) relative to wild-type, while the other three do not. Retained as DEPRECATED for provenance so the barrier-lowering framing is not reintroduced as the explanation for P102L specifically.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9813003" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9813003" target="_blank">PMID:9813003</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"some hereditary forms of prion disease cannot be rationalized using the concept of mutation-induced thermodynamic destabilization of the cellular prion protein"</div>
+
+
+                <div class="evidence-explanation">Direct test of the P102L GSS variant itself; its stability was indistinguishable from wild-type, so the destabilization model cannot explain this variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10079068" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10079068" target="_blank">PMID:10079068</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These data suggest that destabilization of PrPC is neither a general mechanism underlying the formation of PrPSc nor the basis of disease phenotypes in inherited human TSEs."</div>
+
+
+                <div class="evidence-explanation">Independent replication across all eight C-terminal familial PRNP substitutions: measured thermodynamic stabilities do not correlate with disease phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
 
@@ -3889,7 +4243,7 @@
 
 
 
-    <a class="entity-ref-chip" href="#pathophysiology-destabilization-of-the-prp-c-native-fold">pathophysiology#Destabilization of the PrP-C Native Fold</a>
+    <a class="entity-ref-chip" href="#pathophysiology-acquisition-of-a-conversion-competent-prp-c-conformer">pathophysiology#Acquisition of a Conversion-Competent PrP-C Conformer</a>
 
 
 
@@ -4120,39 +4474,6 @@
 
 
 
-                <div class="item-meta">
-
-                    <span class="tag tag-bio">
-                        protein stabilization
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/GO_0050821" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050821">GO:0050821</a>
-
-
-
-                    </span>
-
-
-
-
-    <span class="tag tag-modifier">
-        ↓ DECREASED
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-                </div>
-
 
 
 
@@ -4164,7 +4485,7 @@
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Destabilization of the PrP-C Native Fold</span>
+	                            <span class="crosslink-meta">Acquisition of a Conversion-Competent PrP-C Conformer</span>
 
 
 	                        </div>
@@ -4177,10 +4498,10 @@
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilization-of-the-prp-c-native-fold" data-dismech-node="Destabilization of the PrP-C Native Fold" data-dismech-type="pathophysiology">
-                <div class="item-name">Destabilization of the PrP-C Native Fold</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-a-conversion-competent-prp-c-conformer" data-dismech-node="Acquisition of a Conversion-Competent PrP-C Conformer" data-dismech-type="pathophysiology">
+                <div class="item-name">Acquisition of a Conversion-Competent PrP-C Conformer</div>
 
-                <div class="item-desc">The substitution lowers the thermodynamic/kinetic barrier separating the alpha-helical PrP-C fold from beta-sheet-rich conformers, making a stochastic misfolding event eventually possible. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than globular-domain destabilization.)</div>
+                <div class="item-desc">The substitution renders PrP-C susceptible to a stochastic conformational conversion into the PrP-Sc-templating fold, eventually making a misfolding event possible over years to decades. For the classic P102L GSS variant this is not explained by loss of native-state thermodynamic stability: recombinant human PrP(90-231) carrying P102L is recovered soluble, with secondary structure and guanidine/thermal unfolding stability indistinguishable from wild-type. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than a globular-domain conformational change.)</div>
 
 
 
@@ -4194,12 +4515,12 @@
                 <div class="item-meta">
 
                     <span class="tag tag-bio">
-                        protein unfolding
+                        protein folding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043335" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043335">GO:0043335</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006457">GO:0006457</a>
 
 
 
@@ -4209,7 +4530,7 @@
 
 
     <span class="tag tag-modifier">
-        ↑ INCREASED
+        ⚠ ABNORMAL
     </span>
 
 
@@ -4244,6 +4565,38 @@
 	                </div>
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9813003" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9813003" target="_blank">PMID:9813003</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The stability properties of the P102L variant were indistinguishable from those of wild-type PrP"</div>
+
+
+                <div class="evidence-explanation">Establishes the actual observed biophysical property of the P102L variant used to replace the refuted destabilization claim: recovered soluble, with stability indistinguishable from wild-type, rather than an intrinsically destabilized fold.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
 	            </div>
@@ -5090,7 +5443,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Destabilization of the PrP-C Native Fold\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The substitution lowers the thermodynamic/kinetic barrier separating the alpha-helical PrP-C fold from beta-sheet-rich conformers, making a stochastic misfolding event eventually possible. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than globular-domain destabilization.)\", \"meta\": {\"biological_processes\": [\"protein unfolding\"]}}, {\"id\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GSS brains carry two major protease-resistant PrP fragments: an ~8 kDa unglycosylated fragment with ragged N- and C-termini (derived from the center of PrP), which is the GSS-defining species and tracks with multicentric amyloid, and a 21 kDa (type-1-like) fragment present in the CJD-like variant. Which fragment forms in vivo determines the neuropathology.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multicentric PrP Amyloid Plaque Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 8 kDa fragment drives the pathognomonic lesion: multicentric PrP amyloid plaques (a dense core with satellite deposits) concentrated in the cerebellar molecular layer and cerebral cortex.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"amyloid fibril formation\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive astrogliosis and microglial activation track the PrP deposits, a purely innate neuroinflammatory response (PrP-Sc is a self-protein in a different fold and is not immunogenic, so no adaptive immune response occurs).\", \"meta\": {\"cell_types\": [\"astrocyte\", \"microglial cell\"], \"biological_processes\": [\"microglial cell activation\", \"astrocyte activation\"]}}, {\"id\": \"PRNP Germline Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous PRNP coding variant is present from conception in every cell. It does not break the gene; it renders the encoded protein conformationally unfaithful, a gain-of-toxic-function rather than a loss-of-function lesion.\", \"meta\": {\"biological_processes\": [\"protein stabilization\"]}}, {\"id\": \"Regional Neuronal Loss and Clinical Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regionally selective neuronal loss maps to the clinical syndrome: cerebellar Purkinje/granule loss produces ataxia, cortical involvement produces dementia, substantia nigra loss produces parkinsonism, and caudal spinal cord pathology produces areflexia and painful dysaesthesiae.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\", \"spinal cord\"]}}, {\"id\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 21 kDa fragment drives a parallel, strain-dependent lesion of spongiform degeneration with a synaptic pattern of PrP deposition. It is present in the CJD-like variant and absent in some GSS variants (e.g. D202N without spongiform change), explaining much of the intra-mutation phenotypic variability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic Dysfunction and Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both deposition routes converge on synaptotoxicity and neuronal apoptosis, the proximate cause of the clinical decline.\", \"meta\": {\"cell_types\": [\"Purkinje cell\", \"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"neuron apoptotic process\"]}}, {\"id\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autocatalytic core of the disease: a nucleated conformational conversion in which a misfolded PrP molecule recruits and refolds native PrP-C. This is the step that makes the disease self-propagating and experimentally transmissible.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein homooligomerization\"]}}], \"edges\": [{\"source\": \"PRNP Germline Missense Variant\", \"target\": \"Destabilization of the PrP-C Native Fold\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Destabilization of the PrP-C Native Fold\", \"target\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"target\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Multicentric PrP Amyloid Plaque Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multicentric PrP Amyloid Plaque Formation\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Regional Neuronal Loss and Clinical Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acquisition of a Conversion-Competent PrP-C Conformer\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The substitution renders PrP-C susceptible to a stochastic conformational conversion into the PrP-Sc-templating fold, eventually making a misfolding event possible over years to decades. For the classic P102L GSS variant this is not explained by loss of native-state thermodynamic stability: recombinant human PrP(90-231) carrying P102L is recovered soluble, with secondary structure and guanidine/thermal unfolding stability indistinguishable from wild-type. (For A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP topogenesis rather than a globular-domain conformational change.)\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein folding\"]}}, {\"id\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GSS brains carry two major protease-resistant PrP fragments: an ~8 kDa unglycosylated fragment with ragged N- and C-termini (derived from the center of PrP), which is the GSS-defining species and tracks with multicentric amyloid, and a 21 kDa (type-1-like) fragment present in the CJD-like variant. Which fragment forms in vivo determines the neuropathology.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multicentric PrP Amyloid Plaque Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 8 kDa fragment drives the pathognomonic lesion: multicentric PrP amyloid plaques (a dense core with satellite deposits) concentrated in the cerebellar molecular layer and cerebral cortex.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"amyloid fibril formation\"]}}, {\"id\": \"Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reactive astrogliosis and microglial activation track the PrP deposits, a purely innate neuroinflammatory response (PrP-Sc is a self-protein in a different fold and is not immunogenic, so no adaptive immune response occurs).\", \"meta\": {\"cell_types\": [\"astrocyte\", \"microglial cell\"], \"biological_processes\": [\"microglial cell activation\", \"astrocyte activation\"]}}, {\"id\": \"PRNP Germline Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous PRNP coding variant is present from conception in every cell. It does not break the gene; it renders the encoded protein conformationally unfaithful, a gain-of-toxic-function rather than a loss-of-function lesion.\"}, {\"id\": \"Regional Neuronal Loss and Clinical Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regionally selective neuronal loss maps to the clinical syndrome: cerebellar Purkinje/granule loss produces ataxia, cortical involvement produces dementia, substantia nigra loss produces parkinsonism, and caudal spinal cord pathology produces areflexia and painful dysaesthesiae.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebellum\", \"spinal cord\"]}}, {\"id\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 21 kDa fragment drives a parallel, strain-dependent lesion of spongiform degeneration with a synaptic pattern of PrP deposition. It is present in the CJD-like variant and absent in some GSS variants (e.g. D202N without spongiform change), explaining much of the intra-mutation phenotypic variability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Synaptic Dysfunction and Neuronal Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both deposition routes converge on synaptotoxicity and neuronal apoptosis, the proximate cause of the clinical decline.\", \"meta\": {\"cell_types\": [\"Purkinje cell\", \"neuron\"], \"biological_processes\": [\"chemical synaptic transmission\", \"neuron apoptotic process\"]}}, {\"id\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The autocatalytic core of the disease: a nucleated conformational conversion in which a misfolded PrP molecule recruits and refolds native PrP-C. This is the step that makes the disease self-propagating and experimentally transmissible.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein homooligomerization\"]}}], \"edges\": [{\"source\": \"PRNP Germline Missense Variant\", \"target\": \"Acquisition of a Conversion-Competent PrP-C Conformer\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Acquisition of a Conversion-Competent PrP-C Conformer\", \"target\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Template-Directed Conversion of PrP-C to PrP-Sc\", \"target\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Multicentric PrP Amyloid Plaque Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Generation of GSS-Specific Protease-Resistant PrP Fragments\", \"target\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Multicentric PrP Amyloid Plaque Formation\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Spongiform Degeneration and Synaptic PrP Deposition\", \"target\": \"Synaptic Dysfunction and Neuronal Death\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Synaptic Dysfunction and Neuronal Death\", \"target\": \"Regional Neuronal Loss and Clinical Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5130,7 +5483,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphagia
 
@@ -5166,7 +5519,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multicentric-prp-amyloid-deposition" data-dismech-node="Multicentric PrP amyloid deposition" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multicentric PrP amyloid deposition
 
@@ -5234,7 +5587,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spasticity
 
@@ -5270,7 +5623,7 @@
                     <span class="cat-count">11</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-ataxia" data-dismech-node="Gait ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gait ataxia
 
@@ -5349,7 +5702,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-cerebellar-ataxia" data-dismech-node="Progressive cerebellar ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive cerebellar ataxia
 
@@ -5376,7 +5729,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dementia" data-dismech-node="Dementia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dementia
 
@@ -5453,7 +5806,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-areflexia" data-dismech-node="Areflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Areflexia
 
@@ -5512,7 +5865,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paresthesia" data-dismech-node="Paresthesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Paresthesia
 
@@ -5539,7 +5892,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Parkinsonism
 
@@ -5566,7 +5919,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysarthria
 
@@ -5611,7 +5964,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonus" data-dismech-node="Myoclonus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myoclonus
 
@@ -5638,7 +5991,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neurofibrillary-tangles" data-dismech-node="Neurofibrillary tangles" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neurofibrillary tangles
 
@@ -5665,7 +6018,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-atrophy" data-dismech-node="Cerebellar atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebellar atrophy
 
@@ -5692,7 +6045,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperreflexia
 
@@ -5728,7 +6081,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-cortex-with-spongiform-changes" data-dismech-node="Cerebral cortex with spongiform changes" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral cortex with spongiform changes
 
@@ -5787,7 +6140,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gliosis" data-dismech-node="Gliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gliosis
 
@@ -5853,7 +6206,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prnp" data-dismech-node="PRNP" data-dismech-type="genetic">
                 <div class="item-name">
                     PRNP
 
@@ -5916,9 +6269,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prnp-codon-129-m129v-and-apoe-modifiers" data-dismech-node="PRNP codon 129 (M129V) and APOE modifiers" data-dismech-type="genetic">
                 <div class="item-name">
                     PRNP codon 129 (M129V) and APOE modifiers
 
@@ -6003,9 +6357,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6017,7 +6375,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-supportive-and-palliative-care" data-dismech-node="Multidisciplinary supportive and palliative care" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary supportive and palliative care
                 </div>
@@ -6095,7 +6453,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling-and-predictive-testing" data-dismech-node="Genetic counseling and predictive testing" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic counseling and predictive testing
                 </div>
@@ -6173,7 +6531,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-prp-lowering-monoclonal-antibody-prn100" data-dismech-node="PrP-lowering monoclonal antibody (PRN100)" data-dismech-type="treatment">
                 <div class="item-name">
                     PrP-lowering monoclonal antibody (PRN100)
                 </div>
@@ -6368,9 +6726,11 @@ description: &gt;-
   autosomal dominant genetic prion disease caused by germline variants in the prion
   protein gene PRNP. It is one of the three classic inherited prion phenotypes
   (alongside genetic Creutzfeldt-Jakob disease and fatal familial insomnia). A
-  pathogenic PRNP variant lowers the energy barrier between the normal cellular
-  prion protein (PrP-C) and a self-templating misfolded conformer (PrP-Sc), so that
-  over decades a stochastic nucleation event propagates autocatalytically. The
+  pathogenic PRNP variant renders PrP-C susceptible to conversion into a
+  self-templating misfolded conformer (PrP-Sc), so that over decades a stochastic
+  nucleation event propagates autocatalytically. (For the classic P102L variant
+  this is not explained by loss of native-state thermodynamic stability - see the
+  deprecated `native_state_destabilization` mechanistic hypothesis.) The
   clinical signature is a slowly progressive cerebellar ataxia beginning in midlife
   followed by dementia, and the neuropathological hallmark is multicentric PrP
   amyloid plaques with a distinctive ~8 kDa protease-resistant PrP fragment. GSS is
@@ -6474,31 +6834,57 @@ genetic:
 
 pathophysiology:
 - name: PRNP Germline Missense Variant
+  biological_scale: MOLECULAR
   description: &gt;-
     A heterozygous PRNP coding variant is present from conception in every cell. It
     does not break the gene; it renders the encoded protein conformationally
     unfaithful, a gain-of-toxic-function rather than a loss-of-function lesion.
-  biological_processes:
-  - preferred_term: protein stabilization
-    term:
-      id: GO:0050821
-      label: protein stabilization
-    modifier: DECREASED
   downstream:
-  - target: Destabilization of the PrP-C Native Fold
-- name: Destabilization of the PrP-C Native Fold
+  - target: Acquisition of a Conversion-Competent PrP-C Conformer
+- name: Acquisition of a Conversion-Competent PrP-C Conformer
   description: &gt;-
-    The substitution lowers the thermodynamic/kinetic barrier separating the
-    alpha-helical PrP-C fold from beta-sheet-rich conformers, making a stochastic
-    misfolding event eventually possible. (For A117V, an alternative upstream trigger
-    is aberrant C-terminal-transmembrane PrP topogenesis rather than globular-domain
-    destabilization.)
+    The substitution renders PrP-C susceptible to a stochastic conformational
+    conversion into the PrP-Sc-templating fold, eventually making a misfolding event
+    possible over years to decades. For the classic P102L GSS variant this is not
+    explained by loss of native-state thermodynamic stability: recombinant human
+    PrP(90-231) carrying P102L is recovered soluble, with secondary structure and
+    guanidine/thermal unfolding stability indistinguishable from wild-type. (For
+    A117V, an alternative upstream trigger is aberrant C-terminal-transmembrane PrP
+    topogenesis rather than a globular-domain conformational change.)
+  notes: &gt;-
+    Curation note on what this node deliberately does NOT claim. An earlier revision
+    named this node &#34;Destabilization of the PrP-C Native Fold&#34; and asserted that the
+    substitution &#34;lowers the thermodynamic/kinetic barrier&#34; separating the native fold
+    from beta-sheet conformers. That framing states as mechanism a hypothesis the
+    primary literature directly rejects for GSS: Swietnicki et al. (PMID:9813003)
+    assayed the P102L variant itself and found its stability indistinguishable from
+    wild-type, and conclude that &#34;some hereditary forms of prion disease cannot be
+    rationalized using the concept of mutation-induced thermodynamic destabilization
+    of the cellular prion protein.&#34; Liemann and Glockshuber (PMID:10079068)
+    independently measured all eight C-terminal familial substitutions and found
+    stability does not correlate with disease phenotype. Wildegger et al. (Nat Struct
+    Biol, 1999) additionally showed PrP-C folds in ~170 microseconds with no
+    detectable intermediate, undercutting a populated folding-intermediate route to
+    PrP-Sc as well. See the disease-level `native_state_destabilization` mechanistic
+    hypothesis (status DEPRECATED) for the retained refutation evidence. The true
+    proximate trigger for PrP-C-to-PrP-Sc conversion in P102L GSS remains an open
+    question.
   biological_processes:
-  - preferred_term: protein unfolding
+  - preferred_term: protein folding
     term:
-      id: GO:0043335
-      label: protein unfolding
-    modifier: INCREASED
+      id: GO:0006457
+      label: protein folding
+    modifier: ABNORMAL
+  evidence:
+  - reference: PMID:9813003
+    reference_title: &#34;Familial mutations and the thermodynamic stability of the recombinant human prion protein.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;The stability properties of the P102L variant were indistinguishable from those of wild-type PrP&#34;
+    explanation: &gt;-
+      Establishes the actual observed biophysical property of the P102L variant used
+      to replace the refuted destabilization claim: recovered soluble, with stability
+      indistinguishable from wild-type, rather than an intrinsically destabilized fold.
   downstream:
   - target: Template-Directed Conversion of PrP-C to PrP-Sc
 - name: Template-Directed Conversion of PrP-C to PrP-Sc
@@ -6940,6 +7326,45 @@ clinical_trials:
     snippet: &#34;The purpose of this study is to evaluate the safety, tolerability, pharmacokinetics and pharmacodynamics of intrathecal (IT) delivery of ION717.&#34;
     explanation: The active PrP-lowering ASO trial relevant to genetic prion disease including GSS.
 
+mechanistic_hypotheses:
+- hypothesis_group_id: native_state_destabilization
+  hypothesis_label: Native-State Thermodynamic/Kinetic Destabilization Model
+  status: DEPRECATED
+  description: &gt;-
+    Familial PRNP substitutions cause disease by lowering the thermodynamic and/or
+    kinetic barrier separating the native alpha-helical PrP-C fold from beta-sheet-rich
+    conformers, so that a stochastic misfolding event becomes possible.
+  notes: &gt;-
+    Deprecated for the GSS P102L variant specifically, not just as a general caveat:
+    this is the one familial PRNP substitution in this literature that was directly
+    assayed and found not to be thermodynamically destabilized. Swietnicki et al.
+    (PMID:9813003) recovered recombinant P102L PrP(90-231) in soluble form with
+    wild-type-like secondary structure and stability. Liemann and Glockshuber
+    (PMID:10079068) independently found, across all eight C-terminal familial
+    substitutions tested, that thermodynamic stability does not correlate with disease
+    phenotype - not that no variant is destabilized: five of the eight substitutions
+    they tested (none of them P102L) do destabilize PrP(121-231) relative to
+    wild-type, while the other three do not. Retained as DEPRECATED
+    for provenance so the barrier-lowering framing is not reintroduced as the
+    explanation for P102L specifically.
+  evidence:
+  - reference: PMID:9813003
+    reference_title: &#34;Familial mutations and the thermodynamic stability of the recombinant human prion protein.&#34;
+    supports: REFUTE
+    evidence_source: IN_VITRO
+    snippet: &#34;some hereditary forms of prion disease cannot be rationalized using the concept of mutation-induced thermodynamic destabilization of the cellular prion protein&#34;
+    explanation: &gt;-
+      Direct test of the P102L GSS variant itself; its stability was indistinguishable
+      from wild-type, so the destabilization model cannot explain this variant.
+  - reference: PMID:10079068
+    reference_title: &#34;Influence of amino acid substitutions related to inherited human prion diseases on the thermodynamic stability of the cellular prion protein.&#34;
+    supports: REFUTE
+    evidence_source: IN_VITRO
+    snippet: &#34;These data suggest that destabilization of PrPC is neither a general mechanism underlying the formation of PrPSc nor the basis of disease phenotypes in inherited human TSEs.&#34;
+    explanation: &gt;-
+      Independent replication across all eight C-terminal familial PRNP substitutions:
+      measured thermodynamic stabilities do not correlate with disease phenotype.
+
 discussions:
 - discussion_id: gap_gss_prnp_penetrance_modifiers
   prompt: &gt;-
@@ -6951,7 +7376,7 @@ discussions:
   status: OPEN
   attaches_to:
   - genetic#PRNP codon 129 (M129V) and APOE modifiers
-  - pathophysiology#Destabilization of the PrP-C Native Fold
+  - pathophysiology#Acquisition of a Conversion-Competent PrP-C Conformer
   rationale: &gt;-
     Large population control cohorts show that PRNP variants previously reported as
     pathogenic are far more common than expected and confer a wide range of lifetime
@@ -9040,7 +9465,7 @@ aso_details:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gerstmann-Straussler-Scheinker Syndrome", "mondoId": "MONDO:0007656", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gerstmann-Straussler-Scheinker_Syndrome", "yamlRevision": "18708709a142"};
+        const OS_CONFIG = {"diseaseName": "Gerstmann-Straussler-Scheinker Syndrome", "mondoId": "MONDO:0007656", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gerstmann-Straussler-Scheinker_Syndrome", "yamlRevision": "9eba7ffc9700"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

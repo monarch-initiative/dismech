@@ -1082,10 +1082,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -2456,8 +2533,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2572,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2598,9 +2712,16 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
@@ -2608,12 +2729,14 @@
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2754,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2806,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2872,18 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3035,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3053,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3125,8 +3324,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3357,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3518,12 @@
 
 
 
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3566,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 31</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Crohn%20Disease"
@@ -3466,6 +3695,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3519,7 +3750,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">31</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3532,6 +3763,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -3552,6 +3784,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -7421,7 +7661,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATG16L1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Risk Factor\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Antimicrobial Defense Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced secretion of antimicrobial peptides (defensins, lysozyme) allows increased bacterial translocation across the intestinal epithelium.\", \"meta\": {\"biological_processes\": [\"Antimicrobial humoral response\"], \"genes\": [\"NOD2\", \"CARD9\"], \"gene_terms\": [{\"label\": \"NOD2\", \"id\": \"hgnc:5331\"}, {\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"CARD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Dysregulated Immune Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks the gastrointestinal tract, leading to chronic inflammation.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"description\": \"Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.\"}]}}, {\"id\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human intestinal enteroid monolayers derived from pluripotent stem cell-derived organoids with NEUROG3 loss, cultured on Transwell filters to quantify permeability and inflammatory-cytokine-sensitive epithelial barrier responses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"enteroendocrine-cell deficiency\", \"TNF exposure\", \"epithelial barrier dysfunction\"], \"publication\": \"PMID:40095977\"}}, {\"id\": \"Fibrosis and Stricture Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation leads to fibroblast activation, extracellular matrix deposition, and intestinal strictures.\", \"meta\": {\"cell_types\": [\"Fibroblast\", \"Myofibroblast\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Tissue remodeling\"], \"locations\": [\"Intestinal wall\", \"Mesenteric adipose tissue\"]}}, {\"id\": \"IL-23/Th17 Axis Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overactive IL-23 signaling drives pathogenic Th17 cell differentiation and chronic intestinal inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Th17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Th17 cell differentiation\", \"IL-23 signaling\"], \"genes\": [\"IL23R\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"locations\": [\"Intestinal mucosa\"]}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Risk Factor\"}}, {\"id\": \"Intestinal Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted epithelial integrity and increased permeability permit microbial translocation and amplify mucosal immune activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.\"}, {\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.\"}]}}, {\"id\": \"Intestinal Inflammation and Epithelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation produces epithelial and stromal injury that disrupts mucosal function in Crohn disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.\"}]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004796\"}}, {\"id\": \"LRRK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Macrophage Autophagy Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagy in lamina propria macrophages (particularly with hyperactive LRRK2 variants such as G2019S, N2081D) leads to defective clearance of intracellular bacteria and pro-inflammatory cytokine release that impairs Paneth cell homeostasis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"LRRK2\"], \"gene_terms\": [{\"label\": \"LRRK2\", \"id\": \"hgnc:18618\"}], \"locations\": [\"Intestinal lamina propria\"]}}, {\"id\": \"Malnutrition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004395\"}}, {\"id\": \"Microbiome Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alterations in gut microbiota contribute to the disease mechanisms.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.\"}]}}, {\"id\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemokine-driven infiltration of macrophages and other myeloid cells into perianal tissues, establishing chronic inflammation.\", \"meta\": {\"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Leukocyte migration\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"Myeloid-Stromal Cell Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interferon-driven macrophage activation promotes fibroblast activation and matrix degradation, creating tissue disruption that leads to fistula tract formation.\", \"meta\": {\"cell_types\": [\"Macrophage\", \"Fibroblast\"], \"biological_processes\": [\"Type II interferon signaling\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"NOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9, \"association\": \"Risk Factor\"}}, {\"id\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human pluripotent stem cell-derived intestinal organoids combined with matched PSC-derived macrophages to model resident myeloid-epithelial interactions and inflammatory cytokine responses in intestinal tissue.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"Macrophage\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"tissue-resident macrophage coculture\", \"proinflammatory signaling\", \"bacterial challenge\"], \"publication\": \"PMID:39701210\"}}, {\"id\": \"Paneth Cell Autophagy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective autophagy in Paneth cells due to mutations in autophagy genes (ATG16L1, ATG5) causes abnormal granule formation and impaired antimicrobial peptide secretion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Paneth cell\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"ATG16L1\"], \"gene_terms\": [{\"label\": \"ATG16L1\", \"id\": \"hgnc:21498\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"Perianal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Primary human small-intestinal monolayer barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Polarized primary human small-intestinal epithelial monolayers cultured on Transwells to study barrier integrity, permeability, and host-microbiota interface biology relevant to inflammatory bowel disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"intestinal barrier dysfunction\", \"host-microbiota interaction modeling\", \"gut barrier dysfunction (IBD-adjacent)\"], \"publication\": \"PMID:29094594\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"TL1A-Mediated T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor necrosis factor-like ligand 1A (TL1A) activates T cells through death receptor 3 (DR3), promoting inflammatory cytokine production and recruitment of myeloid cells to sites of tissue damage.\", \"meta\": {\"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"], \"genes\": [\"TNFSF15\"], \"gene_terms\": [{\"label\": \"TNFSF15\", \"id\": \"hgnc:11931\"}], \"locations\": [\"Rectal mucosa\"]}}, {\"id\": \"TNFSF15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Dysregulated Immune Response\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent immune activation sustains bowel-wall inflammation with epithelial and stromal injury in affected segments.\"}, {\"source\": \"Dysregulated Immune Response\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mucosal immune activation promotes sustained IL-23-driven Th17 polarization.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysbiosis challenges epithelial barrier integrity and promotes abnormal host-microbiota interactions.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered gut microbial communities shape a pathological mucosal immune response.\"}, {\"source\": \"Paneth Cell Autophagy Impairment\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Paneth cell granule secretion reduces antimicrobial peptide levels in intestinal lumen.\"}, {\"source\": \"Antimicrobial Defense Deficiency\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antimicrobial peptide defense permits microbial encroachment at the epithelial surface and increased translocation.\"}, {\"source\": \"Intestinal Barrier Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased microbial and luminal antigen exposure drives chronic mucosal immune activation.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflamed intestinal mucosa and epithelial injury perturb absorptive and secretory function, contributing to diarrheal symptoms.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation causes abdominal pain during Crohn flares.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Fibrosis and Stricture Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammatory injury promotes fibroblast activation and progressive tissue remodeling.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LRRK2-hyperactive macrophages release pro-inflammatory cytokines that disrupt Paneth cell autophagy and antimicrobial function.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective bacterial clearance and cytokine release amplify chronic intestinal inflammation.\"}, {\"source\": \"Fibrosis and Stricture Formation\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive stricture formation narrows the bowel lumen and produces obstructive symptoms.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TL1A-DR3 signaling amplifies pathogenic T-cell cytokine programs within the broader Crohn inflammatory network.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated T cells produce chemokines that recruit macrophages to perianal inflammatory sites.\"}, {\"source\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"target\": \"Myeloid-Stromal Cell Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited macrophages interact with resident fibroblasts, driving tissue remodeling.\"}, {\"source\": \"Myeloid-Stromal Cell Crosstalk\", \"target\": \"Perianal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic myeloid-fibroblast crosstalk and tissue remodeling drive perianal fistula and abscess phenotypes.\"}, {\"source\": \"Diarrhea\", \"target\": \"Weight Loss\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Malnutrition\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Microbiome Imbalance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NOD2\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATG16L1\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LRRK2\", \"target\": \"Macrophage Autophagy Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFSF15\", \"target\": \"TL1A-Mediated T Cell Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD9\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATG16L1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"association\": \"Risk Factor\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Antimicrobial Defense Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced secretion of antimicrobial peptides (defensins, lysozyme) allows increased bacterial translocation across the intestinal epithelium.\", \"meta\": {\"biological_processes\": [\"Antimicrobial humoral response\"], \"genes\": [\"NOD2\", \"CARD9\"], \"gene_terms\": [{\"label\": \"NOD2\", \"id\": \"hgnc:5331\"}, {\"label\": \"CARD9\", \"id\": \"hgnc:16391\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"CARD9\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Diet\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Dysregulated Immune Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks the gastrointestinal tract, leading to chronic inflammation.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"description\": \"Captures macrophage cytokine responses to proinflammatory signals within a human intestinal tissue context.\"}]}}, {\"id\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human intestinal enteroid monolayers derived from pluripotent stem cell-derived organoids with NEUROG3 loss, cultured on Transwell filters to quantify permeability and inflammatory-cytokine-sensitive epithelial barrier responses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"enteroendocrine-cell deficiency\", \"TNF exposure\", \"epithelial barrier dysfunction\"], \"publication\": \"PMID:40095977\"}}, {\"id\": \"Fibrosis and Stricture Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation leads to fibroblast activation, extracellular matrix deposition, and intestinal strictures.\", \"meta\": {\"cell_types\": [\"Fibroblast\", \"Myofibroblast\"], \"biological_processes\": [\"Extracellular matrix organization\", \"Tissue remodeling\"], \"locations\": [\"Intestinal wall\", \"Mesenteric adipose tissue\"]}}, {\"id\": \"IL-23/Th17 Axis Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Overactive IL-23 signaling drives pathogenic Th17 cell differentiation and chronic intestinal inflammation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Th17 cell\", \"Dendritic cell\"], \"biological_processes\": [\"Th17 cell differentiation\", \"IL-23 signaling\"], \"genes\": [\"IL23R\", \"STAT3\"], \"gene_terms\": [{\"label\": \"IL23R\", \"id\": \"hgnc:19100\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}], \"locations\": [\"Intestinal mucosa\"]}}, {\"id\": \"IL23R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"association\": \"Risk Factor\"}}, {\"id\": \"Intestinal Barrier Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted epithelial integrity and increased permeability permit microbial translocation and amplify mucosal immune activation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports permeability and barrier-integrity readouts relevant to epithelial dysfunction in Crohn disease.\"}, {\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Directly measures transepithelial resistance and paracellular permeability in cytokine-sensitive intestinal epithelial monolayers.\"}]}}, {\"id\": \"Intestinal Inflammation and Epithelial Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation produces epithelial and stromal injury that disrupts mucosal function in Crohn disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\"], \"locations\": [\"Terminal ileum\"], \"experimental_models\": [{\"name\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Models inflammatory-cytokine-associated epithelial barrier injury in a Crohn-relevant gut epithelium context.\"}]}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0004796\"}}, {\"id\": \"LRRK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Macrophage Autophagy Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired autophagy in lamina propria macrophages (particularly with hyperactive LRRK2 variants such as G2019S, N2081D) leads to defective clearance of intracellular bacteria and pro-inflammatory cytokine release that impairs Paneth cell homeostasis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"LRRK2\"], \"gene_terms\": [{\"label\": \"LRRK2\", \"id\": \"hgnc:18618\"}], \"locations\": [\"Intestinal lamina propria\"]}}, {\"id\": \"Malnutrition\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004395\"}}, {\"id\": \"Microbiome Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Alterations in gut microbiota contribute to the disease mechanisms.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"Primary human small-intestinal monolayer barrier model\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"description\": \"Supports controlled host-microbiota interface experiments relevant to dysbiosis-linked epithelial dysfunction in Crohn disease.\"}]}}, {\"id\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chemokine-driven infiltration of macrophages and other myeloid cells into perianal tissues, establishing chronic inflammation.\", \"meta\": {\"cell_types\": [\"Macrophage\"], \"biological_processes\": [\"Leukocyte migration\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"Myeloid-Stromal Cell Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Interferon-driven macrophage activation promotes fibroblast activation and matrix degradation, creating tissue disruption that leads to fistula tract formation.\", \"meta\": {\"cell_types\": [\"Macrophage\", \"Fibroblast\"], \"biological_processes\": [\"Type II interferon signaling\"], \"locations\": [\"Perianal region\"]}}, {\"id\": \"NOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 9, \"association\": \"Risk Factor\"}}, {\"id\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Human pluripotent stem cell-derived intestinal organoids combined with matched PSC-derived macrophages to model resident myeloid-epithelial interactions and inflammatory cytokine responses in intestinal tissue.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"intestinal epithelial cell\", \"Macrophage\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:Organoid\", \"conditions\": [\"tissue-resident macrophage coculture\", \"proinflammatory signaling\", \"bacterial challenge\"], \"publication\": \"PMID:39701210\"}}, {\"id\": \"Paneth Cell Autophagy Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective autophagy in Paneth cells due to mutations in autophagy genes (ATG16L1, ATG5) causes abnormal granule formation and impaired antimicrobial peptide secretion.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Paneth cell\"], \"biological_processes\": [\"Autophagy\"], \"genes\": [\"ATG16L1\"], \"gene_terms\": [{\"label\": \"ATG16L1\", \"id\": \"hgnc:21498\"}], \"locations\": [\"Terminal ileum\"]}}, {\"id\": \"Perianal Disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\"}}, {\"id\": \"Primary human small-intestinal monolayer barrier model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Polarized primary human small-intestinal epithelial monolayers cultured on Transwells to study barrier integrity, permeability, and host-microbiota interface biology relevant to inflammatory bowel disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"model_type\": \"PRIMARY_CELL_CULTURE\", \"namo_type\": \"namo:TwoDCellCulture\", \"conditions\": [\"intestinal barrier dysfunction\", \"host-microbiota interaction modeling\", \"gut barrier dysfunction (IBD-adjacent)\"], \"publication\": \"PMID:29094594\"}}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"Smoking\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5}}, {\"id\": \"TL1A-Mediated T Cell Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumor necrosis factor-like ligand 1A (TL1A) activates T cells through death receptor 3 (DR3), promoting inflammatory cytokine production and recruitment of myeloid cells to sites of tissue damage.\", \"meta\": {\"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell activation\"], \"genes\": [\"TNFSF15\"], \"gene_terms\": [{\"label\": \"TNFSF15\", \"id\": \"hgnc:11931\"}], \"locations\": [\"Rectal mucosa\"]}}, {\"id\": \"TNFSF15\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Dysregulated Immune Response\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent immune activation sustains bowel-wall inflammation with epithelial and stromal injury in affected segments.\"}, {\"source\": \"Dysregulated Immune Response\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic mucosal immune activation promotes sustained IL-23-driven Th17 polarization.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysbiosis challenges epithelial barrier integrity and promotes abnormal host-microbiota interactions.\"}, {\"source\": \"Microbiome Imbalance\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered gut microbial communities shape a pathological mucosal immune response.\"}, {\"source\": \"Paneth Cell Autophagy Impairment\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Paneth cell granule secretion reduces antimicrobial peptide levels in intestinal lumen.\"}, {\"source\": \"Antimicrobial Defense Deficiency\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of antimicrobial peptide defense permits microbial encroachment at the epithelial surface and increased translocation.\"}, {\"source\": \"Intestinal Barrier Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased microbial and luminal antigen exposure drives chronic mucosal immune activation.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inflamed intestinal mucosa and epithelial injury perturb absorptive and secretory function, contributing to diarrheal symptoms.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Active intestinal inflammation causes abdominal pain during Crohn flares.\"}, {\"source\": \"Intestinal Inflammation and Epithelial Injury\", \"target\": \"Fibrosis and Stricture Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent inflammatory injury promotes fibroblast activation and progressive tissue remodeling.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"LRRK2-hyperactive macrophages release pro-inflammatory cytokines that disrupt Paneth cell autophagy and antimicrobial function.\"}, {\"source\": \"Macrophage Autophagy Dysfunction\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective bacterial clearance and cytokine release amplify chronic intestinal inflammation.\"}, {\"source\": \"Fibrosis and Stricture Formation\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive stricture formation narrows the bowel lumen and produces obstructive symptoms.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TL1A-DR3 signaling amplifies pathogenic T-cell cytokine programs within the broader Crohn inflammatory network.\"}, {\"source\": \"TL1A-Mediated T Cell Activation\", \"target\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated T cells produce chemokines that recruit macrophages to perianal inflammatory sites.\"}, {\"source\": \"Myeloid Cell Recruitment to Perianal Tissue\", \"target\": \"Myeloid-Stromal Cell Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recruited macrophages interact with resident fibroblasts, driving tissue remodeling.\"}, {\"source\": \"Myeloid-Stromal Cell Crosstalk\", \"target\": \"Perianal Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic myeloid-fibroblast crosstalk and tissue remodeling drive perianal fistula and abscess phenotypes.\"}, {\"source\": \"Diarrhea\", \"target\": \"Weight Loss\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Malnutrition\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Diarrhea\", \"target\": \"Dehydration\", \"predicate\": \"leads_to\", \"is_orphan\": false}, {\"source\": \"Smoking\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking raises both the risk of developing Crohn disease and the rate of complications, recurrence, and surgery once it is established. The route to mucosal immune dysregulation is not settled, and the cited sentences report risk and disease course rather than any immune measurement, so the intermediates are left unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Diet\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"A fibre-poor Western diet reshapes the gut microbiome, and the altered community drives Paneth cell defects through farnesoid X receptor and type I interferon signalling. Those intermediates are named by the cited study, which is why they are recorded as known. The finding is from mouse models, so this link is graded partial and should not be the sole support for a human claim.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Primary human small-intestinal monolayer barrier model\", \"target\": \"Microbiome Imbalance\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Barrier Dysfunction\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Enteroendocrine-deficient intestinal enteroid barrier model\", \"target\": \"Intestinal Inflammation and Epithelial Injury\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"PSC-derived intestinal organoid-macrophage coculture model\", \"target\": \"Dysregulated Immune Response\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"NOD2\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ATG16L1\", \"target\": \"Paneth Cell Autophagy Impairment\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL23R\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LRRK2\", \"target\": \"Macrophage Autophagy Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFSF15\", \"target\": \"TL1A-Mediated T Cell Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CARD9\", \"target\": \"Antimicrobial Defense Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"IL-23/Th17 Axis Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7471,7 +7711,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hematochezia" data-dismech-node="Hematochezia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hematochezia
 
@@ -7532,7 +7772,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iron-deficiency-anemia" data-dismech-node="Iron Deficiency Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Iron Deficiency Anemia
 
@@ -7622,7 +7862,7 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diarrhea" data-dismech-node="Diarrhea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Diarrhea
 
@@ -7714,7 +7954,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-obstruction" data-dismech-node="Intestinal Obstruction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intestinal Obstruction
 
@@ -7815,7 +8055,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-malnutrition" data-dismech-node="Malnutrition" data-dismech-type="phenotype">
                     <div class="item-name">
                         Malnutrition
 
@@ -7894,7 +8134,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-transmural-inflammation" data-dismech-node="Transmural Inflammation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Transmural Inflammation
 
@@ -7925,7 +8165,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-sclerosing-cholangitis" data-dismech-node="Primary sclerosing cholangitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Primary sclerosing cholangitis
 
@@ -7984,7 +8224,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-perianal-abscess" data-dismech-node="Perianal abscess" data-dismech-type="phenotype">
                     <div class="item-name">
                         Perianal abscess
 
@@ -8052,7 +8292,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-uveitis" data-dismech-node="Uveitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Uveitis
 
@@ -8133,7 +8373,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episcleritis" data-dismech-node="Episcleritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Episcleritis
 
@@ -8201,7 +8441,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrolithiasis" data-dismech-node="Nephrolithiasis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Nephrolithiasis
 
@@ -8271,7 +8511,7 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-erythema-nodosum" data-dismech-node="Erythema Nodosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Erythema Nodosum
 
@@ -8361,7 +8601,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
@@ -8464,7 +8704,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dehydration" data-dismech-node="Dehydration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dehydration
 
@@ -8502,7 +8742,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthritis" data-dismech-node="Arthritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arthritis
 
@@ -8583,7 +8823,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteoporosis" data-dismech-node="Osteoporosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Osteoporosis
 
@@ -8673,7 +8913,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abdominal-pain" data-dismech-node="Abdominal Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abdominal Pain
 
@@ -8770,7 +9010,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
@@ -8860,7 +9100,7 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-weight-loss" data-dismech-node="Weight Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Weight Loss
 
@@ -8939,7 +9179,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-failure" data-dismech-node="Growth Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Growth Failure
 
@@ -9029,7 +9269,7 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-perianal-disease" data-dismech-node="Perianal Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Perianal Disease
 
@@ -9120,7 +9360,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intestinal-stricture" data-dismech-node="Intestinal Stricture" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intestinal Stricture
 
@@ -9181,7 +9421,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-perianal-fistula" data-dismech-node="Perianal Fistula" data-dismech-type="phenotype">
                     <div class="item-name">
                         Perianal Fistula
 
@@ -9242,7 +9482,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anal-fissure" data-dismech-node="Anal Fissure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anal Fissure
 
@@ -9303,7 +9543,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aphthous-stomatitis" data-dismech-node="Aphthous Stomatitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aphthous Stomatitis
 
@@ -9384,7 +9624,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pyoderma-gangrenosum" data-dismech-node="Pyoderma Gangrenosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pyoderma Gangrenosum
 
@@ -9445,7 +9685,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anterior-uveitis" data-dismech-node="Anterior uveitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anterior uveitis
 
@@ -9543,7 +9783,7 @@
                 <span class="card-count">21</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nod2" data-dismech-node="NOD2" data-dismech-type="genetic">
                 <div class="item-name">
                     NOD2
 
@@ -9627,9 +9867,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atg16l1" data-dismech-node="ATG16L1" data-dismech-type="genetic">
                 <div class="item-name">
                     ATG16L1
 
@@ -9709,9 +9950,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il23r" data-dismech-node="IL23R" data-dismech-type="genetic">
                 <div class="item-name">
                     IL23R
 
@@ -9773,9 +10015,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lrrk2" data-dismech-node="LRRK2" data-dismech-type="genetic">
                 <div class="item-name">
                     LRRK2
 
@@ -9787,9 +10030,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnfsf15" data-dismech-node="TNFSF15" data-dismech-type="genetic">
                 <div class="item-name">
                     TNFSF15
 
@@ -9801,9 +10045,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-card9" data-dismech-node="CARD9" data-dismech-type="genetic">
                 <div class="item-name">
                     CARD9
 
@@ -9815,9 +10060,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
                 <div class="item-name">
                     BACH2
 
@@ -9829,9 +10075,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnfaip3" data-dismech-node="TNFAIP3" data-dismech-type="genetic">
                 <div class="item-name">
                     TNFAIP3
 
@@ -9843,9 +10090,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stat3" data-dismech-node="STAT3" data-dismech-type="genetic">
                 <div class="item-name">
                     STAT3
 
@@ -9857,9 +10105,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il10" data-dismech-node="IL10" data-dismech-type="genetic">
                 <div class="item-name">
                     IL10
 
@@ -9871,9 +10120,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
                 <div class="item-name">
                     CD28
 
@@ -9885,9 +10135,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-egr2" data-dismech-node="EGR2" data-dismech-type="genetic">
                 <div class="item-name">
                     EGR2
 
@@ -9899,9 +10150,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
                 <div class="item-name">
                     ETS1
 
@@ -9913,9 +10165,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-irf4" data-dismech-node="IRF4" data-dismech-type="genetic">
                 <div class="item-name">
                     IRF4
 
@@ -9927,9 +10180,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-irf8" data-dismech-node="IRF8" data-dismech-type="genetic">
                 <div class="item-name">
                     IRF8
 
@@ -9941,9 +10195,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-satb1" data-dismech-node="SATB1" data-dismech-type="genetic">
                 <div class="item-name">
                     SATB1
 
@@ -9955,9 +10210,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ikzf1" data-dismech-node="IKZF1" data-dismech-type="genetic">
                 <div class="item-name">
                     IKZF1
 
@@ -9969,9 +10225,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-smad3" data-dismech-node="SMAD3" data-dismech-type="genetic">
                 <div class="item-name">
                     SMAD3
 
@@ -9983,9 +10240,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-prdm1" data-dismech-node="PRDM1" data-dismech-type="genetic">
                 <div class="item-name">
                     PRDM1
 
@@ -9997,9 +10255,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
                 <div class="item-name">
                     PTPN22
 
@@ -10011,9 +10270,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il21r" data-dismech-node="IL21R" data-dismech-type="genetic">
                 <div class="item-name">
                     IL21R
 
@@ -10025,9 +10285,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -10039,7 +10303,7 @@
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-aminosalicylates" data-dismech-node="Aminosalicylates" data-dismech-type="treatment">
                 <div class="item-name">
                     Aminosalicylates
                 </div>
@@ -10154,7 +10418,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corticosteroids" data-dismech-node="Corticosteroids" data-dismech-type="treatment">
                 <div class="item-name">
                     Corticosteroids
                 </div>
@@ -10270,7 +10534,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-immunomodulators" data-dismech-node="Immunomodulators" data-dismech-type="treatment">
                 <div class="item-name">
                     Immunomodulators
                 </div>
@@ -10387,7 +10651,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-biologics" data-dismech-node="Biologics" data-dismech-type="treatment">
                 <div class="item-name">
                     Biologics
                 </div>
@@ -10505,7 +10769,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nutritional-therapy" data-dismech-node="Nutritional Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Nutritional Therapy
                 </div>
@@ -10623,7 +10887,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surgery" data-dismech-node="Surgery" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgery
                 </div>
@@ -10741,7 +11005,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-il-23-biologics" data-dismech-node="Anti-IL-23 Biologics" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-IL-23 Biologics
                 </div>
@@ -10787,7 +11051,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tl1a-inhibitors" data-dismech-node="TL1A Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     TL1A Inhibitors
                 </div>
@@ -10832,7 +11096,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-jak-inhibitors" data-dismech-node="JAK Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     JAK Inhibitors
                 </div>
@@ -10890,7 +11154,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-smoking" data-dismech-node="Smoking" data-dismech-type="environmental">
                 <div class="item-name">Smoking</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -10919,7 +11183,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -10963,36 +11227,113 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38238335" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:33159156" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33159156" target="_blank">PMID:33159156</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results indicated that, among lifestyle exposures, being a smoker was positively associated with CD (OR 1.13, P = 0.02)."</div>
+
+
+                <div class="evidence-explanation">Mendelian randomization estimate for smoking and Crohn disease risk, which is the exposure this entry records.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Dysregulated Immune Response</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Smoking raises both the risk of developing Crohn disease and the rate of complications, recurrence, and surgery once it is established. The route to mucosal immune dysregulation is not settled, and the cited sentences report risk and disease course rather than any immune measurement, so the intermediates are left unknown.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38238335" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38238335" target="_blank">PMID:38238335</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
                 <div class="evidence-snippet">"Compared to never smoking, current and previous smoking habits are associated with increased CD (P = 7.09 × 10-10) and UC (P &lt; 2 × 10-16) risk, respectively."</div>
 
 
-                <div class="evidence-explanation">This prospective cohort study finds that both current and previous smoking habits are associated with increased risk of CD, which supports the statement.</div>
+                <div class="evidence-explanation">Prospective cohort finding both current and previous smoking associated with raised Crohn disease risk at genome-wide significance. It establishes the association and not the immune step this link targets.</div>
 
 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:27016849" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27016849" target="_blank">PMID:27016849</a>
+                    </span>
 
-            <div class="evidence-more">+ 1 more reference</div>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Smoking increases the risk of complications, recurrences and resort of surgery, corticosteroids or immunosuppressants."</div>
+
+
+                <div class="evidence-explanation">Review reporting that smoking increases complications, recurrences, and recourse to surgery or immunosuppressants, which is disease course rather than mechanism.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
 
 
+                    </div>
+
+                </div>
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-diet" data-dismech-node="Diet" data-dismech-type="environmental">
                 <div class="item-name">Diet</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11014,7 +11355,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -11038,56 +11379,109 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34010595" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:34010595" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34010595" target="_blank">PMID:34010595</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
 
                 <div class="evidence-snippet">"In mouse models, consumption of a WD for as little as 4 weeks led to Paneth cell dysfunction."</div>
 
 
-                <div class="evidence-explanation">This study provides a direct mechanistic link between a Western diet and compromised gut immunity, which could exacerbate Crohn&#39;s disease symptoms.</div>
+                <div class="evidence-explanation">Connects a Western diet to compromised Paneth cell function and so to gut immunity. The snippet is explicit that this is a mouse result, which is what the model-organism tag and the partial grade record.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33159156" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:35595417" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33159156" target="_blank">PMID:33159156</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35595417" target="_blank">PMID:35595417</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                 </div>
 
-                <div class="evidence-snippet">"Our results indicated that, among lifestyle exposures, being a smoker was positively associated with CD (OR 1.13, P = 0.02)."</div>
+                <div class="evidence-snippet">"most patients report minimal nutritional education from their provider, and providers report few nutritional resources to help them educate patients."</div>
 
 
-                <div class="evidence-explanation">This Mendelian randomization study shows lifestyle factors including diet-related factors affect Crohn&#39;s disease risk.</div>
+                <div class="evidence-explanation">While this indicates the importance of diet, it also highlights a lack of resources and education surrounding the dietary management of Crohn&#39;s disease, providing partial support.</div>
 
 
 
             </div>
 
-
-            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Paneth Cell Autophagy Impairment</strong>
+
+                        <span style="color: #0d9488;"> &mdash; A fibre-poor Western diet reshapes the gut microbiome, and the altered community drives Paneth cell defects through farnesoid X receptor and type I interferon signalling. Those intermediates are named by the cited study, which is why they are recorded as known. The finding is from mouse models, so this link is graded partial and should not be the sole support for a human claim.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34010595" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34010595" target="_blank">PMID:34010595</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In mouse models, consumption of a WD for as little as 4 weeks led to Paneth cell dysfunction."</div>
+
+
+                <div class="evidence-explanation">Four weeks of Western diet produced Paneth cell dysfunction in mouse models, which is this node&#39;s own defect. Model-organism evidence, so it supports the mechanism without establishing it in human disease.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-stress" data-dismech-node="Stress" data-dismech-type="environmental">
                 <div class="item-name">Stress</div>
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
@@ -11158,6 +11552,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -11172,7 +11567,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-c-reactive-protein-crp" data-dismech-node="C-Reactive Protein (CRP)" data-dismech-type="biochemical">
                 <div class="item-name">
                     C-Reactive Protein (CRP)
 
@@ -11259,7 +11654,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-fecal-calprotectin" data-dismech-node="Fecal Calprotectin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Fecal Calprotectin
 
@@ -11314,6 +11709,118 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Molecular Profiling of the Appendix in Pediatric Inflammatory Bowel Diseases
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE281635" target="_blank">geo:GSE281635</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Clinical studies suggest a critical role for the appendix in the pathogenesis of inflammatory bowel diseases (IBD), including Crohn disease (CD) and ulcerative colitis (UC), as indicated by the presence of peri-appendicular patches in UC and the beneficial effects of appendectomy in UC. However, the underlying mechanisms remain unclear. To address this gap, we characterized microbial species, associated patterns, and host-microbiota interactions in the appendix and non-inflamed regions of the colon tissue and mucus from pediatric IBD and non-IBD patients (n=15).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=15</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Crohn Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Alterations in Lipid, Amino Acid, and Energy Metabolism Distinguish Crohn Disease from Ulcerative Colitis and Control Subjects by Serum Metabolomic Profiling
+
+                    <span class="dataset-accession">
+                        <a href="https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&amp;StudyID=ST000899" target="_blank">metabolomics_workbench:ST000899</a>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Crohn Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Rare disease susceptibility alleles in children with Crohn disease
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000926" target="_blank">dbgap:phs000926</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The overall goal of this proposed project is to identify rare genetic variants contributing to childhood onset-Crohn disease. Crohn disease is a chronic inflammatory disorder of the gastrointestinal tract of unclear etiology and no known cure. Affected children suffer from diarrhea, abdominal pain, growth disturbances, and an impaired quality of life. The identified Crohn disease susceptibility alleles have improved our understanding of Crohn disease pathogenesis.</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Crohn Disease&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -11328,7 +11835,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-primary-human-small-intestinal-monolayer-barrier-model">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-primary-human-small-intestinal-monolayer-barrier-model" data-dismech-node="Primary human small-intestinal monolayer barrier model" data-dismech-type="experimental_model">
                 <div class="item-name">
                     Primary human small-intestinal monolayer barrier model
 
@@ -11572,7 +12079,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-enteroendocrine-deficient-intestinal-enteroid-barrier-model">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-enteroendocrine-deficient-intestinal-enteroid-barrier-model" data-dismech-node="Enteroendocrine-deficient intestinal enteroid barrier model" data-dismech-type="experimental_model">
                 <div class="item-name">
                     Enteroendocrine-deficient intestinal enteroid barrier model
 
@@ -11838,7 +12345,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-psc-derived-intestinal-organoid-macrophage-coculture-model">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-psc-derived-intestinal-organoid-macrophage-coculture-model" data-dismech-node="PSC-derived intestinal organoid-macrophage coculture model" data-dismech-type="experimental_model">
                 <div class="item-name">
                     PSC-derived intestinal organoid-macrophage coculture model
 
@@ -12117,7 +12624,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-agora2-gut-microbiome-metabolic-models">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-agora2-gut-microbiome-metabolic-models" data-dismech-node="AGORA2 Gut Microbiome Metabolic Models" data-dismech-type="computational_model">
                 <div class="item-name">
                     AGORA2 Gut Microbiome Metabolic Models
 
@@ -12158,7 +12665,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-micom-community-metabolic-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-micom-community-metabolic-model" data-dismech-node="MICOM Community Metabolic Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     MICOM Community Metabolic Model
 
@@ -12284,7 +12791,7 @@
 
             </div>
 
-            <div class="item-box comp-model-box anchor-target" id="computational-model-host-microbiome-multi-objective-optimization-model">
+            <div class="item-box comp-model-box anchor-target" id="computational-model-host-microbiome-multi-objective-optimization-model" data-dismech-node="Host-Microbiome Multi-Objective Optimization Model" data-dismech-type="computational_model">
                 <div class="item-name">
                     Host-Microbiome Multi-Objective Optimization Model
 
@@ -13561,6 +14068,36 @@ genetic:
   notes: IL-21 receptor mediating T and B cell activation and differentiation
 environmental:
 - name: Smoking
+  influences_mechanisms:
+  - target: Dysregulated Immune Response
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Smoking raises both the risk of developing Crohn disease and the rate of
+      complications, recurrence, and surgery once it is established. The route
+      to mucosal immune dysregulation is not settled, and the cited sentences
+      report risk and disease course rather than any immune measurement, so
+      the intermediates are left unknown.
+    evidence:
+    - reference: PMID:38238335
+      reference_title: &#34;Altered DNA methylation within DNMT3A, AHRR, LTA/TNF loci mediates the effect of smoking on inflammatory bowel disease.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Compared to never smoking, current and previous smoking habits are associated with increased CD (P = 7.09 × 10-10) and UC (P &lt; 2 × 10-16) risk, respectively.&#34;
+      explanation: &gt;-
+        Prospective cohort finding both current and previous smoking
+        associated with raised Crohn disease risk at genome-wide significance.
+        It establishes the association and not the immune step this link
+        targets.
+    - reference: PMID:27016849
+      reference_title: &#34;[Smoking, smoking cessation and Crohn&#39;s disease].&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Smoking increases the risk of complications, recurrences and resort of surgery, corticosteroids or immunosuppressants.&#34;
+      explanation: &gt;-
+        Review reporting that smoking increases complications, recurrences,
+        and recourse to surgery or immunosuppressants, which is disease course
+        rather than mechanism.
   notes: Increases the risk and severity of Crohn&#39;s disease.
   evidence:
   - reference: PMID:27016849
@@ -13573,6 +14110,14 @@ environmental:
     supports: SUPPORT
     snippet: &#39;We identified 9 factors that increase risk of IBD: smoking (CD)...&#39;
     explanation: The review identifies smoking as a significant environmental risk factor that increases the risk of Crohn&#39;s disease.
+  - reference: PMID:33159156
+    reference_title: &#34;Identifying environmental risk factors for inflammatory bowel diseases: a Mendelian randomization study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Our results indicated that, among lifestyle exposures, being a smoker was positively associated with CD (OR 1.13, P = 0.02).
+    explanation: &gt;-
+      Mendelian randomization estimate for smoking and Crohn disease risk, which
+      is the exposure this entry records.
   - reference: PMID:38238335
     reference_title: &#34;Altered DNA methylation within DNMT3A, AHRR, LTA/TNF loci mediates the effect of smoking on inflammatory bowel disease.&#34;
     supports: SUPPORT
@@ -13589,6 +14134,27 @@ environmental:
       id: ECTO:6000029
       label: exposure to tobacco smoking
 - name: Diet
+  influences_mechanisms:
+  - target: Paneth Cell Autophagy Impairment
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      A fibre-poor Western diet reshapes the gut microbiome, and the altered
+      community drives Paneth cell defects through farnesoid X receptor and
+      type I interferon signalling. Those intermediates are named by the cited
+      study, which is why they are recorded as known. The finding is from
+      mouse models, so this link is graded partial and should not be the sole
+      support for a human claim.
+    evidence:
+    - reference: PMID:34010595
+      reference_title: &#34;Western diet induces Paneth cell defects through microbiome alterations and farnesoid X receptor and type I interferon activation.&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;In mouse models, consumption of a WD for as little as 4 weeks led to Paneth cell dysfunction.&#34;
+      explanation: &gt;-
+        Four weeks of Western diet produced Paneth cell dysfunction in mouse
+        models, which is this node&#39;s own defect. Model-organism evidence, so
+        it supports the mechanism without establishing it in human disease.
   notes: Western diet with high-fat, low-fiber content may exacerbate symptoms.
   evidence:
   - reference: PMID:33574618
@@ -13598,14 +14164,13 @@ environmental:
     explanation: This indicates that a Western diet, which is low in fiber, can contribute to inflammation, suggesting a potential exacerbation of symptoms in Crohn&#39;s Disease.
   - reference: PMID:34010595
     reference_title: &#34;Western diet induces Paneth cell defects through microbiome alterations and farnesoid X receptor and type I interferon activation.&#34;
-    supports: SUPPORT
+    supports: PARTIAL
+    evidence_source: MODEL_ORGANISM
     snippet: In mouse models, consumption of a WD for as little as 4 weeks led to Paneth cell dysfunction.
-    explanation: This study provides a direct mechanistic link between a Western diet and compromised gut immunity, which could exacerbate Crohn&#39;s disease symptoms.
-  - reference: PMID:33159156
-    reference_title: &#34;Identifying environmental risk factors for inflammatory bowel diseases: a Mendelian randomization study.&#34;
-    supports: SUPPORT
-    snippet: Our results indicated that, among lifestyle exposures, being a smoker was positively associated with CD (OR 1.13, P = 0.02).
-    explanation: This Mendelian randomization study shows lifestyle factors including diet-related factors affect Crohn&#39;s disease risk.
+    explanation: &gt;-
+      Connects a Western diet to compromised Paneth cell function and so to gut
+      immunity. The snippet is explicit that this is a mouse result, which is
+      what the model-organism tag and the partial grade record.
   - reference: PMID:35595417
     reference_title: &#34;Diet in the Pathogenesis and Management of Crohn&#39;s Disease.&#34;
     supports: PARTIAL
@@ -14287,6 +14852,25 @@ classifications:
   harrisons_chapter:
   - classification_value: GASTROINTESTINAL
   - classification_value: IMMUNE_RHEUMATOLOGIC
+datasets:
+- accession: geo:GSE281635
+  title: Molecular Profiling of the Appendix in Pediatric Inflammatory Bowel Diseases
+  description: Clinical studies suggest a critical role for the appendix in the pathogenesis of inflammatory bowel diseases (IBD), including Crohn disease (CD) and ulcerative colitis (UC), as indicated by the presence of peri-appendicular patches in UC and the beneficial effects of appendectomy in UC. However, the underlying mechanisms remain unclear. To address this gap, we characterized microbial species, associated patterns, and host-microbiota interactions in the appendix and non-inflamed regions of the colon tissue and mucus from pediatric IBD and non-IBD patients (n=15).
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 15
+  notes: Identified by GEO DataSets index search for Crohn Disease (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: metabolomics_workbench:ST000899
+  title: Alterations in Lipid, Amino Acid, and Energy Metabolism Distinguish Crohn Disease from Ulcerative Colitis and Control Subjects by Serum Metabolomic Profiling
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from metabolomics_workbench. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Crohn Disease&#34;). Retrieved 2026-08-02.
+- accession: dbgap:phs000926
+  title: Rare disease susceptibility alleles in children with Crohn disease
+  description:  The overall goal of this proposed project is to identify rare genetic variants contributing to childhood onset-Crohn disease. Crohn disease is a chronic inflammatory disorder of the gastrointestinal tract of unclear etiology and no known cure. Affected children suffer from diarrhea, abdominal pain, growth disturbances, and an impaired quality of life. The identified Crohn disease susceptibility alleles have improved our understanding of Crohn disease pathogenesis.
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Crohn Disease&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -14564,7 +15148,7 @@ Crohn disease (CD) arises from the convergence of genetic susceptibility, malada
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Crohn Disease", "mondoId": "MONDO:0005011", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crohn_Disease", "yamlRevision": "c073184ff4a5"};
+        const OS_CONFIG = {"diseaseName": "Crohn Disease", "mondoId": "MONDO:0005011", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crohn_Disease", "yamlRevision": "81ccc1880382"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
