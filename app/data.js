@@ -5494,7 +5494,6 @@ window.searchData = [
       "Midface retrusion",
       "Anteverted nares",
       "Trident hand",
-      "Genu varum",
       "Bowing of the legs",
       "Thoracolumbar kyphosis",
       "Scoliosis",
@@ -5553,7 +5552,6 @@ window.searchData = [
       "HP:0011800",
       "HP:0000463",
       "HP:0004060",
-      "HP:0002970",
       "HP:0002979",
       "HP:0005619",
       "HP:0002650",
@@ -5613,7 +5611,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Achondroplasia.yaml",
     "page_url": "../pages/disorders/Achondroplasia.html",
-    "num_phenotypes": 44,
+    "num_phenotypes": 43,
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 9,
@@ -14673,7 +14671,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 22,
     "num_treatments": 11,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
   {
@@ -16780,6 +16778,103 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Aortic Valve Stenosis",
+    "disease_id": "MONDO:0042981",
+    "category": "Acquired",
+    "parents": [],
+    "creation_date": "2026-08-10T13:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Progressive obstruction of left ventricular outflow caused by thickening, fibrosis, and calcification of the aortic valve leaflets. The dominant form in adults - calcific aortic valve disease - was long described as a passive \"degenerative\" wearing-out of the valve, but it is neither passive nor simply degenerative. It begins with an injury that looks like early atherosclerosis: endothelial disruption on the aortic side of the leaflet, subendothelial retention of apolipoprotein-B-containing lipoproteins, and a macrophage and T-cell infiltrate. It then becomes something atherosclerosis never becomes. Valve interstitial cells commit to an osteoblast-like transcriptional program - RUNX2/Cbfa1, osteopontin, osteocalcin, bone sialoprotein - and the leaflet actively mineralizes. That commitment is the pivot of the disease, and it explains the single most instructive negative result in the field: lipid lowering that demonstrably reduces ischemic events in the very same patients does nothing at all to the valve. Once the orifice narrows, the disease relocates. The valve sets the afterload, but survival is determined by what the left ventricle does about it - concentric hypertrophy, then diffuse interstitial and replacement myocardial fibrosis, then decompensation. Myocardial fibrosis burden, not valve gradient, tracks mortality. Valve replacement relieves the obstruction; it does not reverse established replacement fibrosis, which is why the timing question in asymptomatic severe stenosis remains genuinely unsettled rather than merely under-studied.\n",
+    "pathophysiology": [
+      "Valve Endothelial Injury and Subendothelial Lipoprotein Retention",
+      "Lipoprotein(a) Burden",
+      "Chronic Valvular Inflammation",
+      "Bicuspid Aortic Valve Morphology",
+      "Valve Interstitial Cell Osteogenic Transdifferentiation",
+      "Valvular Calcification and Leaflet Mineralization",
+      "Progressive Left Ventricular Outflow Obstruction",
+      "Left Ventricular Pressure Overload and Concentric Hypertrophy",
+      "Myocardial Interstitial and Replacement Fibrosis",
+      "Left Ventricular Decompensation and Symptom Onset"
+    ],
+    "cell_types": [
+      "valvular endothelial cell",
+      "valvular foam-cell macrophage",
+      "infiltrating T lymphocyte",
+      "valve interstitial cell",
+      "osteoblast-like valve interstitial cell",
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000235",
+      "CL:0000084",
+      "CL:0000057",
+      "CL:0000062",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "response to fluid shear stress",
+      "inflammatory response",
+      "osteoblast differentiation",
+      "bone mineralization",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Aortic Valve Stenosis",
+      "Aortic Valve Calcification",
+      "Bicuspid Aortic Valve",
+      "Left Ventricular Hypertrophy",
+      "Myocardial Fibrosis",
+      "Exertional Dyspnea",
+      "Angina Pectoris",
+      "Syncope",
+      "Congestive Heart Failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001650",
+      "HP:0004380",
+      "HP:0001647",
+      "HP:0001712",
+      "HP:0001685",
+      "HP:0002875",
+      "HP:0001681",
+      "HP:0001279",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LPA",
+      "NOTCH1"
+    ],
+    "treatments": [
+      "Surgical Aortic Valve Replacement",
+      "Transcatheter Aortic Valve Replacement",
+      "Lipid-Lowering Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aortic_Valve_Stenosis.yaml",
+    "page_url": "../pages/disorders/Aortic_Valve_Stenosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Aortitis",
@@ -34525,6 +34620,7 @@ window.searchData = [
     "pathophysiology": [
       "Biallelic RFC1 Intronic Repeat Expansion",
       "Repeat-Intrinsic Nucleic Acid Structural Toxicity",
+      "RFC1 Intron 2 Retention",
       "Dorsal Root Ganglion Sensory Neuronopathy",
       "Cranial Sensory Ganglionopathy",
       "Autonomic Ganglion Involvement",
@@ -34602,10 +34698,10 @@ window.searchData = [
     "source_file": "CANVAS.yaml",
     "page_url": "../pages/disorders/CANVAS.html",
     "num_phenotypes": 13,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "5"
   },
   {
@@ -47598,7 +47694,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "44",
+    "causal_graph_edges": "48",
     "causal_graph_longest_path": "8"
   },
   {
@@ -94536,8 +94632,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Houge-Janssens Syndrome",
@@ -95999,7 +96095,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 10,
     "num_treatments": 9,
-    "causal_graph_edges": "47",
+    "causal_graph_edges": "51",
     "causal_graph_longest_path": "6"
   },
   {
@@ -97542,6 +97638,104 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Hypoplastic Left Heart Syndrome",
+    "disease_id": "MONDO:0004933",
+    "category": "Congenital",
+    "parents": [
+      "congenital heart malformation",
+      "univentricular heart"
+    ],
+    "creation_date": "2026-08-10T03:40:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Aortic atresia",
+      "Aortic stenosis with mitral stenosis",
+      "Evolving HLHS from critical aortic stenosis"
+    ],
+    "description": "Underdevelopment of the entire left side of the heart, from the mitral valve through the left ventricle and aortic valve to the ascending aorta and arch, such that the left heart cannot support the systemic circulation. Two features make it unusual among congenital heart defects. The first is that its cause is genuinely unsettled, and the argument is not about which gene but about which kind of thing starts the disease. One account says an intrinsic myocardial or valvar defect comes first and the small chamber follows from it. The other says an obstruction reduces flow through the left heart in mid-gestation and the chamber fails to grow because it is not being used. Both have direct experimental support, and the most informative recent work does not choose between them so much as nest one inside the other. The second is that the treatment does not repair anything. Staged palliation rearranges the circulation so that the right ventricle pumps to the body and venous blood reaches the lungs without a pump at all. Every late problem these patients face, and there are many, belongs to the physiology of that reconstruction rather than to the original malformation. Fewer than a third are alive without a transplant at thirty-five years, and that figure has stopped improving.\n",
+    "pathophysiology": [
+      "Genetic lesion affecting cardiac growth or valvulogenesis",
+      "Impaired cardiomyocyte proliferation and differentiation",
+      "Obstruction to left heart inflow or outflow",
+      "Reduced flow through the left heart",
+      "Endocardial fibroelastosis",
+      "Progressive hypoplasia of left heart structures",
+      "Restrictive or intact atrial septum",
+      "Ductus-dependent systemic and coronary perfusion",
+      "Circulatory collapse on ductal closure",
+      "Systemic right ventricle after staged palliation"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "fibroblast",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000057",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "cardiac ventricle development",
+      "heart valve development"
+    ],
+    "phenotypes": [
+      "Hypoplastic left ventricle",
+      "Aortic valve atresia",
+      "Mitral atresia",
+      "Patent ductus arteriosus",
+      "Endocardial fibroelastosis",
+      "Cyanosis",
+      "Cardiogenic shock on ductal closure",
+      "Coarctation of the aorta",
+      "Right ventricular failure after palliation"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Sign"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0004383",
+      "HP:0010883",
+      "HP:0011560",
+      "HP:0001643",
+      "HP:0001706",
+      "HP:0000961",
+      "HP:0030149",
+      "HP:0001680",
+      "HP:0001708"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MYH6",
+      "NOTCH1",
+      "NKX2-5",
+      "Cytogenetic abnormality",
+      "RBFOX2"
+    ],
+    "treatments": [
+      "Prostaglandin E1 infusion",
+      "Balloon atrial septostomy",
+      "Staged single-ventricle palliation",
+      "Fetal aortic valvuloplasty",
+      "Cardiac transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypoplastic_Left_Heart_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hypoplastic_Left_Heart_Syndrome.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 5,
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hypothalamic Hamartoma with Gelastic Seizures",
@@ -99776,7 +99970,8 @@ window.searchData = [
     "treatments": [
       "Corticosteroids",
       "IVIG",
-      "Thrombopoietin Receptor Agonists",
+      "Eltrombopag",
+      "Romiplostim",
       "Rituximab",
       "Splenectomy"
     ],
@@ -99791,9 +99986,9 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 5,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "num_treatments": 6,
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Immunodeficiency 131",
@@ -103195,7 +103390,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 13,
     "num_treatments": 7,
-    "causal_graph_edges": "56",
+    "causal_graph_edges": "61",
     "causal_graph_longest_path": "7"
   },
   {
@@ -110828,7 +111023,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 5,
     "num_treatments": 6,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
   },
   {
@@ -122999,7 +123194,6 @@ window.searchData = [
     ],
     "environmental": [
       "Chronic hepatitis B or C infection",
-      "Cirrhosis",
       "Alcohol and aflatoxin exposure"
     ],
     "biochemical": [],
@@ -123009,7 +123203,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 1,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
   {
@@ -148056,7 +148250,7 @@ window.searchData = [
     "num_pathophysiology": 23,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "54",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "9"
   },
   {
@@ -148184,7 +148378,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "5"
   },
   {
@@ -149425,6 +149619,127 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Pericarditis",
+    "disease_id": "MONDO:0005904",
+    "category": "Complex",
+    "parents": [
+      "pericardium disorder",
+      "inflammatory disease"
+    ],
+    "creation_date": "2026-08-10T03:40:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Acute pericarditis",
+      "Recurrent pericarditis",
+      "Recurrent pericarditis idiopathic",
+      "Constrictive pericarditis",
+      "Tuberculous pericarditis"
+    ],
+    "description": "Inflammation of the pericardium, the fibroserous sac enclosing the heart. Two facts organise the entry. The first is that the pericardium has a narrow repertoire. Viral infection, tuberculosis, uraemia, cardiac surgery, myocardial infarction, radiotherapy, malignancy, and systemic autoimmune disease all converge on the same inflammatory response, which is why the clinical syndrome is nearly identical across causes and why the largest aetiological category in the developed world is idiopathic. The second is that the engine of recurrence is autoinflammatory rather than autoimmune. It runs on the innate immune system, on the NLRP3 inflammasome and interleukin-1, not on adaptive immunity, and the demonstration is therapeutic rather than merely correlative. Withdrawing an interleukin-1 trap from patients in remission returned three-quarters of them to relapse within weeks while those who stayed on drug did not relapse. The same logic explains the trap that runs the other way. Corticosteroids, which suppress the adaptive arm and are the intuitive treatment for an inflamed serosa, are an independent risk factor for recurrence.\n",
+    "pathophysiology": [
+      "Pericardial injury from a heterogeneous trigger",
+      "Inflammasome activation in pericardial tissue",
+      "Interleukin-1 release and cytokine amplification",
+      "Acute pericardial inflammatory exudate",
+      "Autoinflammatory recurrence loop",
+      "Pericardial effusion accumulation",
+      "Cardiac tamponade",
+      "Fibrotic organization of the pericardium",
+      "Constrictive physiology"
+    ],
+    "cell_types": [
+      "pericardial mesothelial cell",
+      "macrophage",
+      "neutrophil",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000077",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "NLRP3 inflammasome complex assembly",
+      "positive regulation of interleukin-1 beta production",
+      "positive regulation of canonical NF-kappaB signal transduction"
+    ],
+    "phenotypes": [
+      "Pericarditic chest pain",
+      "Pericardial friction rub",
+      "Pericardial effusion",
+      "Widespread ST-segment elevation",
+      "PR-segment depression",
+      "Cardiac tamponade",
+      "Pulsus paradoxus",
+      "Constrictive pericarditis",
+      "Elevated C-reactive protein",
+      "Fever",
+      "Dyspnoea"
+    ],
+    "phenotype_categories": [
+      "Symptom",
+      "Sign",
+      "Imaging",
+      "Laboratory",
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0100749",
+      "HP:0034788",
+      "HP:0001698",
+      "HP:0012251",
+      "HP:0031594",
+      "HP:0033415",
+      "HP:6000046",
+      "HP:0002563",
+      "HP:0011227",
+      "HP:0001945",
+      "HP:0002094"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MEFV",
+      "TNFRSF1A"
+    ],
+    "treatments": [
+      "Non-steroidal anti-inflammatory therapy",
+      "Colchicine",
+      "Corticosteroid therapy",
+      "Rilonacept",
+      "Anakinra",
+      "Antitubercular therapy",
+      "Intensified haemodialysis",
+      "Pericardiocentesis",
+      "Pericardiectomy"
+    ],
+    "environmental": [
+      "Mediastinal irradiation",
+      "End-stage renal disease and uraemia",
+      "Cardiac injury and surgery"
+    ],
+    "biochemical": [
+      "C-reactive protein",
+      "Cardiac troponin"
+    ],
+    "source_file": "Pericarditis.yaml",
+    "page_url": "../pages/disorders/Pericarditis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 9,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Peripartum Cardiomyopathy",
     "disease_id": "MONDO:0018920",
     "category": "Complex",
@@ -149514,8 +149829,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Peripheral Artery Disease",
@@ -159601,6 +159916,127 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "1",
     "causal_graph_longest_path": "1"
+  },
+  {
+    "name": "Pulmonary Embolism",
+    "disease_id": "MONDO:0005279",
+    "category": "Acquired",
+    "parents": [
+      "pulmonary artery disease",
+      "venous thromboembolism"
+    ],
+    "creation_date": "2026-08-10T03:40:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "High-risk PE",
+      "Intermediate-risk PE",
+      "Low-risk PE"
+    ],
+    "description": "Acute obstruction of the pulmonary arterial circulation by embolic material, in the great majority of cases a thrombus that formed in the deep veins and then dislodged. The organising fact of the disease is that the embolus is not what kills. Death in the first hours comes from the right ventricle, which is a thin-walled chamber built for a low-pressure circuit and has no reserve for an afterload that appears in minutes. Everything clinically decisive about acute pulmonary embolism follows from that: severity tracks right ventricular function rather than clot burden, risk stratification is built on right ventricular imaging and myocardial biomarkers rather than on the size of the filling defect, and reperfusion is offered to the patients whose right ventricle is failing rather than to those with the most extensive disease. A second consequence of the anatomy runs the other way. The lung is supplied twice, by the pulmonary and the bronchial arteries, so occluding a pulmonary artery usually does not infarct the tissue it supplies. That is the opposite of what happens in the coronary or cerebral circulation, and it is why infarction is the wrong default model for this disease even though the word survives in its older names.\n",
+    "pathophysiology": [
+      "Prothrombotic venous context",
+      "Deep venous thrombus formation",
+      "Embolization to the pulmonary arterial tree",
+      "Acute rise in pulmonary vascular resistance",
+      "Right ventricular afterload mismatch and dilation",
+      "Right ventricular ischaemia and contractile failure",
+      "Ventricular interdependence and impaired left ventricular filling",
+      "Ventilation-perfusion mismatch and increased dead space",
+      "Pulmonary infarction",
+      "Thrombus resolution versus fibrotic organization"
+    ],
+    "cell_types": [
+      "platelet",
+      "endothelial cell",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000115",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "blood coagulation, fibrin clot formation",
+      "regulation of blood coagulation",
+      "fibrinolysis"
+    ],
+    "phenotypes": [
+      "Dyspnoea",
+      "Pleuritic chest pain",
+      "Tachypnoea",
+      "Tachycardia",
+      "Hypoxaemia",
+      "Haemoptysis",
+      "Syncope",
+      "Hypotension and obstructive shock",
+      "Elevated jugular venous pressure",
+      "Concurrent deep venous thrombosis",
+      "Right ventricular failure",
+      "Post-pulmonary embolism syndrome",
+      "Chronic thromboembolic pulmonary hypertension"
+    ],
+    "phenotype_categories": [
+      "Symptom",
+      "Sign",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0033771",
+      "HP:0002789",
+      "HP:0001649",
+      "HP:0012418",
+      "HP:0002105",
+      "HP:0001279",
+      "HP:0002615",
+      "HP:0030848",
+      "HP:0002625",
+      "HP:0001708",
+      "HP:0002092"
+    ],
+    "frequencies": [],
+    "genes": [
+      "F5",
+      "F2",
+      "PROC",
+      "PROS1",
+      "SERPINC1"
+    ],
+    "treatments": [
+      "Pharmacological thromboprophylaxis",
+      "Therapeutic anticoagulation",
+      "Direct oral anticoagulant therapy",
+      "Systemic fibrinolysis",
+      "Catheter-directed mechanical thrombectomy",
+      "Surgical pulmonary embolectomy",
+      "Inferior vena cava filter",
+      "Pulmonary endarterectomy and balloon pulmonary angioplasty",
+      "Riociguat"
+    ],
+    "environmental": [
+      "Immobilisation and surgery",
+      "Oestrogen exposure"
+    ],
+    "biochemical": [
+      "D-dimer",
+      "Cardiac troponin",
+      "B-type natriuretic peptide"
+    ],
+    "source_file": "Pulmonary_Embolism.yaml",
+    "page_url": "../pages/disorders/Pulmonary_Embolism.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 10,
+    "num_genes": 5,
+    "num_treatments": 9,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Pulmonary Hemosiderosis",
@@ -172637,11 +173073,22 @@ window.searchData = [
     "subtypes": [],
     "description": "Secondary hypertension is elevated systemic arterial blood pressure attributable to an identifiable underlying cause, in contrast to essential hypertension. Causes include renal parenchymal and renovascular disease, endocrine disorders (primary aldosteronism, pheochromocytoma, Cushing syndrome, thyroid disease), obstructive sleep apnea, aortic coarctation, and certain drugs. The shared final pathway is sympathetic and hormonal coactivation with sodium retention; treating the underlying cause can reverse the hypertension.",
     "pathophysiology": [
-      "Sympathetic and hormonal coactivation"
+      "Sympathetic and hormonal coactivation",
+      "VEGF Pathway Inhibitor Exposure",
+      "Drug-Induced Vasoconstriction and Increased Peripheral Vascular Resistance"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
-    "biological_processes": [],
+    "cell_types": [
+      "vascular endothelial cell",
+      "vascular smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000359"
+    ],
+    "biological_processes": [
+      "vascular endothelial growth factor receptor signaling pathway",
+      "vasoconstriction"
+    ],
     "phenotypes": [
       "Hypertension"
     ],
@@ -172660,11 +173107,11 @@ window.searchData = [
     "source_file": "Secondary_Hypertension.yaml",
     "page_url": "../pages/disorders/Secondary_Hypertension.html",
     "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 0,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Segmental arterial mediolysis",
@@ -174910,8 +175357,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Silicosis",
@@ -198601,19 +199048,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1919,
-  "total_subtypes": 2938,
-  "total_disorders_and_subtypes": 4857,
-  "total_unique_evidence_sources": 29140,
-  "total_unique_publications": 27292,
+  "total_disorder_pages": 1923,
+  "total_subtypes": 2949,
+  "total_disorders_and_subtypes": 4872,
+  "total_unique_evidence_sources": 29213,
+  "total_unique_publications": 27365,
   "total_unique_disease_categories": 44,
-  "total_unique_phenotype_categories": 249,
-  "total_pathographs": 1913,
-  "total_unique_pathological_events": 10548,
-  "total_modules": 121,
-  "total_research_reports": 2164,
+  "total_unique_phenotype_categories": 250,
+  "total_pathographs": 1917,
+  "total_unique_pathological_events": 10590,
+  "total_modules": 122,
+  "total_research_reports": 2168,
   "total_classifications": 10,
-  "total_comorbidities": 19,
+  "total_comorbidities": 20,
   "total_groupings": 62
 };
 window.dispatchEvent(new Event('searchDataReady'));
