@@ -67227,6 +67227,141 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Eisenmenger Syndrome",
+    "disease_id": "MONDO:0019944",
+    "category": "Complex",
+    "parents": [
+      "Congenital heart defect",
+      "Pulmonary arterial hypertension"
+    ],
+    "creation_date": "2026-08-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Eisenmenger syndrome is the terminal stage of an uncorrected congenital systemic-to-pulmonary shunt and the most advanced form of pulmonary arterial hypertension associated with congenital heart disease. A large, non-restrictive communication at atrial, ventricular, or aortopulmonary level exposes the pulmonary circulation to decades of high flow and, in post-tricuspid lesions, systemic pressure. Shear stress on the pulmonary endothelium is the leading proposed trigger for progressive obstructive pulmonary vascular remodeling, which raises pulmonary vascular resistance until it equals or exceeds systemic resistance and the shunt reverses to right-to-left or bidirectional. That reversal is the defining moment of Eisenmenger physiology and produces chronic arterial hypoxaemia, secondary erythrocytosis, and a multisystem disease with haematologic, neurologic, renal, and rheumatologic manifestations. A counterintuitive consequence follows: the same shunt that caused the disease now decompresses the pressure-loaded right ventricle, which is why patients survive longer than those with idiopathic pulmonary arterial hypertension at comparable haemodynamics, and why closing the defect once Eisenmenger physiology is established is contraindicated rather than curative.\n",
+    "pathophysiology": [
+      "Uncorrected non-restrictive systemic-to-pulmonary shunt",
+      "Shear-stress-mediated pulmonary endothelial dysfunction",
+      "Pulmonary artery smooth muscle proliferation and vasoconstriction",
+      "Obstructive pulmonary vascular remodeling",
+      "Increased pulmonary vascular resistance",
+      "Shunt reversal to right-to-left or bidirectional flow",
+      "Right-to-left shunt as a protective right ventricular pop-off",
+      "Pulmonary arterial hypertension with right ventricular pressure overload",
+      "Atrial arrhythmia and conduction system disease",
+      "Chronic hypoxaemia and secondary erythrocytosis",
+      "Hyperviscosity and haemostatic derangement",
+      "Loss of pulmonary filtration of venous emboli",
+      "Multisystem complications of chronic cyanosis"
+    ],
+    "cell_types": [
+      "Pulmonary artery endothelial cell",
+      "Pulmonary artery smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001568",
+      "CL:0002591"
+    ],
+    "biological_processes": [
+      "nitric oxide biosynthetic process",
+      "smooth muscle cell proliferation",
+      "blood vessel remodeling",
+      "cardiac muscle hypertrophy"
+    ],
+    "phenotypes": [
+      "Central cyanosis",
+      "Pulmonary arterial hypertension",
+      "Secondary erythrocytosis",
+      "Exertional dyspnoea",
+      "Exercise intolerance",
+      "Digital clubbing",
+      "Iron deficiency",
+      "Haemoptysis",
+      "Stroke",
+      "Gout",
+      "Cholelithiasis",
+      "Renal impairment",
+      "Right ventricular failure",
+      "Atrial fibrillation",
+      "Syncope",
+      "Fatigue",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [
+      "Functional",
+      "Cardiovascular",
+      "Hematologic",
+      "Physical",
+      "Respiratory",
+      "Neurologic",
+      "Rheumatologic",
+      "Gastrointestinal",
+      "Renal",
+      "Electrophysiological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0034032",
+      "HP:0002092",
+      "HP:0001899",
+      "HP:0002875",
+      "HP:0003546",
+      "HP:0001217",
+      "HP:0001891",
+      "HP:0002105",
+      "HP:0001297",
+      "HP:0001997",
+      "HP:0001081",
+      "HP:0000093",
+      "HP:0001708",
+      "HP:0005110",
+      "HP:0001279",
+      "HP:0012378",
+      "HP:0001645"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BMPR2",
+      "ACVRL1",
+      "ENG",
+      "Trisomy 21"
+    ],
+    "treatments": [
+      "Endothelin receptor antagonist therapy",
+      "Phosphodiesterase-5 inhibitor therapy",
+      "Prostanoid therapy",
+      "Iron replacement therapy",
+      "Heart-lung or bilateral lung transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Brain natriuretic peptide"
+    ],
+    "source_file": "Eisenmenger_Syndrome.yaml",
+    "page_url": "../pages/disorders/Eisenmenger_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 13,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Ellis-van Creveld Syndrome",
     "disease_id": "MONDO:0009162",
     "category": "Mendelian",
@@ -68143,6 +68278,137 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Endomyocardial Fibrosis",
+    "disease_id": "MONDO:0006746",
+    "category": "Complex",
+    "parents": [
+      "Restrictive cardiomyopathy"
+    ],
+    "creation_date": "2026-08-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Endomyocardial fibrosis is the most common restrictive cardiomyopathy worldwide and a disease of poverty, endemic to equatorial Africa, South Asia, and parts of South America. Dense fibrous scar deposits on the endocardium of the apex and inflow tract of one or both ventricles, obliterating cavity volume and tethering the papillary muscles and chordae so that the atrioventricular valves leak. The result is severe restrictive physiology with atrioventricular regurgitation and relatively preserved ejection fraction, presenting as progressive heart failure in children and young adults. The prevailing mechanistic model runs from a chronic antigenic or toxic stimulus, through sustained eosinophilia in a genetically susceptible host, to eosinophil-granule-mediated endocardial injury, mural thrombosis, and finally organisation into acellular fibrous scar, following the three stages Davies described. That model is inferred largely from hypereosinophilic syndrome, in which the same endocardial lesion is directly documented, rather than from tropical endomyocardial fibrosis itself, where the acute eosinophilic phase is almost never caught. Its unique geography remains unexplained after eight decades, and it is the clearest example in this knowledge base of a disease whose mechanism is limited by where it occurs rather than by its biology.\n",
+    "pathophysiology": [
+      "Chronic antigenic or toxic stimulus in a susceptible host",
+      "Sustained eosinophilia and Th2-skewed immune activation",
+      "Eosinophil degranulation and endocardial injury",
+      "Mural thrombus formation on the damaged endocardium",
+      "Anti-myocardial autoantibody response",
+      "Fibroblast activation and excessive collagen deposition",
+      "Dense endocardial fibrous scar",
+      "Apical and inflow-tract cavity obliteration",
+      "Papillary muscle and chordal tethering",
+      "Atrioventricular valve regurgitation",
+      "Restrictive diastolic physiology",
+      "Atrial dilatation and atrial fibrillation",
+      "Systemic and pulmonary thromboembolism",
+      "Congestive heart failure"
+    ],
+    "cell_types": [
+      "Eosinophil",
+      "Endocardial endothelial cell",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000771",
+      "CL:0002350",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "eosinophil degranulation",
+      "blood coagulation",
+      "fibroblast activation",
+      "collagen fibril organization",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Endocardial fibrosis",
+      "Restrictive cardiomyopathy",
+      "Mitral regurgitation",
+      "Tricuspid regurgitation",
+      "Congestive heart failure",
+      "Dyspnea",
+      "Ascites",
+      "Hepatomegaly",
+      "Atrial fibrillation",
+      "Thromboembolism",
+      "Abnormal cardiac atrium morphology",
+      "Increased total eosinophil count",
+      "Orthopnea",
+      "Sudden cardiac death",
+      "Hepatosplenomegaly"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Symptom",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006685",
+      "HP:0001723",
+      "HP:0001653",
+      "HP:0005180",
+      "HP:0001635",
+      "HP:0002094",
+      "HP:0001541",
+      "HP:0002240",
+      "HP:0005110",
+      "HP:0001907",
+      "HP:0005120",
+      "HP:0001880",
+      "HP:0012764",
+      "HP:0001645",
+      "HP:0001433"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HLA-B",
+      "HLA-A"
+    ],
+    "treatments": [
+      "Endocardial decortication with atrioventricular valve repair or replacement",
+      "Atrioventricular valve replacement",
+      "Diuretic therapy",
+      "Anticoagulation",
+      "Antiarrhythmic therapy",
+      "Prednisolone for recurrent ascites"
+    ],
+    "environmental": [
+      "Cassava-based diet with severe protein deprivation",
+      "Geochemical exposure to cerium and thorium in monazite soils",
+      "Poverty, subsistence farming, and going barefoot",
+      "Chronic helminth and malarial infection"
+    ],
+    "biochemical": [
+      "Circulating anti-myocardial IgG",
+      "Plasma interleukin-4",
+      "Plasma interleukin-10",
+      "Plasma tumour necrosis factor alpha"
+    ],
+    "source_file": "Endomyocardial_Fibrosis.yaml",
+    "page_url": "../pages/disorders/Endomyocardial_Fibrosis.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 14,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Enhanced S-Cone Syndrome",
@@ -101270,6 +101536,110 @@ window.searchData = [
     "causal_graph_longest_path": "0"
   },
   {
+    "name": "Infective Endocarditis",
+    "disease_id": "MONDO:0000565",
+    "category": "Infectious",
+    "parents": [
+      "endocardial disease",
+      "bacterial infectious disease"
+    ],
+    "creation_date": "2026-08-10T00:20:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Left-sided native valve",
+      "Right-sided",
+      "Prosthetic valve"
+    ],
+    "description": "Microbial infection of the endocardial surface, characteristically of a valve, producing a vegetation of fibrin, platelets, and organisms. The disease is best understood as an infection that requires a thrombus first. A sterile platelet-fibrin clot forms on injured endothelium and only then is seeded from the bloodstream, which is why the organism alone is not sufficient and why the anatomical substrate matters as much as the bacteraemia. That same fibrin scaffold then shields the organisms from phagocytes and from antibiotic penetration, which is why treatment takes weeks rather than days and why surgery is sometimes the only option.\n",
+    "pathophysiology": [
+      "Endothelial injury and sterile thrombus formation",
+      "Transient bacteraemia",
+      "Microbial adherence to the sterile thrombus",
+      "Vegetation maturation with biofilm-like protection",
+      "Innate immune activation and systemic inflammatory response",
+      "Local valvular and perivalvular destruction",
+      "Systemic embolization of vegetation fragments",
+      "Heart failure and haemodynamic decompensation"
+    ],
+    "cell_types": [
+      "platelet",
+      "endothelial cell",
+      "neutrophil",
+      "monocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000115",
+      "CL:0000775",
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "platelet aggregation",
+      "blood coagulation",
+      "cell adhesion involved in biofilm formation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Heart murmur",
+      "Congestive heart failure",
+      "Stroke",
+      "Splenomegaly",
+      "Haematuria",
+      "Intracardiac abscess",
+      "Mitral regurgitation",
+      "Aortic regurgitation"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0030148",
+      "HP:0001635",
+      "HP:0001297",
+      "HP:0001744",
+      "HP:0000790",
+      "HP:0001627",
+      "HP:0001653",
+      "HP:0001659"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Prolonged intravenous antibiotic therapy",
+      "Partial oral antibiotic therapy after stabilisation",
+      "Valve surgery",
+      "Antibiotic prophylaxis before dental procedures"
+    ],
+    "environmental": [
+      "Injection drug use",
+      "Intravascular catheters and prosthetic material"
+    ],
+    "biochemical": [],
+    "source_file": "Infective_Endocarditis.yaml",
+    "page_url": "../pages/disorders/Infective_Endocarditis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Inflammatory Myofibroblastic Tumor",
     "disease_id": "MONDO:0015798",
     "category": "Complex",
@@ -127969,21 +128339,21 @@ window.searchData = [
       "Prophylactic Thyroidectomy",
       "RET Kinase Inhibitors",
       "Surveillance Protocol",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Avoidance of Agents Precipitating Pheochromocytoma Crisis"
     ],
     "environmental": [],
     "biochemical": [
       "Serum Calcitonin",
-      "Plasma Metanephrines",
-      "RET Genetic Testing"
+      "Plasma Metanephrines"
     ],
     "source_file": "Multiple_Endocrine_Neoplasia_Type_2.yaml",
     "page_url": "../pages/disorders/Multiple_Endocrine_Neoplasia_Type_2.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "3",
+    "num_treatments": 5,
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
   {
@@ -138654,6 +139024,135 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Opioid Use Disorder",
+    "disease_id": "MONDO:0005530",
+    "category": "Psychiatric",
+    "parents": [
+      "Substance Use Disorder",
+      "Mental Health Disorder"
+    ],
+    "creation_date": "2026-08-09T18:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Opioid use disorder (OUD) is a chronic, relapsing substance use disorder driven by repeated exogenous mu-opioid receptor agonism: compulsive opioid seeking and use despite harm, with tolerance, a severe somatic and affective withdrawal syndrome, and a distinctively lethal complication in opioid-induced respiratory depression. DSM-5 merged the earlier opioid abuse and opioid dependence categories into a single graded diagnosis (mild/moderate/severe); ICD-11 retains a dependence syndrome (6C43.2). Exposure is necessary but not sufficient \u2014 only a minority of exposed people develop the disorder.",
+    "pathophysiology": [
+      "Polygenic Susceptibility to Opioid Addiction",
+      "Exogenous Mu-Opioid Receptor Agonism",
+      "VTA Disinhibition and Mesolimbic Dopamine Release",
+      "Mu-Opioid Receptor Desensitization and Tolerance",
+      "cAMP-PKA Superactivation in Locus Coeruleus Noradrenergic Neurons",
+      "Noradrenergic Hyperactivity and Opioid Withdrawal Syndrome",
+      "Reward-System Downregulation and Hyperkatifeia",
+      "Opioid-Induced Hyperalgesia",
+      "Brainstem Respiratory Rhythm Suppression",
+      "Fatal Opioid Overdose",
+      "Prefrontal Executive Control Deficit",
+      "Compulsive Opioid Seeking and Loss of Control"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "GABAergic interneuron",
+      "medium spiny neuron",
+      "noradrenergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:0011005",
+      "CL:1001474",
+      "CL:0008025"
+    ],
+    "biological_processes": [
+      "G protein-coupled opioid receptor signaling pathway",
+      "adenylate cyclase-inhibiting signaling",
+      "dopamine secretion",
+      "sensory perception of pain"
+    ],
+    "phenotypes": [
+      "Addictive Substance Use",
+      "Craving",
+      "Miosis",
+      "Respiratory Depression",
+      "Sleep-Disordered Breathing",
+      "Mydriasis",
+      "Rhinorrhea",
+      "Diarrhea",
+      "Nausea and Vomiting",
+      "Myalgia",
+      "Hyperhidrosis",
+      "Insomnia",
+      "Anxiety",
+      "Depression",
+      "Increased Pain Sensitivity",
+      "Constipation",
+      "Hypogonadism",
+      "Neonatal Opioid Withdrawal Syndrome"
+    ],
+    "phenotype_categories": [
+      "Behavioral",
+      "Neurologic",
+      "Respiratory",
+      "Constitutional",
+      "Gastrointestinal",
+      "Musculoskeletal",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Integument",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0033511",
+      "HP:0000616",
+      "HP:0002791",
+      "HP:0002104",
+      "HP:0011499",
+      "HP:0031417",
+      "HP:0002014",
+      "HP:0002017",
+      "HP:0003326",
+      "HP:0000975",
+      "HP:0100785",
+      "HP:0000739",
+      "HP:0000716",
+      "HP:0012531",
+      "HP:0002019",
+      "HP:0000135"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "OPRM1",
+      "FURIN"
+    ],
+    "treatments": [
+      "Methadone",
+      "Buprenorphine",
+      "Extended-Release Injectable Naltrexone",
+      "Naloxone Overdose Reversal",
+      "Lofexidine",
+      "Psychosocial Intervention Adjunctive to Opioid Agonist Therapy"
+    ],
+    "environmental": [
+      "Exposure to mu-opioid receptor agonists"
+    ],
+    "biochemical": [],
+    "source_file": "Opioid_Use_Disorder.yaml",
+    "page_url": "../pages/disorders/Opioid_Use_Disorder.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 12,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Opitz G/BBB syndrome",
@@ -150108,6 +150607,114 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "59",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Persistent Truncus Arteriosus",
+    "disease_id": "MONDO:0018072",
+    "category": "Congenital",
+    "parents": [
+      "Congenital heart defect",
+      "Conotruncal malformation"
+    ],
+    "creation_date": "2026-08-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Persistent truncus arteriosus, or common arterial trunk, is a cyanotic conotruncal malformation in which the embryonic outflow tract fails to septate, so a single arterial trunk arises from the heart through one semilunar valve, overrides a ventricular septal defect, and supplies the coronary, pulmonary, and systemic circulations from a common source. It is a defect of the cardiac neural crest and second heart field developmental unit, and 22q11.2 deletion syndrome is its single largest identified cause. The postnatal physiology is dictated by what the anatomy does not do: because there is no pulmonary outflow obstruction, pulmonary blood flow is set entirely by the ratio of pulmonary to systemic vascular resistance, so as pulmonary resistance falls in the first days of life the lungs are flooded at systemic pressure. The newborn is therefore mildly cyanosed but in high-output heart failure, and the untreated course runs to irreversible pulmonary vascular obstructive disease within the first year or two, at which point repair becomes impossible. Neonatal surgical repair, closing the ventricular septal defect and interposing a right ventricle to pulmonary artery conduit, is the standard of care, and the conduit must then be replaced repeatedly as the child grows.\n",
+    "pathophysiology": [
+      "Cardiac neural crest and second heart field program disruption",
+      "Failure of aorticopulmonary septation",
+      "Single arterial trunk overriding a ventricular septal defect",
+      "Obligatory mixing of systemic and pulmonary venous return",
+      "Unobstructed pulmonary blood flow at systemic pressure",
+      "Truncal valve dysfunction",
+      "Coronary ostial anomaly",
+      "Pulmonary overcirculation and volume-overload heart failure",
+      "Pulmonary vascular obstructive disease",
+      "Perioperative myocardial ischaemia",
+      "Cyanosis"
+    ],
+    "cell_types": [
+      "Cardiac neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011012"
+    ],
+    "biological_processes": [
+      "cardiac neural crest cell development involved in outflow tract morphogenesis",
+      "neural crest cell migration",
+      "outflow tract septum morphogenesis"
+    ],
+    "phenotypes": [
+      "Truncus arteriosus",
+      "Ventricular septal defect",
+      "Cyanosis",
+      "Congestive heart failure",
+      "Tachypnea",
+      "Failure to thrive",
+      "Aortic regurgitation",
+      "Abnormal coronary artery origin",
+      "Right aortic arch",
+      "Interrupted aortic arch",
+      "Pulmonary arterial hypertension",
+      "Hypocalcemia"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Symptom",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001660",
+      "HP:0001629",
+      "HP:0000961",
+      "HP:0001635",
+      "HP:0002789",
+      "HP:0001508",
+      "HP:0001659",
+      "HP:0011636",
+      "HP:0012020",
+      "HP:0011611",
+      "HP:0002092",
+      "HP:0002901"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TBX1",
+      "TMEM260",
+      "NKX2-6",
+      "GATA6",
+      "NOTCH1"
+    ],
+    "treatments": [
+      "Neonatal complete surgical repair",
+      "Serial right ventricle to pulmonary artery conduit replacement",
+      "Preoperative anticongestive medical therapy",
+      "Extracorporeal membrane oxygenation"
+    ],
+    "environmental": [
+      "Maternal pregestational diabetes"
+    ],
+    "biochemical": [],
+    "source_file": "Persistent_Truncus_Arteriosus.yaml",
+    "page_url": "../pages/disorders/Persistent_Truncus_Arteriosus.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 11,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Pertussis",
@@ -163191,6 +163798,117 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Rheumatic Heart Disease",
+    "disease_id": "MONDO:0006955",
+    "category": "Complex",
+    "parents": [
+      "acquired valvular heart disease",
+      "post-infectious autoimmune disease"
+    ],
+    "creation_date": "2026-08-10T00:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Permanent valvular heart damage following one or more episodes of acute rheumatic fever, itself a delayed non-suppurative autoimmune sequela of group A streptococcal infection in a genetically susceptible host. The organism is never found in the damaged valve, so this is an infection-triggered autoimmune disease rather than an infection of the valve. That distinction separates it from infective endocarditis and determines that effective treatment is prophylaxis against reinfection rather than treatment of the heart. It remains the leading cause of acquired heart disease in children worldwide and causes the highest disability burden of any cardiovascular disease in 10 to 14 year olds, a distribution that follows poverty and crowding rather than any biological gradient.\n",
+    "pathophysiology": [
+      "Group A streptococcal infection in a susceptible host",
+      "Molecular mimicry and cross-reactive immune priming",
+      "Cross-reactive antibody binding and valve endothelial activation",
+      "CD4-positive T cell infiltration of the valve",
+      "Acute valvulitis with Aschoff body formation",
+      "Chronic valve fibrosis, commissural fusion, and calcification",
+      "Valvular stenosis and regurgitation with hemodynamic overload",
+      "Pulmonary venous congestion and pulmonary hypertension",
+      "Right heart failure",
+      "Atrial fibrillation and cardioembolic risk",
+      "Congestive heart failure"
+    ],
+    "cell_types": [
+      "valve endothelial cell",
+      "CD4-positive T cell",
+      "macrophage",
+      "valve interstitial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000624",
+      "CL:0000235",
+      "CL:4030032"
+    ],
+    "biological_processes": [
+      "inflammatory response to antigenic stimulus",
+      "T cell mediated immunity",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Mitral regurgitation",
+      "Mitral stenosis",
+      "Aortic regurgitation",
+      "Atrial fibrillation",
+      "Congestive heart failure",
+      "Stroke",
+      "Post-capillary pulmonary hypertension",
+      "Migratory polyarthritis",
+      "Sydenham chorea",
+      "Subcutaneous nodules",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001653",
+      "HP:0001718",
+      "HP:0001659",
+      "HP:0005110",
+      "HP:0001635",
+      "HP:0001297",
+      "HP:0033635",
+      "HP:0001369",
+      "HP:0002072",
+      "HP:0001482",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HLA-DQB1",
+      "HLA-DRB1"
+    ],
+    "treatments": [
+      "Benzathine penicillin G secondary prophylaxis",
+      "Anti-inflammatory therapy for acute carditis",
+      "Vitamin K antagonist anticoagulation",
+      "Low-molecular-weight heparin anticoagulation in pregnancy",
+      "Percutaneous balloon mitral valvuloplasty",
+      "Mitral valve repair or replacement"
+    ],
+    "environmental": [
+      "Household crowding and poverty"
+    ],
+    "biochemical": [
+      "Anti-streptolysin O titre",
+      "Anti-DNase B titre",
+      "C-reactive protein",
+      "Erythrocyte sedimentation rate"
+    ],
+    "source_file": "Rheumatic_Heart_Disease.yaml",
+    "page_url": "../pages/disorders/Rheumatic_Heart_Disease.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Rheumatoid Arthritis",
@@ -182548,6 +183266,147 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Takotsubo Cardiomyopathy",
+    "disease_id": "MONDO:0019018",
+    "category": "Complex",
+    "parents": [
+      "Cardiomyopathy"
+    ],
+    "creation_date": "2026-08-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Takotsubo cardiomyopathy is an acute, largely reversible heart failure syndrome in which an emotional or physical stressor precipitates severe regional left ventricular dysfunction in the absence of obstructive coronary disease sufficient to explain it. The wall-motion abnormality is circumferential and crosses coronary territories, most often ballooning the apex while the base contracts vigorously, which is the feature that separates it from infarction and gives the syndrome its name. Presentation is indistinguishable from acute coronary syndrome at the bedside: chest pain, ST-segment elevation, and troponin release. The mechanism is catecholamine-driven, and the leading molecular account is a concentration-dependent switch of beta2-adrenergic receptor coupling from stimulatory Gs to inhibitory Gi, which converts a positive inotropic signal into a negative one precisely where beta2-receptor density is highest. Direct catecholamine cardiotoxicity, coronary microvascular dysfunction, a macrophage inflammatory infiltrate, and altered central limbic-autonomic processing all contribute, and no single one explains the whole picture. Ejection fraction usually normalises within weeks, but the syndrome is not benign: in-hospital mortality is comparable to myocardial infarction, subclinical dysfunction persists in many survivors, and no treatment has been shown in randomised trials to alter the course.\n",
+    "pathophysiology": [
+      "Acute emotional or physical stressor",
+      "Sympathoadrenal activation and catecholamine surge",
+      "Beta2-adrenergic receptor switch from Gs to Gi coupling",
+      "Cardiomyocyte calcium overload and oxidative stress",
+      "Contraction band necrosis and focal myocytolysis",
+      "Coronary microvascular dysfunction",
+      "Myocardial macrophage inflammatory infiltrate",
+      "Central limbic and autonomic network hypoconnectivity",
+      "Reversible regional wall motion abnormality",
+      "Acute left ventricular systolic dysfunction",
+      "Dynamic left ventricular outflow tract obstruction",
+      "Left ventricular mural thrombus",
+      "Persistent subclinical myocardial dysfunction"
+    ],
+    "cell_types": [
+      "Adrenal medullary chromaffin cell",
+      "Apical cardiomyocyte",
+      "Cardiomyocyte",
+      "Cardiac endothelial cell",
+      "Cardiac macrophage",
+      "Classical monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000166",
+      "CL:0000746",
+      "CL:0010008",
+      "CL:0000235",
+      "CL:0000576"
+    ],
+    "biological_processes": [
+      "cellular response to catecholamine stimulus",
+      "adenylate cyclase-inhibiting G protein-coupled receptor signaling pathway",
+      "intracellular calcium ion homeostasis",
+      "response to oxidative stress",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Chest pain",
+      "Dyspnea",
+      "Pulmonary edema",
+      "ST segment elevation",
+      "T-wave inversion",
+      "Prolonged QT interval",
+      "Torsade de pointes",
+      "Reduced left ventricular ejection fraction",
+      "Regional left ventricular wall motion abnormality",
+      "Congestive heart failure",
+      "Atrial fibrillation",
+      "Cardiogenic shock",
+      "Left ventricular outflow tract obstruction",
+      "Cardiac arrest",
+      "Stroke",
+      "Left ventricular thrombus",
+      "Elevated cardiac troponin",
+      "Elevated brain natriuretic peptide",
+      "Anxiety"
+    ],
+    "phenotype_categories": [
+      "Symptom",
+      "Clinical",
+      "Laboratory",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0100749",
+      "HP:0002094",
+      "HP:0100598",
+      "HP:0012251",
+      "HP:0010872",
+      "HP:0001657",
+      "HP:0001664",
+      "HP:0012664",
+      "HP:0012667",
+      "HP:0001635",
+      "HP:0005110",
+      "HP:0030149",
+      "HP:0032092",
+      "HP:0001695",
+      "HP:0001297",
+      "HP:0040412",
+      "HP:0410173",
+      "HP:0033534",
+      "HP:0000739"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "ADRB1",
+      "ADRB2",
+      "GRK5"
+    ],
+    "treatments": [
+      "Angiotensin-converting enzyme inhibitor or angiotensin receptor blocker therapy",
+      "Beta-adrenergic blockade",
+      "Anticoagulation for left ventricular thrombus",
+      "Diuretic therapy for pulmonary congestion",
+      "Mechanical circulatory support for refractory shock",
+      "Avoidance of catecholamine inotropes",
+      "Cardiac rehabilitation",
+      "Psychological therapy and stress management"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma epinephrine",
+      "Plasma norepinephrine",
+      "Interleukin-6",
+      "Brain natriuretic peptide"
+    ],
+    "source_file": "Takotsubo_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/Takotsubo_Cardiomyopathy.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 13,
+    "num_genes": 3,
+    "num_treatments": 8,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Tall Stature-Intellectual Disability-Renal Anomalies Syndrome",
     "disease_id": "MONDO:0014918",
     "category": "Developmental Disorder",
@@ -184089,6 +184948,117 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "24",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Tetralogy of Fallot",
+    "disease_id": "MONDO:0008542",
+    "category": "Complex",
+    "parents": [
+      "conotruncal heart defect",
+      "cyanotic congenital heart disease"
+    ],
+    "creation_date": "2026-08-10T00:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The most common cyanotic congenital heart disease. The name is a historical accident that obscures the mechanism: the four cardinal features are not four defects but four consequences of one, namely anterocephalad deviation of the outlet septum during outflow tract septation. A septum that deviates cannot close the interventricular communication, cannot leave the aorta aligned over the left ventricle, and cannot leave the subpulmonary infundibulum a normal calibre, and the right ventricle then hypertrophies against the resulting load. Everything clinically important follows from the severity of that last obstruction, which determines whether blood shunts left to right or right to left, and therefore whether the child is pink or blue.\n",
+    "pathophysiology": [
+      "Second heart field and cardiac neural crest program disruption",
+      "Anterocephalad deviation of the outlet septum",
+      "Malalignment ventricular septal defect with overriding aorta",
+      "Right ventricular outflow tract obstruction",
+      "Shunt direction determined by outflow resistance",
+      "Right ventricular hypertrophy",
+      "Cyanosis and chronic hypoxaemia",
+      "Postoperative pulmonary regurgitation and right ventricular remodelling",
+      "Ventricular arrhythmia and sudden death risk"
+    ],
+    "cell_types": [
+      "migratory cardiac neural crest cell",
+      "outflow tract myogenic progenitor",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:2000073",
+      "CL:0000513",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "outflow tract morphogenesis",
+      "cardiac neural crest cell development",
+      "outflow tract septum morphogenesis",
+      "cardiac muscle hypertrophy",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Ventricular septal defect",
+      "Overriding aorta",
+      "Right ventricular outflow tract obstruction",
+      "Right ventricular hypertrophy",
+      "Cyanosis",
+      "Hypercyanotic spells",
+      "Heart murmur",
+      "Digital clubbing",
+      "Polycythaemia",
+      "Failure to thrive",
+      "Right aortic arch",
+      "Anomalous coronary artery crossing the outflow tract"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Growth",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001629",
+      "HP:0002623",
+      "HP:0001642",
+      "HP:0001667",
+      "HP:0000961",
+      "HP:0030148",
+      "HP:0100759",
+      "HP:0001901",
+      "HP:0001508",
+      "HP:0002627",
+      "HP:0025503"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "22q11.2 deletion",
+      "JAG1",
+      "NKX2-5",
+      "FLT4",
+      "NOTCH1"
+    ],
+    "treatments": [
+      "Complete surgical repair",
+      "Beta-blockade for hypercyanotic spells",
+      "Systemic vasoconstriction for hypercyanotic spells",
+      "Prostaglandin E1 for ductal-dependent pulmonary blood flow",
+      "Systemic to pulmonary shunt palliation",
+      "Pulmonary valve replacement after repair",
+      "Implantable cardioverter defibrillator and catheter ablation"
+    ],
+    "environmental": [
+      "Maternal pregestational diabetes"
+    ],
+    "biochemical": [],
+    "source_file": "Tetralogy_of_Fallot.yaml",
+    "page_url": "../pages/disorders/Tetralogy_of_Fallot.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 5,
+    "num_treatments": 7,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Thallium Poisoning",
@@ -197631,17 +198601,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1911,
-  "total_subtypes": 2935,
-  "total_disorders_and_subtypes": 4846,
-  "total_unique_evidence_sources": 29029,
-  "total_unique_publications": 27183,
-  "total_unique_disease_categories": 43,
-  "total_unique_phenotype_categories": 248,
-  "total_pathographs": 1905,
-  "total_unique_pathological_events": 10459,
+  "total_disorder_pages": 1919,
+  "total_subtypes": 2938,
+  "total_disorders_and_subtypes": 4857,
+  "total_unique_evidence_sources": 29140,
+  "total_unique_publications": 27292,
+  "total_unique_disease_categories": 44,
+  "total_unique_phenotype_categories": 249,
+  "total_pathographs": 1913,
+  "total_unique_pathological_events": 10548,
   "total_modules": 121,
-  "total_research_reports": 2156,
+  "total_research_reports": 2164,
   "total_classifications": 10,
   "total_comorbidities": 19,
   "total_groupings": 62
