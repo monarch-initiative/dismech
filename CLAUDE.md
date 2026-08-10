@@ -563,6 +563,112 @@ split into atomic nodes.
 survey that fixed the enum at these four values and the bundle patterns
 curators should watch for.
 
+### Linking Models into the Pathograph (`modeled_mechanisms`)
+
+All three model sections — `experimental_models:` (NAMs: organoids, organ-chips,
+cell lines, iPSC-derived and primary cultures), `animal_models:`, and
+`computational_models:` — reach the pathograph through the **same** link object,
+`ModelMechanismLink`. A model that does not declare `modeled_mechanisms` is a
+disconnected list entry: it renders, but no mechanism node knows about it.
+
+**Which section does an animal model go in?** `animal_models:`. Whole-organism
+animal models are never `experimental_models:` — that class is for non-animal
+systems. Before `AnimalModel` had `modeled_mechanisms`, curators routed animal
+models through `ExperimentalModel` with `experimental_model_type: OTHER` to reach
+the pathograph; that workaround is no longer needed (#8199).
+
+**The link records four things beyond the target:**
+
+| Slot | What it says |
+|---|---|
+| `relationship` | what the model *does* to the node — `RECAPITULATES`, `PARTIALLY_RECAPITULATES`, `FAILS_TO_RECAPITULATE`, `PERTURBS`, `MEASURES`, `RESCUES` |
+| `fidelity` | how faithfully it captures the human mechanism — `HIGH` / `MODERATE` / `LOW` / `UNKNOWN` |
+| `limitations` | the specific translational caveat (species divergence, supraphysiological expression, missing compartments) |
+| `readouts` | the **outcome measures** that ground the claim |
+
+```yaml
+animal_models:
+- name: Canine degenerative myelopathy (SOD1 E40K homozygous dog)
+  species: Dog
+  genotype: SOD1 c.118G>A (p.E40K) homozygous
+  publication: PMID:19188595
+  modeled_mechanisms:
+  - target: Motor Neuron Degeneration
+    relationship: RECAPITULATES
+    fidelity: MODERATE
+    description: Naturally occurring, adult-onset SOD1-associated spinal cord degeneration.
+    limitations: >-
+      E40K is not among the SOD1 alleles that cause human ALS, and DM presents as
+      an ascending spinal myelopathy rather than focal limb or bulbar onset.
+    readouts:
+    - name: Lateral white matter myelin and axon content
+      target: Motor Neuron Degeneration     # required; must repeat the link's target
+      direction: DECREASED
+      interpretation: Structural correlate of the degeneration node in this model.
+      evidence:
+      - reference: PMID:19188595
+        supports: SUPPORT
+        evidence_source: MODEL_ORGANISM
+        snippet: "exact quote from the abstract"
+        explanation: Reports the histological measurement behind this readout.
+    evidence:                                # separate claim — see below
+    - reference: PMID:19188595
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: "exact quote from the abstract"
+      explanation: Supports treating this model as informative for the node.
+```
+
+**Two evidence layers, and they are different claims.** Evidence on the **link**
+attests *"this model is informative for this node."* Evidence on each **readout**
+attests *"this specific measurement was made, in this direction."* Do not collapse
+them — a model can be well-established for a node while one of its readouts is a
+single uncontrolled observation. Both are `recommended`, not required, so
+incremental curation of an existing model entry is not blocked.
+
+**Readouts live on the link, not on the model**, because one model typically
+measures different things for different nodes (a liver-chip reports albumin for a
+hepatocyte-death node and TMRM for a mitochondrial node). `readouts` reuses the
+same `ExperimentalReadout` class as `Experiment.readouts`, so a *proposed*
+experiment and a *realized* model are directly comparable — and a readout can be
+grounded to an HP phenotype, a biomarker, a GO process, or an OBI assay.
+
+- `direction` accepts the model values (`INCREASED`, `DECREASED`, `UNCHANGED`,
+  `RESTORED`, `ABOLISHED`, `ALTERED`) as well as the older association-style
+  `BiomarkerReadoutDirectionEnum` values. Prefer the model values for a
+  measurement made in a model system. `UNCHANGED` is a real negative result —
+  omit `direction` entirely when the measurement was simply not made.
+- A readout's `target` is **required** and must repeat the link's `target`
+  (`test_model_readout_targets_match_link` enforces this). The redundancy keeps
+  a readout self-describing so it can be lifted out of its link. Note this is
+  forward-looking: today only `biochemical.readouts` and
+  `investigations.reports_on` are lifted into the graph and cx2, and
+  `kgx_export.py` has no model handling at all — model-link readouts render in
+  the HTML card but are not yet exported independently.
+- **OBI assay grounding is under-supported today.** `OBI` is not in
+  `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so `assays:`
+  terms cannot be validated the way HP/GO/CL terms are. Prefer
+  `biological_processes` (GO) until that gap is closed.
+
+**Negative results are first-class.** `FAILS_TO_RECAPITULATE` says a model does
+*not* reproduce the human mechanism — the structural signal behind a
+`HUMAN_MODEL_MISMATCH` discussion, which previously survived only as prose in
+`description` or `notes`. Because it is a substantive negative claim, it requires
+both `limitations` and `evidence`
+(`test_failure_to_recapitulate_links_are_substantiated`).
+
+**`name` on an animal model** is optional but recommended once the model carries
+`modeled_mechanisms`: it is the stable pathograph label and in-page anchor. Absent
+it, renderers fall back to `"<genotype> <species>"`, which is not stable across
+edits and collides when one file carries two models of the same genotype.
+
+**Worked exemplar:** `Amyotrophic_Lateral_Sclerosis` — the canine SOD1 E40K model
+(`RECAPITULATES`, two histology readouts) and the equine motor neuron disease
+model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
+(lower motor neurons only, so it misses the defining combined UMN/LMN degeneration)
+while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
+vitamin-E rescue arm.
+
 ### Linking Environmental Factors into the Pathograph
 
 An `environmental:` entry only appears in the pathograph if it declares which
