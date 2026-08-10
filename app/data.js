@@ -10191,7 +10191,7 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 6,
     "num_treatments": 3,
-    "causal_graph_edges": "41",
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "7"
   },
   {
@@ -47256,8 +47256,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 2,
     "num_treatments": 9,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Choroid Plexus Carcinoma",
@@ -50987,6 +50987,96 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Coarctation of the Aorta",
+    "disease_id": "MONDO:0007345",
+    "category": "Congenital",
+    "parents": [],
+    "creation_date": "2026-08-10T13:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A congenital narrowing of the thoracic aorta, characteristically at the isthmus adjacent to the ductus arteriosus, accounting for roughly 5-8% of congenital heart disease. It is the most surgically satisfying of the congenital heart lesions and the most misleading. The obstruction can be excised or dilated, the gradient abolished, and the anatomy made to look normal - and yet the majority of patients are hypertensive again within a few years, and late cardiovascular mortality stays high. The reason is that the narrowing is a local expression of a diffuse arteriopathy, not the disease itself. The pre-coarctation vessels are structurally abnormal - stiffer, with impaired endothelium-dependent and endothelium-independent dilation - and remain so after the obstruction is relieved. Sympathetic outflow is elevated and the baroreflex is blunted; the renin-angiotensin system is primed before any operation, and the preoperative renin concentration predicts hypertension years later. What the surgeon removes is the segment. What persists is the vascular phenotype, which then drives accelerated atherosclerosis, coronary disease, stroke, and premature death. Coarctation is therefore best modeled as a systemic arterial disease with a focal anatomic signature, and the entry is organized so that the post-repair arm is not a complication of treatment but the natural history that treatment fails to interrupt.\n",
+    "pathophysiology": [
+      "Ectopic Ductal Tissue at the Aortic Isthmus",
+      "Reduced Antegrade Flow Through the Fetal Aortic Isthmus",
+      "Left Ventricular Outflow Tract Developmental Program Disruption",
+      "Fixed Aortic Obstruction and Pressure Gradient",
+      "Renin-Angiotensin System Activation",
+      "Collateral Arterial Development",
+      "Ductal-Dependent Systemic Perfusion in Critical Coarctation",
+      "Left Ventricular Pressure Overload and Hypertrophy",
+      "Diffuse Arteriopathy of the Pre-Coarctation Vasculature",
+      "Elevated Sympathetic Outflow and Baroreflex Impairment",
+      "Persistent Hypertension After Anatomic Repair",
+      "Accelerated Atherosclerosis and Late Cardiovascular Mortality"
+    ],
+    "cell_types": [
+      "aortic smooth muscle cell",
+      "arterial endothelial cell",
+      "cardiomyocyte",
+      "arterial smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000359",
+      "CL:0000115",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "aorta development",
+      "regulation of blood pressure",
+      "renin-angiotensin regulation of aldosterone production",
+      "positive regulation of vasoconstriction"
+    ],
+    "phenotypes": [
+      "Coarctation of Aorta",
+      "Hypertension",
+      "Bicuspid Aortic Valve",
+      "Left Ventricular Hypertrophy",
+      "Ventricular Septal Defect",
+      "Cardiogenic Shock",
+      "Cerebral Berry Aneurysm"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001680",
+      "HP:0000822",
+      "HP:0001647",
+      "HP:0001712",
+      "HP:0001629",
+      "HP:0030149",
+      "HP:0007029"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "MYH6",
+      "NOTCH1",
+      "PRDM6"
+    ],
+    "treatments": [
+      "Surgical Coarctation Repair",
+      "Balloon Angioplasty and Endovascular Stenting",
+      "Prostaglandin E1 Infusion",
+      "Antihypertensive Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Coarctation_of_the_Aorta.yaml",
+    "page_url": "../pages/disorders/Coarctation_of_the_Aorta.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 12,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Coccidioidomycosis",
@@ -78122,7 +78212,7 @@ window.searchData = [
     "num_pathophysiology": 21,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "5"
   },
   {
@@ -114750,8 +114840,8 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "34",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Lymphangioleiomyomatosis",
@@ -137956,7 +138046,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 11,
     "num_treatments": 9,
-    "causal_graph_edges": "44",
+    "causal_graph_edges": "47",
     "causal_graph_longest_path": "8"
   },
   {
@@ -146865,7 +146955,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -149450,7 +149540,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "2"
   },
   {
@@ -154557,8 +154647,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Post-Traumatic Epilepsy",
@@ -177703,8 +177793,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Spinal Muscular Atrophy",
@@ -181430,7 +181520,7 @@ window.searchData = [
     "num_pathophysiology": 17,
     "num_genes": 26,
     "num_treatments": 5,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "8"
   },
   {
@@ -192468,6 +192558,110 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Ventricular Septal Defect",
+    "disease_id": "MONDO:0002070",
+    "category": "Congenital",
+    "parents": [],
+    "creation_date": "2026-08-10T13:40:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Muscular",
+      "Perimembranous",
+      "Doubly Committed Juxta-arterial"
+    ],
+    "description": "A communication between the ventricles, the commonest congenital cardiac malformation and the one most often described as simple. It is not simple, but it is unusual: it is one of the few structural heart lesions whose most likely outcome is that it disappears. In unselected newborns screened by echocardiography, roughly 3.3% have a ventricular septal defect and about nine in ten of those close spontaneously within the first year. What determines the course is not the hole but the pressure gradient across it, and that gradient is not fixed. Early on, systemic vascular resistance far exceeds pulmonary, so blood shunts left to right, flooding the lungs and volume-loading the left heart. Sustained overcirculation remodels the pulmonary arterioles; pulmonary vascular resistance climbs; the gradient narrows, then equalises, then inverts. Once it has inverted, the same hole that caused the problem has become the pressure-relief valve for a suprasystemic right ventricle, and closing it is contraindicated. The therapeutic window is therefore bounded on both sides - too early risks operating on a defect that would have closed itself, too late converts a correctable lesion into an inoperable one - and the entry is organised so that this reversal, rather than the anatomy, is the spine of the disease.\n",
+    "pathophysiology": [
+      "Cardiac Septation Transcriptional Program Disruption",
+      "Stochastic Error in Cardiac Morphogenesis",
+      "Interventricular Communication",
+      "Spontaneous Defect Closure",
+      "Left-to-Right Shunt and Pulmonary Overcirculation",
+      "Left Ventricular Volume Overload and Heart Failure",
+      "Obstructive Pulmonary Vascular Remodeling",
+      "Shunt Reversal and Eisenmenger Syndrome"
+    ],
+    "cell_types": [
+      "pulmonary artery smooth muscle cell",
+      "pulmonary artery endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000192",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "ventricular septum development",
+      "blood vessel remodeling"
+    ],
+    "phenotypes": [
+      "Ventricular Septal Defect",
+      "Congestive Heart Failure",
+      "Failure to Thrive",
+      "Pulmonary Arterial Hypertension",
+      "Cyanosis",
+      "Polycythemia",
+      "Heart Murmur",
+      "Tachypnea",
+      "Hepatomegaly",
+      "Recurrent Respiratory Infections",
+      "Cardiomegaly"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Hematologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001629",
+      "HP:0001635",
+      "HP:0001508",
+      "HP:0002092",
+      "HP:0000961",
+      "HP:0001901",
+      "HP:0030148",
+      "HP:0002789",
+      "HP:0002240",
+      "HP:0002205",
+      "HP:0001640"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "GATA4",
+      "NKX2-5",
+      "TBX5"
+    ],
+    "treatments": [
+      "Surgical Ventricular Septal Defect Closure",
+      "Transcatheter Device Closure",
+      "Targeted Pulmonary Arterial Hypertension Therapy",
+      "Diuretic Therapy for Shunt-Related Heart Failure"
+    ],
+    "environmental": [
+      "Periconceptional folic acid supplementation",
+      "Maternal diabetes mellitus in pregnancy"
+    ],
+    "biochemical": [],
+    "source_file": "Ventricular_Septal_Defect.yaml",
+    "page_url": "../pages/disorders/Ventricular_Septal_Defect.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 8,
+    "num_genes": 3,
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Vertebral Artery Insufficiency",
     "disease_id": "MONDO:0001631",
     "category": "Complex",
@@ -199048,17 +199242,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 1923,
-  "total_subtypes": 2949,
-  "total_disorders_and_subtypes": 4872,
-  "total_unique_evidence_sources": 29213,
-  "total_unique_publications": 27365,
+  "total_disorder_pages": 1925,
+  "total_subtypes": 2952,
+  "total_disorders_and_subtypes": 4877,
+  "total_unique_evidence_sources": 29239,
+  "total_unique_publications": 27391,
   "total_unique_disease_categories": 44,
   "total_unique_phenotype_categories": 250,
-  "total_pathographs": 1917,
-  "total_unique_pathological_events": 10590,
+  "total_pathographs": 1919,
+  "total_unique_pathological_events": 10609,
   "total_modules": 122,
-  "total_research_reports": 2168,
+  "total_research_reports": 2170,
   "total_classifications": 10,
   "total_comorbidities": 20,
   "total_groupings": 62
